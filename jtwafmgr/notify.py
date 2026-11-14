@@ -64,6 +64,8 @@ EVENTS = {
     'report.review': ('analysis', 'info', True),
     'analyst.proposals': ('analysis', 'info', True),
     'analyst.failed': ('analysis', 'warning', True),
+    'intel.new_threats': ('analysis', 'warning', True),
+    'intel.failed': ('analysis', 'warning', True),
     'backup.failed': ('system', 'critical', True),
     'system.version_changed': ('system', 'info', True),
     'user.created': ('accounts', 'info', False),
@@ -111,6 +113,14 @@ TEXT = {
         'report.review': 'WAF 定期檢討（{window}）',
         'rv.ok': '沒有誤封鎖的跡象。',
         'rv.attention': '有 {n} 項要看一下。',
+        'intel.new_threats': '威脅情報:找到 {n} 個新的漏洞',
+        'intel.failed': '威脅情報搜尋失敗',
+        'f.threat': '漏洞',
+        'f.threats_total': '新漏洞數',
+        'k.exploited_vulnerability': '已被利用的漏洞',
+        'th.exploited': '已被利用',
+        'th.affects': '影響我們的版本',
+        'th.maybe': '不確定是否影響',
         'f.rv_events': '事件',
         'f.rv_counts': '{events}（封鎖 {blocked}、只記錄 {logged}）',
         'f.rv_suspects': '可能誤封鎖',
@@ -181,6 +191,14 @@ TEXT = {
         'report.review': 'WAF review ({window})',
         'rv.ok': 'No sign of anyone blocked by mistake.',
         'rv.attention': '{n} thing(s) to look at.',
+        'intel.new_threats': 'Threat intelligence: {n} new vulnerabilities',
+        'intel.failed': 'Threat intelligence search failed',
+        'f.threat': 'Vulnerability',
+        'f.threats_total': 'New vulnerabilities',
+        'k.exploited_vulnerability': 'exploited vulnerability',
+        'th.exploited': 'exploited',
+        'th.affects': 'affects our version',
+        'th.maybe': 'may affect us',
         'f.rv_events': 'Events',
         'f.rv_counts': '{events} (blocked {blocked}, logged {logged})',
         'f.rv_suspects': 'Possibly blocked by mistake',
@@ -252,6 +270,14 @@ TEXT = {
         'report.review': 'WAF 定期レビュー（{window}）',
         'rv.ok': '誤ブロックの兆候はありません。',
         'rv.attention': '確認が必要な項目が {n} 件あります。',
+        'intel.new_threats': '脅威インテリジェンス:新しい脆弱性 {n} 件',
+        'intel.failed': '脅威インテリジェンスの検索に失敗',
+        'f.threat': '脆弱性',
+        'f.threats_total': '新しい脆弱性',
+        'k.exploited_vulnerability': '悪用されている脆弱性',
+        'th.exploited': '悪用あり',
+        'th.affects': '当方のバージョンに影響',
+        'th.maybe': '影響の可能性',
         'f.rv_events': 'イベント',
         'f.rv_counts': '{events}（ブロック {blocked}、記録のみ {logged}）',
         'f.rv_suspects': '誤ブロックの可能性',
@@ -583,6 +609,19 @@ def render(db, cfg, event, d):
         if d.get('open_alerts'):
             sev = 'warning'
         path = '/'
+    elif event in ('intel.new_threats', 'intel.failed'):
+        kw['n'] = _int(d.get('count')) or len(d.get('threats') or [])
+        for t in (d.get('threats') or [])[:8]:
+            tags = [L('th.exploited')] if t.get('exploited') else []
+            tags.append(L('th.affects') if t.get('affected') == 'yes' else (L('th.maybe') if t.get('affected') == 'unknown' else ''))
+            facts.append((L('f.threat'), '%s · %s · %s %s' % (_v(t.get('id'), 40), _v(t.get('product'), 80), _v(t.get('severity'), 12),
+                                                            ' '.join(x for x in tags if x))))
+        if d.get('error'):
+            facts.append((L('f.error'), d['error']))
+        facts.append((L('f.run'), '#%s' % _int(d.get('run_id'))))
+        if any(t.get('exploited') and t.get('affected') == 'yes' for t in d.get('threats') or []):
+            sev = 'critical'
+        path = '/intel'
     elif event == 'report.review':
         a, b = str(d.get('since') or ''), str(d.get('until') or '')
         kw['window'] = '%s–%s' % (a[5:16].replace('T', ' '), b[11:16]) if len(a) >= 16 and len(b) >= 16 else '-'
@@ -674,6 +713,10 @@ SAMPLES = {
                       'focus': [{'host': 'sso.example.com', 'events': 5, 'blocked': 2, 'outside_not_refused': 0, 'login_events': 1,
                                  'requests': 1800, 's429': 0, 'repeated_login': []}],
                       'applied': 1, 'ip_blocks': 2, 'proposals': 1, 'open_alerts': 0, 'awaiting_approval': 1, 'review_id': 12},
+    'intel.new_threats': {'run_id': 3, 'count': 2, 'threats': [
+        {'id': 'CVE-2026-0001', 'product': 'Example CMS', 'severity': 'critical', 'affected': 'yes', 'exploited': True},
+        {'id': 'CVE-2026-0002', 'product': 'nginx', 'severity': 'medium', 'affected': 'unknown', 'exploited': False}]},
+    'intel.failed': {'run_id': 4, 'error': 'unreachable'},
     'analyst.proposals': {'run_id': 14, 'proposals': [21, 22]},
     'analyst.failed': {'run_id': 15, 'error': 'unreachable: timed out'},
     'backup.failed': {'file': '/var/backups/jt-waf-mgr/jt-waf-mgr-20260101-030000.db', 'error': 'No space left on device'},

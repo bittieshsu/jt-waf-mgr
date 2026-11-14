@@ -160,6 +160,29 @@ DEFAULTS = {
         'hour': 3,
         'keep_days': 14,
     },
+    'intel': {
+        # threat intelligence (intel.py, jt-waf-mgr-intel.service): a second, stronger LLM that searches the web for
+        # new vulnerabilities in the confirmed software list (product names and versions only -- never requests,
+        # addresses or site names). provider: openai (any OpenAI-compatible server, local or cloud) or anthropic.
+        # search: mcp (web_search through an MCP server, e.g. a SearXNG one) or provider (Anthropic's own web search).
+        'enabled': False,
+        'provider': 'openai',
+        'url': '',
+        'model': '',
+        'api_key': '',
+        'timeout_seconds': 600,
+        'interval_hours': 3,
+        'search': 'mcp',
+        'mcp_url': '',
+        # fetch_url reads only https pages on these domains (and their subdomains), as plain text
+        'fetch_domains': ['nvd.nist.gov', 'cve.org', 'cisa.gov', 'github.com', 'osv.dev', 'nginx.org', 'openssl-library.org',
+                          'coreruleset.org', 'keycloak.org', 'nextcloud.com', 'wordpress.org', 'zimbra.com', 'odoo.com',
+                          'proxmox.com', 'debian.org', 'ubuntu.com', 'securityfocus.com', 'exploit-db.com'],
+        'max_rounds': 12,
+        'days': 30,                    # look for vulnerabilities published or updated in this many days
+        'daily_tokens': 400000,        # 0: no limit
+        'monthly_tokens': 6000000,
+    },
     'review': {
         # the periodic WAF review (review.py): every interval_hours (1, 2, 3, 4, 6, 8, 12 or 24; slots start at
         # midnight, local time), stored and sent through the notification channels (event report.review)
@@ -450,6 +473,19 @@ class Config:
             raise ConfigError('notify.language: ' + ', '.join(LANGUAGES))
         if nt['smtp_tls'] not in ('none', 'starttls', 'tls'):
             raise ConfigError('notify.smtp_tls: none, starttls or tls')
+        it = data['intel']
+        if it['provider'] not in ('openai', 'anthropic'):
+            raise ConfigError('intel.provider: openai or anthropic')
+        if it['search'] not in ('mcp', 'provider'):
+            raise ConfigError('intel.search: mcp or provider')
+        if it['search'] == 'provider' and it['provider'] != 'anthropic':
+            raise ConfigError('intel.search: provider is only for the anthropic provider; use mcp')
+        if not 1 <= it['interval_hours'] <= 168 or not 1 <= it['max_rounds'] <= 40 or not 1 <= it['days'] <= 365:
+            raise ConfigError('intel: interval_hours 1-168, max_rounds 1-40, days 1-365')
+        if not 30 <= it['timeout_seconds'] <= 1800:
+            raise ConfigError('intel.timeout_seconds: 30-1800')
+        if it['daily_tokens'] < 0 or it['monthly_tokens'] < 0:
+            raise ConfigError('intel token limits: 0 (none) or more')
         rv = data['review']
         if rv['interval_hours'] not in (1, 2, 3, 4, 6, 8, 12, 24):
             raise ConfigError('review.interval_hours: 1, 2, 3, 4, 6, 8, 12 or 24')

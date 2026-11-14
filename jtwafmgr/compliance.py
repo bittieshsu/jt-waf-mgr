@@ -669,7 +669,7 @@ def system_check(app):
 # the timers and path units install.sh enables (the apply program's path unit is armed separately: see "apply");
 # a unit missing from its .wants folder never runs
 UNITS = tuple(('jt-waf-mgr-%s.%s' % (job, kind), 'timers.target' if kind == 'timer' else 'multi-user.target')
-              for job in ('geoip', 'analyst', 'notify', 'crs', 'countries', 'dns') for kind in ('timer', 'path'))
+              for job in ('geoip', 'analyst', 'notify', 'crs', 'countries', 'dns', 'intel') for kind in ('timer', 'path'))
 SYSTEMD_DIRS = ('/etc/systemd/system', '/usr/lib/systemd/system', '/lib/systemd/system')
 
 

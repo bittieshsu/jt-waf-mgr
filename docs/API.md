@@ -436,6 +436,7 @@ Scope `lookups:read`.
 - **`GET /lookups/ip/{ip}`**: what jt-waf-mgr has seen from one address in the last 7 and 30 days, with its PTR name
   (`ptr`: the name and whether it leads back to the address; `{"pending": true}` while the DNS job looks it up).
 - **`GET /lookups/ip/{ip}/card`**: the short form the pages show on hover (where, PTR, blocked, the last 7 days).
+- **`GET /intel`** (scope `events:read`): threat intelligence: the second-tier LLM's status and token use, the vulnerabilities found (id, product and our version, exploited, affects us, severity, request pattern, references, status), the software list, the searches. `POST /intel/run`, `POST /intel/threats/{id}` (`{"status": "open"|"handled"|"ignored"}`), `POST /intel/software`, `PATCH`/`DELETE /intel/software/{id}`, `POST /intel/software/guess`: approver, web session.
 - **`GET /reviews`**, **`GET /reviews/{id}`** (scope `events:read`): the periodic WAF reviews (every `review.interval_hours`): counts, requests blocked by the score alone grouped by site and path (possible false blocks first), new internal hits, outside attacks not refused, what was done automatically, one line per focus site. Never request content or query strings. `POST /reviews/run` (approver, web session): review the last interval now.
 - **`GET /dns`** (scope `rules:read`): the DNS check: per site name what each internal and external server answered.
 - **`GET /geoip/{ip}`**: the GeoIP answer only (`available: false` when no GeoIP database is installed).

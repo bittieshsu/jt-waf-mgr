@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.35
+# jt-waf-mgr v0.4.36
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -70,6 +70,13 @@ JSON 監査ログを読み、ファイルを手で編集する必要がありま
   以前に攻撃と判定したパスは一度の「誤検知」判定では緩和しません。実行ごとの要約。
   **AI はどちらの方向にも誤ることがあります**：モデルは提案するだけで、緩和は必ず人が承認し、すべてのチェックに合格した
   強化だけが自動適用されます。使う LLM については[イベント分析：推奨する LLM](#イベント分析推奨する-llm) を参照してください。
+- **WAF 定期レビュー**:3 時間ごと(保存し、通知チャネルに送信):CRS スコアのみでブロックしたリクエスト(誤ブロックの可能性を
+  先頭に)、新しい内部の一致、通過した外部攻撃、自動処理の内容、重点サイトごとの 1 行。
+- **脅威インテリジェンス(2 層目の LLM)**:より強力な LLM(ローカルの OpenAI 互換、またはクラウドの OpenAI 互換 / Anthropic)が
+  数時間ごとに、プログラムが推測し人が確認したソフトウェア一覧(このホストのパッケージ、CRS、サイトのアプリケーション)の新しい
+  脆弱性、特に悪用されているものを Web で検索します。このホストから出るのは製品名とバージョンだけです。ローカルモデルは MCP
+  サーバー(例:SearXNG)で検索し、許可リストの https ページだけを読みます。悪用されていて当方のバージョンに影響する脆弱性は
+  緊急アラートになります。1 日・1 か月のトークン上限があります。
 - **対応待ちアラート**：防がれていない可能性のある攻撃、利用者に影響する誤検知、進行中の攻撃、設定の外部変更、完全性の問題、
   適用やバックアップの失敗。承認者が対応内容を記入するまで開いたままで、定期的に再通知します。
 - **通知**：メール（SMTP、テキスト＋HTML）、Telegram、Microsoft Teams（Workflows / Adaptive Card）、Slack、Discord、Zulip、
@@ -115,8 +122,8 @@ JSON 監査ログを読み、ファイルを手で編集する必要がありま
 ## インストール
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.35.tar.gz.sig jt-waf-mgr-0.4.35.tar.gz
-tar xzf jt-waf-mgr-0.4.35.tar.gz && cd jt-waf-mgr-0.4.35
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.36.tar.gz.sig jt-waf-mgr-0.4.36.tar.gz
+tar xzf jt-waf-mgr-0.4.36.tar.gz && cd jt-waf-mgr-0.4.36
 sudo ./install.sh                             # 先にすべてのファイルとリリース署名を検証
 sudo jt-waf-mgr check                         # nginx / ModSecurity 設定を解析
 sudo jt-waf-mgr user add alice --role admin   # 一時パスワードを表示

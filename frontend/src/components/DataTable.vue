@@ -11,7 +11,8 @@
        required?: false,          // cannot be hidden
        align?: 'num' | null, nowrap?: false, class?: string,
      }]
-     Rows render as plain text unless a cell slot is given (attacker-controlled data stays text). -->
+     Rows render as plain text unless a cell slot is given (attacker-controlled data stays text). A column that does not
+     sort can draw its own header with #head-<key>="{ col }" (for example a select-all box). -->
 <template>
   <div class="datatable">
     <div v-if="toolbar" class="dt-toolbar">
@@ -46,7 +47,7 @@
               <button v-if="c.sortable !== false" type="button" class="dt-sort" @click="sortBy(c)">
                 {{ c.label }}<Icon :name="sortKey === c.key ? (sortDir > 0 ? 'sortUp' : 'sortDown') : 'sort'" class="dt-sorticon" :class="{ on: sortKey === c.key }" />
               </button>
-              <template v-else>{{ c.label }}</template>
+              <template v-else><slot :name="'head-' + c.key" :col="c">{{ c.label }}</slot></template>
               <!-- drag (or arrow keys) to set the column's width; a double click gives every column its own width back -->
               <span class="dt-resize" role="separator" aria-orientation="vertical" tabindex="0" :aria-label="t('table.resize', { col: c.label || c.key })"
                     :title="t('table.resize_hint')" @pointerdown.prevent="startResize($event, c)" @dblclick.stop="resetWidths"

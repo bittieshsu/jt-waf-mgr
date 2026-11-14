@@ -111,7 +111,7 @@
           </div>
           <div class="descbtns">
             <button v-if="stageRuleCount(current)" type="button" class="btn small" @click="showStageRules(current)"><Icon name="filter" />{{ t('waf.flow.show_rules') }}</button>
-            <RouterLink v-if="STAGE_LINK[current.key]" class="btn small ghost" :to="STAGE_LINK[current.key]"><Icon name="go" />{{ t('guide.open_page') }}</RouterLink>
+            <RouterLink v-if="STAGE_LINK[current.key]" class="btn small ghost" :to="STAGE_LINK[current.key]"><Icon name="go" />{{ goToLabel(STAGE_LINK[current.key]) }}</RouterLink>
           </div>
         </div>
       </section>
@@ -182,6 +182,7 @@
 </template>
 
 <script setup>
+import { goToLabel } from '../pageNames.js'
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { get } from '../api.js'
 import { t } from '../i18n.js'

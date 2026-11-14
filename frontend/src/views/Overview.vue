@@ -64,9 +64,16 @@
     <div v-if="data" class="ovbody" :class="{ stale: dimmed }" :aria-busy="loading ? 'true' : 'false'">
       <div v-if="hasFilters" class="filteredbanner" role="status"><Icon name="filter" />
         <span>{{ t('overview.filter.banner') }}</span>
-        <strong v-for="c in chips" :key="'b' + c.key" class="fb-item">{{ c.label }}: {{ c.text }}</strong>
-        <template v-if="filters.origin"><strong class="fb-item">{{ t('origin.' + filters.origin) }}</strong></template>
-        <template v-if="filters.outcome"><strong class="fb-item">{{ t('outcome.' + filters.outcome) }}</strong></template>
+        <strong v-for="c in chips" :key="'b' + c.key" class="fb-item">{{ c.label }}: {{ c.text }}<button type="button" class="fb-x"
+          :aria-label="t('overview.filter.remove', { name: c.label + ' ' + c.text })" :title="t('overview.filter.remove', { name: c.label + ' ' + c.text })"
+          @click="setQuery({ [c.key]: '' })"><Icon name="close" /></button></strong>
+        <strong v-if="filters.origin" class="fb-item">{{ t('origin.' + filters.origin) }}<button type="button" class="fb-x"
+          :aria-label="t('overview.filter.remove', { name: t('origin.' + filters.origin) })" :title="t('overview.filter.remove', { name: t('origin.' + filters.origin) })"
+          @click="setQuery({ origin: '' })"><Icon name="close" /></button></strong>
+        <strong v-if="filters.outcome" class="fb-item">{{ t('outcome.' + filters.outcome) }}<button type="button" class="fb-x"
+          :aria-label="t('overview.filter.remove', { name: t('outcome.' + filters.outcome) })" :title="t('overview.filter.remove', { name: t('outcome.' + filters.outcome) })"
+          @click="setQuery({ outcome: '' })"><Icon name="close" /></button></strong>
+        <button type="button" class="btn tiny ghost" @click="clearAll"><Icon name="clear" />{{ t('overview.filter.clear_all') }}</button>
       </div>
       <div class="tiles">
         <div v-for="st in statTiles" :key="st.key" class="tile stat" :class="st.cls">

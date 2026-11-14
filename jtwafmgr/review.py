@@ -6,7 +6,8 @@ Each review answers the questions a person used to answer by hand:
   get caught; a group with an internal source (not a known scanner) or without any attack family is a "possible
   false block" and is listed first;
 - new internal hits (not known scanners): internal applications the rules misread;
-- outside requests that look like attacks and were not refused: candidates for new confident blocks;
+- outside requests that look like attacks, were not refused and got an answer below 400 from the site: candidates
+  for new confident blocks (probes answered 404 are only counted);
 - what the automation did: event analysis, changes, IP blocks; what waits for a person (alerts, approvals);
 - the focus sites (waf.focus_sites): one line each, every review, even when nothing happened -- events, refusals,
   outside requests not refused, login paths in the WAF log, answers 429 (rate limit), a source that keeps logging in.
@@ -21,11 +22,13 @@ import re
 import time
 
 from . import util
+from .blocks import UNMISTAKABLE
 
 # attack types (util.FAMILIES): a score-only block with none of them (only protocol, body or other checks) may be a
 # normal request; a scanner's user agent is an attack tool, not a user
 ATTACK_FAMILIES = {'rce', 'php', 'java', 'sqli', 'xss', 'lfi', 'rfi', 'generic', 'session', 'scanner'}
 LOGIN_RE = re.compile(r'login|signin|sign-in|logon|authenticate|/token\b|/oauth|openid-connect|/session', re.I)
+PROBER_PATHS = 5            # an outside source asking for this many different paths in one review is scanning
 REPEATED_LOGIN = 20          # one outside source this many times on login paths in one review: worth a look
 INTERVALS = (1, 2, 3, 4, 6, 8, 12, 24)
 LIST_MAX = 30
@@ -73,6 +76,13 @@ def build(app, since, until):
     by = collections.Counter('%s/%s' % (r['outcome'], r['decided_by'] or '-') for r in rows)
     out['by_decision'] = dict(by.most_common())
 
+    # outside sources that try many paths in this window: scanners, whatever their user agent says
+    paths_of = collections.defaultdict(set)
+    for r in rows:
+        if r['origin'] == 'external':
+            paths_of[r['src_ip']].add(r['path'])
+    probers = {ip for ip, ps in paths_of.items() if len(ps) >= PROBER_PATHS}
+
     # blocked by the score alone
     g = collections.defaultdict(lambda: {'n': 0, 'src': set(), 'rules': collections.Counter(), 'origin': collections.Counter(),
                                          'fam': set(), 'internal_users': set()})
@@ -88,7 +98,10 @@ def build(app, since, until):
                 x['internal_users'].add(r['src_ip'])
     score = []
     for (h, m, p), x in g.items():
-        suspect = bool(x['internal_users']) or not (x['fam'] & ATTACK_FAMILIES)
+        # a normal user caught by mistake: an internal user; or a request with no attack type, for a name a site may
+        # really serve (not a secret or backup file), from someone who is not trying path after path
+        suspect = bool(x['internal_users']) or (
+            not (x['fam'] & ATTACK_FAMILIES) and not UNMISTAKABLE.search(p or '') and bool(x['src'] - probers))
         score.append({'host': h, 'method': m, 'path': util.clip(p, 200), 'n': x['n'], 'sources': len(x['src']),
                       'internal_sources': len(x['internal_users']), 'rules': _top(x['rules']),
                       'families': sorted(x['fam'])[:6], 'suspect': suspect})
@@ -120,7 +133,8 @@ def build(app, since, until):
                                          'fam': collections.Counter()})
     for r in rows:
         fam = _fams(r['families']) & ATTACK_FAMILIES
-        if r['origin'] == 'external' and r['outcome'] == 'logged' and fam:
+        # only what got an answer from the site (below 400): a probe answered 404 failed by itself
+        if r['origin'] == 'external' and r['outcome'] == 'logged' and fam and 0 < (r['status'] or 0) < 400:
             x = g[(r['host'], r['path'])]
             x['n'] += 1
             x['src'].add(r['src_ip'])
@@ -131,6 +145,9 @@ def build(app, since, until):
                                    'status': dict(x['status']), 'families': _top(x['fam'], 4), 'rules': _top(x['rules'])}
                                   for (h, p), x in sorted(g.items(), key=lambda kv: -kv[1]['n'])[:LIST_MAX]]
     out['outside_not_refused_groups'] = len(g)
+    out['outside_failed_probes'] = sum(1 for r in rows if r['origin'] == 'external' and r['outcome'] == 'logged'
+                                       and (r['status'] or 0) >= 400 and _fams(r['families']) & ATTACK_FAMILIES)
+    out['probing_sources'] = len(probers)
 
     lo, hi = cfg['waf']['local_range']
     cb = collections.Counter()
@@ -164,7 +181,7 @@ def build(app, since, until):
         t = db.one('SELECT SUM(total) t, SUM(external) e, SUM(s429) n FROM traffic_hourly WHERE host=? AND hour>=? AND hour<?',
                    (host, h0, until))
         focus.append({'host': host, 'events': len(f), 'blocked': sum(1 for r in f if r['outcome'] == 'blocked'),
-                      'outside_not_refused': sum(1 for r in ext if r['outcome'] == 'logged'
+                      'outside_not_refused': sum(1 for r in ext if r['outcome'] == 'logged' and 0 < (r['status'] or 0) < 400
                                                  and _fams(r['families']) & ATTACK_FAMILIES),
                       'login_events': len(login), 'requests': (t['t'] or 0) if t else 0,
                       'external_requests': (t['e'] or 0) if t else 0, 's429': (t['n'] or 0) if t else 0,

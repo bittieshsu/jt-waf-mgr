@@ -216,6 +216,18 @@ def cmd_analyst_run(args):
     return 1 if out.get('error') else 0
 
 
+def cmd_intel_run(args):
+    """Run by jt-waf-mgr-intel.service (hourly timer, or the "Search now" request file); also usable by hand."""
+    from . import intel
+    app = _app(args)
+    log = lambda m: print(m, flush=True)       # noqa: E731
+    rid = intel.run(app, 'manual', log=log) if args.force else intel.run_job(app, log=log)
+    if rid:
+        r = app.db.one('SELECT error FROM intel_runs WHERE id=?', (rid,))
+        return 1 if r and r['error'] else 0
+    return 0
+
+
 def cmd_notify_run(args):
     """Run by jt-waf-mgr-notify.service (request file, one-minute timer); also usable by hand."""
     from . import notify
@@ -308,6 +320,8 @@ def main(argv=None):
     cu.add_argument('--force', action='store_true', help='even when the lists are recent or country blocks are off')
     ar = sub.add_parser('analyst-run', help='analyse recent events with the configured LLM server (normally run by its own unit)')
     ar.add_argument('--force', action='store_true', help='even when the last run is recent')
+    ir = sub.add_parser('intel-run', help='search for new vulnerabilities in the confirmed software (normally run by its own unit)')
+    ir.add_argument('--force', action='store_true', help='even when the last search is recent')
     sub.add_parser('notify-run', help='send queued notifications now (normally run by its own unit)')
     gl = sub.add_parser('geoip', help='look up one address and show the GeoIP status')
     gl.add_argument('ip')
@@ -318,7 +332,7 @@ def main(argv=None):
     try:
         return {'serve': cmd_serve, 'user': cmd_user, 'import': cmd_import, 'check': cmd_check,
                 'integrity': cmd_integrity, 'verify-release': cmd_verify_release, 'audit-verify': cmd_audit_verify,
-                'backup': cmd_backup, 'geoip-update': cmd_geoip_update, 'countries-update': cmd_countries_update, 'dns-check': cmd_dns_check, 'crs-update': cmd_crs_update, 'geoip': cmd_geoip, 'analyst-run': cmd_analyst_run, 'notify-run': cmd_notify_run,
+                'backup': cmd_backup, 'geoip-update': cmd_geoip_update, 'countries-update': cmd_countries_update, 'dns-check': cmd_dns_check, 'crs-update': cmd_crs_update, 'geoip': cmd_geoip, 'analyst-run': cmd_analyst_run, 'intel-run': cmd_intel_run, 'notify-run': cmd_notify_run,
                 'config-check': cmd_config_check, 'migrate': cmd_migrate, 'doctor': cmd_doctor}[args.cmd](args)
     except config_mod.ConfigError as e:
         print('configuration error: %s' % e, file=sys.stderr)

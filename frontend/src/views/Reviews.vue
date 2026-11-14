@@ -28,7 +28,7 @@
             <div class="rvtile" :class="{ attn: rv.internal_new }"><span class="muted small">{{ t('review.internal_new') }}</span><b>{{ fmtNum(rv.internal_new) }}</b>
               <span class="muted small">{{ t('review.of_groups', { n: fmtNum((rv.internal || []).length) }) }}</span></div>
             <div class="rvtile"><span class="muted small">{{ t('review.not_refused') }}</span><b>{{ fmtNum(rv.outside_not_refused_groups) }}</b>
-              <span class="muted small">{{ t('review.groups') }}</span></div>
+              <span class="muted small">{{ rv.outside_failed_probes ? t('review.failed_probes', { n: fmtNum(rv.outside_failed_probes) }) : t('review.groups') }}</span></div>
             <div class="rvtile"><span class="muted small">{{ t('review.done') }}</span><b>{{ fmtNum(rv.applied) }}</b>
               <span class="muted small">{{ t('review.done_hint', { b: fmtNum(sum(rv.ip_blocks)), p: fmtNum((rv.analysis || {}).proposals || 0) }) }}</span></div>
           </div>

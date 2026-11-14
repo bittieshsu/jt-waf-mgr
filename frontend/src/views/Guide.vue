@@ -38,7 +38,7 @@
       <div class="archdesc" role="status">
         <h3><Icon :name="current.icon" /> {{ t('guide.node.' + sel + '.name') }}</h3>
         <p>{{ t('guide.node.' + sel + '.desc') }}</p>
-        <RouterLink v-if="current.to && canSee(current)" class="btn small" :to="current.to"><Icon name="go" />{{ t('guide.open_page') }}</RouterLink>
+        <RouterLink v-if="current.to && canSee(current)" class="btn small" :to="current.to"><Icon name="go" />{{ goToLabel(current.to) }}</RouterLink>
       </div>
       <div class="legend archlegend">
         <span class="lg-item"><span class="lg lg-main"></span>{{ t('guide.arch.legend_traffic') }}</span>
@@ -73,6 +73,7 @@
 </template>
 
 <script setup>
+import { goToLabel } from '../pageNames.js'
 import { computed, ref } from 'vue'
 import { t } from '../i18n.js'
 import { state, hasRole } from '../store.js'

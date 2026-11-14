@@ -1011,6 +1011,102 @@ def dns_check(app, req):
     return json_response(202, app.dns.status())
 
 
+# --- threat intelligence (intel.py, software.py): the web service only reads, edits the software list and queues
+# "search now"; the search itself runs in jt-waf-mgr-intel.service ---------------------------------------------------
+
+def intel_status(app, req):
+    from .. import intel, software
+    return json_response(200, {'status': intel.status(app), 'threats': intel.threats(app.db), 'runs': intel.runs(app.db, 30),
+                               'software': software.listing(app.db)})
+
+
+def intel_run(app, req):
+    from .. import intel
+    why = intel.readiness(app.cfg)
+    if why:
+        raise ApiError(409, 'not_ready', why)
+    try:
+        intel.request_run(app.cfg)
+    except OSError as e:
+        raise ApiError(500, 'request_failed', 'could not queue the search', error=e.strerror)
+    app.audit.log('intel.run_requested', req.user['username'], src_ip=req.client_ip)
+    return json_response(202, intel.status(app))
+
+
+def intel_threat(app, req):
+    from .. import intel
+    b = req.body()
+    try:
+        tid = int(req.params['id'])
+        intel.set_status(app.db, app.audit, tid, b.get('status'), req.user['username'], src_ip=req.client_ip)
+    except ValueError:
+        raise ApiError(404, 'not_found')
+    except intel.IntelError as e:
+        raise ApiError(404 if e.code == 'not_found' else 400, e.code)
+    return json_response(200, {'threats': intel.threats(app.db)})
+
+
+def _software_body(b):
+    hosts = b.get('hosts') or []
+    if not isinstance(hosts, list):
+        raise ApiError(400, 'bad_request', 'hosts: a list')
+    return (b.get('name') if isinstance(b.get('name'), str) else '', b.get('version') if isinstance(b.get('version'), str) else '',
+            hosts, b.get('notes') if isinstance(b.get('notes'), str) else '', b.get('confirmed', True) is not False)
+
+
+def software_add(app, req):
+    from .. import software
+    name, version, hosts, notes, conf = _software_body(req.body())
+    try:
+        sid = software.save(app.db, req.user['username'], name, version, hosts, notes, conf)
+    except software.SoftwareError as e:
+        raise ApiError(409 if e.code == 'exists' else 400, e.code, e.message)
+    app.audit.log('software.added', req.user['username'], src_ip=req.client_ip, software_id=sid, name=name, version=version)
+    return json_response(201, {'software': software.listing(app.db)})
+
+
+def software_edit(app, req):
+    from .. import software
+    try:
+        sid = int(req.params['id'])
+    except ValueError:
+        raise ApiError(404, 'not_found')
+    r = app.db.one('SELECT * FROM software WHERE id=?', (sid,))
+    if not r:
+        raise ApiError(404, 'not_found')
+    b = req.body()
+    name, version, hosts, notes, conf = _software_body(dict({'name': r['name'], 'version': r['version'], 'notes': r['notes'],
+                                                             'confirmed': bool(r['confirmed'])}, **b))
+    try:
+        software.save(app.db, req.user['username'], name, version, hosts, notes, conf, sid=sid)
+    except software.SoftwareError as e:
+        raise ApiError(404 if e.code == 'not_found' else 400, e.code, e.message)
+    app.audit.log('software.changed', req.user['username'], src_ip=req.client_ip, software_id=sid, name=name, version=version,
+                  confirmed=conf)
+    return json_response(200, {'software': software.listing(app.db)})
+
+
+def software_delete(app, req):
+    from .. import software
+    try:
+        sid = int(req.params['id'])
+    except ValueError:
+        raise ApiError(404, 'not_found')
+    r = app.db.one('SELECT name FROM software WHERE id=?', (sid,))
+    if not r or not software.delete(app.db, sid):
+        raise ApiError(404, 'not_found')
+    app.audit.log('software.removed', req.user['username'], src_ip=req.client_ip, software_id=sid, name=r['name'])
+    return json_response(200, {'software': software.listing(app.db)})
+
+
+def software_guess(app, req):
+    """Look again: this host's packages, the CRS version, the applications the access logs show."""
+    from .. import software
+    out = software.refresh(app, req.user['username'])
+    app.audit.log('software.guessed', req.user['username'], src_ip=req.client_ip, **out)
+    return json_response(200, dict(out, software=software.listing(app.db)))
+
+
 def reviews(app, req):
     from .. import review
     return json_response(200, {'items': review.listing(app.db, _limit(req, 50, 500), _int_param(req, 'before')),
@@ -1262,6 +1358,13 @@ def register(router):
     R('GET', V + '/lookups/ip/{ip}/card', ip_card, viewer('lookups:read'))
     R('GET', V + '/dns', dns_status, viewer('rules:read'))
     R('GET', V + '/reviews', reviews, viewer('events:read'))
+    R('GET', V + '/intel', intel_status, viewer('events:read'))
+    R('POST', V + '/intel/run', intel_run, ('role', 'approver', None))
+    R('POST', V + '/intel/threats/{id}', intel_threat, ('role', 'approver', None))
+    R('POST', V + '/intel/software', software_add, ('role', 'approver', None))
+    R('POST', V + '/intel/software/guess', software_guess, ('role', 'approver', None))
+    R('PATCH', V + '/intel/software/{id}', software_edit, ('role', 'approver', None))
+    R('DELETE', V + '/intel/software/{id}', software_delete, ('role', 'approver', None))
     R('GET', V + '/reviews/{id}', review_get, viewer('events:read'))
     R('POST', V + '/reviews/run', review_run, ('role', 'approver', None))
     R('POST', V + '/dns/check', dns_check, ('role', 'admin', None))

@@ -2,6 +2,25 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.36 (2026-11-15)
+
+- Threat intelligence (Events > Threat intelligence; off until switched on in Settings): a second-tier LLM -- any
+  OpenAI-compatible server (left empty: the event analysis's local server) or Anthropic (Claude Messages API) --
+  searches the web every few hours for new vulnerabilities in the software list, above all those exploited in the
+  wild. The program guesses the list (this host's packages from the package database, the CRS version, the
+  applications the sites answer for in the access logs); a person confirms it, and only product names and versions
+  are sent. Local models search through an MCP server (web_search, e.g. SearXNG) and read pages with fetch_url (https
+  only, an allow-list of domains, public addresses only, plain text); with Anthropic the provider's own web search and
+  fetch can be used. The answer must fit a JSON schema; a threat is kept only for a confirmed product, with a CVE or
+  GHSA id and https references. An exploited vulnerability that affects the confirmed version raises a critical
+  alert; new ones are notified. Token limits per day and month. Its own sandboxed unit (jt-waf-mgr-intel: hourly
+  timer, "search now"); the web service never talks to the LLM or the web. Virtual patches from the findings come
+  next.
+- Periodic WAF review: probes answered 4xx by the site are counted, not listed as attacks that got through; a
+  secret or backup file name, or a source trying many paths, is not a possible false block.
+- Tables open a row in place; the notification matrix has a select-all box per channel; every condition in the
+  overview's filter banner has an x; "Open this page" buttons name the page ("Go to Rules").
+
 ## 0.4.35 (2026-11-14)
 
 - New logo: a square split by an inspection gap, with the request held at the gap (no shield; readable at 16 px).

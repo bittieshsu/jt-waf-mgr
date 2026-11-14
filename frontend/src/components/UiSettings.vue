@@ -107,6 +107,7 @@ const GROUPS = [
   { key: 'geoip', icon: 'globe', keys: ['geoip.enabled', 'geoip.account_id', 'geoip.license_key', 'geoip.editions', 'geoip.update_days'] },
   { key: 'llm', icon: 'server', keys: ['llm.url', 'llm.api_key', 'llm.model', 'llm.timeout_seconds', 'llm.enabled'] },
   { key: 'analyst', icon: 'timer', keys: ['analyst.enabled', 'analyst.rules', 'analyst.interval_minutes', 'analyst.window_hours', 'analyst.max_proposals', 'analyst.min_events', 'analyst.min_sources'] },
+  { key: 'intel', icon: 'ai', keys: ['intel.enabled', 'intel.provider', 'intel.url', 'intel.model', 'intel.api_key', 'intel.timeout_seconds', 'intel.search', 'intel.mcp_url', 'intel.fetch_domains', 'intel.interval_hours', 'intel.days', 'intel.max_rounds', 'intel.daily_tokens', 'intel.monthly_tokens'] },
   { key: 'review', icon: 'report', keys: ['review.enabled', 'review.interval_hours', 'review.keep_days'] },
   { key: 'notify', icon: 'notify', keys: ['notify.enabled', 'notify.language', 'notify.base_url', 'notify.max_per_hour', 'notify.remind_hours', 'notify.report_hour'] },
   { key: 'n_email', icon: 'mail', channel: 'email', keys: ['notify.email_enabled', 'notify.smtp_host', 'notify.smtp_port', 'notify.smtp_tls', 'notify.smtp_username', 'notify.smtp_password', 'notify.smtp_from', 'notify.email_to'] },
@@ -126,9 +127,9 @@ const GROUPS = [
   { key: 'policy', icon: 'lock', keys: ['ui.login_notice', 'compliance.level', 'auth.password_max_age_days', 'auth.password_min_age_hours', 'auth.password_history', 'auth.dormant_days', 'auth.max_sessions_per_user', 'auth.lockout_threshold', 'auth.lockout_minutes'] },
 ]
 const MULTILINE = ['ui.login_notice']
-const MONO = ['syslog.address', 'geoip.account_id', 'llm.url', 'llm.model', 'notify.base_url', 'notify.smtp_host', 'notify.telegram_chat_id',
+const MONO = ['syslog.address', 'geoip.account_id', 'llm.url', 'llm.model', 'intel.url', 'intel.model', 'intel.mcp_url', 'intel.fetch_domains', 'notify.base_url', 'notify.smtp_host', 'notify.telegram_chat_id',
   'notify.zulip_site', 'notify.nextcloud_url', 'notify.nextcloud_token']
-const PLACEHOLDER = { 'syslog.address': '/dev/log', 'llm.url': 'http://192.0.2.10:8080/v1', 'geoip.account_id': '123456', 'notify.base_url': 'https://waf.example.com',
+const PLACEHOLDER = { 'syslog.address': '/dev/log', 'llm.url': 'http://192.0.2.10:8080/v1', 'intel.url': 'https://api.anthropic.com', 'intel.mcp_url': 'http://192.0.2.20:8021/mcp', 'geoip.account_id': '123456', 'notify.base_url': 'https://waf.example.com',
   'notify.smtp_host': 'mail.example.com', 'notify.smtp_from': 'waf@example.com', 'notify.telegram_chat_id': '-1001234567890',
   'notify.zulip_site': 'https://chat.example.com', 'notify.zulip_bot_email': 'waf-bot@chat.example.com', 'notify.zulip_stream': 'security',
   'notify.nextcloud_url': 'https://cloud.example.com', 'notify.teams_webhook': 'https://…', 'notify.slack_webhook': 'https://hooks.slack.com/services/…',

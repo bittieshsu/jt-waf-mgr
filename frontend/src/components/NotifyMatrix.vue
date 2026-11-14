@@ -11,6 +11,14 @@
         <button type="button" class="btn tiny ghost" :title="t('notify.preview.open')" @click="openPreview(row.event, $event)"><Icon name="show" />{{ t('notify.preview.btn') }}</button></span></template>
       <template #cell-category="{ row }"><span class="chip">{{ tOr('notify.cat.' + row.category, row.category) }}</span></template>
       <template #cell-severity="{ row }"><span class="badge" :class="SEV[row.severity]">{{ tOr('notify.sev.' + row.severity, row.severity) }}</span></template>
+      <!-- every column: one box that ticks or clears the channel for all events (a mixed column shows the dash) -->
+      <template v-for="c in channels" :key="'h' + c" #[`head-ch_${c}`]="{ col }">
+        <label class="mhead" :class="{ off: !activeOf(c) }">
+          <span>{{ col.label }}</span>
+          <input type="checkbox" :checked="colState(c) === 'all'" :indeterminate.prop="colState(c) === 'some'"
+                 :aria-label="t('notify.matrix.all', { channel: col.label })" :title="t('notify.matrix.all', { channel: col.label })"
+                 @change="setColumn(c, $event.target.checked)"></label>
+      </template>
       <template v-for="c in channels" :key="c" #[`cell-ch_${c}`]="{ row }">
         <label class="mcheck" :class="{ off: !activeOf(c) }" :title="tOr('notify.ch.' + c, c)">
           <input type="checkbox" :checked="form[row.event].includes(c)" :aria-label="tOr('notify.ev.' + row.event, row.event) + ' / ' + tOr('notify.ch.' + c, c)"
@@ -74,6 +82,14 @@ const msg = ref('')
 
 const channels = computed(() => (props.status ? props.status.channel_list : []))
 const rows = computed(() => (props.status ? props.status.events : []))
+function colState(c) {
+  const evs = rows.value.map((r) => r.event)
+  const n = evs.filter((e) => (form[e] || []).includes(c)).length
+  return n === 0 ? 'none' : (n === evs.length ? 'all' : 'some')
+}
+function setColumn(c, on) {
+  for (const r of rows.value) toggle(r.event, c, on)
+}
 function activeOf(c) { const x = props.status && props.status.channels.find((y) => y.channel === c); return !!(x && x.active) }
 const cols = computed(() => [
   { key: 'event', label: t('notify.matrix.event'), required: true, value: (r) => tOr('notify.ev.' + r.event, r.event) },
@@ -139,6 +155,9 @@ async function save() {
 .mcheck { display: inline-flex; justify-content: center; width: 100%; margin: 0; cursor: pointer; padding: 2px 0; }
 .mcheck input { width: 18px; height: 18px; }
 .mcheck.off { opacity: .3; filter: grayscale(1); }
+.mhead { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; margin: 0; cursor: pointer; }
+.mhead input { width: 18px; height: 18px; margin: 0; }
+.mhead.off input { opacity: .45; }
 .sub { color: var(--muted); font-size: .8em; }
 .evname { display: inline-flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
 .pvbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; margin: 4px 0 12px; }

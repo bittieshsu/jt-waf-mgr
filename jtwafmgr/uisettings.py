@@ -20,7 +20,7 @@ EMAIL_RE = r'[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}'
 HTTPS_URL_RE = r'(https://[A-Za-z0-9.-]+(?::\d{1,5})?/[^\s"\'<>\\]{0,1990})?'
 # a URL setting and the secret that belongs to that server: a stored secret is never sent to a different server
 # unless it is entered again (or cleared)
-BOUND = {'llm.url': ('llm.api_key',), 'notify.zulip_site': ('notify.zulip_api_key',),
+BOUND = {'llm.url': ('llm.api_key',), 'intel.url': ('intel.api_key',), 'notify.zulip_site': ('notify.zulip_api_key',),
          'notify.nextcloud_url': ('notify.nextcloud_secret',), 'notify.smtp_host': ('notify.smtp_password',),
          'notify.webhook_url': ('notify.webhook_token', 'notify.webhook_secret')}
 SECRET = object()
@@ -93,6 +93,20 @@ EDITABLE = {
     'syslog.format': ('choice', {'choices': ('rfc3164', 'rfc5424')}),
     'syslog.facility': ('choice', {'choices': tuple(FACILITIES)}),
     'countries.enabled': ('bool', {}),
+    'intel.enabled': ('bool', {}),
+    'intel.provider': ('choice', {'choices': ('openai', 'anthropic')}),
+    'intel.url': ('str', {'re': r'(https?://[A-Za-z0-9.-]+(?::\d{1,5})?(?:/[\w./-]*)?)?', 'max': 300}),
+    'intel.model': ('str', {'re': r'[\w.:/-]{0,120}', 'max': 120}),
+    'intel.api_key': ('secret', {'re': r'[\x21-\x7e]{0,300}'}),
+    'intel.timeout_seconds': ('int', {'min': 30, 'max': 1800}),
+    'intel.interval_hours': ('int', {'min': 1, 'max': 168}),
+    'intel.search': ('choice', {'choices': ('mcp', 'provider')}),
+    'intel.mcp_url': ('str', {'re': r'(https?://[A-Za-z0-9.-]+(?::\d{1,5})?(?:/[\w./-]*)?)?', 'max': 300}),
+    'intel.fetch_domains': ('list', {'re': r'[a-z0-9.-]{1,253}', 'max_items': 60}),
+    'intel.max_rounds': ('int', {'min': 1, 'max': 40}),
+    'intel.days': ('int', {'min': 1, 'max': 365}),
+    'intel.daily_tokens': ('int', {'min': 0, 'max': 100000000}),
+    'intel.monthly_tokens': ('int', {'min': 0, 'max': 2000000000}),
     'review.enabled': ('bool', {}),
     'review.interval_hours': ('int', {'min': 1, 'max': 24}),        # 1, 2, 3, 4, 6, 8, 12 or 24 (config check)
     'review.keep_days': ('int', {'min': 1, 'max': 3650}),

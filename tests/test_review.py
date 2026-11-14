@@ -31,7 +31,12 @@ class TestReview(unittest.TestCase):
         ev(self.app, 2, n, 'erp.example.com', '/web/dataset/call_kw', '192.168.77.50', 'internal', 'blocked', 'score',
            rules=',920170,949110,', fams=',protocol,', query='password=hunter2')
         # an outside attack only logged
-        ev(self.app, 3, n, 'app.example.com', '/cgi-bin/x.cgi', '198.51.100.7', 'external', 'logged', None, fams=',rce,', status=404)
+        ev(self.app, 3, n, 'app.example.com', '/cgi-bin/x.cgi', '198.51.100.7', 'external', 'logged', None, fams=',rce,', status=200)
+        # the same, answered 404: a failed probe, only counted
+        ev(self.app, 4, n, 'app.example.com', '/cgi-bin/y.cgi', '198.51.100.7', 'external', 'logged', None, fams=',rce,', status=404)
+        # a secret file blocked by the score, no attack type: a probe, not a suspect
+        ev(self.app, 5, n, 'kvm.example.com', '/settings.py.bak', '198.51.100.8', 'external', 'blocked', 'score',
+           rules=',920440,949110,', fams=',protocol,')
         # the focus site: 25 logins from one outside source
         for i in range(25):
             ev(self.app, 100 + i, n, 'sso.example.com', '/realms/x/login-actions/authenticate', '198.51.100.20', 'external',
@@ -43,14 +48,17 @@ class TestReview(unittest.TestCase):
 
     def test_build(self):
         d = review.build(self.app, self.now - 3 * 3600, self.now)
-        self.assertEqual(d['events'], 28)
-        self.assertEqual(d['score_only_groups'], 2)
+        self.assertEqual(d['events'], 30)
+        self.assertEqual(d['score_only_groups'], 3)
         self.assertEqual(d['possible_false_blocks'], 1)
         first = d['score_only'][0]
         self.assertEqual((first['host'], first['suspect'], first['internal_sources']), ('erp.example.com', True, 1))
         self.assertNotIn(949110, first['rules'])                       # the scoring rule says nothing
         self.assertEqual(d['internal'][0]['new'], True)
-        self.assertEqual(d['outside_not_refused'][0]['path'], '/cgi-bin/x.cgi')
+        self.assertEqual([x['path'] for x in d['outside_not_refused']], ['/cgi-bin/x.cgi'])
+        self.assertEqual(d['outside_failed_probes'], 1)
+        bak = [x for x in d['score_only'] if x['host'] == 'kvm.example.com'][0]
+        self.assertFalse(bak['suspect'])
         f = d['focus'][0]
         self.assertEqual((f['host'], f['events'], f['login_events']), ('sso.example.com', 25, 25))
         self.assertEqual(f['repeated_login'], [['198.51.100.20', 25]])

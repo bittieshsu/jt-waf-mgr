@@ -1,0 +1,12 @@
+[Unit]
+Description=jt-waf-mgr: wake the threat intelligence search every hour (the job itself checks [intel] interval_hours)
+
+[Timer]
+OnBootSec=10min
+OnCalendar=hourly
+RandomizedDelaySec=5min
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

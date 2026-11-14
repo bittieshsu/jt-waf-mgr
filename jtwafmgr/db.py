@@ -362,6 +362,56 @@ SCHEMA = [
     );
     CREATE INDEX reviews_created ON reviews(created_at);
     """,
+    # 12: threat intelligence (software.py, intel.py): the software list a person confirmed, the second-tier LLM's
+    # runs (what it searched and read, tokens) and the threats it found (one row per CVE and product)
+    """
+    CREATE TABLE software (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        version TEXT NOT NULL DEFAULT '',
+        hosts TEXT NOT NULL DEFAULT '[]',
+        kind TEXT NOT NULL DEFAULT 'site',
+        source TEXT NOT NULL DEFAULT 'guess',
+        confirmed INTEGER NOT NULL DEFAULT 0,
+        evidence TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        updated_at REAL NOT NULL,
+        updated_by TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE intel_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        node_id TEXT NOT NULL,
+        started_at REAL NOT NULL,
+        finished_at REAL,
+        trigger TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        model TEXT NOT NULL,
+        tokens_in INTEGER NOT NULL DEFAULT 0,
+        tokens_out INTEGER NOT NULL DEFAULT 0,
+        searches TEXT NOT NULL DEFAULT '[]',
+        fetched TEXT NOT NULL DEFAULT '[]',
+        threats TEXT NOT NULL DEFAULT '[]',
+        note TEXT NOT NULL DEFAULT '',
+        error TEXT
+    );
+    CREATE INDEX intel_runs_started ON intel_runs(started_at);
+    CREATE TABLE intel_threats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cve TEXT NOT NULL,
+        product TEXT NOT NULL,
+        first_seen REAL NOT NULL,
+        last_seen REAL NOT NULL,
+        last_run INTEGER,
+        affected TEXT NOT NULL DEFAULT 'unknown',
+        exploited INTEGER NOT NULL DEFAULT 0,
+        severity TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'open',
+        status_by TEXT NOT NULL DEFAULT '',
+        status_at REAL,
+        details TEXT NOT NULL DEFAULT '{}',
+        UNIQUE(cve, product)
+    );
+    """,
 ]
 
 

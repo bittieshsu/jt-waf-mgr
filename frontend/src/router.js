@@ -36,6 +36,7 @@ import ConfigChanges from './views/ConfigChanges.vue'
 import Compliance from './views/Compliance.vue'
 import Analysis from './views/Analysis.vue'
 import Reviews from './views/Reviews.vue'
+import Intel from './views/Intel.vue'
 
 const routes = [
   { path: '/login', name: 'login', component: Login, meta: { public: true, bare: true } },
@@ -65,6 +66,7 @@ const routes = [
   { path: '/admin/compliance', name: 'admin-compliance', component: Compliance, meta: { role: 'admin' } },
   { path: '/analysis', name: 'analysis', component: Analysis },
   { path: '/reviews', name: 'reviews', component: Reviews },
+  { path: '/intel', name: 'intel', component: Intel },
   { path: '/reviews/:id(\\d+)', name: 'review', component: Reviews, props: true },
   { path: '/analysis/:id(\\d+)', name: 'analysis-run', component: Analysis, props: true },
   { path: '/config-changes', name: 'config-changes', component: ConfigChanges, meta: { role: 'approver' } },

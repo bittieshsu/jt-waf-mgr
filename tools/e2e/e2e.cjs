@@ -62,7 +62,7 @@ async function setLang(page, lang) {
 }
 
 const ROUTES = ['/', '/events', '/rules', '/rules/930110', '/vhosts', '/countries', '/crs', '/lookup/203.0.113.9', '/managed', '/changes', '/changes/new',
-  '/versions', '/config-changes', '/reviews', '/guide', '/account', '/admin/users', '/admin/users/review', '/admin/tokens', '/admin/audit',
+  '/versions', '/config-changes', '/reviews', '/intel', '/guide', '/account', '/admin/users', '/admin/users/review', '/admin/tokens', '/admin/audit',
   '/admin/system', '/admin/compliance', '/admin/settings', '/admin/notify', '/alerts', '/waf', '/analysis', '/traffic', '/blocks', '/nope'];
 
 const README_PAGES = ['/', '/events', '/waf', '/analysis', '/admin/notify', '/alerts', '/admin/system', '/changes', '/rules', '/lookup/203.0.113.9', '/traffic', '/countries'];
@@ -209,6 +209,10 @@ async function audit(page, where) {
     ok(/\/reviews\/\d+/.test(page.url()), 'review now opens the new review');
     ok(await page.locator('.rvtiles .rvtile').count() >= 4, 'review shows its tiles');
   } else problems.push('reviews: no review-now button');
+  // threat intelligence: a threat opens under its row
+  await page.goto(base + '/intel', { waitUntil: 'networkidle' });
+  await page.locator('#intel-threats tbody tr, .datatable tbody tr').first().click();
+  ok(await page.locator('tr.dt-expand .thdetail').count() === 1, 'intel: threat details open under the row');
   // system check: the background parts are all there
   await page.goto(base + '/admin/system', { waitUntil: 'networkidle' });
   const sysText = await page.locator('main').innerText();

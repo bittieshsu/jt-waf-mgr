@@ -650,7 +650,7 @@ class TestAuditCoverage(unittest.TestCase):
     AUDITING_CALLS = ('audit.log', 'app.monitor.backup', '_wf(app).propose', '_wf(app).approve', '_wf(app).import_propose',
                       'uisettings.set_many', 'alerts.handle(',
                       '_wf(app).reject', '_wf(app).cancel', '_wf(app).recheck', '_wf(app).rollback',
-                      'app.blocks.add(', 'app.blocks.remove(', 'app.blocks.extend(')
+                      'app.blocks.add(', 'app.blocks.remove(', 'app.blocks.extend(', 'intel.set_status(')
 
     def test_write_routes_audited(self):
         from jtwafmgr.web import api

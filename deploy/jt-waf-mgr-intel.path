@@ -1,0 +1,9 @@
+[Unit]
+Description=jt-waf-mgr: run the threat intelligence search when someone asks for it
+
+[Path]
+PathExists=/var/lib/jt-waf-mgr/intel.request
+Unit=jt-waf-mgr-intel.service
+
+[Install]
+WantedBy=multi-user.target

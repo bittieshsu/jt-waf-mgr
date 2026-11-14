@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.35
+# jt-waf-mgr v0.4.36
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -65,6 +65,12 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
   不會因為一次「誤判」就放寬；每次執行都有摘要。
   **AI 可能出錯，兩個方向都會**：模型只提供建議；放寬一律要人核准，只有通過所有檢查的收緊可以自動套用。要用哪種 LLM
   請見[事件分析：建議的 LLM](#事件分析建議的-llm)。
+- **WAF 定期檢討**:每 3 小時一次(存下來,並送到你的通知管道):只靠 CRS 分數封鎖的請求(可能誤封鎖的排前面)、新的
+  內部命中、沒被封鎖的外部攻擊、自動處理了什麼、每個重點站台一行。
+- **威脅情報(第二層 LLM)**:較強的 LLM(地端 OpenAI 相容,或雲端 OpenAI 相容 / Anthropic)每隔幾小時上網搜尋軟體清單的
+  新漏洞,特別是已經被利用的;軟體清單由程式推測(本機套件、CRS、各站台跑的應用程式)、人確認。離開本機的只有產品名稱與
+  版本。地端模型透過 MCP 伺服器(例如 SearXNG)搜尋,只讀允許清單上的 https 網頁;已被利用且影響你們版本的漏洞會發出
+  緊急警示。每天、每月有 token 上限。
 - **待處理警示**：可能沒被封鎖的攻擊、影響使用者的誤判、進行中的攻擊、設定被外部修改、完整性問題、套用或備份失敗——在核准者
   寫下處理說明之前一直保持開啟，並定期提醒。
 - **通知**：Email（SMTP，純文字＋HTML）、Telegram、Microsoft Teams（Workflows / Adaptive Card）、Slack、Discord、Zulip、
@@ -101,8 +107,8 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
 ## 安裝
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.35.tar.gz.sig jt-waf-mgr-0.4.35.tar.gz
-tar xzf jt-waf-mgr-0.4.35.tar.gz && cd jt-waf-mgr-0.4.35
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.36.tar.gz.sig jt-waf-mgr-0.4.36.tar.gz
+tar xzf jt-waf-mgr-0.4.36.tar.gz && cd jt-waf-mgr-0.4.36
 sudo ./install.sh                             # 先驗證每個檔案與發行檔簽章
 sudo jt-waf-mgr check                         # 解析 nginx / ModSecurity 設定
 sudo jt-waf-mgr user add alice --role admin   # 印出臨時密碼

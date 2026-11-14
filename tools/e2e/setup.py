@@ -169,6 +169,26 @@ for kind, sev, ded, det, ago in (
     aid = alerts.raise_alert(app.db, app.audit, 'analyst' if kind.startswith('attack') else ('traffic' if kind.startswith('traffic') else 'system'),
                              kind, sev, ded, det, link='/alerts')
     app.db.x('UPDATE alerts SET created_at=?, last_seen=? WHERE dedup=?', (now - ago, now - ago, ded))
+# threat intelligence: a confirmed software list, one search, what it found (all made up)
+from jtwafmgr import software as _sw  # noqa: E402
+for name, ver, hosts in (('nginx', '1.22.1-9+deb12u2', []), ('OWASP CRS', '4.30.0', []), ('Keycloak', '26.0.5', ['sso.example.com']),
+                         ('Nextcloud', '30.0.2', ['files.example.com'])):
+    _sw.save(app.db, 'admin', name, ver, hosts)
+_sw.save(app.db, 'admin', 'Grafana', '', ['mon.example.com'], confirmed_flag=False)
+_th = [{'id': 'CVE-2026-90001', 'product': 'Keycloak', 'our_version': '26.0.5', 'summary': 'Example: a crafted redirect_uri lets an attacker take over a session.',
+        'affected_versions': '< 26.0.7', 'fixed_version': '26.0.7', 'affected': 'yes', 'exploited': True, 'exploited_evidence': 'Example KEV entry',
+        'severity': 'critical', 'attack_vector': 'url', 'request_pattern': 'GET /realms/*/protocol/openid-connect/auth with redirect_uri containing a second scheme',
+        'references': ['https://nvd.nist.gov/vuln/detail/CVE-2026-90001']},
+       {'id': 'CVE-2026-90002', 'product': 'nginx', 'our_version': '1.22.1-9+deb12u2', 'summary': 'Example: memory disclosure in a module that is not loaded here.',
+        'affected_versions': '1.25.0 - 1.27.3', 'fixed_version': '1.27.4', 'affected': 'no', 'exploited': False, 'exploited_evidence': '',
+        'severity': 'medium', 'attack_vector': 'header', 'request_pattern': '', 'references': ['https://nginx.org/en/security_advisories.html']}]
+_rid = app.db.x("INSERT INTO intel_runs(node_id, started_at, finished_at, trigger, provider, model, tokens_in, tokens_out, searches, fetched, threats, note) "
+                "VALUES ('waf1', ?, ?, 'schedule', 'openai', 'local-model', 48200, 3100, ?, ?, ?, 'Two relevant vulnerabilities.')",
+                (now - 5400, now - 5100, json.dumps(['Keycloak 26.0 vulnerability 2026', 'nginx security advisory 2026']),
+                 json.dumps(['https://nvd.nist.gov/vuln/detail/CVE-2026-90001']), json.dumps(_th))).lastrowid
+for t in _th:
+    app.db.x('INSERT INTO intel_threats(cve, product, first_seen, last_seen, last_run, affected, exploited, severity, details) VALUES (?,?,?,?,?,?,?,?,?)',
+             (t['id'], t['product'], now - 5100, now - 5100, _rid, t['affected'], 1 if t['exploited'] else 0, t['severity'], json.dumps(t)))
 # a day of periodic reviews (synthetic events above; stored only, nothing sent)
 from jtwafmgr import review  # noqa: E402
 for k in range(8, 0, -1):
