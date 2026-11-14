@@ -107,7 +107,7 @@ const GROUPS = [
   { key: 'geoip', icon: 'globe', keys: ['geoip.enabled', 'geoip.account_id', 'geoip.license_key', 'geoip.editions', 'geoip.update_days'] },
   { key: 'llm', icon: 'server', keys: ['llm.url', 'llm.api_key', 'llm.model', 'llm.timeout_seconds', 'llm.enabled'] },
   { key: 'analyst', icon: 'timer', keys: ['analyst.enabled', 'analyst.rules', 'analyst.interval_minutes', 'analyst.window_hours', 'analyst.max_proposals', 'analyst.min_events', 'analyst.min_sources'] },
-  { key: 'intel', icon: 'ai', keys: ['intel.enabled', 'intel.provider', 'intel.url', 'intel.model', 'intel.api_key', 'intel.timeout_seconds', 'intel.search', 'intel.mcp_url', 'intel.fetch_domains', 'intel.interval_hours', 'intel.days', 'intel.max_rounds', 'intel.daily_tokens', 'intel.monthly_tokens'] },
+  { key: 'intel', icon: 'ai', keys: ['intel.enabled', 'intel.provider', 'intel.url', 'intel.model', 'intel.api_key', 'intel.timeout_seconds', 'intel.search', 'intel.mcp_url', 'intel.fetch_domains', 'intel.interval_hours', 'intel.days', 'intel.max_rounds', 'intel.patches', 'intel.daily_tokens', 'intel.monthly_tokens'] },
   { key: 'review', icon: 'report', keys: ['review.enabled', 'review.interval_hours', 'review.keep_days'] },
   { key: 'notify', icon: 'notify', keys: ['notify.enabled', 'notify.language', 'notify.base_url', 'notify.max_per_hour', 'notify.remind_hours', 'notify.report_hour'] },
   { key: 'n_email', icon: 'mail', channel: 'email', keys: ['notify.email_enabled', 'notify.smtp_host', 'notify.smtp_port', 'notify.smtp_tls', 'notify.smtp_username', 'notify.smtp_password', 'notify.smtp_from', 'notify.email_to'] },

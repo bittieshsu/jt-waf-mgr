@@ -362,7 +362,7 @@ async function audit(page, where) {
   await appRow.locator('a', { hasText: '修改' }).first().click();
   await page.waitForLoadState('networkidle');
   await page.waitForFunction(() => document.querySelectorAll('.cochip').length === 2, null, { timeout: 5000 }).catch(() => {});
-  const dirBadge = async () => { await page.waitForTimeout(900); return (await page.locator('.card').filter({ hasText: 'ipMatchFromFile' }).locator('.badge', { hasText: /收緊|放寬/ }).first().innerText()).trim() }
+  const dirBadge = async () => { await page.waitForTimeout(900); return (await page.locator('.card').filter({ hasText: 'ipMatchFromFile' }).locator('.badge', { hasText: /加嚴|放寬/ }).first().innerText()).trim() }
   ok(/item=/.test(page.url()) && (await page.locator('.cochip').count()) === 2, 'country modify: the form holds the rule in place');
   await page.locator('.cochip', { hasText: 'JP' }).locator('button').click();
   const dTight = await dirBadge();
@@ -371,7 +371,7 @@ async function audit(page, where) {
   await page.locator('#co-add').click().catch(() => {});
   await page.keyboard.press('Escape').catch(() => {});
   const dLoose = await dirBadge();
-  ok(dTight.includes('收緊') && dLoose.includes('放寬'), 'country modify: fewer countries tighten, another one loosens (' + dTight + ' / ' + dLoose + ')');
+  ok(dTight.includes('加嚴') && dLoose.includes('放寬'), 'country modify: fewer countries tighten, another one loosens (' + dTight + ' / ' + dLoose + ')');
   // country limits by site: names in the interface language, "add limit" where the WAF runs, a note where it is off,
   // and a waiting change for a name no server block has
   await page.goto(base + '/countries', { waitUntil: 'networkidle' });

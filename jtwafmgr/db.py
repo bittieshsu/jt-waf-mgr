@@ -412,6 +412,12 @@ SCHEMA = [
         UNIQUE(cve, product)
     );
     """,
+    # 13: a threat's virtual patch: the change that proposed it, or why none could be written
+    """
+    ALTER TABLE intel_threats ADD COLUMN patch_change_id INTEGER;
+    ALTER TABLE intel_threats ADD COLUMN patch_note TEXT NOT NULL DEFAULT '';
+    CREATE INDEX intel_threats_patch ON intel_threats(patch_change_id);
+    """,
 ]
 
 

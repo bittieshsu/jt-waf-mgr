@@ -2,6 +2,21 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.37 (2026-11-15)
+
+- Threat intelligence writes virtual patches: for a vulnerability seen in the URL or a header (open, affects or may
+  affect a confirmed version, exploited or critical / high), the second-tier LLM gives a narrow match with attack and
+  normal examples; the program checks it (anchored, no slow patterns, matches its attack examples, matches none of
+  the normal ones, the regression samples or common header values) and proposes an ordinary confident block, limited to
+  the product's site when there is one, outside sources only, with 403 tests. Applied automatically like the event
+  analysis's blocks (Settings > Change workflow, on by default); one for a vulnerability exploited in the wild that
+  affects you is not held by the daily limit. A critical alert asks a person when no rule could be written or its checks
+  failed. When a person updates the software to another version, an alert says the patch may be removed.
+- Periodic WAF review: only outside attacks the site answered with content (2xx) are listed as not refused; probes
+  answered 4xx and requests that only got a redirect (a plain-HTTP block that answers 301 before ModSecurity runs) are
+  counted apart.
+- Wording (zh-TW): 加嚴 instead of 收緊 (the check refuses the old word).
+
 ## 0.4.36 (2026-11-15)
 
 - Threat intelligence (Events > Threat intelligence; off until switched on in Settings): a second-tier LLM -- any

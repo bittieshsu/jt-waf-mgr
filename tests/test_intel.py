@@ -112,6 +112,7 @@ class Base(unittest.TestCase):
 
 class TestRun(Base):
     def test_openai_tool_loop_and_what_is_kept(self):
+        self.app.cfg.data['intel']['patches'] = False        # virtual patches: TestPatches
         Fake.script = [openai_reply(calls=[('web_search', {'query': 'Example CMS CVE'}),
                                            ('fetch_url', {'url': 'http://nvd.nist.gov/x'})]),
                        openai_reply(content=json.dumps(ANSWER))]
@@ -217,6 +218,69 @@ class TestRun(Base):
         rid = intel.run(self.app, 'manual', log=lambda m: None)
         self.assertEqual(self.app.db.one('SELECT note FROM intel_runs WHERE id=?', (rid,))['note'], 'no confirmed software')
         self.assertFalse([1 for p, h, b in Fake.seen if p.startswith('/v1')])
+
+
+class TestPatches(Base):
+    T = {'id': 'CVE-2026-11111', 'product': 'Example CMS', 'references': ['https://nvd.nist.gov/vuln/detail/CVE-2026-11111']}
+
+    def good(self, **k):
+        return dict({'possible': True, 'target': 'path', 'header': '', 'regex': '^/upload\\.php/\\.\\./',
+                     'attack_examples': ['/upload.php/../etc/passwd'], 'benign_examples': ['/upload.php', '/index.php'],
+                     'explanation': 'x'}, **k)
+
+    def test_spec_checks(self):
+        samples = [{'host': 'cms.example.com', 'method': 'GET', 'path': '/news/2026/11/hello?page=2'}]
+        spec, tests = intel._patch_spec(self.good(), self.T, samples, ['cms.example.com'])
+        self.assertEqual((spec['target'], spec['host'], spec['source']), ('path', {'mode': 'exact', 'value': 'cms.example.com'}, 'external'))
+        self.assertEqual(tests, [{'expect': 403, 'source': 'external', 'host': 'cms.example.com', 'path': '/upload.php/../etc/passwd'}])
+        self.assertEqual(intel._patch_spec(self.good(), self.T, samples, [])[0]['host']['mode'], 'any')
+        for bad, code in ((dict(possible=False), 'not_possible'), (dict(regex='upload'), 'not_anchored'),
+                          (dict(regex='^/(a+)+$', attack_examples=['/aaa']), 'regex_redos'),
+                          (dict(attack_examples=['/other']), 'misses_examples'),
+                          (dict(regex='^/'), 'matches_normal'), (dict(regex='^/news/'), 'misses_examples'),
+                          (dict(regex='^/news/', attack_examples=['/news/x']), 'matches_normal'),
+                          (dict(target='header', header='Cookie', regex='x', attack_examples=['x']), 'bad_header'),
+                          (dict(target='header', header='X-Api-Version', regex='', attack_examples=['x']), 'bad_regex'),
+                          (dict(target='header', header='User-Agent', regex='mozilla', attack_examples=['mozilla/5']), 'matches_normal')):
+            with self.assertRaises(intel.IntelError) as cm:
+                intel._patch_spec(self.good(**bad), self.T, samples, [])
+            self.assertEqual(cm.exception.code, code, bad)
+
+    def test_propose(self):
+        now = time.time()
+        det = dict(self.T, attack_vector='url', request_pattern='../ in the path after upload.php', summary='traversal', our_version='3.1.0')
+        for cve, exploited, vector in (('CVE-2026-11111', 1, 'url'), ('CVE-2026-22222', 1, 'url'), ('CVE-2026-33333', 1, 'body')):
+            self.app.db.x("INSERT INTO intel_threats(cve, product, first_seen, last_seen, affected, exploited, severity, details) "
+                          "VALUES (?, 'Example CMS', ?, ?, 'yes', ?, 'critical', ?)",
+                          (cve, now, now, exploited, json.dumps(dict(det, id=cve, attack_vector=vector))))
+        seen = []
+
+        def propose(op, kind, spec, reason, actor, **k):
+            seen.append((kind, spec, actor, k.get('owner')))
+            return 77
+
+        self.app.workflow.propose = propose
+        answers = iter([self.good(), dict(self.good(), possible=False)])
+        out, a, b = intel.propose_patches(self.app, 1, ask=lambda *x: (next(answers), 10, 5), log=lambda m: None)
+        self.assertEqual((out, a, b), ([77], 20, 10))
+        self.assertEqual(seen[0][0], 'confident_block')
+        self.assertEqual((seen[0][2], seen[0][3]), ('intel', 'intel'))
+        rows = {r['cve']: r for r in self.app.db.q('SELECT * FROM intel_threats')}
+        self.assertEqual(rows['CVE-2026-11111']['patch_change_id'], 77)
+        self.assertEqual(rows['CVE-2026-22222']['patch_note'], 'not_possible')
+        self.assertEqual(rows['CVE-2026-33333']['patch_note'], '')          # a body attack: no URL / header patch
+        # exploited, affects us, and no rule could be written: a person decides now
+        self.assertTrue(self.app.db.one("SELECT 1 FROM alerts WHERE dedup LIKE 'intel-patch:CVE-2026-22222%'"))
+        # the patch is in force and a person updated the software: the patch may go
+        self.app.db.x("INSERT INTO changes(id, op, kind, spec, direction, state, proposed_by, created_at, updated_at, rule_id) "
+                      "VALUES (77, 'add', 'confident_block', '{}', 'tighten', 'applied', 'intel', 0, 0, 10260)")
+        self.assertEqual(intel.remind_removal(self.app), 0)
+        self.app.db.x("UPDATE software SET version='3.2.1' WHERE name='Example CMS'")
+        self.assertEqual(intel.remind_removal(self.app), 1)
+        self.assertTrue(self.app.db.one("SELECT 1 FROM alerts WHERE dedup LIKE 'intel-remove:CVE-2026-11111%'"))
+        # tried once: not again
+        out, _, _ = intel.propose_patches(self.app, 2, ask=lambda *x: (self.good(), 1, 1), log=lambda m: None)
+        self.assertEqual(out, [])
 
 
 class TestFetch(unittest.TestCase):

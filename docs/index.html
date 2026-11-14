@@ -199,7 +199,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
 
 <div class="hero"><div class="wrap">
   <div>
-    <h1>jt-waf-mgr <span class="ver">v0.4.36</span></h1>
+    <h1>jt-waf-mgr <span class="ver">v0.4.37</span></h1>
     <p class="lead" data-t="lead"></p>
     <div class="btns">
       <a class="btn primary" href="https://github.com/jasoncheng7115/jt-waf-mgr">GitHub</a>
@@ -616,7 +616,7 @@ const T = {
   al5: "核准者寫下備註後標記已處理；沒處理的會透過通知管道定期提醒。",
   fl_list_h: "所有變更在同一個清單",
   fl1: "看得出是誰提出的：人、API 權杖（含擁有者與來源位址），或標示 AI 的事件分析。",
-  fl2: "一眼看出方向：收緊或放寬；放寬一律等人核准。",
+  fl2: "一眼看出方向：加嚴或放寬；放寬一律等人核准。",
   fl3: "核准前每筆都附上證據、沙箱結果與規則內容。",
   fl4: "套用後成為有編號的版本，可以退回。",
   nav_features: '功能', nav_flow: '變更流程', nav_ai: '事件分析', nav_notify: '通知', nav_security: '安全', nav_screens: '截圖', nav_install: '安裝',
@@ -662,7 +662,7 @@ const T = {
   sc_alerts: '待處理警示', sc_system: '系統檢查', sc_dark: '深色主題',
   in_sub: 'Debian 12 / 13 或 Ubuntu 24.04、Python 3.11 以上、nginx 加 ModSecurity-nginx、libmodsecurity 3.0.9 以上、OWASP CRS 4.x（可以由 jt-waf-mgr 安裝）。',
   ms_note: '全新的 nginx？只要 nginx、ModSecurity 模組與幾行設定；OWASP CRS 由 jt-waf-mgr 自己安裝與更新。', ms_link: 'ModSecurity 安裝手冊 →',
-  ai_disclaimer: 'AI 可能出錯，兩個方向都會。模型只提供建議：放寬一律要人核准，只有通過所有檢查的收緊可以自動套用。核准前請自行查看證據。',
+  ai_disclaimer: 'AI 可能出錯，兩個方向都會。模型只提供建議：放寬一律要人核准，只有通過所有檢查的加嚴可以自動套用。核准前請自行查看證據。',
   sec5_h: '帳號與登入', sec5: '密碼以 scrypt 雜湊；核准者與管理者必須設定 TOTP 雙因素驗證；連續登入失敗 5 次鎖定 15 分鐘；密碼長度、字元種類、歷史與有效期限可設定；登入後顯示上次登入時間與失敗次數；閒置 30 分鐘或滿 12 小時需重新登入（都可調整）。',
   sec6_h: '主機上的救援指令', sec6: '被鎖住、忘記密碼或手機遺失時，在主機上用 jt-waf-mgr user 列出與新增帳號、解鎖帳號、重設密碼（同時清除 TOTP，下次登入必須改密碼）、直接設定密碼、停用或啟用帳號。每項變更都寫進稽核記錄。',
   off_note: '主機沒有對外網路？安裝與更新都能離線完成（不需要 pip、不需要 Docker）。', off_link: '離線安裝與更新 →', n4: '外送記錄到 SIEM：最多 8 個目的地，各自選協定、格式（JSON、CEF、LEEF、GELF、key=value）與內容（稽核記錄、WAF 事件、警示）',

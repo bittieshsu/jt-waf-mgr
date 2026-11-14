@@ -104,6 +104,7 @@ EDITABLE = {
     'intel.mcp_url': ('str', {'re': r'(https?://[A-Za-z0-9.-]+(?::\d{1,5})?(?:/[\w./-]*)?)?', 'max': 300}),
     'intel.fetch_domains': ('list', {'re': r'[a-z0-9.-]{1,253}', 'max_items': 60}),
     'intel.max_rounds': ('int', {'min': 1, 'max': 40}),
+    'intel.patches': ('bool', {}),
     'intel.days': ('int', {'min': 1, 'max': 365}),
     'intel.daily_tokens': ('int', {'min': 0, 'max': 100000000}),
     'intel.monthly_tokens': ('int', {'min': 0, 'max': 2000000000}),

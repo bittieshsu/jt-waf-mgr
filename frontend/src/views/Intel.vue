@@ -58,6 +58,10 @@
                 <dt>{{ t('intel.vector') }}</dt><dd>{{ tOr('intel.vec.' + row.attack_vector, row.attack_vector) }}</dd>
                 <dt>{{ t('intel.pattern') }}</dt><dd>{{ row.request_pattern || '—' }}</dd>
                 <dt v-if="row.exploited">{{ t('intel.evidence') }}</dt><dd v-if="row.exploited">{{ row.exploited_evidence || '—' }}</dd>
+                <dt>{{ t('intel.patch') }}</dt><dd>
+                  <RouterLink v-if="row.patch_change_id" :to="'/changes/' + row.patch_change_id">{{ t('intel.patch_change', { id: row.patch_change_id }) }}</RouterLink>
+                  <span v-else-if="row.patch_note" class="muted">{{ tOr('intel.patch_note.' + row.patch_note, row.patch_note) }}</span>
+                  <span v-else class="muted">{{ ['url', 'header'].includes(row.attack_vector) ? t('intel.patch_pending') : t('intel.patch_none') }}</span></dd>
                 <dt>{{ t('intel.seen') }}</dt><dd>{{ fmtMinute(row.first_seen) }} – {{ fmtMinute(row.last_seen) }}</dd>
               </dl>
               <ul class="refs"><li v-for="u in row.references" :key="u"><a :href="u" target="_blank" rel="noopener noreferrer nofollow" class="mono small breakall"><Icon name="external" />{{ u }}</a></li></ul>

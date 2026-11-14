@@ -111,7 +111,7 @@ REQUIRED = {
 LITERAL = re.compile(r"""\b(?:t|tOr)\(\s*'([A-Za-z0-9_.\-]+)'\s*[,)]""")
 
 
-ZH_TERMS = [('收編', '納管'), ('擋下', '封鎖'), ('阻擋', '封鎖'), ('擋', '封鎖')]
+ZH_TERMS = [('收編', '納管'), ('擋下', '封鎖'), ('阻擋', '封鎖'), ('擋', '封鎖'), ('收緊', '加嚴')]
 
 
 def main():
@@ -136,7 +136,7 @@ def main():
                 problems.append('%s.json: %s contains the product name (never translated, keep it out)' % (lang, k))
             if isinstance(v, str) and '\uff0f' in v:
                 problems.append('%s.json: %s uses a full-width slash; use "/"' % (lang, k))
-            # wording the user rejected for Taiwan usage (2026-11-13): 擋 -> 封鎖, 收編 -> 納管
+            # wording the user rejected for Taiwan usage (2026-11-13): 擋 -> 封鎖, 收編 -> 納管; (2026-11-14) 收緊 -> 加嚴
             if lang == 'zh-TW' and isinstance(v, str):
                 for bad, good in ZH_TERMS:
                     if bad in v:

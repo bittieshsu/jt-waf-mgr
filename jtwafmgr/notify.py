@@ -135,6 +135,8 @@ TEXT = {
         'f.rv_focus_v': '事件 {events}（封鎖 {blocked}）、外部攻擊未封鎖 {open}、登入路徑 {login}、請求 {requests}、429 {s429}',
         'f.rv_focus_rest': '其他重點站台',
         'f.rv_focus_rest_v': '{n} 個,沒有異常',
+        'f.rv_not_through': '沒得手的外部攻擊',
+        'f.rv_not_through_v': '站台回 4xx {a} 筆、只拿到轉址 {b} 筆',
         'f.rv_repeat': '反覆登入的外部來源',
         'f.rv_groups': '{n} 組',
         'f.applied': '已套用的變更',
@@ -150,7 +152,7 @@ TEXT = {
         'f.key': '設定', 'f.target': '對象', 'f.alert': '警示', 'f.severity': '嚴重度', 'f.path': '路徑',
         'f.host': '站台', 'f.count': '次數', 'f.since': '開始', 'f.node': '節點', 'f.channel': '管道',
         'f.items': '項目', 'f.state': '狀態',
-        'dir.tighten': '收緊', 'dir.loosen': '放寬', 'dir.neutral': '不變',
+        'dir.tighten': '加嚴', 'dir.loosen': '放寬', 'dir.neutral': '不變',
         'k.attack_in_progress': '攻擊進行中', 'k.attack_passed': '攻擊可能沒被封鎖', 'k.false_positive': '誤判影響使用者',
         'k.integrity': '完整性問題', 'k.config_outside': '設定被外部修改', 'k.apply_failed': '套用失敗',
         'k.backup_failed': '備份失敗', 'k.auth_attack': '驗證遭到攻擊', 'k.other': '其他',
@@ -213,6 +215,8 @@ TEXT = {
         'f.rv_focus_v': 'events {events} (blocked {blocked}), outside attacks not refused {open}, login paths {login}, requests {requests}, 429 {s429}',
         'f.rv_focus_rest': 'Other focus sites',
         'f.rv_focus_rest_v': '{n}, nothing to look at',
+        'f.rv_not_through': 'Outside attacks that got nothing',
+        'f.rv_not_through_v': 'answered 4xx {a}, only redirected {b}',
         'f.rv_repeat': 'Outside sources logging in again and again',
         'f.rv_groups': '{n} group(s)',
         'f.applied': 'Changes applied',
@@ -292,6 +296,8 @@ TEXT = {
         'f.rv_focus_v': 'イベント {events}（ブロック {blocked}）、拒否されなかった外部攻撃 {open}、ログインパス {login}、リクエスト {requests}、429 {s429}',
         'f.rv_focus_rest': 'ほかの重点サイト',
         'f.rv_focus_rest_v': '{n} 件、異常なし',
+        'f.rv_not_through': '成功しなかった外部攻撃',
+        'f.rv_not_through_v': '4xx 応答 {a} 件、リダイレクトのみ {b} 件',
         'f.rv_repeat': 'ログインを繰り返す外部の送信元',
         'f.rv_groups': '{n} グループ',
         'f.applied': '適用した変更',
@@ -643,6 +649,9 @@ def render(db, cfg, event, d):
         focus = d.get('focus') or []
         shown = [f for i, f in enumerate(focus)
                  if i == 0 or f.get('outside_not_refused') or f.get('repeated_login') or f.get('s429')][:6]
+        if d.get('outside_failed_probes') or d.get('outside_redirected'):
+            facts.append((L('f.rv_not_through'), _t(lang, 'f.rv_not_through_v', a=_int(d.get('outside_failed_probes')) or 0,
+                                                     b=_int(d.get('outside_redirected')) or 0)))
         for f in shown:
             facts.append((_t(lang, 'f.rv_focus', host=_v(f.get('host'), 80)), _t(
                 lang, 'f.rv_focus_v', events=_int(f.get('events')) or 0, blocked=_int(f.get('blocked')) or 0,

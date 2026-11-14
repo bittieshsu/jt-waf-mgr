@@ -420,6 +420,42 @@ class TestWorkflow(unittest.TestCase):
         self.wf.run_checks(c2)
         self.assertEqual(self.wf.get(c2)['state'], 'pending_approval')
 
+    def test_intel_virtual_patch_auto_apply(self):
+        """Threat intelligence's patches: on by default; one for an exploited vulnerability that affects us skips the
+        daily limit; a failed check of such a patch raises a critical alert."""
+        from jtwafmgr import intel
+        self.adopt()
+        self.wf.set_setting('apply.auto_tighten_daily_limit', 0, 'boss')       # the daily limit is used up
+        now = time.time()
+
+        def threat(cve, exploited):
+            return self.app.db.x("INSERT INTO intel_threats(cve, product, first_seen, last_seen, affected, exploited, severity, details) "
+                                 "VALUES (?, 'Example CMS', ?, ?, 'yes', ?, 'critical', '{}')", (cve, now, now, exploited)).lastrowid
+
+        spec = lambda rx: {'target': 'path', 'regex': rx, 'msg': 'virtual patch', 'host': {'mode': 'any', 'value': ''}}  # noqa: E731
+        t1 = threat('CVE-2026-10001', 1)
+        c1 = self.wf.propose('add', 'confident_block', spec('^/cms/upload/exploit\\.php$'), 'patch', 'intel', via='api', owner='intel')
+        self.app.db.x('UPDATE intel_threats SET patch_change_id=? WHERE id=?', (c1, t1))
+        self.wf.run_checks(c1)
+        self.assertEqual(self.wf.get(c1)['state'], 'applying')                 # exploited: past the daily limit
+        self.fake_apply()
+        t2 = threat('CVE-2026-10002', 0)
+        c2 = self.wf.propose('add', 'confident_block', spec('^/cms/admin/other-bug\\.php$'), 'patch', 'intel', via='api', owner='intel')
+        self.app.db.x('UPDATE intel_threats SET patch_change_id=? WHERE id=?', (c2, t2))
+        self.wf.run_checks(c2)
+        self.assertEqual(self.wf.get(c2)['state'], 'pending_approval')         # not exploited: the daily limit holds
+        # an exploited one whose checks fail: a person decides now
+        t3 = threat('CVE-2026-10003', 1)
+        c3 = self.wf.propose('add', 'confident_block', spec('^/cms/broken\\.php$'), 'patch', 'intel', via='api', owner='intel',
+                             tests=[{'expect': 200, 'source': 'external', 'host': 'app.example.com', 'path': '/cms/broken.php'}])
+        self.app.db.x('UPDATE intel_threats SET patch_change_id=? WHERE id=?', (c3, t3))
+        self.wf.set_setting('sandbox.required', True, 'boss')
+        self.wf.run_checks(c3)
+        if self.wf.get(c3)['state'] == 'failed':
+            self.assertTrue(self.app.db.one("SELECT 1 FROM alerts WHERE kind='exploited_vulnerability' AND dedup LIKE 'intel-patch:CVE-2026-10003%'"))
+        intel.patch_failed(self.app, c3, 'sandbox test failed')
+        self.assertTrue(self.app.db.one("SELECT 1 FROM alerts WHERE dedup LIKE 'intel-patch:CVE-2026-10003%'"))
+
     def test_single_admin_loosening_needs_totp(self):
         self.adopt()
         self.wf.set_setting('approval.single_admin_mode', True, 'boss')

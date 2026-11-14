@@ -268,7 +268,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
 {"change_id": 2, "direction": "tighten", "state": "checking", "rule_id": 10204}
 ```
 
-`direction` 是 `tighten`（收緊：封鎖或檢查更多）或 `loosen`（放寬：更少）。無法判斷的一律視為放寬。放寬一定要人核准。
+`direction` 是 `tighten`（加嚴：封鎖或檢查更多）或 `loosen`（放寬：更少）。無法判斷的一律視為放寬。放寬一定要人核准。
 
 **種類 `confident_block`**（確定封鎖：確定是攻擊的請求直接封鎖，不看異常分數）：
 
@@ -326,7 +326,7 @@ ModSecurity 看不到這個網址：國家限制若必須擋住這類請求，ng
 `raw_admin_only`。（權杖可以停用、啟用或刪除既有的專家模式項目。）
 
 **整批**（`"op": "bundle"`）：多個操作合成一筆變更，一起檢查、核准、套用（一個版本、一次 reload、一次還原）。`ops` 放
-1 到 100 個 `{"op", "kind", "spec", "item_id"}`，其中確定封鎖最多 20 個。只有每個操作都是收緊時，整批才算收緊。
+1 到 100 個 `{"op", "kind", "spec", "item_id"}`，其中確定封鎖最多 20 個。只有每個操作都是加嚴時，整批才算加嚴。
 
 ```sh
 curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{
@@ -540,7 +540,7 @@ checking or pending_approval -> cancelled
 - 由核准者或管理者在網頁介面（`/changes/<id>`）核准。放寬一定要經過這一步。
 - 用權杖提出的變更歸屬於建立該權杖的管理者：這位管理者不能核准，除非開啟了「單人模式」（此時放寬類要當下的一次性
   密碼與書面理由）。
-- 收緊類自動套用**預設關閉**。管理者開啟後，`add` 一筆 `source: external` 的 `confident_block`，且證據顯示沒有成功的
+- 加嚴類自動套用**預設關閉**。管理者開啟後，`add` 一筆 `source: external` 的 `confident_block`，且證據顯示沒有成功的
   外部請求、也沒有內部請求時，可能不經人核准就套用（每天有上限）。所以腳本在等待時也要接受 `approved`、`applying`、
   `applied`。
 

@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.36
+# jt-waf-mgr v0.4.37
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -76,7 +76,9 @@ JSON 監査ログを読み、ファイルを手で編集する必要がありま
   数時間ごとに、プログラムが推測し人が確認したソフトウェア一覧(このホストのパッケージ、CRS、サイトのアプリケーション)の新しい
   脆弱性、特に悪用されているものを Web で検索します。このホストから出るのは製品名とバージョンだけです。ローカルモデルは MCP
   サーバー(例:SearXNG)で検索し、許可リストの https ページだけを読みます。悪用されていて当方のバージョンに影響する脆弱性は
-  緊急アラートになります。1 日・1 か月のトークン上限があります。
+  緊急アラートになります。URL やヘッダーで判別できるものには仮想パッチ(狭い確定ブロック。通常の変更と同じく証拠と
+  サンドボックスで確認)を作成し、悪用されていて影響するものは 1 日の上限を受けずにすぐ適用、確認に失敗すれば緊急アラートで
+  人の判断を求めます。1 日・1 か月のトークン上限があります。
 - **対応待ちアラート**：防がれていない可能性のある攻撃、利用者に影響する誤検知、進行中の攻撃、設定の外部変更、完全性の問題、
   適用やバックアップの失敗。承認者が対応内容を記入するまで開いたままで、定期的に再通知します。
 - **通知**：メール（SMTP、テキスト＋HTML）、Telegram、Microsoft Teams（Workflows / Adaptive Card）、Slack、Discord、Zulip、
@@ -122,8 +124,8 @@ JSON 監査ログを読み、ファイルを手で編集する必要がありま
 ## インストール
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.36.tar.gz.sig jt-waf-mgr-0.4.36.tar.gz
-tar xzf jt-waf-mgr-0.4.36.tar.gz && cd jt-waf-mgr-0.4.36
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.37.tar.gz.sig jt-waf-mgr-0.4.37.tar.gz
+tar xzf jt-waf-mgr-0.4.37.tar.gz && cd jt-waf-mgr-0.4.37
 sudo ./install.sh                             # 先にすべてのファイルとリリース署名を検証
 sudo jt-waf-mgr check                         # nginx / ModSecurity 設定を解析
 sudo jt-waf-mgr user add alice --role admin   # 一時パスワードを表示

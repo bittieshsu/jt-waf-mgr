@@ -32,6 +32,8 @@ DEFAULT_SETTINGS = {
     'apply.auto_tighten': False,                # tightening that passed every check applies without approval
     'apply.auto_tighten_daily_limit': 10,
     'apply.auto_tighten_analyst': False,        # the event analysis' confident blocks too (same conditions)
+    'apply.auto_tighten_intel': True,           # threat intelligence's virtual patches (URL / header ones; same conditions;
+                                                # one for a vulnerability exploited in the wild and affecting us skips the daily limit)
     'sandbox.required': True,
     'health.urls': [],                          # ["https://app.example.com/", ...] checked before/after apply
     'apply.wait_old_workers_seconds': 120,
@@ -809,14 +811,21 @@ class Workflow:
     def _finish_checks(self, cid, checks, state, error):
         self.db.x('UPDATE changes SET checks=? WHERE id=?', (json.dumps(checks, ensure_ascii=False), cid))
         self._state(cid, state, error)
+        if state == 'failed':
+            try:
+                from . import intel
+                intel.patch_failed(self.app, cid, error)
+            except Exception:       # noqa: BLE001 -- the change's own state is what matters here
+                pass
         self.log(cid, 'system', 'checks_' + ('passed' if state == 'pending_approval' else 'failed'), error or '')
         self.app.audit.log('change.checked', 'system', 'system', None, 'ok' if state == 'pending_approval' else 'error',
                            change_id=cid, state=state)
 
     def _maybe_auto_apply(self, cid):
         r = self.get(cid)
-        analyst = r['proposed_by'] == 'analyst'
-        on = self.setting('apply.auto_tighten_analyst' if analyst else 'apply.auto_tighten')
+        by = r['proposed_by']
+        on = self.setting({'analyst': 'apply.auto_tighten_analyst', 'intel': 'apply.auto_tighten_intel'}.get(by, 'apply.auto_tighten'))
+        urgent = by == 'intel' and self._intel_urgent(cid)
         if r['direction'] != 'tighten' or not on or r['evidence_override']:
             return
         if r['op'] != 'add' or r['kind'] != 'confident_block':
@@ -832,12 +841,18 @@ class Workflow:
         day = datetime.date.today().isoformat()
         n = self.db.one("SELECT COUNT(*) FROM change_log WHERE action='auto_approved' AND date(ts, 'unixepoch', 'localtime')=?",
                         (day,))[0]
-        if n >= self.setting('apply.auto_tighten_daily_limit'):
+        if n >= self.setting('apply.auto_tighten_daily_limit') and not urgent:
             self.log(cid, 'system', 'auto_apply_skipped', 'daily limit reached')
             return
-        self.log(cid, 'system', 'auto_approved', 'tightening, all checks passed')
+        self.log(cid, 'system', 'auto_approved', 'tightening, all checks passed' + (
+            '; virtual patch for a vulnerability exploited in the wild (no daily limit)' if urgent else ''))
         self.app.audit.log('change.approved', 'system', 'system', None, 'ok', change_id=cid, auto=True)
         self._queue_apply(cid, 'system')
+
+    def _intel_urgent(self, cid):
+        """A virtual patch for a vulnerability exploited in the wild that affects a confirmed version."""
+        r = self.db.one("SELECT exploited, affected, status FROM intel_threats WHERE patch_change_id=?", (cid,))
+        return bool(r and r['exploited'] and r['affected'] == 'yes' and r['status'] == 'open')
 
     def samples(self, limit=400):
         rows = self.db.q('SELECT host, method, path FROM regression_samples ORDER BY pinned DESC, id DESC LIMIT ?', (limit,))

@@ -21,6 +21,11 @@
             <span>{{ s['apply.auto_tighten_analyst'] ? t('uiset.on') : t('uiset.off') }}</span></label></div>
         </div>
         <div class="srow">
+          <div class="slabel"><label for="wfs-apply.auto_tighten_intel">{{ t('wfs.auto_tighten_intel') }}</label><div class="shint">{{ t('wfs.auto_tighten_intel_hint') }}</div></div>
+          <div class="sctl"><label class="switch"><input id="wfs-apply.auto_tighten_intel" v-model="s['apply.auto_tighten_intel']" type="checkbox"><span class="knob" aria-hidden="true"></span>
+            <span>{{ s['apply.auto_tighten_intel'] ? t('uiset.on') : t('uiset.off') }}</span></label></div>
+        </div>
+        <div class="srow">
           <div class="slabel"><label for="wfs-apply.auto_tighten_daily_limit">{{ t('wfs.auto_tighten_daily_limit') }}</label></div>
           <div class="sctl"><input id="wfs-apply.auto_tighten_daily_limit" v-model.number="s['apply.auto_tighten_daily_limit']" type="number" min="0" max="10000" class="w-sm"></div>
         </div>

@@ -6,8 +6,8 @@ Each review answers the questions a person used to answer by hand:
   get caught; a group with an internal source (not a known scanner) or without any attack family is a "possible
   false block" and is listed first;
 - new internal hits (not known scanners): internal applications the rules misread;
-- outside requests that look like attacks, were not refused and got an answer below 400 from the site: candidates
-  for new confident blocks (probes answered 404 are only counted);
+- outside requests that look like attacks, were not refused and got content (2xx) from the site: candidates for
+  new confident blocks (probes answered 4xx, and redirects that handed out nothing, are only counted);
 - what the automation did: event analysis, changes, IP blocks; what waits for a person (alerts, approvals);
 - the focus sites (waf.focus_sites): one line each, every review, even when nothing happened -- events, refusals,
   outside requests not refused, login paths in the WAF log, answers 429 (rate limit), a source that keeps logging in.
@@ -133,8 +133,9 @@ def build(app, since, until):
                                          'fam': collections.Counter()})
     for r in rows:
         fam = _fams(r['families']) & ATTACK_FAMILIES
-        # only what got an answer from the site (below 400): a probe answered 404 failed by itself
-        if r['origin'] == 'external' and r['outcome'] == 'logged' and fam and 0 < (r['status'] or 0) < 400:
+        # only what the site answered with content (2xx): a probe answered 404 failed by itself, and a redirect
+        # (a plain-HTTP server block that only sends 301 to https) handed out nothing
+        if r['origin'] == 'external' and r['outcome'] == 'logged' and fam and 200 <= (r['status'] or 0) < 300:
             x = g[(r['host'], r['path'])]
             x['n'] += 1
             x['src'].add(r['src_ip'])
@@ -147,6 +148,8 @@ def build(app, since, until):
     out['outside_not_refused_groups'] = len(g)
     out['outside_failed_probes'] = sum(1 for r in rows if r['origin'] == 'external' and r['outcome'] == 'logged'
                                        and (r['status'] or 0) >= 400 and _fams(r['families']) & ATTACK_FAMILIES)
+    out['outside_redirected'] = sum(1 for r in rows if r['origin'] == 'external' and r['outcome'] == 'logged'
+                                    and 300 <= (r['status'] or 0) < 400 and _fams(r['families']) & ATTACK_FAMILIES)
     out['probing_sources'] = len(probers)
 
     lo, hi = cfg['waf']['local_range']
@@ -181,7 +184,7 @@ def build(app, since, until):
         t = db.one('SELECT SUM(total) t, SUM(external) e, SUM(s429) n FROM traffic_hourly WHERE host=? AND hour>=? AND hour<?',
                    (host, h0, until))
         focus.append({'host': host, 'events': len(f), 'blocked': sum(1 for r in f if r['outcome'] == 'blocked'),
-                      'outside_not_refused': sum(1 for r in ext if r['outcome'] == 'logged' and 0 < (r['status'] or 0) < 400
+                      'outside_not_refused': sum(1 for r in ext if r['outcome'] == 'logged' and 200 <= (r['status'] or 0) < 300
                                                  and _fams(r['families']) & ATTACK_FAMILIES),
                       'login_events': len(login), 'requests': (t['t'] or 0) if t else 0,
                       'external_requests': (t['e'] or 0) if t else 0, 's429': (t['n'] or 0) if t else 0,
@@ -216,6 +219,7 @@ def summary(d):
         'awaiting_approval': len(d.get('awaiting_approval') or []),
         'ip_blocks': sum((d.get('ip_blocks') or {}).values()),
         'proposals': (d.get('analysis') or {}).get('proposals', 0),
+        'outside_redirected': d.get('outside_redirected', 0), 'outside_failed_probes': d.get('outside_failed_probes', 0),
         'suspects': [{'host': s['host'], 'method': s['method'], 'path': s['path'], 'n': s['n']}
                      for s in (d.get('score_only') or []) if s['suspect']][:5],
         'not_refused': [{'host': s['host'], 'path': s['path'], 'n': s['n'], 'families': s['families']}
