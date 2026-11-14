@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.41
+# jt-waf-mgr v0.4.42
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -122,6 +122,7 @@ something you can read, and every change into a workflow you can trust:
 | ![Event analysis](docs/shots/en/analysis.png) | ![Notifications](docs/shots/en/notifications.png) |
 | ![Alerts](docs/shots/en/alerts.png) | ![System check](docs/shots/en/system-check.png) |
 | ![Country limits by site](docs/shots/en/countries.png) | ![Request volume](docs/shots/en/traffic.png) |
+| ![Threat intelligence](docs/shots/en/intel.png) | ![Periodic WAF review](docs/shots/en/reviews.png) |
 
 ## Requirements
 
@@ -139,8 +140,8 @@ something you can read, and every change into a workflow you can trust:
 ## Install
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.41.tar.gz.sig jt-waf-mgr-0.4.41.tar.gz
-tar xzf jt-waf-mgr-0.4.41.tar.gz && cd jt-waf-mgr-0.4.41
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.42.tar.gz.sig jt-waf-mgr-0.4.42.tar.gz
+tar xzf jt-waf-mgr-0.4.42.tar.gz && cd jt-waf-mgr-0.4.42
 sudo ./install.sh                             # verifies every file and the release signature first
 sudo jt-waf-mgr check                         # parses the nginx / ModSecurity configuration
 sudo jt-waf-mgr user add alice --role admin   # prints a temporary password

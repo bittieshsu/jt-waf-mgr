@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.41
+# jt-waf-mgr v0.4.42
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -110,6 +110,7 @@ JSON 監査ログを読み、ファイルを手で編集する必要がありま
 | ![イベント分析](docs/shots/ja/analysis.png) | ![通知](docs/shots/ja/notifications.png) |
 | ![アラート](docs/shots/ja/alerts.png) | ![システムチェック](docs/shots/ja/system-check.png) |
 | ![サイトごとの国別制限](docs/shots/ja/countries.png) | ![リクエスト量](docs/shots/ja/traffic.png) |
+| ![脅威インテリジェンス](docs/shots/ja/intel.png) | ![WAF 定期レビュー](docs/shots/ja/reviews.png) |
 
 ## 要件
 
@@ -127,8 +128,8 @@ JSON 監査ログを読み、ファイルを手で編集する必要がありま
 ## インストール
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.41.tar.gz.sig jt-waf-mgr-0.4.41.tar.gz
-tar xzf jt-waf-mgr-0.4.41.tar.gz && cd jt-waf-mgr-0.4.41
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.42.tar.gz.sig jt-waf-mgr-0.4.42.tar.gz
+tar xzf jt-waf-mgr-0.4.42.tar.gz && cd jt-waf-mgr-0.4.42
 sudo ./install.sh                             # 先にすべてのファイルとリリース署名を検証
 sudo jt-waf-mgr check                         # nginx / ModSecurity 設定を解析
 sudo jt-waf-mgr user add alice --role admin   # 一時パスワードを表示

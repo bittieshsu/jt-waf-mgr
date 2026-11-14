@@ -2,6 +2,12 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.42 (2026-11-15)
+
+- System check: threat intelligence (set up, searched recently, within its token limits, a confirmed software list, no
+  open exploited vulnerability that affects you).
+- README and project site: screenshots of the threat intelligence and periodic review pages.
+
 ## 0.4.41 (2026-11-15)
 
 - "Someone was blocked?" also takes nginx's 32-digit request id alone (an error page can show it); API

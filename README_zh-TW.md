@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.41
+# jt-waf-mgr v0.4.42
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -98,6 +98,7 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
 | ![事件分析](docs/shots/zh-TW/analysis.png) | ![通知](docs/shots/zh-TW/notifications.png) |
 | ![待處理警示](docs/shots/zh-TW/alerts.png) | ![系統檢查](docs/shots/zh-TW/system-check.png) |
 | ![各站台的國家限制](docs/shots/zh-TW/countries.png) | ![請求量](docs/shots/zh-TW/traffic.png) |
+| ![威脅情報](docs/shots/zh-TW/intel.png) | ![WAF 定期檢討](docs/shots/zh-TW/reviews.png) |
 
 ## 需求
 
@@ -111,8 +112,8 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
 ## 安裝
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.41.tar.gz.sig jt-waf-mgr-0.4.41.tar.gz
-tar xzf jt-waf-mgr-0.4.41.tar.gz && cd jt-waf-mgr-0.4.41
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.42.tar.gz.sig jt-waf-mgr-0.4.42.tar.gz
+tar xzf jt-waf-mgr-0.4.42.tar.gz && cd jt-waf-mgr-0.4.42
 sudo ./install.sh                             # 先驗證每個檔案與發行檔簽章
 sudo jt-waf-mgr check                         # 解析 nginx / ModSecurity 設定
 sudo jt-waf-mgr user add alice --role admin   # 印出臨時密碼

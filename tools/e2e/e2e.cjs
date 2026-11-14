@@ -62,10 +62,10 @@ async function setLang(page, lang) {
 }
 
 const ROUTES = ['/', '/events', '/rules', '/rules/930110', '/vhosts', '/countries', '/crs', '/lookup/203.0.113.9', '/managed', '/changes', '/changes/new',
-  '/versions', '/config-changes', '/reviews', '/intel', '/guide', '/account', '/admin/users', '/admin/users/review', '/admin/tokens', '/admin/audit',
+  '/versions', '/config-changes', '/reviews', '/reviews/8', '/intel', '/guide', '/account', '/admin/users', '/admin/users/review', '/admin/tokens', '/admin/audit',
   '/admin/system', '/admin/compliance', '/admin/settings', '/admin/notify', '/alerts', '/waf', '/analysis', '/traffic', '/blocks', '/nope'];
 
-const README_PAGES = ['/', '/events', '/waf', '/analysis', '/admin/notify', '/alerts', '/admin/system', '/changes', '/rules', '/lookup/203.0.113.9', '/traffic', '/countries'];
+const README_PAGES = ['/', '/events', '/waf', '/analysis', '/admin/notify', '/alerts', '/admin/system', '/changes', '/rules', '/lookup/203.0.113.9', '/traffic', '/countries', '/intel', '/reviews/8'];
 
 async function audit(page, where) {
   const r = await page.evaluate(() => {
@@ -471,7 +471,7 @@ async function audit(page, where) {
   // Thumbnails for the project site (docs/index.html): one screen of each page, rendered at twice the resolution
   // so they stay sharp when shown small (tools/make_thumbs.py scales them down). Same session, its own window size.
   const THUMBS = { overview: '/', events: '/events', 'waf-model': '/waf', analysis: '/analysis', notifications: '/admin/notify',
-    alerts: '/alerts', 'system-check': '/admin/system', changes: '/changes', rules: '/rules', lookup: '/lookup/203.0.113.9', traffic: '/traffic', countries: '/countries' };
+    alerts: '/alerts', 'system-check': '/admin/system', changes: '/changes', rules: '/rules', lookup: '/lookup/203.0.113.9', traffic: '/traffic', countries: '/countries', intel: '/intel', reviews: '/reviews/8' };
   const state = await ctx.storageState();
   for (const scheme of ['light', 'dark']) {
     const tc = await browser.newContext({ storageState: state, viewport: { width: 1200, height: 900 }, deviceScaleFactor: 2, colorScheme: scheme });

@@ -685,7 +685,7 @@ def system_check(app):
     out.append(_item('accounts', 'warn' if no_totp or stale_temp or admins == 0 else 'ok', active=len(rows),
                      admins=admins, without_totp=no_totp, locked=locked, temporary_password_unused=stale_temp))
 
-    for fn in (_check_modsecurity, _check_jobs, _check_crs, _check_analyst, _check_blocks, _check_countries, _check_dns,
+    for fn in (_check_modsecurity, _check_jobs, _check_crs, _check_analyst, _check_intel, _check_blocks, _check_countries, _check_dns,
                _check_health, _check_changes, _check_tokens, _check_traffic, _check_logrotate):
         try:
             it = fn(app)
@@ -775,6 +775,21 @@ def _check_analyst(app):
                  reason=st.get('not_ready_reason') or st.get('llm_not_ready_reason'), model=st.get('model'),
                  last_run=last.get('finished_at') or last.get('started_at'), error=last.get('error'),
                  interval_minutes=st['interval_minutes'])
+
+
+def _check_intel(app):
+    from . import intel
+    st = intel.status(app)
+    if not st['enabled']:
+        return _item('intel', 'info', enabled=False)
+    last = st.get('last_run') or {}
+    age = _age(last.get('started_at'))
+    late = age is None or age > max(3 * st['interval_hours'] * 3600, 12 * 3600)
+    bad = not st['ready'] or st['over_budget'] or last.get('error') or late or not st['confirmed_software']
+    open_urgent = app.db.one("SELECT COUNT(*) FROM intel_threats WHERE status='open' AND exploited=1 AND affected='yes'")[0]
+    return _item('intel', 'warn' if bad or open_urgent else 'ok', enabled=True, reason=st['not_ready_reason'], model=st['model'],
+                 last_run=last.get('started_at'), error=last.get('error'), over_budget=st['over_budget'],
+                 confirmed_software=st['confirmed_software'], exploited_open=open_urgent)
 
 
 def _check_blocks(app):
