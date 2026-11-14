@@ -418,6 +418,25 @@ SCHEMA = [
     ALTER TABLE intel_threats ADD COLUMN patch_note TEXT NOT NULL DEFAULT '';
     CREATE INDEX intel_threats_patch ON intel_threats(patch_change_id);
     """,
+    # 14: "AI analysis" of one event (eventai.py): the local LLM's verdict and advice, asked for from the event page
+    """
+    CREATE TABLE event_analyses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id INTEGER NOT NULL,
+        requested_by TEXT NOT NULL,
+        requested_at REAL NOT NULL,
+        lang TEXT NOT NULL DEFAULT 'en',
+        started_at REAL,
+        finished_at REAL,
+        model TEXT NOT NULL DEFAULT '',
+        verdict TEXT,
+        confidence REAL,
+        action TEXT,
+        details TEXT NOT NULL DEFAULT '{}',
+        error TEXT
+    );
+    CREATE INDEX event_analyses_event ON event_analyses(event_id);
+    """,
 ]
 
 

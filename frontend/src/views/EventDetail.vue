@@ -42,6 +42,33 @@
         </div>
       </section>
 
+      <!-- AI analysis of this event: the local LLM's verdict and advice; the buttons open the ordinary flows -->
+      <section class="card aicard">
+        <div class="cardhead">
+          <h2><Icon name="ai" /> {{ t('evai.title') }}</h2>
+          <button v-if="canPropose" type="button" class="btn small primary" :disabled="aiBusy || aiPending || (aiInfo && !aiInfo.llm_ready)" @click="askAi">
+            <Icon name="ai" />{{ ai ? t('evai.again') : t('evai.ask') }}</button>
+        </div>
+        <p v-if="aiInfo && !aiInfo.llm_ready" class="muted small">{{ t('evai.not_ready') }}</p>
+        <ErrorBox :error="aiError" />
+        <p v-if="aiPending" class="muted" role="status"><Icon name="timer" /> {{ ai.state === 'running' ? t('evai.running') : t('evai.queued') }}</p>
+        <template v-else-if="ai && ai.error"><p class="alert warn small">{{ t('evai.failed', { e: ai.error }) }}</p></template>
+        <template v-else-if="ai && ai.verdict">
+          <p><span class="badge" :class="VCLS[ai.verdict]">{{ t('evai.v.' + ai.verdict) }}</span>
+            <span class="muted small gapl">{{ t('evai.confidence', { n: Math.round((ai.confidence || 0) * 100) }) }} · {{ ai.model }} · {{ fmtTime(ai.finished_at) }}</span></p>
+          <p>{{ ai.summary }}</p>
+          <ul v-if="(ai.evidence || []).length" class="aievidence"><li v-for="(x, i) in ai.evidence" :key="i">{{ x }}</li></ul>
+          <p class="small"><b>{{ t('evai.advice') }}</b> {{ t('evai.a.' + ai.action) }}<span v-if="ai.action_reason" class="muted gapl">{{ ai.action_reason }}</span></p>
+          <div v-if="canPropose" class="actions">
+            <RouterLink v-if="ai.action === 'block_ip'" class="btn small danger" :to="{ path: '/blocks', query: { ip: ev.src_ip, reason: t('evai.block_reason', { id: ev.id }) } }"><Icon name="lock" />{{ t('evai.do_block_ip') }}</RouterLink>
+            <RouterLink v-if="ai.action === 'block_path' || ai.action === 'block_ip'" class="btn small" :to="{ path: '/changes/new', query: { from_event: ev.id, mode: 'block' } }"><Icon name="block" />{{ t('event.create_block') }}</RouterLink>
+            <RouterLink v-if="ai.action === 'exclude'" class="btn small" :to="{ path: '/changes/new', query: { from_event: ev.id, mode: 'exclusion' } }"><Icon name="add" />{{ t('event.create_exclusion') }}</RouterLink>
+          </div>
+          <p class="muted small"><Icon name="info" /> {{ t('evai.disclaimer') }}</p>
+        </template>
+        <p v-else-if="!aiPending" class="muted small">{{ t('evai.intro') }}</p>
+      </section>
+
       <section class="card">
         <h2><Icon name="shield" /> {{ t('event.matches') }} <span class="count">{{ (ev.matches || []).length }}</span></h2>
         <div v-if="ev.truncated" class="alert info">{{ t('event.truncated') }}</div>
@@ -69,8 +96,8 @@
 
 <script setup>
 import GeoTag from '../components/GeoTag.vue'
-import { ref, computed, watch } from 'vue'
-import { get } from '../api.js'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { get, post } from '../api.js'
 import { hasRole } from '../store.js'
 import { t } from '../i18n.js'
 import { safeText, safeMultiline, fmtTime, pathWithQuery } from '../util.js'
@@ -139,4 +166,30 @@ async function load() {
   try { ev.value = await get('/events/' + encodeURIComponent(props.id)) } catch (e) { error.value = e }
 }
 watch(() => props.id, load, { immediate: true })
+
+// AI analysis: ask, then look again every few seconds until the analyst unit answers
+const VCLS = { attack: 'b-blocked', false_positive: 'b-warn', unclear: 'b-logged' }
+const aiInfo = ref(null)
+const aiError = ref(null)
+const aiBusy = ref(false)
+const ai = computed(() => aiInfo.value && aiInfo.value.analysis)
+const aiPending = computed(() => !!(ai.value && ai.value.state !== 'done'))
+let aiTimer = null
+async function loadAi() {
+  clearTimeout(aiTimer)
+  try { aiInfo.value = await get('/events/' + encodeURIComponent(props.id) + '/analysis') } catch (e) { aiError.value = e; return }
+  if (aiPending.value) aiTimer = setTimeout(loadAi, 4000)
+}
+async function askAi() {
+  aiBusy.value = true
+  aiError.value = null
+  try { aiInfo.value = await post('/events/' + encodeURIComponent(props.id) + '/analysis', {}); aiTimer = setTimeout(loadAi, 3000) } catch (e) { aiError.value = e } finally { aiBusy.value = false }
+}
+watch(() => props.id, loadAi, { immediate: true })
+onBeforeUnmount(() => clearTimeout(aiTimer))
 </script>
+
+<style scoped>
+.aievidence { margin: 4px 0 8px; padding-left: 20px; }
+.aievidence li { margin: 2px 0; }
+</style>

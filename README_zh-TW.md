@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.37
+# jt-waf-mgr v0.4.38
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -65,6 +65,9 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
   不會因為一次「誤判」就放寬；每次執行都有摘要。
   **AI 可能出錯，兩個方向都會**：模型只提供建議；放寬一律要人核准，只有通過所有檢查的加嚴可以自動套用。要用哪種 LLM
   請見[事件分析：建議的 LLM](#事件分析建議的-llm)。
+- **單一事件 AI 分析**:每個事件都有按鈕,把事件與前後相關資料(同一來源一小時與 30 天內的行為、同站同路徑 7 天內的狀況、
+  命中的規則)送給你的地端 LLM:判斷是攻擊、誤判或不確定、理由,以及建議(封鎖位址、封鎖這類請求、最窄的排除、觀察)。
+  按鈕只會開啟一般表單,每個封鎖與排除都照常檢查與核准。
 - **WAF 定期檢討**:每 3 小時一次(存下來,並送到你的通知管道):只靠 CRS 分數封鎖的請求(可能誤封鎖的排前面)、新的
   內部命中、沒被封鎖的外部攻擊、自動處理了什麼、每個重點站台一行。
 - **威脅情報(第二層 LLM)**:較強的 LLM(地端 OpenAI 相容,或雲端 OpenAI 相容 / Anthropic)每隔幾小時上網搜尋軟體清單的
@@ -108,8 +111,8 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
 ## 安裝
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.37.tar.gz.sig jt-waf-mgr-0.4.37.tar.gz
-tar xzf jt-waf-mgr-0.4.37.tar.gz && cd jt-waf-mgr-0.4.37
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.38.tar.gz.sig jt-waf-mgr-0.4.38.tar.gz
+tar xzf jt-waf-mgr-0.4.38.tar.gz && cd jt-waf-mgr-0.4.38
 sudo ./install.sh                             # 先驗證每個檔案與發行檔簽章
 sudo jt-waf-mgr check                         # 解析 nginx / ModSecurity 設定
 sudo jt-waf-mgr user add alice --role admin   # 印出臨時密碼

@@ -1107,6 +1107,38 @@ def software_guess(app, req):
     return json_response(200, dict(out, software=software.listing(app.db)))
 
 
+def event_analysis(app, req):
+    from .. import eventai
+    try:
+        eid = int(req.params['id'])
+    except ValueError:
+        raise ApiError(404, 'not_found')
+    from ..analyst import llm_ready
+    return json_response(200, {'analysis': eventai.latest(app.db, eid), 'llm_ready': llm_ready(app.cfg) is None,
+                               'llm_not_ready_reason': llm_ready(app.cfg)})
+
+
+def event_analyze(app, req):
+    """Queue the AI analysis of one event (the analyst unit asks the local LLM; the web service never does)."""
+    from .. import eventai
+    from ..analyst import llm_ready
+    try:
+        eid = int(req.params['id'])
+    except ValueError:
+        raise ApiError(404, 'not_found')
+    if not app.db.one('SELECT 1 FROM events WHERE id=?', (eid,)):
+        raise ApiError(404, 'not_found')
+    why = llm_ready(app.cfg)
+    if why:
+        raise ApiError(409, 'llm_not_ready', why)
+    try:
+        row = eventai.request(app, eid, req.user['username'], (req.user['language'] if 'language' in req.user.keys() else '') or 'en')
+    except OSError as e:
+        raise ApiError(500, 'request_failed', 'could not queue the analysis', error=e.strerror)
+    app.audit.log('event.analysis_requested', req.user['username'], src_ip=req.client_ip, event_id=eid)
+    return json_response(202, {'analysis': row, 'llm_ready': True})
+
+
 def reviews(app, req):
     from .. import review
     return json_response(200, {'items': review.listing(app.db, _limit(req, 50, 500), _int_param(req, 'before')),
@@ -1358,6 +1390,8 @@ def register(router):
     R('GET', V + '/lookups/ip/{ip}/card', ip_card, viewer('lookups:read'))
     R('GET', V + '/dns', dns_status, viewer('rules:read'))
     R('GET', V + '/reviews', reviews, viewer('events:read'))
+    R('GET', V + '/events/{id}/analysis', event_analysis, viewer('events:read'))
+    R('POST', V + '/events/{id}/analysis', event_analyze, ('role', 'operator', None))
     R('GET', V + '/intel', intel_status, viewer('events:read'))
     R('POST', V + '/intel/run', intel_run, ('role', 'approver', None))
     R('POST', V + '/intel/threats/{id}', intel_threat, ('role', 'approver', None))

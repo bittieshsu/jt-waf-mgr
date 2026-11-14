@@ -189,6 +189,14 @@ _rid = app.db.x("INSERT INTO intel_runs(node_id, started_at, finished_at, trigge
 for t in _th:
     app.db.x('INSERT INTO intel_threats(cve, product, first_seen, last_seen, last_run, affected, exploited, severity, details) VALUES (?,?,?,?,?,?,?,?,?)',
              (t['id'], t['product'], now - 5100, now - 5100, _rid, t['affected'], 1 if t['exploited'] else 0, t['severity'], json.dumps(t)))
+# an AI analysis of the first event (made up)
+_e1 = app.db.one('SELECT id FROM events ORDER BY id LIMIT 1')['id']
+app.db.x("INSERT INTO event_analyses(event_id, requested_by, requested_at, lang, started_at, finished_at, model, verdict, confidence, action, details) "
+         "VALUES (?, 'admin', ?, 'en', ?, ?, 'local-model', 'attack', 0.86, 'block_ip', ?)",
+         (_e1, now - 900, now - 890, now - 870, json.dumps({'verdict': 'attack', 'confidence': 0.86, 'action': 'block_ip',
+          'summary': 'A scanner probing for secret files: five different file names in two minutes, all answered 404, no other site use.',
+          'evidence': ['5 probes for secret files within 2 minutes', 'no internal user requests this path', 'the source hit 3 sites'],
+          'action_reason': 'the source keeps probing; a 24-hour block stops it'})))
 # a day of periodic reviews (synthetic events above; stored only, nothing sent)
 from jtwafmgr import review  # noqa: E402
 for k in range(8, 0, -1):

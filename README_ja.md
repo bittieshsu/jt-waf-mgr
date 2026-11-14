@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.37
+# jt-waf-mgr v0.4.38
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -70,6 +70,9 @@ JSON 監査ログを読み、ファイルを手で編集する必要がありま
   以前に攻撃と判定したパスは一度の「誤検知」判定では緩和しません。実行ごとの要約。
   **AI はどちらの方向にも誤ることがあります**：モデルは提案するだけで、緩和は必ず人が承認し、すべてのチェックに合格した
   強化だけが自動適用されます。使う LLM については[イベント分析：推奨する LLM](#イベント分析推奨する-llm) を参照してください。
+- **単一イベントの AI 分析**:各イベントのボタンで、イベントと周辺情報(同じ送信元の 1 時間・30 日間の行動、同じサイト・パスの
+  7 日間、一致したルール)をローカル LLM に送り、攻撃・誤検知・不明の判断と理由、対応(アドレスのブロック、リクエストの
+  ブロック、最小限の除外、様子見)を示します。ボタンは通常のフォームを開くだけで、ブロックと除外はいつもどおり確認・承認します。
 - **WAF 定期レビュー**:3 時間ごと(保存し、通知チャネルに送信):CRS スコアのみでブロックしたリクエスト(誤ブロックの可能性を
   先頭に)、新しい内部の一致、通過した外部攻撃、自動処理の内容、重点サイトごとの 1 行。
 - **脅威インテリジェンス(2 層目の LLM)**:より強力な LLM(ローカルの OpenAI 互換、またはクラウドの OpenAI 互換 / Anthropic)が
@@ -124,8 +127,8 @@ JSON 監査ログを読み、ファイルを手で編集する必要がありま
 ## インストール
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.37.tar.gz.sig jt-waf-mgr-0.4.37.tar.gz
-tar xzf jt-waf-mgr-0.4.37.tar.gz && cd jt-waf-mgr-0.4.37
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.38.tar.gz.sig jt-waf-mgr-0.4.38.tar.gz
+tar xzf jt-waf-mgr-0.4.38.tar.gz && cd jt-waf-mgr-0.4.38
 sudo ./install.sh                             # 先にすべてのファイルとリリース署名を検証
 sudo jt-waf-mgr check                         # nginx / ModSecurity 設定を解析
 sudo jt-waf-mgr user add alice --role admin   # 一時パスワードを表示

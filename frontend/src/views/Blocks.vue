@@ -112,6 +112,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { get, post } from '../api.js'
 import { t } from '../i18n.js'
 import { hasRole } from '../store.js'
@@ -137,6 +138,10 @@ const endError = ref(null)
 const ending = ref(null)
 const note = ref('')
 const nb = reactive({ ip: '', ttl: 86400, reason: '' })
+// from an event's AI analysis: the address and a reason filled in, a person still decides and presses the button
+const route = useRoute()
+if (typeof route.query.ip === 'string') nb.ip = route.query.ip.slice(0, 64)
+if (typeof route.query.reason === 'string') nb.reason = route.query.reason.slice(0, 300)
 const isAdmin = computed(() => hasRole('admin'))
 const canAdd = computed(() => hasRole('approver'))
 const activeCount = computed(() => (data.value.items || []).filter((r) => r.state === 'active').length)

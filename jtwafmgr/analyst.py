@@ -825,9 +825,11 @@ def run(app, force=False, log=print, trigger=None):
     """One scheduled run. Returns a summary dict (also when nothing ran)."""
     cfg, db = app.cfg, app.db
     tested = run_test(app, log)
+    from . import eventai
+    asked = eventai.run_pending(app, log)          # "AI analysis" of single events first: someone is waiting for it
     req = request_file(cfg)
-    if tested is not None and not force and not os.path.exists(req):
-        return {'ran': False, 'reason': 'tested', 'test': tested}
+    if (tested is not None or asked is not None) and not force and not os.path.exists(req):
+        return {'ran': False, 'reason': 'tested' if tested is not None else 'event_analysis', 'test': tested, 'events': asked}
     if os.path.exists(req):
         force, trigger = True, trigger or 'request'
         try:

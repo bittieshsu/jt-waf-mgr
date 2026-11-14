@@ -2,6 +2,18 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.38 (2026-11-15)
+
+- AI analysis of one event: a button on every event page sends the event with what is around it (the same source in
+  the hour around it and over 30 days, the same site and path over 7 days with internal users and answers, the rules it
+  hit) to the first-tier (local) LLM, which answers attack / false positive / unclear, how sure, why, and one piece of
+  advice (block the address, block this kind of request, a narrow exclusion, watch, nothing). The advice is checked
+  (an internal address is never offered for blocking; an action that does not fit the verdict becomes "watch"), and
+  its buttons open the usual forms (the IP block form filled in, a proposed confident block or exclusion from the
+  event). The analysis job answers it (jt-waf-mgr-analyst.path); the web service never talks to the LLM. API
+  `GET` / `POST /events/{id}/analysis`.
+- The IP block form can be filled in from a link (address and reason).
+
 ## 0.4.37 (2026-11-15)
 
 - Threat intelligence writes virtual patches: for a vulnerability seen in the URL or a header (open, affects or may

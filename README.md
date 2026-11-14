@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.37
+# jt-waf-mgr v0.4.38
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -76,6 +76,10 @@ something you can read, and every change into a workflow you can trust:
   **AI can be wrong, in both directions**: the model only suggests; loosening always needs a person, only tightening
   that passed every check may apply on its own. Which LLM to use: see
   [Event analysis: which LLM](#event-analysis-which-llm).
+- **AI analysis of one event**: a button on every event sends it with what is around it (the same source over the
+  hour and 30 days, the same site and path over 7 days, the rules) to your local LLM: attack, false positive or unclear,
+  why, and what to do (block the address, block the request, a narrow exclusion, watch). The buttons open the usual
+  forms; every block and exclusion is checked and approved as always.
 - **Periodic WAF review**: every 3 hours (stored, and sent to your notification channels): requests blocked by the
   CRS score alone with possible false blocks first, new internal hits, outside attacks that got through, what was done
   automatically, one line per focus site.
@@ -135,8 +139,8 @@ something you can read, and every change into a workflow you can trust:
 ## Install
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.37.tar.gz.sig jt-waf-mgr-0.4.37.tar.gz
-tar xzf jt-waf-mgr-0.4.37.tar.gz && cd jt-waf-mgr-0.4.37
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.38.tar.gz.sig jt-waf-mgr-0.4.38.tar.gz
+tar xzf jt-waf-mgr-0.4.38.tar.gz && cd jt-waf-mgr-0.4.38
 sudo ./install.sh                             # verifies every file and the release signature first
 sudo jt-waf-mgr check                         # parses the nginx / ModSecurity configuration
 sudo jt-waf-mgr user add alice --role admin   # prints a temporary password

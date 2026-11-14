@@ -209,6 +209,14 @@ async function audit(page, where) {
     ok(/\/reviews\/\d+/.test(page.url()), 'review now opens the new review');
     ok(await page.locator('.rvtiles .rvtile').count() >= 4, 'review shows its tiles');
   } else problems.push('reviews: no review-now button');
+  // AI analysis of one event: the card and its advice
+  await page.goto(base + '/events', { waitUntil: 'networkidle' });
+  const firstEv = await page.evaluate(async () => { const r = await (await fetch('/api/v1/events?limit=500')).json(); const xs = (r.items || r.events || []); return xs.length ? xs[xs.length - 1].id : null })
+  if (firstEv) {
+    await page.goto(base + '/events/' + firstEv, { waitUntil: 'networkidle' });
+    ok(await page.locator('.aicard').count() === 1, 'event: AI analysis card');
+    ok((await page.locator('.aicard').innerText()).length > 20, 'event: AI analysis shown');
+  }
   // threat intelligence: a threat opens under its row
   await page.goto(base + '/intel', { waitUntil: 'networkidle' });
   await page.locator('#intel-threats tbody tr, .datatable tbody tr').first().click();

@@ -436,6 +436,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" 'https://waf.example.com/api/v1/rules
   一致するか。DNS ジョブが調べている間は `{"pending": true}`）も返します。
 - **`GET /lookups/ip/{ip}/card`**：ページでポインターを置いたときの簡易版（場所、PTR、ブロック中か、直近 7 日）。
 - **`GET /intel`**（スコープ `events:read`）：脅威インテリジェンス：2 層目の LLM の状態とトークン使用量、見つかった脆弱性（ID、製品と当方のバージョン、悪用の有無、影響の有無、深刻度、リクエストの特徴、参考資料、状態）、ソフトウェア一覧、検索履歴。`POST /intel/run`、`POST /intel/threats/{id}`（`{"status": "open"|"handled"|"ignored"}`）、`POST /intel/software`、`PATCH`/`DELETE /intel/software/{id}`、`POST /intel/software/guess`：approver、Web ログイン。
+- **`GET /events/{id}/analysis`**（スコープ `events:read`）：単一イベントの最新の AI 分析（`state` queued / running / done、`verdict`、`confidence`、`summary`、`evidence`、`action`、`action_reason`、`model`、`error`）と LLM の準備状況。`POST /events/{id}/analysis`（operator、Web ログイン）：分析を予約。LLM 未準備は 409 `llm_not_ready`。
 - **`GET /reviews`**、**`GET /reviews/{id}`**（スコープ `events:read`）：WAF 定期レビュー（`review.interval_hours` ごと）：件数、スコアのみでブロックしたリクエスト（サイトとパスでまとめ、誤ブロックの可能性を先頭に）、新しい内部の一致、拒否されなかった外部攻撃、自動処理の内容、重点サイトごとの 1 行。リクエストの内容とクエリ文字列は含みません。`POST /reviews/run`（approver、Web ログイン）：直近の期間を今すぐレビュー。
 - **`GET /dns`**（スコープ `rules:read`）：DNS チェックの結果。サイト名ごとに各内部・外部サーバーの応答。
 - **`GET /geoip/{ip}`**：GeoIP の結果だけ（GeoIP データベースがないときは `available: false`）。

@@ -1,9 +1,10 @@
 [Unit]
-Description=jt-waf-mgr: run the event analysis (or the LLM connection test) when an admin asks for it
+Description=jt-waf-mgr: run the event analysis, the LLM connection test or the AI analysis of one event when someone asks for it
 
 [Path]
 PathExists=/var/lib/jt-waf-mgr/analyst.request
 PathExists=/var/lib/jt-waf-mgr/llm-test.request
+PathExists=/var/lib/jt-waf-mgr/event-analysis.request
 Unit=jt-waf-mgr-analyst.service
 
 [Install]
