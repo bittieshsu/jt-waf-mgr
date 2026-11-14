@@ -110,6 +110,11 @@ def _regex_ok(field, rx, allow_broad=False):
         raise SpecError(field, 'too_long')
     if not SAFE_TEXT_RE.match(rx.replace('\\', '').replace("'", '')) or '"' in rx or '\n' in rx:
         raise SpecError(field, 'forbidden_character')
+    # where Python's re (every check here) and ModSecurity's PCRE read a pattern differently: a macro %{...} is
+    # expanded at run time by ModSecurity (an empty or attacker-chosen pattern), and [[:alnum:]] is a POSIX class in
+    # PCRE but a set plus a literal ] in Python -- both would make the checks here meaningless
+    if '%{' in rx or re.search(r'\[[:.=][a-z]*[:.=]\]', rx):
+        raise SpecError(field, 'pcre_python_mismatch')
     try:
         c = re.compile(rx)
     except re.error as e:

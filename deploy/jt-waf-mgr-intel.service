@@ -5,7 +5,8 @@ After=network-online.target
 Wants=network-online.target
 # A short-lived job: asks the second-tier LLM (local or cloud) to search the web for new vulnerabilities in the
 # software list a person confirmed (product names and versions only -- never requests, addresses or site names),
-# keeps what it found and raises an alert for an exploited one that affects us. It never changes the WAF. It
+# keeps what it found, proposes virtual patches through the ordinary change workflow (checked, sandboxed; applied as
+# Settings > Change workflow allows) and raises an alert for an exploited one that affects us. It
 # decides itself whether [intel] interval_hours has passed; the timer only wakes it up every hour.
 
 [Service]

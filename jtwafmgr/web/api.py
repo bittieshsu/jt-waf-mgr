@@ -1151,7 +1151,7 @@ def event_analysis(app, req):
         raise ApiError(404, 'not_found')
     from ..analyst import llm_ready
     return json_response(200, {'analysis': eventai.latest(app.db, eid), 'llm_ready': llm_ready(app.cfg) is None,
-                               'llm_not_ready_reason': llm_ready(app.cfg)})
+                               'llm_not_ready_reason': llm_ready(app.cfg), 'llm_local': eventai.llm_local(app.cfg)})
 
 
 def event_analyze(app, req):

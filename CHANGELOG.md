@@ -2,6 +2,24 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.43 (2026-11-15)
+
+Fixes from an independent security review of the threat intelligence and the AI analysis:
+- Rule patterns: a ModSecurity macro (`%{...}`) or a POSIX class (`[[:alnum:]]`) is refused in every rule's regex --
+  ModSecurity and the Python checks would read them differently. Virtual patches get the same checks as every rule.
+- "Exploited in the wild" counts only when the search read it on a CISA page in that run (else "said to be
+  exploited", not urgent); urgent patches past the daily limit: at most 5 a day.
+- Tokens: counted after every response, the run stops when the day's or month's limit is reached, and a run that
+  fails half way (or with an unexpected error) records its end, its error and its tokens.
+- fetch_url: port 443 only; the name is resolved once and that checked address is the one connected to (no second
+  lookup); NAT64, IPv4-mapped and 6to4 addresses are refused.
+- A threat is matched to a confirmed product by the same name or whole words (no more "nginx" matching the
+  ModSecurity-nginx connector).
+- Virtual patches always carry a sandbox test (on the product's site, else on a site the WAF serves; header patches
+  send the header).
+- Software list: a host name from the logs must be a valid name; a person's site list is kept when guessing again.
+- Threat references show their site first; the event AI analysis warns when the LLM server is not on the local network.
+
 ## 0.4.42 (2026-11-15)
 
 - System check: threat intelligence (set up, searched recently, within its token limits, a confirmed software list, no

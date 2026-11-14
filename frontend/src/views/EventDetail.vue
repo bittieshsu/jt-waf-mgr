@@ -50,6 +50,7 @@
             <Icon name="ai" />{{ ai ? t('evai.again') : t('evai.ask') }}</button>
         </div>
         <p v-if="aiInfo && !aiInfo.llm_ready" class="muted small">{{ t('evai.not_ready') }}</p>
+        <p v-if="aiInfo && aiInfo.llm_ready && aiInfo.llm_local === false" class="alert warn small">{{ t('evai.not_local') }}</p>
         <ErrorBox :error="aiError" />
         <p v-if="aiPending" class="muted" role="status"><Icon name="timer" /> {{ ai.state === 'running' ? t('evai.running') : t('evai.queued') }}</p>
         <template v-else-if="ai && ai.error"><p class="alert warn small">{{ t('evai.failed', { e: ai.error }) }}</p></template>

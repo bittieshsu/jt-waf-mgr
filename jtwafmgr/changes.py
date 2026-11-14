@@ -943,7 +943,13 @@ class Workflow:
     def _intel_urgent(self, cid):
         """A virtual patch for a vulnerability exploited in the wild that affects a confirmed version."""
         r = self.db.one("SELECT exploited, affected, status FROM intel_threats WHERE patch_change_id=?", (cid,))
-        return bool(r and r['exploited'] and r['affected'] == 'yes' and r['status'] == 'open')
+        if not (r and r['exploited'] and r['affected'] == 'yes' and r['status'] == 'open'):
+            return False
+        from .intel import URGENT_PER_DAY
+        day = datetime.date.today().isoformat()
+        n = self.db.one("SELECT COUNT(*) FROM change_log WHERE action='auto_approved' AND note LIKE '%exploited in the wild%' "
+                        "AND date(ts, 'unixepoch', 'localtime')=?", (day,))[0]
+        return n < URGENT_PER_DAY
 
     def samples(self, limit=400):
         rows = self.db.q('SELECT host, method, path FROM regression_samples ORDER BY pinned DESC, id DESC LIMIT ?', (limit,))

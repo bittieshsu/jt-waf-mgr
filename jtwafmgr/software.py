@@ -140,6 +140,8 @@ def scan_logs(cfg, tail=TAIL):
             if not r or not 200 <= r[2] < 400:
                 continue
             host = site or r[0] or '(default)'
+            if not traffic.HOST_RE.fullmatch(host) or len(host) > 253:
+                continue                    # a Host header a client made up is not a site
             for name, rx in _SIGS:
                 if rx.search(r[1]):
                     hits[name][host] += 1
@@ -215,11 +217,12 @@ def refresh(app, actor):
             continue
         version = r['version']
         confirmed_flag = r['confirmed']
+        hosts = r['hosts'] if r['source'] == 'person' else json.dumps(g['hosts'])   # a person's site list stays
         if r['source'] == 'guess' and g['version'] and g['version'] != r['version']:
             version, confirmed_flag = g['version'], 0          # a new version needs a new look
-        if (version, json.dumps(g['hosts']), g['evidence']) != (r['version'], r['hosts'], r['evidence']):
+        if (version, hosts, g['evidence']) != (r['version'], r['hosts'], r['evidence']):
             db.x('UPDATE software SET version=?, hosts=?, evidence=?, confirmed=?, updated_at=? WHERE id=?',
-                 (version, json.dumps(g['hosts']), g['evidence'], confirmed_flag, now, r['id']))
+                 (version, hosts, g['evidence'], confirmed_flag, now, r['id']))
             updated += 1
     return {'added': added, 'updated': updated}
 

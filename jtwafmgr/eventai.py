@@ -54,6 +54,21 @@ Answer in {lang}: "summary" (2-4 sentences), "evidence" (up to 5 short points fr
 """
 
 
+def llm_local(cfg):
+    """Whether the first-tier LLM server is on this host or the local network (the event data stays on the premises).
+    A name that does not resolve to private addresses only counts as not local."""
+    import socket
+    import urllib.parse
+    host = urllib.parse.urlsplit(cfg['llm'].get('url') or '').hostname
+    if not host:
+        return None
+    try:
+        addrs = {i[4][0] for i in socket.getaddrinfo(host, None)}
+    except OSError:
+        return False
+    return bool(addrs) and all(ipaddress.ip_address(a.split('%')[0]).is_private for a in addrs)
+
+
 def request_file(cfg):
     return os.path.join(os.path.dirname(os.path.abspath(cfg['paths']['db'])), REQUEST)
 

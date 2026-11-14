@@ -114,9 +114,17 @@ class TestRun(Base):
     def test_openai_tool_loop_and_what_is_kept(self):
         self.app.cfg.data['intel']['patches'] = False        # virtual patches: TestPatches
         Fake.script = [openai_reply(calls=[('web_search', {'query': 'Example CMS CVE'}),
-                                           ('fetch_url', {'url': 'http://nvd.nist.gov/x'})]),
+                                           ('fetch_url', {'url': 'http://nvd.nist.gov/x'}),
+                                           ('fetch_url', {'url': 'https://www.cisa.gov/known-exploited-vulnerabilities-catalog'})]),
                        openai_reply(content=json.dumps(ANSWER))]
-        rid = intel.run(self.app, 'manual', log=lambda m: None)
+        # the CISA catalog page, read in this run, lists CVE-2026-11111: "exploited" is believed for that one only
+        old_public, old_get = intel._public, intel._get_pinned
+        intel._public = lambda h, p: '203.0.113.5'
+        intel._get_pinned = lambda u, ip, t: (200, {'content-type': 'text/html'}, b'<td>CVE-2026-11111</td>')
+        try:
+            rid = intel.run(self.app, 'manual', log=lambda m: None)
+        finally:
+            intel._public, intel._get_pinned = old_public, old_get
         r = self.app.db.one('SELECT * FROM intel_runs WHERE id=?', (rid,))
         self.assertIsNone(r['error'])
         self.assertEqual((r['tokens_in'], r['tokens_out']), (2000, 400))
@@ -162,6 +170,23 @@ class TestRun(Base):
         self.app.db.x('UPDATE intel_runs SET tokens_in=500')
         self.assertEqual(intel.over_budget(self.app.cfg, self.app.db), 'daily_tokens')
         self.assertIsNone(intel.run(self.app, 'manual', log=lambda m: None))
+
+    def test_budget_stops_a_run_and_its_tokens_count(self):
+        self.app.cfg.data['intel']['daily_tokens'] = 1500
+        Fake.script = [openai_reply(calls=[('web_search', {'query': 'a'})]), openai_reply(calls=[('web_search', {'query': 'b'})]),
+                       openai_reply(content=json.dumps(ANSWER))]
+        rid = intel.run(self.app, 'manual', log=lambda m: None)
+        r = self.app.db.one('SELECT * FROM intel_runs WHERE id=?', (rid,))
+        self.assertTrue(r['error'].startswith('budget_reached'))
+        self.assertEqual((r['tokens_in'], r['tokens_out']), (2000, 400))          # what it used before stopping
+        self.assertEqual(intel.over_budget(self.app.cfg, self.app.db), 'daily_tokens')
+
+    def test_unexpected_error_is_recorded(self):
+        Fake.script = [['not', 'an', 'object']]
+        rid = intel.run(self.app, 'manual', log=lambda m: None)
+        r = self.app.db.one('SELECT * FROM intel_runs WHERE id=?', (rid,))
+        self.assertIsNotNone(r['finished_at'])
+        self.assertTrue(r['error'])
 
     def test_not_ready_and_due(self):
         self.app.cfg.data['intel']['enabled'] = False
@@ -233,17 +258,21 @@ class TestPatches(Base):
         spec, tests = intel._patch_spec(self.good(), self.T, samples, ['cms.example.com'])
         self.assertEqual((spec['target'], spec['host'], spec['source']), ('path', {'mode': 'exact', 'value': 'cms.example.com'}, 'external'))
         self.assertEqual(tests, [{'expect': 403, 'source': 'external', 'host': 'cms.example.com', 'path': '/upload.php/../etc/passwd'}])
-        self.assertEqual(intel._patch_spec(self.good(), self.T, samples, [])[0]['host']['mode'], 'any')
+        self.assertEqual(intel._patch_spec(self.good(), self.T, samples, [], 'www.example.com')[0]['host']['mode'], 'any')
+        with self.assertRaises(intel.IntelError) as cm:                    # no site to test it on
+            intel._patch_spec(self.good(), self.T, samples, [])
+        self.assertEqual(cm.exception.code, 'no_test_possible')
         for bad, code in ((dict(possible=False), 'not_possible'), (dict(regex='upload'), 'not_anchored'),
                           (dict(regex='^/(a+)+$', attack_examples=['/aaa']), 'regex_redos'),
                           (dict(attack_examples=['/other']), 'misses_examples'),
-                          (dict(regex='^/'), 'matches_normal'), (dict(regex='^/news/'), 'misses_examples'),
+                          (dict(regex='^/'), 'bad_regex'), (dict(regex='^/news/'), 'misses_examples'),
+                          (dict(regex='^/[[:alnum:]]', attack_examples=['/a']), 'bad_regex'),
                           (dict(regex='^/news/', attack_examples=['/news/x']), 'matches_normal'),
                           (dict(target='header', header='Cookie', regex='x', attack_examples=['x']), 'bad_header'),
                           (dict(target='header', header='X-Api-Version', regex='', attack_examples=['x']), 'bad_regex'),
                           (dict(target='header', header='User-Agent', regex='mozilla', attack_examples=['mozilla/5']), 'matches_normal')):
             with self.assertRaises(intel.IntelError) as cm:
-                intel._patch_spec(self.good(**bad), self.T, samples, [])
+                intel._patch_spec(self.good(**bad), self.T, samples, [], 'www.example.com')
             self.assertEqual(cm.exception.code, code, bad)
 
     def test_propose(self):
@@ -254,6 +283,7 @@ class TestPatches(Base):
                           "VALUES (?, 'Example CMS', ?, ?, 'yes', ?, 'critical', ?)",
                           (cve, now, now, exploited, json.dumps(dict(det, id=cve, attack_vector=vector))))
         seen = []
+        self.app.db.x("INSERT INTO regression_samples(host, method, path, source, added_at) VALUES ('cms.example.com', 'GET', '/news', 'auto', 0)")
 
         def propose(op, kind, spec, reason, actor, **k):
             seen.append((kind, spec, actor, k.get('owner')))

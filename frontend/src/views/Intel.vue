@@ -45,6 +45,7 @@
           <template #cell-product="{ row }">{{ row.product }} <span class="mono small muted">{{ row.our_version }}</span></template>
           <template #cell-flags="{ row }">
             <span v-if="row.exploited" class="badge b-blocked">{{ t('intel.exploited') }}</span>
+            <span v-else-if="row.exploited_claimed" class="badge b-warn" :title="t('intel.claimed_hint')">{{ t('intel.claimed') }}</span>
             <span class="badge" :class="AFF[row.affected]">{{ t('intel.affected.' + row.affected) }}</span></template>
           <template #cell-severity="{ row }"><span class="badge" :class="SEV[row.severity] || 'b-logged'">{{ tOr('intel.sev.' + row.severity, row.severity) }}</span></template>
           <template #cell-first_seen="{ row }">{{ fmtMinute(row.first_seen) }}</template>
@@ -64,7 +65,9 @@
                   <span v-else class="muted">{{ ['url', 'header'].includes(row.attack_vector) ? t('intel.patch_pending') : t('intel.patch_none') }}</span></dd>
                 <dt>{{ t('intel.seen') }}</dt><dd>{{ fmtMinute(row.first_seen) }} – {{ fmtMinute(row.last_seen) }}</dd>
               </dl>
-              <ul class="refs"><li v-for="u in row.references" :key="u"><a :href="u" target="_blank" rel="noopener noreferrer nofollow" class="mono small breakall"><Icon name="external" />{{ u }}</a></li></ul>
+              <!-- links the model gave: the site is shown first, so a look-alike domain stands out -->
+              <ul class="refs"><li v-for="u in row.references" :key="u"><b class="small">{{ hostOf(u) }}</b>
+                <a :href="u" target="_blank" rel="noopener noreferrer nofollow" class="mono small breakall gapl"><Icon name="external" />{{ u }}</a></li></ul>
               <div v-if="isApprover" class="actions">
                 <button v-if="row.status !== 'handled'" type="button" class="btn small" :disabled="busy" @click.stop="setStatus(row, 'handled')"><Icon name="check" />{{ t('intel.mark_handled') }}</button>
                 <button v-if="row.status !== 'ignored'" type="button" class="btn small ghost" :disabled="busy" @click.stop="setStatus(row, 'ignored')"><Icon name="hide" />{{ t('intel.mark_ignored') }}</button>
@@ -155,6 +158,7 @@ const isApprover = computed(() => hasRole('approver'))
 const isAdmin = computed(() => hasRole('admin'))
 const st = computed(() => data.value && data.value.status)
 const openCount = computed(() => (data.value ? data.value.threats.filter((x) => x.status === 'open').length : 0))
+function hostOf(u) { try { return new URL(u).hostname } catch { return '' } }
 const SEV = { critical: 'b-blocked', high: 'b-blocked', medium: 'b-warn', low: 'b-logged', unknown: 'b-logged' }
 const AFF = { yes: 'b-blocked', no: 'b-ok', unknown: 'b-logged' }
 const SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3, unknown: 4 }

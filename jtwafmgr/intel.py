@@ -15,8 +15,11 @@ Two providers:
   Anthropic's own web search and web fetch (search = provider; fetch limited to intel.fetch_domains).
 
 Everything a web page or the model says is data: the answer must fit a JSON schema, every field is checked, a threat
-is kept only for a product on the confirmed list, with a CVE / GHSA id and https references. Nothing here changes
-the WAF: a threat that is exploited and affects a confirmed version raises a critical alert for a person.
+is kept only for a product on the confirmed list, with a CVE / GHSA id and https references. "Exploited in the wild"
+counts only when the run read it on a CISA page. For an attack seen in the URL or a header, a virtual patch (a narrow
+confident block) is proposed through the ordinary change workflow -- evidence over the access logs, the sandbox, and
+automatic application only as Settings > Change workflow allows (apply.auto_tighten_intel); an exploited one that
+affects a confirmed version is not held by the daily limit (at most URGENT_PER_DAY a day) and raises a critical alert.
 """
 import html.parser
 import ipaddress
@@ -243,41 +246,79 @@ def allowed(host, domains):
     return any(host == d or host.endswith('.' + d) for d in (x.lower().strip('.') for x in domains) if d)
 
 
+NOT_PUBLIC = [ipaddress.ip_network(n) for n in ('64:ff9b::/96', '64:ff9b:1::/48', '::ffff:0:0/96', '::/96', '2002::/16')]
+
+
+def _global(a):
+    """A public address -- and not one that carries an IPv4 address inside it (NAT64, mapped, 6to4)."""
+    ip = ipaddress.ip_address(a.split('%')[0])
+    return ip.is_global and not any(ip.version == n.version and ip in n for n in NOT_PUBLIC)
+
+
 def _public(host, port):
-    """Every address the name resolves to is a public one (no private, loopback, link-local ... : no SSRF)."""
+    """The one address to connect to: the first of the name's addresses, when every one of them is public (no
+    private, loopback, link-local ...: no SSRF). None when any is not."""
     try:
         infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
     except OSError:
-        return False
-    addrs = {i[4][0] for i in infos}
-    return bool(addrs) and all(ipaddress.ip_address(a.split('%')[0]).is_global for a in addrs)
+        return None
+    addrs = [i[4][0] for i in infos]
+    return addrs[0] if addrs and all(_global(x) for x in addrs) else None
 
 
-def fetch_url(url, domains, timeout=30, resolve=_public):
-    """The text of one https page on an allowed domain (redirects followed only within the allowed domains)."""
+def _get_pinned(url, ip, timeout):
+    """GET over https to exactly the checked address (no second DNS lookup that could answer differently), with the
+    certificate checked for the URL's host name. Returns (status, headers, body)."""
+    import http.client
+    import ssl
+    u = urllib.parse.urlsplit(url)
+    host = u.hostname
+
+    class Pinned(http.client.HTTPSConnection):
+        def connect(self):
+            sock = socket.create_connection((ip, 443), timeout)
+            self.sock = self._context.wrap_socket(sock, server_hostname=host)
+
+    conn = Pinned(host, 443, timeout=timeout, context=ssl.create_default_context())
+    try:
+        path = (u.path or '/') + ('?' + u.query if u.query else '')
+        conn.request('GET', path, headers={'Host': host, 'User-Agent': 'jt-waf-mgr/' + __version__ + ' (threat intelligence)',
+                                           'Accept': 'text/html, text/plain, application/json'})
+        r = conn.getresponse()
+        return r.status, {k.lower(): v for k, v in r.getheaders()}, r.read(FETCH_MAX)
+    finally:
+        conn.close()
+
+
+def fetch_url(url, domains, timeout=30, resolve=None, get=None):
+    """The text of one https page on an allowed domain, port 443 only (redirects followed only within the allowed
+    domains, every hop checked again)."""
+    resolve, get = resolve or _public, get or _get_pinned
     for _ in range(4):
-        u = urllib.parse.urlsplit(url or '')
+        try:
+            u = urllib.parse.urlsplit(url or '')
+            port = u.port
+        except ValueError:
+            return 'refused: not a valid URL'
         if u.scheme != 'https' or not u.hostname:
             return 'refused: only https URLs'
+        if port not in (None, 443):
+            return 'refused: only the standard https port'
         if not allowed(u.hostname, domains):
             return 'refused: %s is not on the list of domains this program reads' % u.hostname
-        if not resolve(u.hostname, u.port or 443):
+        ip = resolve(u.hostname, 443)
+        if not ip:
             return 'refused: the name does not resolve to public addresses only'
-        req = urllib.request.Request(url, headers={'User-Agent': 'jt-waf-mgr/' + __version__ + ' (threat intelligence)',
-                                                   'Accept': 'text/html, text/plain, application/json'})
         try:
-            with _open(req, timeout) as r:
-                ctype = (r.headers.get('Content-Type') or '').lower()
-                raw = r.read(FETCH_MAX)
-        except urllib.error.HTTPError as e:
-            loc = e.headers.get('Location') if e.code in (301, 302, 303, 307, 308) else None
-            e.close()
-            if loc:
-                url = urllib.parse.urljoin(url, loc)
-                continue
-            return 'error: HTTP %d' % e.code
-        except (urllib.error.URLError, OSError) as e:
-            return 'error: %s' % util.clip(str(getattr(e, 'reason', e)), 100)
+            status, headers, raw = get(url, ip, timeout)
+        except (OSError, ValueError) as e:
+            return 'error: %s' % util.clip(str(e), 100)
+        if status in (301, 302, 303, 307, 308) and headers.get('location'):
+            url = urllib.parse.urljoin(url, headers['location'])
+            continue
+        if status != 200:
+            return 'error: HTTP %d' % status
+        ctype = (headers.get('content-type') or '').lower()
         if not any(t in ctype for t in ('text/html', 'text/plain', 'application/json', 'application/xml', 'text/xml')):
             return 'refused: not a text page (%s)' % ctype[:60]
         text = raw.decode('utf-8', 'replace')
@@ -300,11 +341,22 @@ TOOLS_DOC = {
 class Session:
     """Runs the tools for the model and keeps the record of what was searched and read."""
 
-    def __init__(self, cfg, mcp=None, fetch=fetch_url):
+    def __init__(self, cfg, mcp=None, fetch=None, budget=None):
         self.cfg = cfg['intel']
         self.mcp = mcp
-        self.fetch = fetch
+        self.fetch = fetch or (lambda url, domains: fetch_url(url, domains))
         self.searches, self.fetched = [], []
+        self.tokens_in = self.tokens_out = 0
+        self.budget = budget            # tokens this run may still use (None: no limit)
+        self.cisa_ids = set()           # CVE ids read on a CISA page in this run (what makes a threat urgent)
+
+    def spend(self, tin, tout):
+        """Count every response's tokens as it comes (a run that fails half way still records what it used) and stop
+        when the day's or the month's limit is reached."""
+        self.tokens_in += int(tin or 0)
+        self.tokens_out += int(tout or 0)
+        if self.budget is not None and self.tokens_in + self.tokens_out > self.budget:
+            raise IntelError('budget_reached')
 
     def run_tool(self, name, args):
         args = args if isinstance(args, dict) else {}
@@ -322,7 +374,11 @@ class Session:
         if name == 'fetch_url':
             url = util.clip(str(args.get('url') or ''), 500)
             self.fetched.append(url)
-            return self.fetch(url, self.cfg['fetch_domains'])
+            text = self.fetch(url, self.cfg['fetch_domains'])
+            host = (urllib.parse.urlsplit(url).hostname or '').lower()
+            if allowed(host, ['cisa.gov']) and not text.startswith(('refused:', 'error:')):
+                self.cisa_ids.update(x.upper() for x in re.findall(r'CVE-\d{4}-\d{4,7}', text, re.I))
+            return text
         return 'error: no such tool'
 
     def openai_tools(self):
@@ -376,36 +432,41 @@ def ask_openai(cfg, session, system, user):
     c = dict(c, model=model)
     headers = {'Authorization': 'Bearer ' + key} if key else {}
     msgs = [{'role': 'system', 'content': system}, {'role': 'user', 'content': user}]
-    tin = tout = 0
     for _ in range(c['max_rounds']):
         d = _json_call(base + '/chat/completions', {'model': c['model'], 'messages': msgs, 'tools': session.openai_tools(),
                                                     'tool_choice': 'auto', 'temperature': 0}, headers, c['timeout_seconds'])
+        if not isinstance(d, dict):
+            raise IntelError('bad_response')
         u = d.get('usage') or {}
-        tin, tout = tin + int(u.get('prompt_tokens') or 0), tout + int(u.get('completion_tokens') or 0)
-        ch = (d.get('choices') or [{}])[0].get('message') or {}
-        calls = ch.get('tool_calls') or []
+        session.spend(u.get('prompt_tokens'), u.get('completion_tokens'))
+        ch = ((d.get('choices') or [{}])[0] or {}).get('message') or {}
+        calls = [x for x in (ch.get('tool_calls') or []) if isinstance(x, dict)]
         if not calls:
             try:
-                return _parse_answer(ch.get('content') or ''), tin, tout
+                return _parse_answer(ch.get('content') or ''), session.tokens_in, session.tokens_out
             except IntelError:
                 break               # ask once more for the JSON alone
         msgs.append({'role': 'assistant', 'content': ch.get('content') or '', 'tool_calls': calls})
-        for call in calls[:6]:
+        for i, call in enumerate(calls):
             fn = call.get('function') or {}
             try:
                 args = json.loads(fn.get('arguments') or '{}')
             except ValueError:
                 args = {}
-            msgs.append({'role': 'tool', 'tool_call_id': call.get('id') or '', 'content': session.run_tool(fn.get('name'), args)})
+            # every call gets an answer (the server refuses the next request otherwise); only the first 6 run
+            out = session.run_tool(fn.get('name'), args) if i < 6 else 'skipped: at most 6 tool calls at a time'
+            msgs.append({'role': 'tool', 'tool_call_id': call.get('id') or '', 'content': out})
     msgs.append({'role': 'user', 'content': 'Now answer with the JSON object only, from what you found.'})
     d = _json_call(base + '/chat/completions', {
         'model': c['model'], 'messages': msgs, 'temperature': 0,
         'response_format': {'type': 'json_schema', 'json_schema': {'name': 'threats', 'strict': True, 'schema': SCHEMA}}},
         headers, c['timeout_seconds'])
+    if not isinstance(d, dict):
+        raise IntelError('bad_response')
     u = d.get('usage') or {}
-    tin, tout = tin + int(u.get('prompt_tokens') or 0), tout + int(u.get('completion_tokens') or 0)
-    ch = (d.get('choices') or [{}])[0].get('message') or {}
-    return _parse_answer(ch.get('content') or ''), tin, tout
+    session.spend(u.get('prompt_tokens'), u.get('completion_tokens'))
+    ch = ((d.get('choices') or [{}])[0] or {}).get('message') or {}
+    return _parse_answer(ch.get('content') or ''), session.tokens_in, session.tokens_out
 
 
 def ask_anthropic(cfg, session, system, user):
@@ -423,13 +484,14 @@ def ask_anthropic(cfg, session, system, user):
         headers['anthropic-beta'] = FALLBACK_BETA
         body['fallbacks'] = 'default'
     msgs = [{'role': 'user', 'content': user}]
-    tin = tout = 0
     for _ in range(c['max_rounds'] + 5):
         d = _json_call(base + '/v1/messages', dict(body, messages=msgs), headers, c['timeout_seconds'])
+        if not isinstance(d, dict):
+            raise IntelError('bad_response')
         u = d.get('usage') or {}
-        tin += int(u.get('input_tokens') or 0) + int(u.get('cache_read_input_tokens') or 0) + int(u.get('cache_creation_input_tokens') or 0)
-        tout += int(u.get('output_tokens') or 0)
-        content = d.get('content') or []
+        session.spend(int(u.get('input_tokens') or 0) + int(u.get('cache_read_input_tokens') or 0)
+                      + int(u.get('cache_creation_input_tokens') or 0), u.get('output_tokens'))
+        content = [b for b in (d.get('content') or []) if isinstance(b, dict)]
         for b in content:            # what the provider's own tools searched and read
             if isinstance(b, dict) and b.get('type') == 'server_tool_use':
                 inp = b.get('input') or {}
@@ -437,6 +499,10 @@ def ask_anthropic(cfg, session, system, user):
                     session.searches.append(util.clip(str(inp['query']), 300))
                 elif b.get('name') == 'web_fetch' and inp.get('url'):
                     session.fetched.append(util.clip(str(inp['url']), 500))
+            elif isinstance(b, dict) and b.get('type') == 'web_fetch_tool_result':
+                r = b.get('content') if isinstance(b.get('content'), dict) else {}
+                if allowed(urllib.parse.urlsplit(str(r.get('url') or '')).hostname, ['cisa.gov']):
+                    session.cisa_ids.update(x.upper() for x in re.findall(r'CVE-\d{4}-\d{4,7}', json.dumps(r.get('content') or {}), re.I))
         stop = d.get('stop_reason')
         if stop == 'refusal':
             raise IntelError('refused', (d.get('stop_details') or {}).get('category') or '')
@@ -453,7 +519,7 @@ def ask_anthropic(cfg, session, system, user):
             msgs.append({'role': 'user', 'content': results})
             continue
         text = ''.join(b.get('text', '') for b in content if isinstance(b, dict) and b.get('type') == 'text')
-        return _parse_answer(text), tin, tout
+        return _parse_answer(text), session.tokens_in, session.tokens_out
     raise IntelError('too_many_rounds')
 
 
@@ -519,13 +585,14 @@ Rules:
 """
 PATCH_TARGETS = ('path', 'uri', 'header')
 PATCH_PER_RUN = 5
+URGENT_PER_DAY = 5           # urgent virtual patches applied past the daily limit, at most this many a day
 COMMON_HEADER_VALUES = ['mozilla/5.0 (windows nt 10.0; win64; x64) applewebkit/537.36 (khtml, like gecko) chrome/130.0 safari/537.36',
                         'application/json', 'text/html,application/xhtml+xml', 'gzip, deflate, br', 'keep-alive', 'en-us,en;q=0.9',
                         'zh-tw,zh;q=0.9', 'application/x-www-form-urlencoded', 'multipart/form-data; boundary=----x', 'no-cache',
                         'https://www.example.com/', 'bearer abc.def.ghi', '1', '']
 
 
-def _patch_spec(p, threat, samples, hosts):
+def _patch_spec(p, threat, samples, hosts, test_host=None):
     """(spec, tests) for a model's patch, or raise IntelError(problem). Everything is checked here, the rest by the
     change workflow (rulegen's checks, evidence over the access logs, the sandbox with the regression samples)."""
     from . import rulegen
@@ -542,10 +609,11 @@ def _patch_spec(p, threat, samples, hosts):
         raise IntelError('bad_header')
     try:
         c = re.compile(rx)
+        rulegen._regex_ok('regex', rx)          # the same checks every rule gets (ModSecurity / Python differences too)
     except re.error:
         raise IntelError('bad_regex')
-    if rulegen.redos_shape(rx) or not rulegen.redos_runtime_ok(rx):
-        raise IntelError('regex_redos')
+    except rulegen.SpecError as e:
+        raise IntelError('regex_redos' if 'redos' in str(e) else 'bad_regex', str(e))
     attacks = [str(x).lower() for x in (p.get('attack_examples') or []) if isinstance(x, str) and 0 < len(x) <= 2048][:3]
     benign = [str(x).lower() for x in (p.get('benign_examples') or []) if isinstance(x, str) and len(x) <= 2048][:4]
     if not attacks or not all(c.search(a) for a in attacks):
@@ -561,19 +629,27 @@ def _patch_spec(p, threat, samples, hosts):
     hit = next((x for x in benign + normal if c.search(x)), None)
     if hit is not None:
         raise IntelError('matches_normal', hit[:100])
+    # one site: only that site; none (this host's own software, e.g. nginx) or several: every site
     host = {'mode': 'exact', 'value': hosts[0]} if len(hosts) == 1 else {'mode': 'any', 'value': ''}
     spec = {'target': target, 'header': header if target == 'header' else '', 'regex': rx,
             'msg': util.clip('virtual patch %s %s' % (threat['id'], re.sub(r'[^A-Za-z0-9 ._-]', '', threat['product'])), 100),
             'reference': next((r for r in threat.get('references') or [] if len(r) <= 200 and "'" not in r and '"' not in r), ''),
             'host': host, 'source': 'external'}
+    # the sandbox needs a test: on the product's site, else on any site this WAF serves (test_host)
+    th = hosts[0] if hosts else test_host
     tests = []
-    if target in ('path', 'uri') and hosts:
-        tests = [{'expect': 403, 'source': 'external', 'host': hosts[0], 'path': a} for a in attacks
+    if th and target in ('path', 'uri'):
+        tests = [{'expect': 403, 'source': 'external', 'host': th, 'path': a} for a in attacks
                  if not any(ord(ch) < 33 or ord(ch) == 127 for ch in a)]
+    elif th:
+        tests = [{'expect': 403, 'source': 'external', 'host': th, 'path': '/', 'headers': {header: a}} for a in attacks
+                 if not any(ord(ch) < 32 or ord(ch) == 127 for ch in a)]
+    if not tests:
+        raise IntelError('no_test_possible')
     return spec, tests
 
 
-def propose_patches(app, run_id, ask=None, log=print):
+def propose_patches(app, run_id, ask=None, log=print, session=None):
     """For open threats seen in the URL or a header: ask for a narrow match, check it, propose it as an ordinary
     confident-block change (owner 'intel'). Returns (proposed, tokens in, tokens out)."""
     from .changes import ChangeError
@@ -582,6 +658,7 @@ def propose_patches(app, run_id, ask=None, log=print):
     rows = db.q("SELECT * FROM intel_threats WHERE status='open' AND patch_change_id IS NULL AND patch_note='' "
                 "AND affected IN ('yes', 'unknown') ORDER BY exploited DESC, (severity='critical') DESC, (severity='high') DESC, id")
     samples = app.workflow.samples(400)
+    test_host = next((x['host'] for x in samples if x.get('host')), None)
     proposed, tin, tout = [], 0, 0
     for r in rows:
         if len(proposed) >= PATCH_PER_RUN:
@@ -600,7 +677,9 @@ def propose_patches(app, run_id, ask=None, log=print):
         try:
             p, a, b = ask(cfg, PATCH_SYSTEM, user, PATCH_SCHEMA, 'patch')
             tin, tout = tin + a, tout + b
-            spec, tests = _patch_spec(p, dict(t, id=r['cve'], product=r['product']), samples, hosts)
+            if session is not None:
+                session.spend(a, b)             # the same budget as the search (raises when it is used up)
+            spec, tests = _patch_spec(p, dict(t, id=r['cve'], product=r['product']), samples, hosts, test_host)
             reason = util.clip('Virtual patch for %s in %s %s (%s%s), until the software is updated. %s Attack: %s. Rule: %s. '
                                'References: %s' % (r['cve'], r['product'], t.get('our_version') or '', r['severity'],
                                                    ', exploited in the wild' if r['exploited'] else '', t.get('summary') or '',
@@ -608,6 +687,8 @@ def propose_patches(app, run_id, ask=None, log=print):
                                                    ' '.join(t.get('references') or [])), 2000)
             cid = app.workflow.propose('add', 'confident_block', spec, reason, 'intel', via='api', owner='intel', tests=tests)
         except IntelError as e:
+            if e.code == 'budget_reached':
+                raise                       # not this threat's fault: it is tried again in a later run
             note = e.code
         except ChangeError as e:
             note = 'refused_%s' % ((e.details or {}).get('reason') or e.code)
@@ -660,12 +741,22 @@ def patch_failed(app, cid, error):
 # --- checking what came back -------------------------------------------------------------------------------------
 
 def _match_product(name, products):
-    n = (name or '').strip().lower()
+    """The confirmed product the model meant: the same name, else one whose name appears as whole words in the
+    model's (or the other way round), at least 4 characters -- never a stray letter or a word inside another name."""
+    n = re.sub(r'\s+', ' ', (name or '').strip().lower())
+    if len(n) < 2:
+        return None
+    for p in products:
+        if p['name'].lower() == n:
+            return p
+    best = None
     for p in products:
         q = p['name'].lower()
-        if n and (n == q or n in q or q in n):
-            return p
-    return None
+        short, long_ = (q, n) if len(q) <= len(n) else (n, q)
+        if len(short) >= 4 and re.search(r'(?<![\w-])' + re.escape(short) + r'(?![\w-])', long_):
+            if best is None or len(p['name']) > len(best['name']):
+                best = p
+    return best
 
 
 def clean(answer, products):
@@ -794,8 +885,16 @@ def _store(app, run_id, threats, now):
     return new, urgent
 
 
+def _budget_left(cfg, db):
+    c, used = cfg['intel'], tokens_used(db)
+    left = [c['daily_tokens'] - used['day']] if c['daily_tokens'] else []
+    left += [c['monthly_tokens'] - used['month']] if c['monthly_tokens'] else []
+    return max(0, min(left)) if left else None
+
+
 def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
-    """One search. Returns the run id, or None when not ready / over budget."""
+    """One search. Returns the run id, or None when not ready / over budget. Whatever happens, the run row gets its
+    end, its error and the tokens it used."""
     from . import notify
     cfg, db = app.cfg, app.db
     now = now or util.now()
@@ -807,50 +906,57 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
     c = cfg['intel']
     provider = c['provider']
     model = (c['model'] or ANTHROPIC_MODEL) if provider == 'anthropic' else openai_target(cfg)[1]
+    session = Session(cfg, budget=_budget_left(cfg, db))
     rid = db.x("INSERT INTO intel_runs(node_id, started_at, trigger, provider, model) VALUES (?,?,?,?,?)",
                (cfg['node']['id'], now, trigger, provider, model)).lastrowid
+
+    def finish(**cols):
+        cols.update(finished_at=util.now(), tokens_in=session.tokens_in, tokens_out=session.tokens_out,
+                    searches=json.dumps(session.searches[:100]), fetched=json.dumps(session.fetched[:100]))
+        db.x('UPDATE intel_runs SET %s WHERE id=?' % ', '.join('%s=?' % k for k in cols), tuple(cols.values()) + (rid,))
+
     if not products:
-        db.x("UPDATE intel_runs SET finished_at=?, note='no confirmed software' WHERE id=?", (util.now(), rid))
+        finish(note='no confirmed software')
         log('intel: no confirmed software')
         return rid
-    session = Session(cfg)
     system = SYSTEM.format(days=c['days'], max_threats=MAX_THREATS)
     user = ('Software to check (product and version; "unknown" when not known):\n' +
             '\n'.join('- %s %s' % (p['name'], p['version']) for p in products) +
             '\n\nToday is %s.' % time.strftime('%Y-%m-%d', time.localtime(now)))
     ask = ask or (ask_anthropic if provider == 'anthropic' else ask_openai)
-    tin = tout = 0
     try:
-        answer, tin, tout = ask(cfg, session, system, user)
+        answer, _, _ = ask(cfg, session, system, user)
         threats = clean(answer, products)
+        for t in threats:
+            # "exploited in the wild" counts only when this run read it on a CISA page (the Known Exploited
+            # Vulnerabilities catalog, an advisory): a web page's or the model's word alone is not enough
+            t['exploited_claimed'] = t['exploited']
+            t['exploited'] = t['exploited'] and t['id'] in session.cisa_ids
         note = util.clip(str(answer.get('notes') or ''), 1000) if isinstance(answer, dict) else ''
-        db.x('UPDATE intel_runs SET finished_at=?, tokens_in=?, tokens_out=?, searches=?, fetched=?, threats=?, note=? WHERE id=?',
-             (util.now(), tin, tout, json.dumps(session.searches[:100]), json.dumps(session.fetched[:100]),
-              json.dumps(threats, ensure_ascii=False), note, rid))
-    except IntelError as e:
-        db.x('UPDATE intel_runs SET finished_at=?, tokens_in=?, tokens_out=?, searches=?, fetched=?, error=? WHERE id=?',
-             (util.now(), tin, tout, json.dumps(session.searches[:100]), json.dumps(session.fetched[:100]),
-              '%s: %s' % (e.code, e.detail) if e.detail else e.code, rid))
-        notify.enqueue(db, cfg, 'intel.failed', {'run_id': rid, 'error': e.code})
-        log('intel: run %d failed: %s' % (rid, e.code))
+    except Exception as e:      # noqa: BLE001 -- recorded, notified; the next run starts afresh
+        code = e.code if isinstance(e, IntelError) else 'internal_%s' % type(e).__name__
+        detail = e.detail if isinstance(e, IntelError) else util.clip(str(e), 200)
+        finish(error='%s: %s' % (code, detail) if detail else code)
+        notify.enqueue(db, cfg, 'intel.failed', {'run_id': rid, 'error': code})
+        log('intel: run %d failed: %s' % (rid, code))
         return rid
+    finish(threats=json.dumps(threats, ensure_ascii=False), note=note)
     new, urgent = _store(app, rid, threats, util.now())
     if c.get('patches', True):
         try:
-            patches, a, b = propose_patches(app, rid, ask=patch_ask, log=log)
-        except IntelError as e:
-            patches, a, b = [], 0, 0
-            log('intel: run %d: virtual patches failed: %s' % (rid, e.code))
-        if a or b:
-            db.x('UPDATE intel_runs SET tokens_in=tokens_in+?, tokens_out=tokens_out+? WHERE id=?', (a, b, rid))
+            propose_patches(app, rid, ask=patch_ask, log=log, session=session)
+        except Exception as e:      # noqa: BLE001 -- the threats are kept; the patches wait for the next run
+            log('intel: run %d: virtual patches stopped: %s' % (rid, getattr(e, 'code', type(e).__name__)))
+        db.x('UPDATE intel_runs SET tokens_in=?, tokens_out=? WHERE id=?', (session.tokens_in, session.tokens_out, rid))
     try:
         remind_removal(app)
     except Exception as e:      # noqa: BLE001 -- a reminder never fails the search
         log('intel: removal reminder failed: %s' % type(e).__name__)
+    tokens = session.tokens_in + session.tokens_out
     app.audit.log('intel.run', 'intel', 'system', None, 'ok', run_id=rid, threats=len(threats), new=len(new),
-                  urgent=len(urgent), tokens=tin + tout)
+                  urgent=len(urgent), tokens=tokens)
     for t in urgent:
-        # exploited in the wild and our version is affected: a person acts now (a virtual patch, the update)
+        # exploited in the wild (read on a CISA page) and our version is affected: a person acts now
         alerts.raise_alert(db, app.audit, 'intel', 'exploited_vulnerability', 'critical', 'intel:%s:%s' % (t['id'], t['product']),
                            {'reason': '%s in %s %s is exploited in the wild: %s' % (t['id'], t['product'], t['our_version'],
                                                                                   util.clip(t['summary'], 200)),
@@ -860,7 +966,7 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
             {'id': t['id'], 'product': t['product'], 'severity': t['severity'], 'affected': t['affected'],
              'exploited': t['exploited']} for t in new[:10]], 'count': len(new)},
             severity='critical' if any(t['exploited'] and t['affected'] == 'yes' for t in new) else 'warning')
-    log('intel: run %d: %d threats (%d new, %d urgent), %d tokens' % (rid, len(threats), len(new), len(urgent), tin + tout))
+    log('intel: run %d: %d threats (%d new, %d urgent), %d tokens' % (rid, len(threats), len(new), len(urgent), tokens))
     return rid
 
 
