@@ -217,6 +217,13 @@ async function audit(page, where) {
     ok(await page.locator('.aicard').count() === 1, 'event: AI analysis card');
     ok((await page.locator('.aicard').innerText()).length > 20, 'event: AI analysis shown');
   }
+  // sites: "switch WAF on" opens the reason form (proposing is tested in the unit tests)
+  await page.goto(base + '/vhosts', { waitUntil: 'networkidle' });
+  const swBtn = page.locator('table button.btn.tiny').filter({ has: page.locator('svg') }).first();
+  if (await swBtn.count()) {
+    await swBtn.click();
+    ok(await page.locator('textarea').count() >= 1, 'sites: the WAF switch asks why');
+  }
   // threat intelligence: a threat opens under its row
   await page.goto(base + '/intel', { waitUntil: 'networkidle' });
   await page.locator('#intel-threats tbody tr, .datatable tbody tr').first().click();

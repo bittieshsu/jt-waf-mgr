@@ -439,6 +439,11 @@ class TestMonitor(unittest.TestCase):
         disk['before'] = 'c' * 64                                    # someone else's edit on top
         self.assertEqual(mon._cause({'ts': now - 60}, ch), 'outside')
         self.assertEqual(mon._cause({'ts': now - 60}, dict(ch, changed=['/etc/nginx/nginx.conf'])), 'outside')
+        # the same apply also rewrote the IP block list (a block and its recon blocks in the same minute): still ours
+        disk['before'] = 'a' * 64
+        bf = self.env.cfg['blocks']['file']
+        self.assertEqual(mon._cause({'ts': now - 60}, dict(ch, changed=[mdir + 'before-crs.conf', bf])), 'jt-waf-mgr')
+        self.assertEqual(mon._cause({'ts': now - 60}, dict(ch, changed=[bf, '/etc/nginx/nginx.conf'])), 'outside')
 
     def test_backup_download_needs_a_fresh_code_and_is_audited(self):
         from jtwafmgr import auth

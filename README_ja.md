@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.38
+# jt-waf-mgr v0.4.39
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -127,8 +127,8 @@ JSON 監査ログを読み、ファイルを手で編集する必要がありま
 ## インストール
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.38.tar.gz.sig jt-waf-mgr-0.4.38.tar.gz
-tar xzf jt-waf-mgr-0.4.38.tar.gz && cd jt-waf-mgr-0.4.38
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.39.tar.gz.sig jt-waf-mgr-0.4.39.tar.gz
+tar xzf jt-waf-mgr-0.4.39.tar.gz && cd jt-waf-mgr-0.4.39
 sudo ./install.sh                             # 先にすべてのファイルとリリース署名を検証
 sudo jt-waf-mgr check                         # nginx / ModSecurity 設定を解析
 sudo jt-waf-mgr user add alice --role admin   # 一時パスワードを表示
@@ -180,6 +180,16 @@ ModSecurity のメイン設定ファイルを見つけるため）、`nginx -t` 
 jt-waf-mgr にルールを変更させるには、適用プログラムを有効にし（`sudo ./install.sh --enable-apply`）、ヘルスチェック URL を
 設定し、「ルール → 管理対象ルール」で既存のルールファイルを取り込みます（通常の変更と同様に admin が承認）。それまでは何も
 書き込みません。サイトのルールファイルがなくても取り込めます。
+
+### サイトの WAF を有効にする
+
+「サイト」ページは各 server ブロックと ModSecurity の有無を表示します。無効のサイトで承認者が「WAF を有効化」を押して理由を
+書くと変更になります。確認ではアクセスログにあるそのサイトの最近の正常なリクエストを ModSecurity 有効の状態でサンドボックスで
+再生し、拒否されるものを示します。人が承認すると、root の適用プログラムがサイトの `server {` の次の行に印付きの**1 行**——
+`include <他のサイトが ModSecurity を有効にするスニペット>;  # jt-waf-mgr: WAF on (change #N)`——を追加し、`nginx -t`、reload、
+ヘルスチェックを行い、失敗すればすべて元に戻します。「WAF を無効化」はその行だけを削除します(緩和として通常どおり承認)。
+他の方法で有効にした WAF や、手書きの `modsecurity off;` があるブロックには触れません。書き込み前に root プログラムが計画を
+自分で再計算し、承認された内容と一致しファイルが確認時のままのときだけ書き込みます。
 
 ### OWASP CRS
 

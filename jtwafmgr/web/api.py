@@ -799,10 +799,36 @@ def vhosts(app, req):
     items.sort(key=lambda s: (s['server_names'][0] if s['server_names'] else '~', s['file'], s['line']))
     _vhost_countries(app, items)
     ext = _outside_requests(app)
+    from .. import sitewaf
+    lines = {}
     for s in items:
         s['outside_7d'] = sum(ext.get(x.lower(), 0) for x in s['server_names'] if x and x != '_') if ext is not None else None
         s['dns'] = _dns_of(app, s['server_names'])
-    return json_response(200, {'items': items, 'warnings': m.warnings + n.errors + m.errors})
+        # switched on from here (the marked include right after `server {`): it can be switched off from here too
+        if s['file'] not in lines:
+            try:
+                with open(s['file'], encoding='utf-8', errors='replace', newline='') as fh:
+                    lines[s['file']] = sitewaf.split_lines(fh.read())
+            except OSError:
+                lines[s['file']] = []
+        ls = lines[s['file']]
+        s['waf_by_us'] = 0 < s['line'] < len(ls) and bool(sitewaf.MARK_LINE.match(ls[s['line']].rstrip('\n')))
+    open_ = {}
+    for r in app.db.q("SELECT id, spec FROM changes WHERE op='site_waf' AND state NOT IN (%s)" % ','.join('?' * len(FINAL)), FINAL):
+        open_[json.loads(r['spec']).get('host')] = r['id']
+    return json_response(200, {'items': items, 'warnings': m.warnings + n.errors + m.errors, 'site_changes': open_})
+
+
+def site_waf_propose(app, req):
+    """Approver: ModSecurity on (or off again) for one site, as a change."""
+    b = req.body()
+    if not isinstance(b, dict):
+        raise ApiError(400, 'bad_request', 'an object')
+    try:
+        cid = _wf(app).propose_site_waf(b.get('mode'), b.get('host'), b.get('reason'), req.user['username'], role=req.user['role'])
+    except ChangeError as e:
+        raise _change_error(e)
+    return json_response(202, {'change_id': cid})
 
 
 def _dns_of(app, names):
@@ -1390,6 +1416,7 @@ def register(router):
     R('GET', V + '/lookups/ip/{ip}/card', ip_card, viewer('lookups:read'))
     R('GET', V + '/dns', dns_status, viewer('rules:read'))
     R('GET', V + '/reviews', reviews, viewer('events:read'))
+    R('POST', V + '/vhosts/waf', site_waf_propose, ('role', 'approver', None))
     R('GET', V + '/events/{id}/analysis', event_analysis, viewer('events:read'))
     R('POST', V + '/events/{id}/analysis', event_analyze, ('role', 'operator', None))
     R('GET', V + '/intel', intel_status, viewer('events:read'))
@@ -1423,7 +1450,7 @@ def register(router):
 
 # --- P2: managed files, changes, versions -----------------------------------------------------
 
-from ..changes import ChangeError  # noqa: E402
+from ..changes import FINAL, ChangeError  # noqa: E402
 from ..modsecconf import parse_rules_text  # noqa: E402
 
 

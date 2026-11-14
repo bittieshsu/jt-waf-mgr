@@ -513,6 +513,33 @@ class Evidence:
         rows = self.db.q("SELECT DISTINCT host, path FROM events WHERE outcome='blocked' OR rule_ids NOT IN ('', ',,')")
         return {(r['host'].lower(), self._sample_key(r['path'])) for r in rows}
 
+    def site_requests(self, host, limit=200, seconds=120):
+        """A site's normal requests from the access logs (GET, answered 2xx / 3xx, not from known scanners), with
+        their query strings, each different path once: what switching its WAF on must not refuse."""
+        host = host.lower()
+        out, seen, kinds = [], set(), {}
+        for d in self.logs.lines(time.time() + seconds):
+            if d['host'] != host or d['method'] != 'GET' or not d['status'][:1] in ('2', '3'):
+                continue
+            uri = d['uri']
+            if not uri.startswith('/') or len(uri) > 2000 or re.search(r'[\s"<>\\]', uri):
+                continue
+            key = uri.split('?', 1)[0]
+            if key in seen:
+                continue
+            ip = d['ip']
+            kind = kinds.get(ip)
+            if kind is None:
+                kind = kinds[ip] = ('scanner' if not ip or util.ip_in(ip, self.cfg.known_scanners) else
+                                    'internal' if util.ip_in(ip, self.cfg.internal_networks) else 'external')
+            if kind == 'scanner':
+                continue
+            seen.add(key)
+            out.append({'host': host, 'method': 'GET', 'path': uri, 'source': kind})
+            if len(out) >= limit:
+                break
+        return out
+
     def collect_samples(self, per_host=8, seconds=600):
         """Successful GET paths per site (query strings dropped) become regression samples, ranked by
         the number of distinct sources (internal ones first; at least MIN_SAMPLE_SOURCES). Never from

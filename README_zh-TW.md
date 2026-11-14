@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.38
+# jt-waf-mgr v0.4.39
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -111,8 +111,8 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
 ## 安裝
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.38.tar.gz.sig jt-waf-mgr-0.4.38.tar.gz
-tar xzf jt-waf-mgr-0.4.38.tar.gz && cd jt-waf-mgr-0.4.38
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.39.tar.gz.sig jt-waf-mgr-0.4.39.tar.gz
+tar xzf jt-waf-mgr-0.4.39.tar.gz && cd jt-waf-mgr-0.4.39
 sudo ./install.sh                             # 先驗證每個檔案與發行檔簽章
 sudo jt-waf-mgr check                         # 解析 nginx / ModSecurity 設定
 sudo jt-waf-mgr user add alice --role admin   # 印出臨時密碼
@@ -161,6 +161,15 @@ jt-waf-mgr 只寫 ModSecurity 的檔案，永遠不寫 nginx 設定。它會讀 
 
 要讓 jt-waf-mgr 修改規則：啟用套用程式（`sudo ./install.sh --enable-apply`）、設定健康檢查網址，再到「規則 → 受管理的
 規則」納管現有規則檔（由 admin 核准，跟一般變更一樣）。在那之前什麼都不會寫入。沒有站台規則檔也能納管。
+
+### 為站台啟用 WAF
+
+「站台」頁列出每個 server 區塊以及 ModSecurity 是否有在運作。對沒有啟用的站台,核准者按「啟用 WAF」並寫下原因,就成為一筆
+變更。檢查時會在沙箱以開啟 ModSecurity 的狀態重放存取記錄中這個站最近的正常請求,列出會被拒絕的;由人核准;root 套用
+程式在該站的 `server {` 下一行加入**一行**帶標記的設定——`include <其他站台用來開啟 ModSecurity 的片段>;  # jt-waf-mgr: WAF on
+(change #N)`——然後 `nginx -t`、reload、檢查健康檢查網址,任何一步失敗就全部還原。「停用 WAF」只會移除那一行(屬於放寬,
+照一般規則核准);用其他方式開啟的 WAF,或手寫 `modsecurity off;` 的區塊都不會動。寫入前 root 程式會自己重新計算一次,
+跟核准的內容一致、檔案內容也和檢查時相同才會寫。
 
 ### OWASP CRS
 

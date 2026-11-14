@@ -85,6 +85,8 @@ class Applier:
             return self.check_blocks(req)
         if isinstance(req, dict) and req.get('action') == 'countries':
             return self.check_countries(req)
+        if isinstance(req, dict) and req.get('action') == 'site_waf':
+            return self.check_site_waf(req)
         if not isinstance(req, dict) or req.get('action') != 'apply':
             raise Fail('request', 'unknown action')
         if not isinstance(req.get('version'), int) or not isinstance(req.get('change_id'), int):
@@ -658,6 +660,115 @@ class Applier:
         return {'result': 'ok', 'sets': sorted(names), 'want': req['want'], 'changed': True,
                 'summary': '%d lists (%d written or removed), nginx reloaded (%s)' % (len(names), len(changed), note)}
 
+    # --- ModSecurity on / off for one site (sitewaf.py) ----------------------------------------------------------
+    def check_site_waf(self, req):
+        """The request only names the site, the mode and what the web service saw; root computes the plan itself and
+        goes ahead only when both agree and every file still has the contents that were checked and approved."""
+        from . import sitewaf
+        if not isinstance(req.get('change_id'), int) or req.get('mode') not in sitewaf.MODES:
+            raise Fail('request', 'bad site_waf request')
+        try:
+            p = sitewaf.plan(self.cfg, str(req.get('host') or ''), req['mode'])
+        except sitewaf.PlanError as e:
+            raise Fail('validate', 'site %s: %s %s' % (clean(str(req.get('host')), 100), e.code, e.details or ''))
+        want = sorted((b['file'], b['line'], b['sha256']) for b in req.get('blocks') or [] if isinstance(b, dict))
+        got = sorted((b['file'], b['line'], b['sha256']) for b in p['blocks'])
+        if want != got:
+            raise Fail('drift', 'the server blocks of %s changed since the checks (files, lines or contents)' % p['host'])
+        if req['mode'] == 'enable' and (req.get('snippet') != p['snippet'] or req.get('snippet_text') != p['snippet_text']):
+            raise Fail('drift', 'the ModSecurity snippet changed since the checks')
+        urls = req.get('health_urls') or []
+        if not isinstance(urls, list) or len(urls) > 100 or not all(
+                isinstance(u, str) and re.fullmatch(r'https?://[a-z0-9.-]+(?::\d{1,5})?/\S{0,500}', u) for u in urls):
+            raise Fail('request', 'bad health check list')
+        try:
+            req['wait_old_workers'] = max(0, min(600, int(req.get('wait_old_workers') or 120)))
+        except (TypeError, ValueError):
+            raise Fail('request', 'bad wait_old_workers')
+        top = os.path.dirname(os.path.realpath(self.cfg['paths']['nginx_conf'])).rstrip('/') + '/'
+        for f in {b['file'] for b in p['blocks']}:
+            real = os.path.realpath(f)
+            if not real.startswith(top) or not os.path.isfile(real):
+                raise Fail('validate', '%s is not a file inside the nginx configuration directory' % f)
+        if p['snippet'] and not os.path.realpath(p['snippet']).startswith(top):
+            raise Fail('validate', 'the snippet is outside the nginx configuration directory')
+        req['plan'] = p
+        return req
+
+    def site_waf_write(self, req):
+        from . import sitewaf
+        p = req['plan']
+        cid = req['change_id']
+        by_file = {}
+        for b in p['blocks']:
+            by_file.setdefault(os.path.realpath(b['file']), []).append(b['line'])
+        urls = req.get('health_urls') or []
+        pre = self.health(urls)          # first: it can take a while, and the files are read and written right after it
+        want = {os.path.realpath(b['file']): b['sha256'] for b in p['blocks']}
+        saved = {}
+        for f in by_file:
+            fd = os.open(f, os.O_RDONLY | os.O_NOFOLLOW)
+            with os.fdopen(fd, 'rb') as fh:
+                st = os.fstat(fh.fileno())
+                data = fh.read()
+            if hashlib.sha256(data).hexdigest() != want[f]:
+                # changed between the check and now (certbot, a person): nothing of it is written
+                raise Fail('drift', '%s changed since the checks' % f)
+            saved[f] = (data, st.st_mode & 0o7777, st.st_uid, st.st_gid)
+        self.check_binary()
+        before, _ = sitewaf.waf_states(self.cfg)
+        snip, made_snip = p['snippet'], False
+        log = []
+        try:
+            if req['mode'] == 'enable' and p['snippet_text'] is not None and not os.path.lexists(snip):
+                os.makedirs(os.path.dirname(snip), mode=0o755, exist_ok=True)
+                write_atomic(snip, p['snippet_text'].encode('utf-8'), 0o644)
+                made_snip = True
+                log.append('wrote %s' % snip)
+            for f, lines in by_file.items():
+                text, mode, uid, gid = saved[f]
+                new = sitewaf.edit(text.decode('utf-8'), lines, req['mode'], snip, cid)
+                write_atomic(f, new.encode('utf-8'), mode)
+                os.chown(f, uid, gid)
+            log.append('%s: %d server block(s) %s' % (p['host'], len(p['blocks']), 'on' if req['mode'] == 'enable' else 'off'))
+            # only the planned blocks changed: every other server block keeps its ModSecurity state
+            after, errs = sitewaf.waf_states(self.cfg)
+            planned = {(os.path.realpath(b['file']), b['nth']) for b in p['blocks']}
+            on = req['mode'] == 'enable'
+            if errs or set(after) != set(before) or any(after[k] != before[k] for k in after if k not in planned) or \
+                    any(after[k] != (before[k][0], on) for k in planned):
+                raise Fail('verify', 'the written files do not change exactly the planned server blocks')
+            self.test_config()
+            log.append('nginx -t ok')
+            log.append(self.reload(int(req.get('wait_old_workers') or 120)))
+            post = self.health(urls)
+            diff = {u: [pre[u], post[u]] for u in urls if pre[u] != post[u]}
+            if diff:
+                raise Fail('health', 'health check changed for %d url(s)' % len(diff), health=diff)
+        except Exception as e:      # noqa: BLE001 -- whatever went wrong, the files are put back
+            if not isinstance(e, Fail):
+                e = Fail('write', '%s: %s' % (type(e).__name__, clean(str(e), 300)))
+            for f, (text, mode, uid, gid) in saved.items():
+                write_atomic(f, text, mode)
+                os.chown(f, uid, gid)
+            if made_snip:
+                try:
+                    os.unlink(snip)
+                except OSError:
+                    pass
+            try:
+                self.reload(int(req.get('wait_old_workers') or 120))
+            except Fail:
+                pass
+            e.summary += ' -- the files were put back, nginx reloaded'
+            raise e
+        files = {}
+        for f in list(by_file) + ([snip] if made_snip else []):
+            with open(f, 'rb') as fh:
+                files[os.path.realpath(f)] = hashlib.sha256(fh.read()).hexdigest()
+        return {'result': 'ok', 'summary': '; '.join(log), 'files': files, 'snippet_created': made_snip,
+                'site': {'host': p['host'], 'mode': req['mode'], 'blocks': [[b['file'], b['line']] for b in p['blocks']]}}
+
     def crs_switch(self, req):
         from . import crsupdate
         crs, to = req['crs_path'].rstrip('/'), req['to']
@@ -841,6 +952,9 @@ class Applier:
                 elif req.get('action') == 'countries':
                     res.update(action='countries')
                     res.update(self.countries_write(req))
+                elif req.get('action') == 'site_waf':
+                    res.update(action='site_waf', change_id=req['change_id'])
+                    res.update(self.site_waf_write(req))
                 else:
                     res.update(version=req['version'], change_id=req['change_id'])
                     res.update(self.apply(req))
@@ -852,6 +966,9 @@ class Applier:
                 res.update(action='blocks')
             if base.startswith('countries-'):
                 res.update(action='countries')
+            ms = re.match(r'site-c(\d+)$', base)
+            if ms:
+                res.update(action='site_waf', change_id=int(ms.group(1)))
             mc = re.match(r'crs-c(\d+)$', base)
             if mc:
                 res.update(action='crs_switch', change_id=int(mc.group(1)))

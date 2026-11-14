@@ -410,6 +410,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" 'https://waf.example.com/api/v1/rules
 - **`GET /lookups/ip/{ip}/card`**：頁面上滑鼠停留時顯示的精簡版（位置、PTR、是否封鎖中、最近 7 天）。
 - **`GET /intel`**（scope `events:read`）：威脅情報：第二層 LLM 的狀態與 token 用量、找到的漏洞（編號、產品與我們的版本、是否已被利用、是否影響我們、嚴重度、請求特徵、參考資料、狀態）、軟體清單、搜尋記錄。`POST /intel/run`、`POST /intel/threats/{id}`（`{"status": "open"|"handled"|"ignored"}`）、`POST /intel/software`、`PATCH`/`DELETE /intel/software/{id}`、`POST /intel/software/guess`：approver，網頁登入。
 - **`GET /events/{id}/analysis`**（scope `events:read`）：單一事件最近一次的 AI 分析（`state` queued / running / done、`verdict`、`confidence`、`summary`、`evidence`、`action`、`action_reason`、`model`、`error`）與 LLM 是否就緒。`POST /events/{id}/analysis`（operator，網頁登入）：排入分析；LLM 未就緒回 409 `llm_not_ready`。
+- **`POST /vhosts/waf`**（approver，網頁登入）：`{"host", "mode": "enable"|"disable", "reason"}` -> 202 `{"change_id"}`：以變更為一個站台開啟（或再關閉）ModSecurity。`GET /vhosts` 會標示 `waf_by_us`（由這裡開啟的）並列出進行中的 `site_changes`。
 - **`GET /reviews`**、**`GET /reviews/{id}`**（scope `events:read`）：WAF 定期檢討（每 `review.interval_hours` 小時）：數量、只靠分數封鎖的請求（依站台與路徑分組，可能誤封鎖的排前面）、新的內部命中、沒被封鎖的外部攻擊、自動處理了什麼、每個重點站台一行。不含請求內容與查詢字串。`POST /reviews/run`（approver，網頁登入）：立即檢討最近一段時間。
 - **`GET /dns`**（scope `rules:read`）：DNS 檢查結果，每個站名在各台內部、外部 DNS 的回答。
 - **`GET /geoip/{ip}`**：只回 GeoIP 結果（沒有安裝 GeoIP 資料庫時 `available: false`）。

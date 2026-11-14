@@ -496,6 +496,19 @@ http {
             return {'ok': False, 'error': 'sandbox_failed', 'message': _clean(str(e))[-2000:]}
         return evaluate(cases, res, self.cfg)
 
+    def run_site_waf(self, requests):
+        """A site's recent normal requests with ModSecurity on (the production rules): which of them it would refuse."""
+        try:
+            res = self.run({}, requests)
+        except SandboxError as e:
+            return {'ok': False, 'error': 'sandbox_failed', 'message': _clean(str(e))[-2000:]}
+        # the same shape as a comparison (before: the site without ModSecurity, nothing refused)
+        diffs = [{'request': _case_view(c), 'before': [200, []], 'after': [r['status'], r.get('rules', [])[:10]]}
+                 for c, r in zip(requests, res) if self._refused(r)]
+        return {'ok': not diffs, 'requests': len(requests), 'refused': len(diffs), 'blocked_before': 0,
+                'blocked_after': len(diffs), 'newly_blocked': len(diffs), 'no_longer_blocked': 0, 'changed': len(diffs),
+                'differences': diffs[:50]}
+
     def run_crs_compare(self, crs_dir, new_dir, requests):
         """A CRS update: the same requests through the CRS in use and through new_dir (everything else as it is).
         Differences in status or matched rules, with counts of newly blocked and no longer blocked requests."""

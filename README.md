@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.38
+# jt-waf-mgr v0.4.39
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -139,8 +139,8 @@ something you can read, and every change into a workflow you can trust:
 ## Install
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.38.tar.gz.sig jt-waf-mgr-0.4.38.tar.gz
-tar xzf jt-waf-mgr-0.4.38.tar.gz && cd jt-waf-mgr-0.4.38
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.39.tar.gz.sig jt-waf-mgr-0.4.39.tar.gz
+tar xzf jt-waf-mgr-0.4.39.tar.gz && cd jt-waf-mgr-0.4.39
 sudo ./install.sh                             # verifies every file and the release signature first
 sudo jt-waf-mgr check                         # parses the nginx / ModSecurity configuration
 sudo jt-waf-mgr user add alice --role admin   # prints a temporary password
@@ -193,6 +193,18 @@ find the sites and ModSecurity's main file), runs `nginx -t` and reloads nginx. 
 To let jt-waf-mgr change rules: arm the apply program (`sudo ./install.sh --enable-apply`), set the health check URLs,
 and adopt the existing rule files under Rules → Managed rules (an admin approves the adoption like any change).
 Nothing is written before that. Adoption also works without site rule files.
+
+### Switch the WAF on for a site
+
+Sites lists every server block and whether ModSecurity runs there. For a site without it, an approver presses
+"Switch WAF on" and writes why: that becomes a change. The check replays the site's recent normal requests from the
+access logs in the sandbox with ModSecurity on and lists any it would refuse; a person approves; the root apply
+program adds ONE marked line right after the site's `server {` lines -- `include <the snippet your other sites use to
+switch ModSecurity on>;  # jt-waf-mgr: WAF on (change #N)` -- runs `nginx -t`, reloads, checks the health URLs and puts
+everything back if a step fails. "Switch WAF off" removes exactly that line again (a loosening, approved like any
+other); a WAF switched on any other way, or a block with `modsecurity off;` written by hand, is left alone. Before
+writing, the root program computes the plan itself and goes ahead only when it matches the approved one and the
+files still have the checked contents.
 
 ### The OWASP CRS
 

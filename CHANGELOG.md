@@ -2,6 +2,19 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.39 (2026-11-15)
+
+- "Configuration changed outside" no longer fires when one apply wrote the managed rules and the IP block list in
+  the same minute (each file is checked on its own).
+- Switch the WAF on for a site from the Sites page (and off again): a change. Checks: the plan (each of the site's
+  server blocks without ModSecurity, not redirect-only, none with a hand-written `modsecurity off;`) and, switching on,
+  the site's recent normal requests from the access logs replayed in the sandbox with ModSecurity on. A person approves
+  (switching off is a loosening). The root apply program computes the plan again, requires the same blocks and the
+  same file contents as checked, adds one marked include line after each `server {` line (the snippet the other sites
+  use to switch ModSecurity on, else a managed one), runs nginx -t, reloads, checks the health URLs and puts the files
+  back on any failure; switching off removes exactly that line. These edits are not reported as outside changes.
+- Change pages name CRS and site switches properly.
+
 ## 0.4.38 (2026-11-15)
 
 - AI analysis of one event: a button on every event page sends the event with what is around it (the same source in

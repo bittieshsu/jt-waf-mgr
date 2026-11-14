@@ -275,6 +275,31 @@ class Monitor:
             out[p] = '\n'.join(lines[:max_lines]) + ('\n…' if len(lines) > max_lines else '')
         return out
 
+    def _site_waf_files(self, last, touched):
+        """Every touched file is one a site WAF switch wrote (applied since the previous snapshot) and still has exactly
+        the contents it wrote (the root program reports each file's hash): a later edit of the same file is outside."""
+        ours = {}
+        # oldest first: a later change to the same file (on, then off) leaves its own hash, the newest one
+        for (checks,) in self.db.q("SELECT checks FROM changes WHERE op='site_waf' AND state='applied' AND updated_at >= ? "
+                                   'ORDER BY updated_at, id', (last['ts'] - 1800,)):
+            try:
+                ours.update(json.loads(checks or '{}').get('applied_files') or {})
+            except (ValueError, AttributeError):
+                continue
+        if not ours:
+            return False
+        for p in touched:
+            want = ours.get(os.path.realpath(p))
+            if not want:
+                return False
+            try:
+                with open(p, 'rb') as fh:
+                    if hashlib.sha256(fh.read()).hexdigest() != want:
+                        return False
+            except OSError:
+                return False
+        return True
+
     def _cause(self, last, changes):
         """jt-waf-mgr when every changed file is a managed file (or the main ModSecurity file at adoption),
         the managed files match the last applied version and a version was applied since the previous
@@ -304,6 +329,15 @@ class Monitor:
                                    if isinstance(v, dict) and v.get('path'))
             except (ValueError, AttributeError):
                 continue
+        # each file on its own: one apply often writes the managed rules AND the IP block list (an analyst block plus
+        # its recon blocks in the same minute) -- every touched file must be one jt-waf-mgr writes, whichever writer
+        bf = self.cfg['blocks']['file']
+        cd = self.cfg['countries']['rules_dir'].rstrip('/') + '/'
+        lists = [p for p in touched if p == bf or (p.startswith(cd) and p.endswith('.data'))]
+        rest = [p for p in touched if p not in lists]
+        if lists and not rest:
+            return 'jt-waf-mgr'
+        touched = rest
         if applied and not drift and all(p.startswith(mdir) or p in main or p in adopted_src for p in touched):
             return 'jt-waf-mgr'
         # a version the apply program has written but not reported yet (it waits for old nginx workers, and the web
@@ -317,6 +351,10 @@ class Monitor:
                     return 'jt-waf-mgr'
             except Exception:       # noqa: BLE001 -- unreadable files or rows: not proven ours
                 pass
+        # ModSecurity switched on / off for a site from here: the server blocks' files of a site change applied since the
+        # previous snapshot (and, switching on, each of them carries that change's marked line), and the managed snippet
+        if touched and self._site_waf_files(last, touched):
+            return 'jt-waf-mgr'
         # the temporary IP block list and the country lists: written only by the apply program (from the database and
         # from the staged registry data), never by hand
         bf = self.cfg['blocks']['file']

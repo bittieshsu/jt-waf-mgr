@@ -608,6 +608,95 @@ class Workflow:
         self._wake.set()
         return cid
 
+    # --- ModSecurity on / off for one site (sitewaf.py) -------------------------------------------------------------
+    def propose_site_waf(self, mode, host, reason, actor, role=None):
+        """Switch ModSecurity on (tightening) or off (loosening) for one site: one marked include line in each of its
+        server blocks. Checked (the plan, and for "on" the site's recent requests in the sandbox), approved by a
+        person (never automatic), written by the root program."""
+        from . import sitewaf
+        if role not in ('approver', 'admin'):
+            raise ChangeError('forbidden', 403)
+        reason = (reason or '').strip()
+        if not reason or len(reason) > 2000:
+            raise ChangeError('reason_required')
+        try:
+            p = sitewaf.plan(self.cfg, host, mode)
+        except sitewaf.PlanError as e:
+            raise ChangeError(e.code, 422, **(e.details or {}))
+        open_ = self.db.one("SELECT id FROM changes WHERE op='site_waf' AND state NOT IN (%s) AND json_extract(spec, '$.host')=?"
+                            % ','.join('?' * len(FINAL)), FINAL + (p['host'],))
+        if open_:
+            raise ChangeError('site_change_pending', 409, change_id=open_[0])
+        spec = {'mode': mode, 'host': p['host'], 'blocks': p['blocks'], 'snippet': p['snippet'],
+                'snippet_text': p['snippet_text']}
+        return self._insert('site_waf', 'site_waf', None, None, spec, 'tighten' if mode == 'enable' else 'loosen',
+                            reason, actor, 'user', sitewaf.preview(p), [], actor)
+
+    def _site_checks(self, cid, r):
+        from . import sitewaf
+        spec = json.loads(r['spec'])
+        checks = {'started_at': util.iso(util.now())}
+        try:
+            p = sitewaf.plan(self.cfg, spec['host'], spec['mode'])
+        except sitewaf.PlanError as e:
+            checks['static'] = {'ok': False, 'error': e.code}
+            self._finish_checks(cid, checks, 'failed', 'site %s: %s' % (spec['host'], e.code))
+            return
+        same = sorted((b['file'], b['line'], b['sha256']) for b in p['blocks']) == \
+            sorted((b['file'], b['line'], b['sha256']) for b in spec['blocks'])
+        if not same or p['snippet'] != spec['snippet']:
+            checks['static'] = {'ok': False, 'error': 'changed_since_proposal'}
+            self._finish_checks(cid, checks, 'failed', 'the server blocks changed since the proposal; propose again')
+            return
+        checks['static'] = {'ok': True, 'blocks': len(p['blocks'])}
+        if spec['mode'] == 'enable':
+            reqs = self.evidence.site_requests(spec['host']) if self.evidence else []
+            if self.sandbox is not None and self.sandbox.available():
+                try:
+                    sb = self.sandbox.run_site_waf(reqs)
+                except Exception as e:      # noqa: BLE001
+                    traceback.print_exc()
+                    sb = {'ok': False, 'error': 'sandbox_error: %s' % type(e).__name__}
+            else:
+                sb = {'ok': not self.setting('sandbox.required'), 'skipped': 'sandbox not available on this host'}
+            sb['note'] = '' if reqs else 'no recent requests for this site in the access logs'
+            checks['sandbox'] = sb
+            if not sb.get('ok') and not (r['evidence_override'] and sb.get('refused')):
+                checks['finished_at'] = util.iso(util.now())
+                self._finish_checks(cid, checks, 'failed', '%s of the site\'s recent requests would be refused' % sb.get('refused')
+                                    if sb.get('refused') else 'sandbox test failed')
+                return
+        checks['finished_at'] = util.iso(util.now())
+        self._finish_checks(cid, checks, 'pending_approval', None)
+
+    def _send_site(self, cid, r):
+        spec = json.loads(r['spec'])
+        req = {'request_id': 'site-c%d' % cid, 'action': 'site_waf', 'change_id': cid, 'mode': spec['mode'],
+               'host': spec['host'], 'blocks': spec['blocks'], 'snippet': spec['snippet'], 'snippet_text': spec.get('snippet_text'),
+               'health_urls': self.setting('health.urls'), 'wait_old_workers': self.setting('apply.wait_old_workers_seconds')}
+        self._write_request(req)
+        self._state(cid, 'applying')
+        self.log(cid, 'system', 'apply_requested', 'ModSecurity %s for %s' % ('on' if spec['mode'] == 'enable' else 'off', spec['host']))
+
+    def _handle_site_result(self, res, r):
+        cid = r['id']
+        ok = res.get('result') == 'ok'
+        summary = str(res.get('summary', ''))[:1000]
+        if ok:
+            # what the root program wrote, file by file: the outside-change check counts a file as ours only while it
+            # still has exactly these contents
+            files = {str(k)[:500]: str(v)[:64] for k, v in list((res.get('files') or {}).items())[:20]
+                     if isinstance(v, str) and re.fullmatch(r'[0-9a-f]{64}', v)}
+            checks = json.loads(r['checks'] or '{}')
+            checks['applied_files'] = files
+            checks['snippet_created'] = bool(res.get('snippet_created'))
+            self.db.x('UPDATE changes SET checks=? WHERE id=?', (json.dumps(checks, ensure_ascii=False), cid))
+        self._state(cid, 'applied' if ok else 'apply_failed', None if ok else summary)
+        self.log(cid, 'system', 'applied' if ok else 'apply_failed', summary)
+        self.app.audit.log('change.applied' if ok else 'change.apply_failed', 'system', 'system', None,
+                           'ok' if ok else 'failed', severity=None if ok else 'crit', change_id=cid, op='site_waf',
+                           summary=summary[:300])
+
     def _crs_checks(self, cid, r):
         """Static: the staged files are still the verified ones. Sandbox: the same requests through both versions."""
         from . import crsupdate
@@ -745,6 +834,8 @@ class Workflow:
             return
         if r['op'] == 'crs':
             return self._crs_checks(cid, r)
+        if r['op'] == 'site_waf':
+            return self._site_checks(cid, r)
         checks = {'started_at': util.iso(util.now())}
         cur = self.managed.current_version()
         base = cur['version'] if cur else 0
@@ -962,7 +1053,7 @@ class Workflow:
         r = self.get(cid)
         cur = self.managed.current_version()
         base = cur['version'] if cur else 0
-        if r['op'] not in ('adopt', 'crs') and (r['base_version'] or 0) != base:   # a CRS switch has no rule files
+        if r['op'] not in ('adopt', 'crs', 'site_waf') and (r['base_version'] or 0) != base:   # no rule files in these
             # another change was applied meanwhile: check again against the new base
             self._state(cid, 'checking')
             self.log(cid, 'system', 'stale', 'version %s applied since the checks; checking again' % base)
@@ -990,6 +1081,8 @@ class Workflow:
         r = self.get(cid)
         if r['op'] == 'crs':
             return self._send_crs(cid, r)
+        if r['op'] == 'site_waf':
+            return self._send_site(cid, r)
         cur = self.managed.current_version()
         version = self._next_version()
         if r['op'] != 'adopt':
@@ -1119,6 +1212,10 @@ class Workflow:
         if res.get('action') == 'crs_switch':
             if r and r['op'] == 'crs' and r['state'] == 'applying':
                 self._handle_crs_result(res, r)
+            return
+        if res.get('action') == 'site_waf':
+            if r and r['op'] == 'site_waf' and r['state'] == 'applying':
+                self._handle_site_result(res, r)
             return
         v = self.db.one('SELECT * FROM versions WHERE version=?', (version,))
         if not r or not v:

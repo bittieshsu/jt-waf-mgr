@@ -25,6 +25,18 @@
         </div>
       </div>
     </section>
+    <section v-if="site.host" ref="siteForm" class="card">
+      <h2><Icon :name="site.mode === 'enable' ? 'shield' : 'unlock'" /> {{ t(site.mode === 'enable' ? 'sitewaf.enable_title' : 'sitewaf.disable_title', { host: site.host }) }}</h2>
+      <p class="muted small">{{ t(site.mode === 'enable' ? 'sitewaf.enable_hint' : 'sitewaf.disable_hint') }}</p>
+      <label class="field"><span>{{ t('sitewaf.reason') }}</span>
+        <textarea v-model="site.reason" rows="2" maxlength="2000" class="w-lg"></textarea></label>
+      <ErrorBox :error="site.error" />
+      <div class="actions">
+        <button type="button" class="btn small" :class="site.mode === 'enable' ? 'primary' : 'danger'" :disabled="site.busy || site.reason.trim().length < 5" @click="submitSite">
+          <Icon name="send" />{{ t('sitewaf.propose') }}</button>
+        <button type="button" class="btn small ghost" @click="site.host = ''"><Icon name="cancel" />{{ t('common.cancel') }}</button>
+      </div>
+    </section>
     <DataTable id="vhosts" :columns="cols" :rows="items" :row-key="(v) => v.file + ':' + v.line" :page-size="50">
       <template #cell-server_names="{ row }">
         <div v-for="n in row.server_names" :key="n" class="mono"><TruncText :text="n" :max="100" /></div>
@@ -33,6 +45,12 @@
       <template #cell-waf="{ row }">
         <span v-if="row.waf === 'off' && row.redirect_only" class="badge b-logged" :title="t('waf.redirect_hint')">{{ t('waf.redirect') }}</span>
         <span v-else class="badge" :class="wafCls(row.waf)">{{ t('waf.' + (row.waf || 'unknown')) }}</span>
+        <!-- switching ModSecurity on (or off again, only where it was switched on here): a change a person approves -->
+        <div v-if="siteOf(row) && siteChanges[siteOf(row)]" class="sub"><RouterLink :to="'/changes/' + siteChanges[siteOf(row)]">{{ t('sitewaf.pending', { id: siteChanges[siteOf(row)] }) }}</RouterLink></div>
+        <div v-else-if="isApprover && siteOf(row) && row.waf === 'off' && !row.redirect_only" class="sub">
+          <button type="button" class="btn tiny" @click="startSite(row, 'enable')"><Icon name="shield" />{{ t('sitewaf.enable') }}</button></div>
+        <div v-else-if="isApprover && siteOf(row) && row.waf_by_us" class="sub">
+          <button type="button" class="btn tiny danger" @click="startSite(row, 'disable')"><Icon name="unlock" />{{ t('sitewaf.disable') }}</button></div>
         <div v-if="row.inline_rule_ids && row.inline_rule_ids.length" class="sub mono">
           {{ t('vhosts.inline_rules') }}: <RouterLink v-for="id in row.inline_rule_ids" :key="id" :to="'/rules/' + id" class="idlink">{{ id }}</RouterLink>
         </div>
@@ -76,8 +94,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { get } from '../api.js'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
+import { get, post } from '../api.js'
+import { hasRole } from '../store.js'
 import { t } from '../i18n.js'
 import { safeText, fmtNum } from '../util.js'
 import ErrorBox from '../components/ErrorBox.vue'
@@ -88,6 +108,28 @@ import DataTable from '../components/DataTable.vue'
 import SegBar from '../components/charts/SegBar.vue'
 import HBars from '../components/charts/HBars.vue'
 
+const router = useRouter()
+const isApprover = computed(() => hasRole('approver'))
+const siteChanges = ref({})
+const site = reactive({ host: '', mode: 'enable', reason: '', busy: false, error: null })
+const siteForm = ref(null)
+// the site a switch is for: the first plain name of the server block
+function siteOf(v) {
+  return (v.server_names || []).find((n) => n && n !== '_' && !n.startsWith('~') && /^[a-z0-9.-]+$/i.test(n)) || ''
+}
+async function startSite(row, mode) {
+  Object.assign(site, { host: siteOf(row).toLowerCase(), mode, reason: '', error: null })
+  await nextTick()
+  if (siteForm.value) siteForm.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+async function submitSite() {
+  site.busy = true
+  site.error = null
+  try {
+    const r = await post('/vhosts/waf', { host: site.host, mode: site.mode, reason: site.reason.trim() })
+    router.push('/changes/' + r.change_id)
+  } catch (e) { site.error = e } finally { site.busy = false }
+}
 const items = ref([])
 const warnings = ref([])
 const loading = ref(false)
@@ -153,6 +195,7 @@ onMounted(async () => {
     const data = await get('/vhosts')
     items.value = data.items || []
     warnings.value = data.warnings || []
+    siteChanges.value = data.site_changes || {}
   } catch (e) { error.value = e } finally { loading.value = false }
   try { byHost.value = (await get('/overview', { range: '7d' })).by_host || [] } catch { byHost.value = [] }
 })
