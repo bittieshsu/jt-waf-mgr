@@ -2071,6 +2071,8 @@
  "overview.range_custom": "Custom",
  "overview.range_custom_hint": "From 1 hour to {days} days; over 7 days the timeline counts per day. You can also drag across the timeline below.",
  "overview.range_too_long": "At most {days} days.",
+ "overview.review": "WAF review {at}:",
+ "overview.review_open": "Read it",
  "overview.score_only": "Blocked only by the CRS score",
  "overview.score_only_hint": "External requests blocked by the anomaly score with no confident rule. These are the most likely false positives: check each one.",
  "overview.score_only_none": "None in this period.",

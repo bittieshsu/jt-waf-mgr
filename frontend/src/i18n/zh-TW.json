@@ -2071,6 +2071,8 @@
  "overview.range_custom": "自訂",
  "overview.range_custom_hint": "範圍 1 小時到 {days} 天；超過 7 天時以每日統計。也可以直接在下方的時間軸上拖曳選取。",
  "overview.range_too_long": "範圍最長 {days} 天。",
+ "overview.review": "WAF 定期檢討 {at}:",
+ "overview.review_open": "查看檢討",
  "overview.score_only": "只靠 CRS 分數封鎖",
  "overview.score_only_hint": "外部請求只因異常分數超過門檻被封鎖，沒有命中確定封鎖規則。這些最可能是誤判，請逐筆確認。",
  "overview.score_only_none": "這段期間沒有。",

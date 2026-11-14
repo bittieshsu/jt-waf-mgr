@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.44 (2026-11-15)
+
+- Overview: one line with the latest periodic WAF review (its verdict, blocked / logged) and a link to it.
+
 ## 0.4.43 (2026-11-15)
 
 Fixes from an independent security review of the threat intelligence and the AI analysis:

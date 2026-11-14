@@ -2071,6 +2071,8 @@
  "overview.range_custom": "期間指定",
  "overview.range_custom_hint": "1 時間から {days} 日まで。7 日を超えると日ごとに集計します。下のタイムラインをドラッグして選ぶこともできます。",
  "overview.range_too_long": "最長 {days} 日です。",
+ "overview.review": "WAF 定期レビュー {at}:",
+ "overview.review_open": "レビューを見る",
  "overview.score_only": "CRS スコアのみでブロック",
  "overview.score_only_hint": "確定ブロックルールに該当せず、異常スコアだけでブロックされた外部リクエストです。誤検知の可能性が最も高いので、1 件ずつ確認してください。",
  "overview.score_only_none": "この期間はありません。",

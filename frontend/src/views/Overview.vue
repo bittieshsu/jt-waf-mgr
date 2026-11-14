@@ -54,6 +54,13 @@
       <span v-if="alertCount.critical">{{ t('overview.open_alerts_critical', { n: alertCount.critical }) }}</span>
       <RouterLink class="btn small" to="/alerts"><Icon name="go" />{{ t('nav.alerts') }}</RouterLink>
     </div>
+    <!-- the latest periodic WAF review, one line: its verdict and where to read it -->
+    <div v-if="lastReview" class="alert integritybanner" :class="lastReview.attention ? 'warn' : 'info'" role="status">
+      <Icon name="report" /><strong>{{ t('overview.review', { at: fmtShortTime(lastReview.created_at) }) }}</strong>
+      <span>{{ lastReview.attention ? t('review.attention', { n: lastReview.attention }) : t('review.ok') }}
+        · {{ t('review.blocked_logged', { b: fmtNum(lastReview.blocked || 0), l: fmtNum(lastReview.logged || 0) }) }}</span>
+      <RouterLink class="btn small" :to="'/reviews/' + lastReview.id"><Icon name="go" />{{ t('overview.review_open') }}</RouterLink>
+    </div>
     <div v-if="integrityFails.length" class="alert error integritybanner" role="alert">
       <strong>{{ t('overview.integrity_problem') }}</strong>
       {{ integrityFails.map((k) => tOr('syscheck.k.' + k, k)).join(', ') }}
@@ -390,7 +397,18 @@ async function loadIntegrity() {
   } catch { /* the banner is optional */ }
 }
 
-onMounted(() => { load(false); loadIntegrity(); timer = setInterval(() => { if (!document.hidden && !loading.value) load(false) }, 60000) })
+const lastReview = ref(null)
+async function loadReview() {
+  try {
+    const r = await get('/reviews', { limit: 1 })
+    const x = (r.items || [])[0]
+    if (!x) { lastReview.value = null; return }
+    const attention = (x.possible_false_blocks || 0) + (x.internal_new || 0) +
+      (x.focus || []).filter((f) => f.outside_not_refused || f.s429 || (f.repeated_login || []).length).length
+    lastReview.value = Object.assign({}, x, { attention })
+  } catch { lastReview.value = null }
+}
+onMounted(() => { loadReview(); load(false); loadIntegrity(); timer = setInterval(() => { if (!document.hidden && !loading.value) load(false) }, 60000) })
 onUnmounted(() => clearInterval(timer))
 </script>
 
