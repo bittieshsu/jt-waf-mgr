@@ -6,6 +6,7 @@
       <button type="button" class="btn small ghost" :disabled="loading" @click="load(true)"><Icon name="refresh" />{{ t('common.refresh') }}</button>
     </div>
     <FlowSteps v-if="showGuide" :title="t('guide.ev.title')" :steps="flow" :note="t('guide.ev.note')" />
+    <FindVisit />
     <form class="filters" @submit.prevent="apply">
       <div class="field" :class="fieldClass('since')"><label for="ev-f-since">{{ t('filter.since') }}</label>
         <DatePicker id="ev-f-since" v-model="f.since" mode="datetime" :presets="sincePresets" /></div>
@@ -71,6 +72,7 @@ import Icon from '../components/Icon.vue'
 import SelectBox from '../components/SelectBox.vue'
 import DatePicker from '../components/DatePicker.vue'
 import FlowSteps from '../components/FlowSteps.vue'
+import FindVisit from '../components/FindVisit.vue'
 import SegBar from '../components/charts/SegBar.vue'
 import HBars from '../components/charts/HBars.vue'
 import MapGrid from '../components/charts/MapGrid.vue'

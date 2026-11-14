@@ -471,6 +471,10 @@ def _event_filters(req, with_time=True):
             raise ApiError(400, 'bad_request', 'country: matches too many addresses; narrow the time range')
         where.append('src_ip IN (%s)' % ','.join('?' * len(ips)) if ips else '0')
         args += ips
+    if q.get('unique_id'):
+        # the request id ModSecurity gave one request (what a blocked person can read from an error page)
+        where.append('unique_id=?')
+        args.append(q['unique_id'][:200])
     rid = _int_param(req, 'rule_id')
     if rid is not None:
         where.append('rule_ids LIKE ?')

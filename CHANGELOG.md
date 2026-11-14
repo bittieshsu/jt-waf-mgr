@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.40 (2026-11-15)
+
+- "Someone was blocked?" on the Events page: paste their IP address (opens the address lookup), the URL they opened
+  (the site's blocked events on that path) or a request id (that one event). API: `GET /events?unique_id=`.
+
 ## 0.4.39 (2026-11-15)
 
 - "Configuration changed outside" no longer fires when one apply wrote the managed rules and the IP block list in

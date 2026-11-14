@@ -110,6 +110,13 @@ class TestEventAiApi(unittest.TestCase):
         self.assertTrue(self.app.db.one("SELECT 1 FROM audit WHERE action='event.analysis_requested'"))
         self.app.cfg.data['llm']['enabled'] = False
 
+    def test_find_by_request_id(self):
+        v = Client(self.port)
+        self.assertEqual(v.login('viewer1')[0], 200)
+        st, obj, _ = v.req('GET', '/api/v1/events?unique_id=e1')
+        self.assertEqual((st, [x['id'] for x in obj['items']]), (200, [self.eid]))
+        self.assertEqual(v.req('GET', '/api/v1/events?unique_id=nope')[1]['items'], [])
+
 
 if __name__ == '__main__':
     unittest.main()

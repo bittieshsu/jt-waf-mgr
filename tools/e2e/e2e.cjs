@@ -224,6 +224,12 @@ async function audit(page, where) {
     await swBtn.click();
     ok(await page.locator('textarea').count() >= 1, 'sites: the WAF switch asks why');
   }
+  // "someone was blocked": an address goes to the address lookup
+  await page.goto(base + '/events', { waitUntil: 'networkidle' });
+  await page.fill('.findvisit input', '203.0.113.9');
+  await page.locator('.findvisit button[type=submit]').click();
+  await page.waitForURL(/\/lookup\//, { timeout: 8000 }).catch(() => {});
+  ok(/\/lookup\/203\.0\.113\.9/.test(page.url()), 'events: find a blocked visit by address');
   // threat intelligence: a threat opens under its row
   await page.goto(base + '/intel', { waitUntil: 'networkidle' });
   await page.locator('#intel-threats tbody tr, .datatable tbody tr').first().click();

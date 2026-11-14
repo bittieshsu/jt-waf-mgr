@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.39
+# jt-waf-mgr v0.4.40
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -139,8 +139,8 @@ something you can read, and every change into a workflow you can trust:
 ## Install
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.39.tar.gz.sig jt-waf-mgr-0.4.39.tar.gz
-tar xzf jt-waf-mgr-0.4.39.tar.gz && cd jt-waf-mgr-0.4.39
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.40.tar.gz.sig jt-waf-mgr-0.4.40.tar.gz
+tar xzf jt-waf-mgr-0.4.40.tar.gz && cd jt-waf-mgr-0.4.40
 sudo ./install.sh                             # verifies every file and the release signature first
 sudo jt-waf-mgr check                         # parses the nginx / ModSecurity configuration
 sudo jt-waf-mgr user add alice --role admin   # prints a temporary password
