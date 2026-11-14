@@ -41,7 +41,7 @@ async function go() {
   // a request id (shown on the error page, or in a log line)
   busy.value = true
   try {
-    const r = await get('/events', { unique_id: v, limit: 1 })
+    const r = await get('/events', /^[0-9a-f]{32}$/i.test(v) ? { request_id: v, limit: 1 } : { unique_id: v, limit: 1 })
     if (r.items && r.items.length) return router.push('/events/' + r.items[0].id)
     msg.value = t('find.not_found')
   } catch { msg.value = t('find.not_found') } finally { busy.value = false }

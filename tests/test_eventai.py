@@ -116,6 +116,11 @@ class TestEventAiApi(unittest.TestCase):
         st, obj, _ = v.req('GET', '/api/v1/events?unique_id=e1')
         self.assertEqual((st, [x['id'] for x in obj['items']]), (200, [self.eid]))
         self.assertEqual(v.req('GET', '/api/v1/events?unique_id=nope')[1]['items'], [])
+        rid = 'a' * 32
+        self.app.db.x("UPDATE events SET unique_id=? WHERE id=?", ('app.example.com-' + rid, self.eid))
+        st, obj, _ = v.req('GET', '/api/v1/events?request_id=' + rid.upper())
+        self.assertEqual([x['id'] for x in obj['items']], [self.eid])
+        self.assertEqual(v.req('GET', '/api/v1/events?request_id=%25')[0], 400)
 
 
 if __name__ == '__main__':

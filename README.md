@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.40
+# jt-waf-mgr v0.4.41
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -139,8 +139,8 @@ something you can read, and every change into a workflow you can trust:
 ## Install
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.40.tar.gz.sig jt-waf-mgr-0.4.40.tar.gz
-tar xzf jt-waf-mgr-0.4.40.tar.gz && cd jt-waf-mgr-0.4.40
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.41.tar.gz.sig jt-waf-mgr-0.4.41.tar.gz
+tar xzf jt-waf-mgr-0.4.41.tar.gz && cd jt-waf-mgr-0.4.41
 sudo ./install.sh                             # verifies every file and the release signature first
 sudo jt-waf-mgr check                         # parses the nginx / ModSecurity configuration
 sudo jt-waf-mgr user add alice --role admin   # prints a temporary password
@@ -205,6 +205,14 @@ everything back if a step fails. "Switch WAF off" removes exactly that line agai
 other); a WAF switched on any other way, or a block with `modsecurity off;` written by hand, is left alone. Before
 writing, the root program computes the plan itself and goes ahead only when it matches the approved one and the
 files still have the checked contents.
+
+### A page for people the WAF blocked (optional)
+
+Without one, a blocked visitor sees nginx's plain "403 Forbidden". `deploy/blocked-page/` in the release has a page in
+three languages that shows the request id (nginx's `$request_id`, written with server-side includes) and a snippet to
+include in each server block that runs ModSecurity. With `modsecurity_transaction_id "$host-$request_id";` the id is
+also in the event: paste it into "Someone was blocked?" on the Events page. jt-waf-mgr does not write this for you:
+it is an nginx change you make (nginx -t, reload) when you want it.
 
 ### The OWASP CRS
 

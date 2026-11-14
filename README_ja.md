@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.40
+# jt-waf-mgr v0.4.41
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -127,8 +127,8 @@ JSON 監査ログを読み、ファイルを手で編集する必要がありま
 ## インストール
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.40.tar.gz.sig jt-waf-mgr-0.4.40.tar.gz
-tar xzf jt-waf-mgr-0.4.40.tar.gz && cd jt-waf-mgr-0.4.40
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.41.tar.gz.sig jt-waf-mgr-0.4.41.tar.gz
+tar xzf jt-waf-mgr-0.4.41.tar.gz && cd jt-waf-mgr-0.4.41
 sudo ./install.sh                             # 先にすべてのファイルとリリース署名を検証
 sudo jt-waf-mgr check                         # nginx / ModSecurity 設定を解析
 sudo jt-waf-mgr user add alice --role admin   # 一時パスワードを表示
@@ -190,6 +190,14 @@ jt-waf-mgr にルールを変更させるには、適用プログラムを有効
 ヘルスチェックを行い、失敗すればすべて元に戻します。「WAF を無効化」はその行だけを削除します(緩和として通常どおり承認)。
 他の方法で有効にした WAF や、手書きの `modsecurity off;` があるブロックには触れません。書き込み前に root プログラムが計画を
 自分で再計算し、承認された内容と一致しファイルが確認時のままのときだけ書き込みます。
+
+### ブロックされた人に表示するページ(任意)
+
+設定しない場合、ブロックされた人には nginx 標準の「403 Forbidden」が表示されます。リリースの `deploy/blocked-page/` に、
+リクエスト ID(nginx の `$request_id`、SSI で表示)を示す 3 言語のページと、ModSecurity を有効にした各 server ブロックに含める
+設定があります。`modsecurity_transaction_id "$host-$request_id";` を設定していればイベントにも同じ ID があり、イベントページの
+「ブロックされた?」に貼り付けるとそのイベントを開けます。jt-waf-mgr はこの設定を書き込みません。必要なときに nginx を
+変更してください(nginx -t、reload)。
 
 ### OWASP CRS
 

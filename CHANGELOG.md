@@ -2,6 +2,13 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.41 (2026-11-15)
+
+- "Someone was blocked?" also takes nginx's 32-digit request id alone (an error page can show it); API
+  `GET /events?request_id=`.
+- `deploy/blocked-page/`: a page for blocked visitors in three languages with the request id, and the nginx snippet to
+  use it (optional; jt-waf-mgr never writes it).
+
 ## 0.4.40 (2026-11-15)
 
 - "Someone was blocked?" on the Events page: paste their IP address (opens the address lookup), the URL they opened

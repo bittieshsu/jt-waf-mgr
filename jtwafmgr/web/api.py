@@ -471,6 +471,12 @@ def _event_filters(req, with_time=True):
             raise ApiError(400, 'bad_request', 'country: matches too many addresses; narrow the time range')
         where.append('src_ip IN (%s)' % ','.join('?' * len(ips)) if ips else '0')
         args += ips
+    if q.get('request_id'):
+        # nginx's $request_id alone (an error page can show it): ModSecurity's id is usually "<host>-<request_id>"
+        if not re.fullmatch(r'[0-9a-fA-F]{32}', q['request_id']):
+            raise ApiError(400, 'bad_request', 'request_id: 32 hex digits')
+        where.append('(unique_id=? OR unique_id LIKE ?)')
+        args += [q['request_id'].lower(), '%-' + q['request_id'].lower()]
     if q.get('unique_id'):
         # the request id ModSecurity gave one request (what a blocked person can read from an error page)
         where.append('unique_id=?')

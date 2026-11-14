@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.40
+# jt-waf-mgr v0.4.41
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -111,8 +111,8 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
 ## 安裝
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.40.tar.gz.sig jt-waf-mgr-0.4.40.tar.gz
-tar xzf jt-waf-mgr-0.4.40.tar.gz && cd jt-waf-mgr-0.4.40
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.41.tar.gz.sig jt-waf-mgr-0.4.41.tar.gz
+tar xzf jt-waf-mgr-0.4.41.tar.gz && cd jt-waf-mgr-0.4.41
 sudo ./install.sh                             # 先驗證每個檔案與發行檔簽章
 sudo jt-waf-mgr check                         # 解析 nginx / ModSecurity 設定
 sudo jt-waf-mgr user add alice --role admin   # 印出臨時密碼
@@ -170,6 +170,13 @@ jt-waf-mgr 只寫 ModSecurity 的檔案，永遠不寫 nginx 設定。它會讀 
 (change #N)`——然後 `nginx -t`、reload、檢查健康檢查網址,任何一步失敗就全部還原。「停用 WAF」只會移除那一行(屬於放寬,
 照一般規則核准);用其他方式開啟的 WAF,或手寫 `modsecurity off;` 的區塊都不會動。寫入前 root 程式會自己重新計算一次,
 跟核准的內容一致、檔案內容也和檢查時相同才會寫。
+
+### 被封鎖時看到的頁面(選用)
+
+沒有設定時,被封鎖的人只會看到 nginx 預設的「403 Forbidden」。發行檔的 `deploy/blocked-page/` 有一個三語頁面,會顯示請求編號
+(nginx 的 `$request_id`,用 SSI 寫入),以及一段放進每個開啟 ModSecurity 的 server 區塊的設定。設定了
+`modsecurity_transaction_id "$host-$request_id";` 時,事件裡也有同一個編號:貼到事件頁的「有人被封鎖?」就能直接開啟那筆事件。
+jt-waf-mgr 不會替你寫入這份設定:這是 nginx 的修改,需要時自己加(nginx -t、reload)。
 
 ### OWASP CRS
 
