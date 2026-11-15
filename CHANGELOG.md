@@ -2,6 +2,24 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.57 (2026-11-16)
+
+- Administration from the command line: `jt-waf-mgr blocks | alerts | changes | settings | tokens | intel | review`,
+  the same rules as the web interface. A write names the person (`--as`, an existing account with the role needed);
+  the audit trail records that person with `cli` as the source; approving one's own change, or a loosening one, asks
+  for what the web interface asks (single-admin mode, `--totp`). `--json` for machine-readable output.
+- Settings export and import (Settings > Export and import settings, or `jt-waf-mgr settings export / import`): one
+  JSON file with every setting of the settings page and the change workflow's. Keys and passwords only with a fresh
+  one-time code (the file says so). Import shows the file next to the current values (only those that differ by
+  default), you tick settings, whole groups or all, and only those are written -- all or none, with a one-time code,
+  each audited, plus one "settings imported" record.
+- Several tightening changes approved at once: tick them on Changes > Pending approval (or "all"), one click; each
+  under the same rules as one by one. A loosening change is still approved on its own page.
+- An approval carries over: a tightening change approved while another one was being applied is checked again
+  against the new version and, unchanged and passing, applied without a second click (audited as carried).
+- Configuration text (nginx lines, the fail2ban example, nginx -t output, sandbox messages, settings values) gets
+  syntax colours; the UI check asks for it.
+
 ## 0.4.56 (2026-11-16)
 
 - War room, first stage: Overview > War room opens a board of its own in a new tab, for a wall screen (dark, no admin

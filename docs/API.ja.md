@@ -536,13 +536,14 @@ curl -sS -X DELETE -H "Authorization: Bearer $TOKEN" \
 次のエンドポイントはどのトークンにも 403 を返します。人とセッション、多くの場合は特定のロールとその場のワンタイムコードが
 必要です。
 
-- 変更の決定：`POST /changes/{id}/approve`、`/reject`、`/cancel`、`/recheck`（根拠の上書き）、
+- 変更の決定：`POST /changes/{id}/approve`、`POST /changes/approve-batch` (`{ids, note}`：強化の変更のみ。各件は 1 件ずつと同じルール。件ごとに成否か理由を返す)、`/reject`、`/cancel`、`/recheck`（根拠の上書き）、
   `POST /versions/{version}/rollback`、`POST /alerts/{id}/handle`。これが人による承認の手順です。トークンでもできると、
   1 つの機械用の資格情報で変更を提案し、そのまま通せてしまいます。
 - CRS：`POST /crs/updates/check`、`POST /crs/updates/propose`。
 - 管理下への取り込みとルールファイルのアップロード：`POST /managed/adopt`、`POST /managed/import/preview`、
   `POST /managed/import`。
 - アカウントとトークン：`/auth/*`、`/users*`、`/tokens*`。
+- 設定のエクスポートとインポート：`POST /settings/export` (`{secrets, totp}`)、`POST /settings/import/preview` (`{file}`：ファイルの各設定と現在の値。書き込みなし)、`POST /settings/import` (`{file, keys, totp}`：選んだものだけ、全部か無し)。admin のみ。
 - 設定と運用：`/settings*`、`/workflow/settings`、`/notify/*`、`/llm/test`、`/geoip` と `/geoip/update`、`/backups*`、
   `/system/check`、`/compliance`、`/config-changes*`、`/analyst/run`、`POST /regression`、`DELETE /regression/{id}`、
   `POST /regression/collect`。

@@ -548,12 +548,16 @@ source address, path, query or header; a site nginx serves only to internal netw
 
 These endpoints answer 403 to any token. They need a person, a session, and usually a role and a fresh one-time code.
 
-- Change decisions: `POST /changes/{id}/approve`, `/reject`, `/cancel`, `/recheck` (evidence override),
+- Change decisions: `POST /changes/{id}/approve`, `POST /changes/approve-batch` (`{ids, note}`: tightening changes only,
+  each one under the same rules; returns ok or the reason per id), `/reject`, `/cancel`, `/recheck` (evidence override),
   `POST /versions/{version}/rollback`, `POST /alerts/{id}/handle`. These are the human approval step; letting a token
   do them would let one machine credential both propose and accept a change.
 - CRS: `POST /crs/updates/check`, `POST /crs/updates/propose`.
 - Adoption and rules-file upload: `POST /managed/adopt`, `POST /managed/import/preview`, `POST /managed/import`.
 - Accounts and tokens: `/auth/*`, `/users*`, `/tokens*`.
+- Settings export and import: `POST /settings/export` (`{secrets, totp}`), `POST /settings/import/preview` (`{file}`:
+  every setting of the file next to the current value, nothing written), `POST /settings/import` (`{file, keys, totp}`:
+  only the picked ones, all or none). Admin.
 - Settings and operations: `/settings*`, `/workflow/settings`, `/notify/*`, `/llm/test`, `/geoip` and
   `/geoip/update`, `/backups*`, `/system/check`, `/compliance`, `/config-changes*`, `/analyst/run`,
   `POST /regression`, `DELETE /regression/{id}`, `POST /regression/collect`.

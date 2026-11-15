@@ -328,7 +328,15 @@ def main(argv=None):
     sub.add_parser('config-check', help='validate the configuration file')
     sub.add_parser('migrate', help='bring the database schema up to date')
     sub.add_parser('doctor', help='health summary (configuration, database, integrity, system check)')
+    from . import cli_admin
+    admin_cmds = cli_admin.register(sub)
     args = p.parse_args(argv)
+    if args.cmd in admin_cmds:
+        try:
+            return cli_admin.run(admin_cmds[args.cmd], _app(args), args)
+        except config_mod.ConfigError as e:
+            print('configuration error: %s' % e, file=sys.stderr)
+            return 2
     try:
         return {'serve': cmd_serve, 'user': cmd_user, 'import': cmd_import, 'check': cmd_check,
                 'integrity': cmd_integrity, 'verify-release': cmd_verify_release, 'audit-verify': cmd_audit_verify,

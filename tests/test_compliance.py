@@ -640,6 +640,7 @@ AUDIT_EXEMPT = {
     'totp_setup': 'creates an unconfirmed secret; enabling it is audited',
     'change_preview': 'read-only preview, nothing stored',
     'managed_import_preview': 'read-only comparison of an uploaded file, nothing stored',
+    'settings_import_preview': 'read-only comparison of a settings file with the current values, nothing stored',
     'login': 'audited inside Auth.login (success, failure, lockout)',
     'logout': 'audited inline when a session exists',
     'system_check_run': 'audited',
@@ -655,7 +656,8 @@ class TestAuditCoverage(unittest.TestCase):
     AUDITING_CALLS = ('audit.log', 'app.monitor.backup', '_wf(app).propose', '_wf(app).approve', '_wf(app).import_propose',
                       'uisettings.set_many', 'alerts.handle(',
                       '_wf(app).reject', '_wf(app).cancel', '_wf(app).recheck', '_wf(app).rollback',
-                      'app.blocks.add(', 'app.blocks.remove(', 'app.blocks.extend(', 'intel.set_status(')
+                      'app.blocks.add(', 'app.blocks.remove(', 'app.blocks.extend(', 'intel.set_status(',
+                      'settings_io.apply(', '_wf(app).approve(')
 
     def test_write_routes_audited(self):
         from jtwafmgr.web import api

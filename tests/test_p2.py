@@ -318,6 +318,28 @@ class TestWorkflow(unittest.TestCase):
         self.fake_apply()
         self.assertFalse(self.wf.managed.disk_state()['drift'])
 
+    def test_approval_carried_through_a_clean_recheck(self):
+        """Two tightening changes approved together: the second goes stale when the first is applied, is checked
+        again, and keeps its approval (no second click). A loosening one is approved again by a person."""
+        self.adopt()
+        mk = lambda rx, n: self.wf.propose('add', 'confident_block', {'target': 'path', 'regex': rx, 'msg': n}, n, 'op',
+                                           tests=[{'expect': 403, 'source': 'external', 'host': 'app.example.com', 'path': '/x' + n}])
+        c1, c2 = mk(r'^/x1$', '1'), mk(r'^/x2$', '2')
+        for c in (c1, c2):
+            self.wf.run_checks(c)
+        self.wf.approve(c1, self.user('appr'))
+        self.wf.approve(c2, self.user('appr'))
+        self.fake_apply()                                    # c1 applied; c2 was queued against the old version
+        self.assertEqual(self.wf.get(c1)['state'], 'applied')
+        if self.wf.get(c2)['state'] == 'approved':          # the worker moves it to checking before sending
+            self.wf._state(c2, 'checking')
+            self.wf.log(c2, 'system', 'stale', 'checking again against the new version')
+        self.wf.run_checks(c2)
+        log = [x['action'] for x in self.wf.public(self.wf.get(c2), True)['log']]
+        self.assertIn('approval_carried', log)
+        self.assertIn(self.wf.get(c2)['state'], ('approved', 'applying'))
+        self.assertTrue(self.app.db.q("SELECT 1 FROM audit WHERE action='change.approved' AND details LIKE '%carried%'"))
+
     def private_before(self):
         """A private copy of the fixture's local before-CRS file (tests must never edit the shared fixture)."""
         src = self.wf.managed.detect_import_files()[0]

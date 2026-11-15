@@ -14,7 +14,7 @@
         <RouterLink v-if="isAdmin" class="btn small" to="/admin/settings"><Icon name="settings" />{{ t('traffic.to_settings') }}</RouterLink></div>
       <div v-if="!data.included" class="alert warn" role="status">
         <Icon name="warning" /> {{ data.included_in === 'server' ? t('blocks.in_server') : t('blocks.not_included') }}
-        <pre class="code small">include {{ safeText(data.file, 300) }};</pre>
+        <CodeBlock small lang="nginx" :code="'include ' + safeText(data.file, 300) + ';'" />
         <span class="muted small">{{ t('blocks.include_hint') }}</span>
       </div>
       <div class="tiles">
@@ -99,7 +99,7 @@
           <li>{{ t('blocks.connect2') }} <RouterLink v-if="isAdmin" to="/admin/tokens">{{ t('nav.tokens') }}</RouterLink></li>
           <li>{{ t('blocks.connect3') }}</li>
         </ol>
-        <pre class="code small">{{ f2b }}</pre>
+        <CodeBlock small lang="ini" :code="f2b" />
         <p class="muted small">{{ t('blocks.connect_note') }}</p>
       </section>
       <section v-if="data.uncovered.length" class="card">
@@ -124,6 +124,7 @@ import { hasRole } from '../store.js'
 import { fmtNum, fmtShortTime, safeText } from '../util.js'
 import ErrorBox from '../components/ErrorBox.vue'
 import Loading from '../components/Loading.vue'
+import CodeBlock from '../components/CodeBlock.vue'
 import Icon from '../components/Icon.vue'
 import DataTable from '../components/DataTable.vue'
 import SelectBox from '../components/SelectBox.vue'

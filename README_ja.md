@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.56
+# jt-waf-mgr v0.4.57
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -316,6 +316,27 @@ sudo jt-waf-mgr user disable alice              # および enable
 - `passwd`：対話形式でパスワードを設定します。
 - `disable` と `enable`：アカウントを無効化・再度有効化します。
 - これらの変更はすべて監査記録に残ります。
+
+### コマンドラインでの管理
+
+Web 画面の IP ブロック、アラート、変更、設定、API トークン、脅威インテリジェンスの操作はコマンドでもできます (同じルール)。書き込みは誰のために行うかを `--as` で指定します (Web 画面と同じロールを持つ既存アカウント)。監査記録にはその人と送信元 `cli` が残ります。
+
+```sh
+sudo jt-waf-mgr blocks list
+sudo jt-waf-mgr blocks add 203.0.113.7 --reason "probing" --ttl 24h --as alice
+sudo jt-waf-mgr blocks extend 12 --ttl 7d --reason "still probing" --as alice     # または --permanent (admin のみ)
+sudo jt-waf-mgr blocks remove 12 --note "false alarm" --as alice
+sudo jt-waf-mgr alerts list ; sudo jt-waf-mgr alerts handle 23 --note "checked" --as alice
+sudo jt-waf-mgr changes list --state pending_approval
+sudo jt-waf-mgr changes approve 41 --as alice            # 自分の変更は不可。Web がコードを求める場合は --totp
+sudo jt-waf-mgr settings show review.
+sudo jt-waf-mgr settings set review.keep_days=60 --as admin1
+sudo jt-waf-mgr settings export -o settings.json         # --secrets --as admin1：鍵とパスワードも
+sudo jt-waf-mgr settings import settings.json --only notify,workflow --dry-run
+sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr review run --as alice
+```
+
+`--json` で機械可読の出力。Web 画面では：設定 → 設定のエクスポートとインポート (インポートはファイルと現在の値を並べて表示し、チェックしたものだけ書き込み)。
 
 ### アップグレード
 

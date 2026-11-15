@@ -36,9 +36,17 @@
       </div>
       <p class="muted small">{{ t('chart.change.loaded', { n: fmtNum(items.length) }) }}</p>
     </section>
+    <!-- several tightening changes approved at once (a loosening one is approved on its own page) -->
+    <div v-if="canApprove && selectable.length" class="card batchbar" role="group" :aria-label="t('changes.batch.title')">
+      <label class="check"><input type="checkbox" :checked="allPicked" :indeterminate.prop="picked.size > 0 && !allPicked" @change="pickAll" /> {{ t('changes.batch.all', { n: selectable.length }) }}</label>
+      <span class="small muted">{{ t('changes.batch.hint') }}</span>
+      <button type="button" class="btn small primary" :disabled="!picked.size || batchBusy" @click="approveBatch"><Icon name="approve" />{{ t('changes.batch.approve', { n: picked.size }) }}</button>
+      <span v-if="batchResult" class="small" role="status">{{ batchResult }}</span>
+    </div>
     <RowTimeline v-model:window="win" :title="t('timeline.changes')" :rows="items" ts-key="created_at" :series="tlSeries" />
     <DataTable :has-more="!!cursor" :loading-more="loading" @more="load(true)" id="changes" :columns="cols" :rows="shownItems" row-key="id" :default-sort="{ key: 'id', dir: -1 }"
                clickable @row-click="(c) => router.push('/changes/' + c.id)">
+      <template #cell-sel="{ row }"><input v-if="isSelectable(row)" type="checkbox" :checked="picked.has(row.id)" :aria-label="t('changes.batch.pick', { id: row.id })" @click.stop @change="togglePick(row.id)" /><span v-else aria-hidden="true"></span></template>
       <template #cell-id="{ row }"><RouterLink class="mono" :to="'/changes/' + row.id" @click.stop>{{ row.id }}</RouterLink></template>
       <template #cell-created_at="{ row }">{{ fmtShortTime(row.created_at) }}</template>
       <template #cell-what="{ row }">{{ t('op.' + row.op) }} · {{ t('kind.' + row.kind) }}<span v-if="row.rule_id" class="mono muted gapl">{{ row.rule_id }}</span></template>
@@ -56,11 +64,11 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { get } from '../api.js'
+import { get, post } from '../api.js'
 import RowTimeline from '../components/RowTimeline.vue'
 import { inWindow } from '../timeWindow.js'
-import { t } from '../i18n.js'
-import { hasRole, pending, refreshPending } from '../store.js'
+import { t, tOr } from '../i18n.js'
+import { hasRole, pending, refreshPending, state } from '../store.js'
 import { safeText, fmtShortTime, fmtNum } from '../util.js'
 import ErrorBox from '../components/ErrorBox.vue'
 import Loading from '../components/Loading.vue'
@@ -91,6 +99,31 @@ const loading = ref(false)
 const error = ref(null)
 const adopted = ref(null)
 const canPropose = computed(() => hasRole('operator'))
+const canApprove = computed(() => hasRole('approver'))
+// batch approval: waiting, tightening, and not one's own (the server says no to those anyway, as one by one)
+const picked = ref(new Set())
+const batchBusy = ref(false)
+const batchResult = ref('')
+function isSelectable(c) {
+  if (c.state !== 'pending_approval' || c.direction !== 'tighten') return false
+  const me = state.user && state.user.username
+  return !(me && ((c.proposed_by === me && c.proposed_via !== 'api') || (c.proposed_via === 'api' && c.proposed_owner === me)))
+}
+const selectable = computed(() => shownItems.value.filter(isSelectable))
+const allPicked = computed(() => selectable.value.length > 0 && selectable.value.every((c) => picked.value.has(c.id)))
+function togglePick(id) { const s = new Set(picked.value); s.has(id) ? s.delete(id) : s.add(id); picked.value = s }
+function pickAll() { picked.value = allPicked.value ? new Set() : new Set(selectable.value.map((c) => c.id)) }
+async function approveBatch() {
+  batchBusy.value = true; batchResult.value = ''; error.value = null
+  try {
+    const r = await post('/changes/approve-batch', { ids: [...picked.value] })
+    const bad = r.results.filter((x) => !x.ok)
+    batchResult.value = t('changes.batch.done', { n: r.approved }) + (bad.length ? ' ' + t('changes.batch.failed', { list: bad.map((x) => '#' + x.id + ' ' + tOr('err.' + x.error, x.error)).join(', ') }) : '')
+    picked.value = new Set()
+    await load(false)
+    refreshPending(true)
+  } catch (e) { error.value = e } finally { batchBusy.value = false }
+}
 
 // guide, remembered in this browser
 const GUIDE_KEY = 'jtwaf.guide.changes'
@@ -112,6 +145,7 @@ const applyFlow = computed(() => ['request', 'drift', 'health_before', 'snapshot
   .map((k) => ({ key: k, label: t('guide.apply.' + k), desc: t('guide.apply.' + k + '_d') })))
 
 const cols = computed(() => [
+  ...(canApprove.value && selectable.value.length ? [{ key: 'sel', label: '', sortable: false, required: true, nowrap: true, text: () => '' }] : []),
   { key: 'id', label: t('change.id'), required: true, align: 'num', value: (c) => c.id },
   { key: 'created_at', label: t('change.created'), nowrap: true, text: (c) => fmtShortTime(c.created_at) },
   { key: 'what', label: t('change.what'), nowrap: true, value: (c) => t('op.' + c.op) + ' · ' + t('kind.' + c.kind) + (c.rule_id ? ' ' + c.rule_id : '') },
@@ -160,6 +194,7 @@ refreshPending(true)
 
 <style scoped>
 .guide { display: flex; flex-direction: column; gap: 12px; }
+.batchbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
 .states { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; align-items: baseline; }
 .states dt { white-space: nowrap; }
 .states dd { margin: 0; color: var(--muted); }

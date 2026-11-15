@@ -1920,6 +1920,35 @@ def change_approve(app, req):
     return json_response(200, _wf(app).public(_wf(app).get(_cid(req)), full=True))
 
 
+def change_approve_batch(app, req):
+    """Approver: approve several tightening changes at once (each with the same rules as one by one: not one's own
+    unless single-admin mode). A loosening change is approved on its own page (one-time code and a reason where
+    asked). Returns each id with ok or the reason it was not approved."""
+    b = req.body()
+    ids = b.get('ids') if isinstance(b, dict) else None
+    if not isinstance(ids, list) or not ids or len(ids) > 100 or not all(isinstance(i, int) for i in ids):
+        raise ApiError(400, 'bad_request', 'ids: 1 to 100 change ids')
+    note = str(b.get('note') or '')[:1000]
+    out = []
+    for cid in dict.fromkeys(ids):
+        try:
+            r = _wf(app).get(cid)
+        except (KeyError, ChangeError):
+            out.append({'id': cid, 'ok': False, 'error': 'not_found'})
+            continue
+        if r['direction'] != 'tighten':
+            out.append({'id': cid, 'ok': False, 'error': 'not_tightening'})
+            continue
+        try:
+            _wf(app).approve(cid, req.user, '', note)
+            out.append({'id': cid, 'ok': True})
+        except ChangeError as e:
+            app.audit.log('change.approve_denied', req.user['username'], src_ip=req.client_ip, result='denied', reason=e.code,
+                          target=cid)
+            out.append({'id': cid, 'ok': False, 'error': e.code})
+    return json_response(200, {'results': out, 'approved': sum(1 for x in out if x['ok'])})
+
+
 def change_reject(app, req):
     try:
         _wf(app).reject(_cid(req), req.user, str(req.body().get('note') or ''))
@@ -2113,6 +2142,7 @@ def register_p2(router):
     R('POST', V + '/changes/preview', change_preview, ('role', 'operator', 'changes:propose'))
     R('GET', V + '/changes/{id}', change_get, viewer('changes:read'))
     R('POST', V + '/changes/{id}/approve', change_approve, ('role', 'approver', None))
+    R('POST', V + '/changes/approve-batch', change_approve_batch, ('role', 'approver', None))
     R('POST', V + '/changes/{id}/reject', change_reject, ('role', 'approver', None))
     R('POST', V + '/changes/{id}/cancel', change_cancel, ('role', 'operator', None))
     R('POST', V + '/changes/{id}/recheck', change_recheck, ('role', 'operator', None))
@@ -2384,6 +2414,57 @@ def ui_settings_patch(app, req):
     return json_response(200, {'changed': changed, 'settings': uisettings.public(app.cfg, app.db)})
 
 
+def settings_export(app, req):
+    """Admin: every setting as one JSON file. With `secrets: true` the keys and passwords too: a fresh one-time code,
+    and the record says so."""
+    from .. import settings_io
+    from ..auth import AuthError
+    b = req.body() if req.method == 'POST' else {}
+    secrets = bool(isinstance(b, dict) and b.get('secrets') is True)
+    if secrets:
+        try:
+            app.auth.step_up(req.user['username'], str(b.get('totp') or ''), 'settings.export_secrets', req.client_ip)
+        except AuthError as e:
+            raise ApiError(e.status, e.code, e.code, **e.details)
+    out = settings_io.export(app, secrets=secrets)
+    app.audit.log('settings.exported', req.user['username'], src_ip=req.client_ip, secrets=secrets,
+                  severity='warning' if secrets else 'info')
+    return json_response(200, out)
+
+
+def settings_import_preview(app, req):
+    """Admin: what importing a settings file would change, setting by setting (nothing is written)."""
+    from .. import settings_io
+    b = req.body()
+    try:
+        data = settings_io.parse((b or {}).get('file') if isinstance(b, dict) else None)
+    except settings_io.ImportError_ as e:
+        raise ApiError(400, e.code, e.code, **e.details)
+    return json_response(200, settings_io.preview(app, data))
+
+
+def settings_import(app, req):
+    """Admin: write the picked settings of a file (all or none), with a fresh one-time code."""
+    from .. import settings_io
+    from ..auth import AuthError
+    from ..changes import ChangeError
+    b = req.body()
+    if not isinstance(b, dict) or not isinstance(b.get('keys'), list):
+        raise ApiError(400, 'bad_request', 'file and keys')
+    try:
+        app.auth.step_up(req.user['username'], str(b.get('totp') or ''), 'settings.import', req.client_ip)
+    except AuthError as e:
+        raise ApiError(e.status, e.code, e.code, **e.details)
+    try:
+        data = settings_io.parse(b.get('file'))
+        done = settings_io.apply(app, data, [str(k) for k in b['keys']][:1000], req.user['username'], src_ip=req.client_ip)
+    except settings_io.ImportError_ as e:
+        raise ApiError(400 if e.code != 'invalid_configuration' else 422, e.code, e.code, **e.details)
+    except ChangeError as e:
+        raise ApiError(400, e.code, e.code, **(e.details or {}))
+    return json_response(200, {'changed': done})
+
+
 def syslog_destinations(app, req):
     """Admin: every log server with what was sent, dropped, waits, the last error."""
     from ..audit import MAX_DESTINATIONS
@@ -2463,6 +2544,9 @@ def register_compliance(router):
     R('GET', V + '/settings/ui', ui_settings, admin)
     R('PATCH', V + '/settings/ui', ui_settings_patch, admin)
     R('GET', V + '/settings/syslog', syslog_destinations, admin)
+    R('POST', V + '/settings/export', settings_export, admin)
+    R('POST', V + '/settings/import/preview', settings_import_preview, admin)
+    R('POST', V + '/settings/import', settings_import, admin)
     R('POST', V + '/settings/syslog/test', syslog_test, admin)
     R('POST', V + '/llm/test', llm_test, admin)
     R('GET', V + '/llm/test', llm_test_result, admin)

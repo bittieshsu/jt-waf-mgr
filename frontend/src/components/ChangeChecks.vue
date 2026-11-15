@@ -103,7 +103,7 @@
         <span v-if="sb.skipped" class="muted">{{ t('checks.skipped') }}: {{ safeText(sb.skipped, 200) }}</span>
         <span v-if="sb.error" class="muted">{{ tOr('sandbox.error.' + sb.error, sb.error) }}</span>
       </div>
-      <pre v-if="sb && sb.message" class="code small">{{ safeMultiline(sb.message) }}</pre>
+      <CodeBlock v-if="sb && sb.message" small lang="log" :code="safeMultiline(sb.message)" />
       <div v-if="sb && sb.cases !== undefined" class="checkbody">
         <div class="minitiles">
           <span>{{ t('sandbox.cases') }} <b>{{ fmtNum(sb.cases) }}</b></span>
@@ -144,6 +144,7 @@
 </template>
 
 <script setup>
+import CodeBlock from './CodeBlock.vue'
 import { computed } from 'vue'
 import { t, tOr } from '../i18n.js'
 import { safeText, safeMultiline, fmtNum, fmtTime } from '../util.js'

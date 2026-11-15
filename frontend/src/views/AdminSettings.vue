@@ -1,14 +1,15 @@
 <template>
   <div class="page">
     <h1>{{ t('settings.title') }}</h1>
-    <WorkflowSettings />
-    <RegressionSamples />
-    <GeoipSettings @saved="load" />
-    <UiSettings :groups="['llm', 'intel', 'analyst', 'review', 'warroom', 'traffic', 'blocks', 'network']" @saved="load" />
-    <CountrySettings @saved="load" />
-    <DnsSettings @saved="load" />
-    <SyslogDestinations />
-    <UiSettings :groups="['policy']" @saved="load" />
+    <WorkflowSettings :key="'c1-' + gen" />
+    <RegressionSamples :key="'c2-' + gen" />
+    <GeoipSettings @saved="load" :key="'c3-' + gen" />
+    <UiSettings :groups="['llm', 'intel', 'analyst', 'review', 'warroom', 'traffic', 'blocks', 'network']" @saved="load" :key="'c4-' + gen" />
+    <CountrySettings @saved="load" :key="'c5-' + gen" />
+    <DnsSettings @saved="load" :key="'c6-' + gen" />
+    <SyslogDestinations :key="'c7-' + gen" />
+    <UiSettings :groups="['policy']" @saved="load" :key="'c8-' + gen" />
+    <SettingsTransfer @saved="afterImport" />
     <ErrorBox :error="error" />
     <section v-if="s" class="card">
       <h2><Icon name="page" /> {{ t('settings.config_title') }}</h2>
@@ -22,7 +23,7 @@
       <dl class="kv">
         <template v-for="k in keys" :key="k">
           <dt>{{ tOr('settings.' + k, k) }}<div class="mono muted small">{{ k }}</div></dt>
-          <dd><pre class="code small">{{ fmt(s[k]) }}</pre></dd>
+          <dd><CodeBlock small lang="json" :code="fmt(s[k])" /></dd>
         </template>
       </dl>
     </section>
@@ -30,6 +31,7 @@
 </template>
 
 <script setup>
+import CodeBlock from '../components/CodeBlock.vue'
 import Icon from '../components/Icon.vue'
 import { ref, computed, onMounted } from 'vue'
 import { get } from '../api.js'
@@ -42,6 +44,7 @@ import GeoipSettings from '../components/GeoipSettings.vue'
 import CountrySettings from '../components/CountrySettings.vue'
 import DnsSettings from '../components/DnsSettings.vue'
 import UiSettings from '../components/UiSettings.vue'
+import SettingsTransfer from '../components/SettingsTransfer.vue'
 import SyslogDestinations from '../components/SyslogDestinations.vue'
 import HBars from '../components/charts/HBars.vue'
 
@@ -71,6 +74,9 @@ function fmt(v) {
   if (Array.isArray(v) && v.every((x) => typeof x !== 'object')) return safeMultiline(v.join('\n'))
   return safeMultiline(JSON.stringify(v, null, 2))
 }
+// after an import every card shows the new values (they load their own when they start)
+const gen = ref(0)
+function afterImport() { gen.value++; load() }
 async function load() {
   try { s.value = await get('/settings') } catch (e) { error.value = e }
 }

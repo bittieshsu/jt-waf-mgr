@@ -87,6 +87,13 @@ def main():
     native = re.compile(r'\b(?:window|self|globalThis)\.(?:confirm|alert|prompt)\b|(?<![\w.$])(?:alert|prompt)\(')
     # number tiles look like the dashboard's everywhere: icon + label, the value, a line under it (tile stat)
     plain_tile = re.compile(r'class="tile(?:\s(?![^"]*\bstat\b)[^"]*)?"')
+    # configuration and command text gets its colours from CodeBlock; a <pre class="code"> elsewhere needs a reason
+    raw_code = re.compile(r'<pre\b[^>]*class="code\b')
+    code_exempt = {
+        'CodeBlock.vue': 'the component itself', 'JsonView.vue': 'JSON with its own colours',
+        'DiffView.vue': 'a diff with its own colours', 'RuleText.vue': 'ModSecurity rules with their own colours',
+        'Analysis.vue': 'the model\'s own words, not configuration', 'ChangeDetail.vue': 'the reason a person wrote',
+        'RulesFileTransfer.vue': 'rule text compared line by line (plain on purpose)'}
     for dirpath, _, files in os.walk(SRC):
         for name in files:
             if not name.endswith(('.vue', '.js')) or name == 'worldLand.js':
@@ -101,6 +108,9 @@ def main():
                 if name.endswith('.vue') and name != 'Loading.vue' and 'common.loading' in code and 'Spinner' not in code:
                     problems.append('%s:%d: loading text without the spinner; use <Loading /> or put <Spinner /> next to '
                                     'it' % (os.path.relpath(path, ROOT), i))
+                if name.endswith('.vue') and name not in code_exempt and raw_code.search(code):
+                    problems.append('%s:%d: a raw <pre class="code">; use CodeBlock (syntax colours) or add the file to '
+                                    'code_exempt with the reason' % (os.path.relpath(path, ROOT), i))
                 if name.endswith('.vue') and plain_tile.search(code):
                     problems.append('%s:%d: a plain number tile; use class="tile stat" with an icon in .tl (like the '
                                     'dashboard)' % (os.path.relpath(path, ROOT), i))

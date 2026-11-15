@@ -409,3 +409,11 @@ Editing comes in a later phase (config file for now).
   (up to 500, `more`): see docs/API.md 4.10. No address, path, query or header; internal-only sites as `internal-<n>`.
 - Settings `warroom.dest_label`, `warroom.dest_lat`, `warroom.dest_lon` (strings; empty: no destination),
   `warroom.rotate_seconds` (10-600).
+
+## 0.4.57
+- `POST /changes/approve-batch` `{ids, note}` (approver): tightening changes only; `{results: [{id, ok, error}], approved}`.
+- `POST /settings/export` `{secrets, totp}`, `POST /settings/import/preview` `{file}`, `POST /settings/import`
+  `{file, keys: ["settings:<key>" | "workflow:<key>"], totp}` (admin): settings_io.py; components/SettingsTransfer.vue.
+- change_log action `approval_carried` (a tightening approval kept through a clean recheck).
+- components/CodeBlock.vue (`lang`: nginx, shell, ini, modsec, json, log, text): text spans only.
+- CLI: cli_admin.py (`--as USER`, audit source `cli`).

@@ -353,7 +353,7 @@ async function audit(page, where) {
   ok((await page.locator('.datatable tbody tr').count()) === 1, 'traffic: one site');
   // temporary IP blocks: the list, the include hint (the e2e nginx does not load the file), adding and ending one
   await page.goto(base + '/blocks', { waitUntil: 'networkidle' });
-  ok((await page.locator('.datatable').first().locator('tbody tr').count()) === 3 && (await page.locator('.alert.warn pre').innerText()).includes('blocked-ips.conf'),
+  ok((await page.locator('.datatable').first().locator('tbody tr').count()) === 3 && (await page.locator('.alert.warn pre.codeblock').innerText()).includes('blocked-ips.conf'),
      'blocks: active list and the include line');
   await page.locator('.card.form input.mono').fill('203.0.113.99');
   await page.locator('.card.form .field.grow input').fill('e2e test');
@@ -433,6 +433,28 @@ async function audit(page, where) {
   // the event's AI card names the LLM server and model
   await page.goto(base + '/events/1', { waitUntil: 'networkidle' });
   ok((await page.locator('.factgrid dl.facts > div').count()) >= 8, 'event detail: facts in aligned rows');
+  // 0.4.57: several tightening changes approved at once; settings exported and imported (picked ones only)
+  await page.goto(base + '/changes?tab=pending_approval', { waitUntil: 'networkidle' });
+  if (await page.locator('.batchbar').count()) {
+    ok((await page.locator('.datatable tbody input[type=checkbox]').count()) >= 1, 'changes: tightening changes can be ticked for a batch approval');
+  }
+  await page.goto(base + '/admin/settings', { waitUntil: 'networkidle' });
+  ok((await page.locator('#settings-transfer').count()) === 1, 'settings: export and import card');
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 8000 }).catch(() => null),
+    page.locator('#settings-transfer .setio-row button').first().click()]);
+  ok(!!dl && /settings.*\.json$/.test(dl.suggestedFilename()), 'settings: export downloads a JSON file');
+  if (dl) {
+    const fp = await dl.path();
+    const d = JSON.parse(fs.readFileSync(fp, 'utf8'));
+    ok(d.format === 'jt-waf-mgr-settings' && !JSON.stringify(d).includes('e2e-secret'), 'settings: the export leaves the secrets out');
+    d.settings['review.keep_days'] = 33;
+    const f2 = path.join(SHOTS, 'settings-import.json');
+    fs.writeFileSync(f2, JSON.stringify(d));
+    await page.locator('#settings-transfer input[type=file]').setInputFiles(f2);
+    await page.waitForSelector('#settings-transfer .datatable tbody tr', { timeout: 8000 }).catch(() => {});
+    ok((await page.locator('#settings-transfer .datatable tbody input[type=checkbox]:checked').count()) === 1, 'settings: import preview ticks only what differs');
+    fs.unlinkSync(f2);
+  }
   // 0.4.56: the war room opens in a tab of its own from the Overview menu; both maps draw the same window
   await page.goto(base + '/', { waitUntil: 'networkidle' });
   await page.locator('.mainnav button.navmorebtn').first().click();

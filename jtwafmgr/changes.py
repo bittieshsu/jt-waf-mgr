@@ -65,6 +65,11 @@ class Workflow:
         return {k: self.setting(k) for k in DEFAULT_SETTINGS}
 
     def set_setting(self, key, value, actor):
+        self.check_setting(key, value)
+        self.managed.set_setting(key, value, actor)
+
+    def check_setting(self, key, value):
+        """Raises ChangeError when the value cannot be stored (the import checks every value before it writes any)."""
         if key not in DEFAULT_SETTINGS:
             raise ChangeError('unknown_setting')
         d = DEFAULT_SETTINGS[key]
@@ -79,7 +84,6 @@ class Workflow:
             for u in value:
                 if not isinstance(u, str) or not __import__('re').fullmatch(r'https?://[a-z0-9.-]+(?::\d{1,5})?/\S{0,500}', u):
                     raise ChangeError('invalid_value', url=str(u)[:100])
-        self.managed.set_setting(key, value, actor)
 
     # --- reading --------------------------------------------------------------------------
     def get(self, cid):
@@ -908,7 +912,31 @@ class Workflow:
             return
         self.db.x('UPDATE changes SET base_version=? WHERE id=?', (base, cid))
         self._finish_checks(cid, checks, 'pending_approval', None)
-        self._maybe_auto_apply(cid)
+        if not self._carry_approval(cid):
+            self._maybe_auto_apply(cid)
+
+    def _carry_approval(self, cid):
+        """A tightening change a person approved went stale only because another change was applied first, and passed
+        every check again with the same content: the approval stands (audited as carried); no second click. A
+        loosening, a content change, a manual recheck or a rejection in between: a person approves again."""
+        r = self.get(cid)
+        if r['direction'] != 'tighten':
+            return False
+        rows = self.db.q("SELECT actor, action, note FROM change_log WHERE change_id=? ORDER BY id", (cid,))
+        last = max((i for i, x in enumerate(rows) if x['action'] in ('approved', 'approval_carried')), default=None)
+        if last is None:
+            return False
+        after = rows[last + 1:]
+        if not any(x['action'] == 'stale' for x in after):
+            return False
+        if any(x['action'] in ('rejected', 'cancelled', 'recheck') or
+               (x['action'] == 'stale' and x['note'].startswith('the rules to apply differ')) for x in after):
+            return False
+        who = rows[last]['actor']
+        self.log(cid, who, 'approval_carried', 'approved before another change was applied; checked again, unchanged')
+        self.app.audit.log('change.approved', who, 'system', None, 'ok', change_id=cid, carried=True)
+        self._queue_apply(cid, who)
+        return True
 
     def _finish_checks(self, cid, checks, state, error):
         self.db.x('UPDATE changes SET checks=? WHERE id=?', (json.dumps(checks, ensure_ascii=False), cid))

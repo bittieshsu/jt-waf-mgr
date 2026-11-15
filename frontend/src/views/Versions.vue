@@ -41,7 +41,7 @@
         <details v-if="row.health && Object.keys(row.health).length" class="sub"><summary>{{ t('versions.health') }}</summary>
           <ul class="plainlist small"><li v-for="(hv, u) in row.health" :key="u"><span class="mono breakall">{{ safeText(u, 300) }}</span>
             <span class="mono">{{ safeText(hv[0], 30) }} → {{ safeText(hv[1], 30) }}</span></li></ul></details>
-        <details v-if="row.nginx_t" class="sub"><summary>nginx -t</summary><pre class="code small">{{ safeMultiline(row.nginx_t) }}</pre></details>
+        <details v-if="row.nginx_t" class="sub"><summary>nginx -t</summary><CodeBlock small lang="log" :code="safeMultiline(row.nginx_t)" /></details>
       </template>
       <template #cell-actions="{ row }">
         <button v-if="canRollback && ['applied', 'superseded'].includes(row.state) && row.version !== current" type="button"
@@ -64,6 +64,7 @@ import { safeText, safeMultiline, fmtShortTime } from '../util.js'
 import ErrorBox from '../components/ErrorBox.vue'
 import Loading from '../components/Loading.vue'
 import TruncText from '../components/TruncText.vue'
+import CodeBlock from '../components/CodeBlock.vue'
 import Icon from '../components/Icon.vue'
 import DataTable from '../components/DataTable.vue'
 import FlowSteps from '../components/FlowSteps.vue'

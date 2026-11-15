@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.56
+# jt-waf-mgr v0.4.57
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -344,6 +344,30 @@ sudo jt-waf-mgr user disable alice              # and: enable
 - `passwd` sets a password interactively.
 - `disable` / `enable` switch an account off and on again.
 - Every one of these changes is written to the audit trail.
+
+### Administration from the command line
+
+What the web interface does for IP blocks, alerts, changes, settings, API tokens and threat intelligence is also a
+command, with the same rules. A write names the person it is done for (`--as`, an existing account with the role the
+web interface asks for); the audit trail records that person with `cli` as the source.
+
+```sh
+sudo jt-waf-mgr blocks list
+sudo jt-waf-mgr blocks add 203.0.113.7 --reason "probing" --ttl 24h --as alice
+sudo jt-waf-mgr blocks extend 12 --ttl 7d --reason "still probing" --as alice     # or --permanent (admin)
+sudo jt-waf-mgr blocks remove 12 --note "false alarm" --as alice
+sudo jt-waf-mgr alerts list ; sudo jt-waf-mgr alerts handle 23 --note "checked" --as alice
+sudo jt-waf-mgr changes list --state pending_approval
+sudo jt-waf-mgr changes approve 41 --as alice            # not one's own; --totp where the web asks for a code
+sudo jt-waf-mgr settings show review.
+sudo jt-waf-mgr settings set review.keep_days=60 --as admin1
+sudo jt-waf-mgr settings export -o settings.json         # --secrets --as admin1: keys and passwords too
+sudo jt-waf-mgr settings import settings.json --only notify,workflow --dry-run
+sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr review run --as alice
+```
+
+Add `--json` for machine-readable output. In the web interface: Settings > Export and import settings (import shows
+the file next to the current values and writes only what you tick).
 
 ### Upgrade
 

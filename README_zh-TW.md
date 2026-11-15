@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.56
+# jt-waf-mgr v0.4.57
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -288,6 +288,27 @@ sudo jt-waf-mgr user disable alice              # 以及 enable
 - `passwd`：以互動方式設定密碼。
 - `disable` 與 `enable`：停用與重新啟用帳號。
 - 以上每一項變更都寫進稽核記錄。
+
+### 命令列管理
+
+網頁上的 IP 封鎖、警示、變更、設定、API 權杖與威脅情報操作，也都有對應的指令，規則相同。寫入類指令要用 `--as` 指定是替哪個人做的 (既有帳號，角色要符合網頁上的要求)；稽核記錄會記下這個人，來源是 `cli`。
+
+```sh
+sudo jt-waf-mgr blocks list
+sudo jt-waf-mgr blocks add 203.0.113.7 --reason "probing" --ttl 24h --as alice
+sudo jt-waf-mgr blocks extend 12 --ttl 7d --reason "still probing" --as alice     # 或 --permanent (限 admin)
+sudo jt-waf-mgr blocks remove 12 --note "false alarm" --as alice
+sudo jt-waf-mgr alerts list ; sudo jt-waf-mgr alerts handle 23 --note "checked" --as alice
+sudo jt-waf-mgr changes list --state pending_approval
+sudo jt-waf-mgr changes approve 41 --as alice            # 不能核准自己的；網頁要求驗證碼時加 --totp
+sudo jt-waf-mgr settings show review.
+sudo jt-waf-mgr settings set review.keep_days=60 --as admin1
+sudo jt-waf-mgr settings export -o settings.json         # --secrets --as admin1：連金鑰與密碼一起匯出
+sudo jt-waf-mgr settings import settings.json --only notify,workflow --dry-run
+sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr review run --as alice
+```
+
+加 `--json` 輸出機器可讀的格式。網頁上：設定 → 匯出與匯入設定 (匯入時先對照檔案與目前值，只寫入你勾選的)。
 
 ### 升級
 

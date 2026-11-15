@@ -504,12 +504,13 @@ curl -sS -X DELETE -H "Authorization: Bearer $TOKEN" \
 
 下列端點對任何權杖都回 403。它們需要人、session，通常還要特定角色與當下的一次性密碼。
 
-- 變更的決定：`POST /changes/{id}/approve`、`/reject`、`/cancel`、`/recheck`（證據覆核）、
+- 變更的決定：`POST /changes/{id}/approve`、`POST /changes/approve-batch` (`{ids, note}`：只限加強類，每筆規則與逐筆核准相同；逐筆回成功或原因)、`/reject`、`/cancel`、`/recheck`（證據覆核）、
   `POST /versions/{version}/rollback`、`POST /alerts/{id}/handle`。這些就是人工核准的步驟；如果權杖也能做，同一組機器
   憑證就能自己提出又自己通過變更。
 - CRS：`POST /crs/updates/check`、`POST /crs/updates/propose`。
 - 納管與上傳規則檔：`POST /managed/adopt`、`POST /managed/import/preview`、`POST /managed/import`。
 - 帳號與權杖：`/auth/*`、`/users*`、`/tokens*`。
+- 設定匯出與匯入：`POST /settings/export` (`{secrets, totp}`)、`POST /settings/import/preview` (`{file}`：列出檔案每個設定與目前值，不寫入)、`POST /settings/import` (`{file, keys, totp}`：只寫勾選的，全有或全無)。限 admin。
 - 設定與維運：`/settings*`、`/workflow/settings`、`/notify/*`、`/llm/test`、`/geoip` 與 `/geoip/update`、
   `/backups*`、`/system/check`、`/compliance`、`/config-changes*`、`/analyst/run`、`POST /regression`、
   `DELETE /regression/{id}`、`POST /regression/collect`。
