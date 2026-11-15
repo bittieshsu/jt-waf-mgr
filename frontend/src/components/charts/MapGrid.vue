@@ -1,14 +1,14 @@
 <!-- World map with the country list beside it, one line per country (the source count on the same line). The list
      starts with the first `rows` countries, about the height of the map, so the card has no empty space under it;
      "show all" opens the rest and the map stays in view (sticky) while the list scrolls. Same props as WorldMap +
-     HBars; emits pick(item). -->
+     HBars; emits pick(item, mode) from the value menu. -->
 <template>
   <div class="mapgrid">
     <div class="mg-map">
-      <WorldMap :items="items" :series="series" :label="label" pickable :active-key="activeKey" @pick="(it) => emit('pick', it)" />
+      <WorldMap :items="items" :series="series" :label="label" pickable :excludable="excludable" :active-key="activeKey" @pick="(it, m) => emit('pick', it, m)" />
     </div>
     <div class="mg-list">
-      <HBars :items="all ? items.slice(0, MAX) : items.slice(0, rows)" :series="series" pickable inline-sub :open-label="openLabel" @pick="(it) => emit('pick', it)" />
+      <HBars :items="all ? items.slice(0, MAX) : items.slice(0, rows)" :series="series" pickable :excludable="excludable" inline-sub :open-label="openLabel" @pick="(it, m) => emit('pick', it, m)" />
       <button v-if="items.length > rows" type="button" class="btn small ghost mg-more" :aria-expanded="all ? 'true' : 'false'" @click="all = !all">
         <Icon :name="all ? 'collapse' : 'expand'" />{{ all ? t('map.show_fewer', { n: rows }) : t('map.show_all', { n: fmtNum(Math.min(items.length, MAX)) }) }}
       </button>
@@ -31,6 +31,7 @@ defineProps({
   activeKey: { type: String, default: null },
   openLabel: { type: String, default: '' },
   rows: { type: Number, default: 10 },
+  excludable: Boolean,
 })
 const emit = defineEmits(['pick'])
 const MAX = 50

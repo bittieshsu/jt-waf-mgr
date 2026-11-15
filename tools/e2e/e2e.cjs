@@ -260,10 +260,29 @@ async function audit(page, where) {
   ok(wm.land > 50000 && wm.dots >= 3, 'overview: world map with land and bubbles (' + wm.dots + ')');
   await page.locator('.worldmap .wm-dot').last().hover();
   ok(await page.locator('.charttip').isVisible(), 'world map tooltip on hover');
+  // a bubble opens the value menu; "filter" from it filters by that country
   await page.locator('.worldmap .wm-dot').first().click();
+  ok(await page.locator('.vmenu .vm-item').count() >= 2, 'overview: a bubble opens the value menu');
+  await page.locator('.vmenu .vm-item').first().click();
   await page.waitForLoadState('networkidle');
   const cc = new URL(page.url()).searchParams.get('country');
   ok(/^[A-Z]{2}$/.test(cc || '') && (await page.locator('.worldmap .wm-dot.on').count()) === 1, 'overview: a bubble filters by country (' + cc + ')');
+  // the value menu on the event list: the funnel opens it, "exclude" leaves the value out, the address opens the lookup
+  await page.goto(base + '/events', { waitUntil: 'networkidle' });
+  const evIp = (await page.locator('.datatable tbody .fv-text[data-ip]').first().innerText()).trim();
+  await page.locator('.datatable tbody .fv').filter({ has: page.locator('.fv-text[data-ip]') }).first().locator('.fv-btn').click();
+  ok(await page.locator('.vmenu .vm-item').count() === 3 && !(await page.locator('#jt-ipcard').isVisible()), 'events: value menu (filter, exclude, copy), no address card over it');
+  await page.locator('.vmenu .vm-item').nth(1).click();
+  await page.waitForLoadState('networkidle');
+  ok(new URL(page.url()).searchParams.get('not_src_ip') === evIp && (await page.locator('.fchip-out').count()) === 1
+     && !(await page.locator('.datatable tbody .fv-text[data-ip]').allInnerTexts()).map((x) => x.trim()).includes(evIp), 'events: exclude a value');
+  await page.locator('.datatable tbody .fv-text[data-ip]').first().click({ button: 'right' });
+  ok(await page.locator('.vmenu .vm-item').count() === 3, 'events: right-click opens the value menu');
+  await page.keyboard.press('Escape');
+  ok(await page.locator('.vmenu').count() === 0, 'events: Esc closes the value menu');
+  await page.locator('.datatable tbody .fv-text[data-ip]').first().click();
+  await page.waitForURL(/\/lookup\//, { timeout: 5000 }).catch(() => {});
+  ok(/\/lookup\//.test(page.url()), 'events: the address itself opens the lookup');
   await page.goto(base + '/events?country=' + cc, { waitUntil: 'networkidle' });
   ok((await page.locator('.worldmap .wm-dot').count()) === 1, 'events: country filter leaves one country');
   await page.goto(base + '/events', { waitUntil: 'networkidle' });

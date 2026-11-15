@@ -1,17 +1,17 @@
 <!-- Ranked horizontal bars, one or more stacked series, value at the tip, hover / focus tooltip.
      items: [{ key, label, values: { <seriesKey>: n }, to? (router link), mono?, sub?, active? }]
      series: [{ key, label, tone }]   (2+ series get a legend)
-     pickable: the label (and the bar: click / Enter) emits `pick(item)` instead of following `to`;
-     `to` then becomes a small secondary "open" link next to the label (aria-label from openLabel). -->
+     pickable: the label keeps following `to` (or is plain text); its funnel icon, a right-click on it, or a click on
+     the bar opens the value menu, which emits `pick(item, mode)` (mode 'in' filter, 'out' exclude -- the latter only
+     with `excludable`). item.active: true / 'in' (the current filter) or 'out' (excluded now). -->
 <template>
   <div class="hbars" :class="{ 'hb-inl': inlineSub }">
     <div v-if="!items.length" class="empty small">{{ t('common.no_data') }}</div>
     <div v-for="it in items" :key="it.key" class="hb-row" :class="{ 'hb-on': pickable && it.active }">
-      <div class="hb-label" :class="{ mono: it.mono || mono }" :data-ip="it.ip || null">
+      <div class="hb-label" :class="{ mono: it.mono || mono }" :data-ip="pickable ? null : (it.ip || null)">
         <div v-if="pickable" class="hb-line">
-          <button type="button" class="pickval hb-pick" :class="{ on: it.active }" :aria-pressed="it.active ? 'true' : 'false'"
-                  :title="it.active ? t('filter.unpick') : t('filter.pick')" @click="pick(it)"><span class="pv-text">{{ clip(it.label) }}</span><Icon name="filter" class="pv-icon" /></button>
-          <RouterLink v-if="it.to" :to="it.to" class="openlink" :title="openLabel || t('filter.open')" :aria-label="(openLabel || t('filter.open')) + ': ' + clip(it.label, 100)"><Icon name="external" /></RouterLink>
+          <FilterValue :value="it.key" :text="clip(it.label, 100)" :to="it.to || null" :data-ip="it.ip || ''" :active="mode(it)" :excludable="excludable"
+                       @filter="(m) => pick(it, m)">{{ clip(it.label) }}</FilterValue>
         </div>
         <template v-else><RouterLink v-if="it.to" :to="it.to">{{ clip(it.label) }}</RouterLink><span v-else>{{ clip(it.label) }}</span></template>
         <div v-if="it.sub && !inlineSub" class="sub">{{ clip(it.sub, 120) }}</div>
@@ -19,7 +19,7 @@
       <!-- inlineSub: the sub text (origin, country) is a column of its own, aligned from row to row -->
       <div v-if="inlineSub" class="hb-sub sub">{{ it.sub ? clip(it.sub, 120) : '' }}</div>
       <div class="hb-bar" :class="{ 'hb-pickbar': pickable }" tabindex="0" @pointermove="show($event, it)" @pointerleave="hide" @focus="show($event, it)" @blur="hide"
-           @click="pickable && pick(it)" @keydown.enter.prevent="pickable && pick(it)">
+           @click="pickable && menu($event, it)" @keydown.enter.prevent="pickable && menu($event, it)" @contextmenu="pickable && menu($event, it)">
         <span v-for="s in series.filter((x) => (it.values[x.key] || 0) > 0)" :key="s.key" class="hb-seg" :class="'tone-' + s.tone" :style="{ width: w(it.values[s.key]) + '%' }"></span>
       </div>
       <div class="hb-num">{{ fmtNum(sum(it)) }}</div>
@@ -37,7 +37,8 @@ import { t } from '../../i18n.js'
 import { fmtNum } from '../../util.js'
 import { useTip } from './tip.js'
 import ChartTip from './ChartTip.vue'
-import Icon from '../Icon.vue'
+import FilterValue from '../FilterValue.vue'
+import { filterItems, openValueMenu } from '../../valueMenu.js'
 
 const props = defineProps({
   items: { type: Array, default: () => [] },
@@ -47,6 +48,7 @@ const props = defineProps({
   pickable: Boolean,
   openLabel: { type: String, default: '' },
   inlineSub: Boolean,     // the sub text (origin, country) on the label's line instead of a second line
+  excludable: Boolean,    // the value menu also offers "exclude"
 })
 const emit = defineEmits(['pick'])
 const { tip, at, hide } = useTip()
@@ -57,5 +59,12 @@ function clip(s, n = 80) { s = String(s ?? ''); return s.length > n ? s.slice(0,
 function show(e, it) {
   at(e, clip(it.label, 100), props.series.map((s) => ({ value: fmtNum(it.values[s.key] || 0), label: s.label || props.valueLabel || t('chart.count'), tone: props.series.length > 1 ? s.tone : null })))
 }
-function pick(it) { hide(); emit('pick', it) }
+function mode(it) { return it.active === 'out' ? 'out' : it.active ? 'in' : '' }
+function pick(it, m = 'in') { hide(); emit('pick', it, m) }
+function menu(e, it) {
+  e.preventDefault()
+  hide()
+  openValueMenu(e, filterItems({ value: it.key, active: mode(it) || null, excludable: props.excludable, onFilter: (m) => pick(it, m),
+    openTo: it.to || null, openLabel: props.openLabel }))
+}
 </script>

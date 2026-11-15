@@ -87,8 +87,7 @@
           <RouterLink v-for="s in STATES" :key="s" class="stchip" :to="{ path: '/rules', query: { source: 'crs', state: s } }">
             <Icon :name="STATE_ICON[s]" /><span class="lg" :class="'tone-' + STATE_TONE[s]"></span>{{ t('rulestate.' + s) }} <b>{{ fmtNum(totals[s]) }}</b></RouterLink>
         </div>
-        <HBars :items="familyBars" :series="stateSeries" pickable :open-label="t('filter.open')"
-               @pick="(it) => router.push({ path: '/rules', query: { source: 'crs', family: it.key } })" />
+        <HBars :items="familyBars" :series="stateSeries" />
       </section>
       <div class="cols2">
         <section class="card">
@@ -141,7 +140,6 @@ import Icon from '../components/Icon.vue'
 import FlowSteps from '../components/FlowSteps.vue'
 import Meter from '../components/charts/Meter.vue'
 import HBars from '../components/charts/HBars.vue'
-import { useRouter } from 'vue-router'
 import { tOr } from '../i18n.js'
 
 const crs = ref(null)
@@ -172,7 +170,6 @@ function wafMode(sm) {
 }
 onMounted(() => { get('/waf/model').then((m) => { wafModel.value = m }).catch(() => { /* the page works without it */ }) })
 // CRS rules per attack type, and whether they run (the rules list's summary for the CRS source)
-const router = useRouter()
 const STATES = ['on', 'partial', 'off', 'inactive']
 const STATE_TONE = { on: 'good', partial: 'warning', off: 'blocked', inactive: 'muted' }
 const STATE_ICON = { on: 'check', partial: 'warning', off: 'hide', inactive: 'timer' }
@@ -181,6 +178,7 @@ const stateSeries = computed(() => STATES.map((k) => ({ key: k, label: t('rulest
 const familyBars = computed(() => families.value.map((c) => ({
   key: c.key, label: tOr('family.' + c.key, c.key), values: { on: c.on, partial: c.partial, off: c.off, inactive: c.inactive },
   sub: t('rules.group_counts', { n: fmtNum(c.on + c.partial + c.off + c.inactive), off: fmtNum(c.off + c.partial), inactive: fmtNum(c.inactive) }),
+  to: { path: '/rules', query: { source: 'crs', family: c.key } },     // the family's rules on the rule list
 })))
 const totals = computed(() => Object.fromEntries(STATES.map((k) => [k, families.value.reduce((a, c) => a + (c[k] || 0), 0)])))
 // CRS versions and updates

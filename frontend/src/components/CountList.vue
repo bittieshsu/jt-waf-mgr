@@ -1,10 +1,10 @@
 <!-- Ranked "key: blocked + logged" bars: a thin wrapper around charts/HBars with the WAF outcome series.
      items: [{ key, blocked, logged, origin?, msg?, geo? }]  (geo: the server's GeoIP result; country and network owner
      are shown under an external address)
-     pickable: clicking a key emits `pick(item)` (the original item); linkFor then gives the secondary
-     "open" link next to it (openLabel names it); activeKey marks the key that is the current filter. -->
+     pickable: the value menu (funnel icon / right-click) emits `pick(item, mode)`; linkFor gives the page the key
+     itself opens; activeKey / excludedKey mark the key that is the current filter / exclusion. -->
 <template>
-  <HBars :items="bars" :series="series" :mono="mono" :pickable="pickable" :open-label="openLabel" :inline-sub="inlineSub" @pick="(b) => emit('pick', b.item)" />
+  <HBars :items="bars" :series="series" :mono="mono" :pickable="pickable" :excludable="excludable" :open-label="openLabel" :inline-sub="inlineSub" @pick="(b, m) => emit('pick', b.item, m)" />
 </template>
 
 <script setup>
@@ -22,6 +22,8 @@ const props = defineProps({
   pickable: Boolean,
   openLabel: { type: String, default: '' },
   activeKey: { type: [String, Number], default: null },
+  excludable: Boolean,
+  excludedKey: { type: [String, Number], default: null },
   ipKeys: Boolean,          // the keys are addresses: the address card shows on hover
 })
 const emit = defineEmits(['pick'])
@@ -35,7 +37,8 @@ const bars = computed(() => (props.items || []).map((it) => ({
   values: { blocked: it.blocked || 0, logged: it.logged || 0 },
   to: props.linkFor ? props.linkFor(it) : null,
   sub: [it.origin ? t('origin.' + it.origin) : '', geoText(it.geo), it.msg || ''].filter(Boolean).join(' · ') || null,
-  active: props.activeKey != null && String(props.activeKey) === String(it.key),
+  active: props.activeKey != null && String(props.activeKey) === String(it.key) ? 'in'
+    : props.excludedKey != null && String(props.excludedKey) === String(it.key) ? 'out' : false,
   item: it,
   ip: props.ipKeys ? String(it.key) : null,
 })))

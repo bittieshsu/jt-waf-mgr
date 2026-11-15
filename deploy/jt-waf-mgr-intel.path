@@ -1,8 +1,9 @@
 [Unit]
-Description=jt-waf-mgr: run the threat intelligence search when someone asks for it
+Description=jt-waf-mgr: run the threat intelligence search, or its connection test, when someone asks for it
 
 [Path]
 PathExists=/var/lib/jt-waf-mgr/intel.request
+PathExists=/var/lib/jt-waf-mgr/intel-test.request
 Unit=jt-waf-mgr-intel.service
 
 [Install]

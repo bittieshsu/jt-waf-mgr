@@ -37,6 +37,23 @@
                 <div v-else-if="llmError" class="teststate bad"><Icon name="alert" />{{ errText(llmError) }}</div>
                 <div v-else-if="!modelList.length" class="teststate muted">{{ t('uiset.llm.no_list') }}</div>
               </div>
+              <!-- the second tier: the same test, done by the threat intelligence unit (also checks the search tool) -->
+              <div v-else-if="k === 'intel.model'" class="modelrow">
+                <div class="modelpick">
+                  <SelectBox :id="'uiset-in-' + k" v-model="form[k]" :options="intelModelOptions" class="w-md" />
+                  <button type="button" class="btn small" :disabled="busy.intel" @click="saveAndTestIntel(g)">
+                    <Icon name="test" />{{ dirty(g).length ? t('uiset.llm.save_and_test') : t('uiset.llm.test') }}</button>
+                </div>
+                <div v-if="intelWaiting" class="teststate info"><Icon name="timer" />{{ t('uiset.intel.waiting') }}</div>
+                <template v-else-if="intelResult && intelResult.ok">
+                  <div class="teststate ok"><Icon name="check" />
+                    {{ t('uiset.llm.ok2', { model: intelResult.model || '—', n: (intelResult.models || []).length, seconds: intelResult.seconds, at: fmtMinute(intelResult.finished_at) }) }}</div>
+                  <div v-if="intelResult.search" class="teststate" :class="intelResult.search.ok ? 'ok' : 'bad'">
+                    <Icon :name="intelResult.search.ok ? 'check' : 'alert'" />{{ intelResult.search.ok ? t('uiset.intel.search_ok') : t('uiset.intel.search_bad', { error: intelResult.search.error || (intelResult.search.tools || []).join(', ') || '—' }) }}</div>
+                </template>
+                <div v-else-if="intelError" class="teststate bad"><Icon name="alert" />{{ errText(intelError) }}</div>
+                <div v-else-if="!intelModels.length" class="teststate muted">{{ t('uiset.intel.no_list') }}</div>
+              </div>
               <SelectBox v-else-if="s[k].type === 'choice'" :id="'uiset-in-' + k" v-model="form[k]" :options="choiceOptions(k)" class="w-md" />
               <div v-else-if="s[k].type === 'list' && s[k].choices" class="chips" role="group" :aria-label="t('uiset.' + k)">
                 <label v-for="c in s[k].choices" :key="c" class="chipcheck" :class="{ on: (form[k] || []).includes(c) }">
@@ -156,6 +173,17 @@ const modelOptions = computed(() => {
   return [{ value: '', label: dflt && !cur ? t('uiset.llm.model_default_is', { model: dflt }) : t('uiset.llm.model_default') }]
     .concat(names.map((m) => ({ value: m, label: m, hint: m === cur ? t('uiset.llm.model_saved') : '' })))
 })
+const intelResult = ref(null)
+const intelError = ref(null)
+const intelWaiting = ref(false)
+const intelModels = computed(() => (intelResult.value && intelResult.value.ok && intelResult.value.models) || [])
+const intelModelOptions = computed(() => {
+  const cur = s.value && s.value['intel.model'] ? s.value['intel.model'].value : ''
+  const names = [...intelModels.value]
+  if (cur && !names.includes(cur)) names.unshift(cur)
+  return [{ value: '', label: t('uiset.intel.model_default') }]
+    .concat(names.map((m) => ({ value: m, label: m, hint: m === cur ? t('uiset.llm.model_saved') : '' })))
+})
 const llmSteps = computed(() => {
   if (!s.value || !s.value['llm.url']) return []
   const conn = !!s.value['llm.url'].value && s.value['llm.api_key'].set
@@ -266,6 +294,30 @@ async function testLlm() {
     llmError.value = { code: 'llm_no_answer', details: { unit: 'jt-waf-mgr-analyst.path' } }
   } catch (e) { llmError.value = e } finally { busy.llm = false; llmWaiting.value = false }
 }
+async function saveAndTestIntel(g) {
+  if (dirty(g).length) {
+    await save(g)
+    if (saveError[g.key]) return
+  }
+  busy.intel = true
+  intelError.value = null
+  intelResult.value = null
+  intelWaiting.value = true
+  try {
+    const { requested_at: at } = await post('/intel/test')
+    const limit = Date.now() + ((s.value['intel.timeout_seconds'].value || 600) + 90) * 1000
+    while (Date.now() < limit) {
+      await sleep(2000)
+      const r = await get('/intel/test')
+      if (r.result && r.result.requested_at === at) {
+        if (r.result.ok) intelResult.value = r.result
+        else intelError.value = { code: 'llm_failed', details: { error: r.result.error || '', detail: r.result.detail || '' } }
+        return
+      }
+    }
+    intelError.value = { code: 'llm_no_answer', details: { unit: 'jt-waf-mgr-intel.path' } }
+  } catch (e) { intelError.value = e } finally { busy.intel = false; intelWaiting.value = false }
+}
 // "Send a test": the web service only queues it; the notify unit sends it and records the result
 const tests = reactive({})
 const testInfo = reactive({})
@@ -375,6 +427,12 @@ onMounted(async () => {
     try {
       const r = await get('/llm/test')     // the last test: its model list fills the model choice
       if (r.result && r.result.ok) llmResult.value = r.result
+    } catch (e) { /* not fatal */ }
+  }
+  if (shownGroups.value.some((g) => g.key === 'intel')) {
+    try {
+      const r = await get('/intel/test')
+      if (r.result && r.result.ok) intelResult.value = r.result
     } catch (e) { /* not fatal */ }
   }
 })

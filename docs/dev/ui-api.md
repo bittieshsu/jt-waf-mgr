@@ -362,3 +362,7 @@ Editing comes in a later phase (config file for now).
 - Admin: users, API tokens, audit log, settings (read-only)
 - Footer on every page: `jt-waf-mgr v<version>` + "Source code (AGPL-3.0)" link to `source_url`.
 - Language switcher en / zh-TW / ja (saved via PATCH /auth/me, and localStorage before login).
+
+## 0.4.47
+- Event filters: `not_<key>` (host, src_ip, country, rule_id, outcome, decided_by, origin, family) on `GET /events` and `GET /overview` leaves the value out (`_value_filters` builds the clause, wrapped in `NOT COALESCE(..., 0)`). The UI's value menu (`valueMenu.js`, `ValueMenu.vue`, `FilterValue.vue`): a right-click on a value or its funnel icon opens filter / exclude / open / copy; the value itself opens its page (address -> lookup, rule -> rule page) and never filters.
+- `POST /api/v1/intel/test` (admin) -> 202 `{requested_at}`; `GET /api/v1/intel/test` -> `{result, pending}`: the threat intelligence unit (path unit on `intel-test.request`) answers with `{ok, provider, models, model, reply, search: {ok, tools|error}, seconds}` or `{ok: false, error, detail}` (key masked).

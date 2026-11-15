@@ -136,6 +136,13 @@ def main():
                 problems.append('%s.json: %s contains the product name (never translated, keep it out)' % (lang, k))
             if isinstance(v, str) and '\uff0f' in v:
                 problems.append('%s.json: %s uses a full-width slash; use "/"' % (lang, k))
+            # a half-width "(" right after a word gets a space before it (user 2026-11-15: 威脅情報 (第二層 LLM));
+            # code such as sha256(...) or web_search(query) keeps its form
+            if lang == 'zh-TW':
+                for m in re.finditer(r'(?<=[\u3400-\u9fff\w])\(', v):
+                    if not re.search(r'(?:sha256|HMAC|web_search)$', v[:m.start()]):
+                        problems.append('zh-TW.json: %s has "(" right after a word; put a space before it' % k)
+                        break
             # wording the user rejected for Taiwan usage (2026-11-13): 擋 -> 封鎖, 收編 -> 納管; (2026-11-14) 收緊 -> 加嚴
             if lang == 'zh-TW' and isinstance(v, str):
                 for bad, good in ZH_TERMS:

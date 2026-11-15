@@ -90,6 +90,7 @@
       <a v-if="sourceUrl" :href="sourceUrl" target="_blank" rel="noopener noreferrer">{{ t('footer.source') }}</a>
       <span v-else>{{ t('footer.source') }}</span>
     </footer>
+    <ValueMenu />
   </div>
 </template>
 
@@ -104,6 +105,7 @@ import { safeText, fmtMinute } from './util.js'
 import LangSwitch from './components/LangSwitch.vue'
 import ThemeSwitch from './components/ThemeSwitch.vue'
 import Icon from './components/Icon.vue'
+import ValueMenu from './components/ValueMenu.vue'
 
 const route = useRoute()
 const router = useRouter()

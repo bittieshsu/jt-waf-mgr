@@ -52,6 +52,8 @@ class Fake(http.server.BaseHTTPRequestHandler):
                 return
             if body.get('method') == 'initialize':
                 res = {'protocolVersion': intel.MCP_PROTOCOL, 'capabilities': {}, 'serverInfo': {'name': 'fake'}}
+            elif body.get('method') == 'tools/list':
+                res = {'tools': [{'name': 'web_search'}, {'name': 'code_search'}]}
             else:
                 res = {'content': [{'type': 'text', 'text': 'Example CMS 3.2.1 fixes CVE-2026-11111 (exploited) '
                                                             'https://nvd.nist.gov/vuln/detail/CVE-2026-11111'}]}
@@ -66,6 +68,20 @@ class Fake(http.server.BaseHTTPRequestHandler):
         status = reply.pop('_status', 200) if isinstance(reply, dict) else 200
         data = json.dumps(reply).encode()
         self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+
+    def do_GET(self):
+        Fake.seen.append((self.path, {k.lower(): v for k, v in self.headers.items()}, None))
+        if self.path.split('?')[0] not in ('/v1/models',):
+            self.send_response(404)
+            self.end_headers()
+            return
+        data = json.dumps({'data': [{'id': 'm'}, {'id': 'big-model'}]}).encode()
+        self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(data)))
         self.end_headers()
@@ -444,6 +460,39 @@ class TestIntelApi(unittest.TestCase):
         self.assertEqual(c.req('POST', '/api/v1/intel/threats/999', {'status': 'handled'})[0], 404)
         for action in ('software.added', 'software.changed', 'software.guessed', 'software.removed'):
             self.assertTrue(self.app.db.one('SELECT 1 FROM audit WHERE action=?', (action,)), action)
+
+
+
+class TestConnectionTest(Base):
+    """Settings > "Test connection" for the second tier: done by the intel unit, even before it is switched on."""
+    def test_openai_and_search(self):
+        self.app.cfg.data['intel']['enabled'] = False
+        intel.request_test(self.app.cfg)
+        Fake.script = [openai_reply(content='OK')]
+        intel.run_job(self.app, log=lambda m: None)
+        r = intel.test_result(self.app.cfg)
+        self.assertTrue(r['ok'], r)
+        self.assertEqual((r['models'], r['model'], r['reply']), (['m', 'big-model'], 'm', 'OK'))
+        self.assertEqual(r['search'], {'ok': True, 'tools': ['web_search', 'code_search']})
+        self.assertFalse(os.path.exists(intel._state(self.app.cfg, intel.TEST_REQUEST)))
+        self.assertEqual(self.app.db.one("SELECT COUNT(*) FROM intel_runs")[0], 0)          # no search was run
+        self.assertTrue(self.app.db.one("SELECT 1 FROM audit WHERE action='intel.tested'"))
+
+    def test_failure_hides_the_key(self):
+        self.app.cfg.data['intel'].update(model='nope', api_key='secret-key-123')
+        intel.request_test(self.app.cfg)
+        intel.run_job(self.app, log=lambda m: None)
+        r = intel.test_result(self.app.cfg)
+        self.assertEqual((r['ok'], r['error']), (False, 'model_not_found'))
+        self.assertNotIn('secret-key-123', json.dumps(r))
+
+    def test_anthropic(self):
+        self.app.cfg.data['intel'].update(provider='anthropic', url=self.url, model='')
+        Fake.script = [{'content': [{'type': 'text', 'text': 'OK'}], 'usage': {}}]
+        r = intel.connection_test(self.app.cfg)
+        self.assertEqual((r['model'], r['reply'], r['models']), (intel.ANTHROPIC_MODEL, 'OK', ['m', 'big-model']))
+        get = [h for p, h, b in Fake.seen if p.startswith('/v1/models')][0]
+        self.assertEqual(get['x-api-key'], 'k')
 
 
 if __name__ == '__main__':

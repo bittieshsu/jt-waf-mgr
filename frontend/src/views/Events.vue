@@ -48,12 +48,19 @@
       <HBars :items="familyBars" :series="outcomeSeries" />
       <template v-if="countryItems.length">
         <h3 class="charthead">{{ t('map.loaded_title') }}</h3>
-        <MapGrid :items="countryItems" :series="outcomeSeries" :label="t('map.loaded_title')" :active-key="route.query.country || null"
-                 @pick="(it) => toggleFilter('country', it.key)" />
+        <MapGrid :items="countryItems" :series="outcomeSeries" :label="t('map.loaded_title')" :active-key="route.query.country || null" excludable
+                 @pick="(it, m) => toggleFilter('country', it.key, m)" />
       </template>
       <p class="muted small">{{ t('chart.loaded_rows', { n: fmtNum(items.length) }) }}</p>
     </section>
-    <EventTable :has-more="!!cursor" :loading-more="loading" @more="load(false)" table-id="events" :items="items" :page-size="50" filterable @filter="toggleFilter" />
+    <div v-if="excluded.length" class="fchips" role="status">
+      <span class="fchip-lead"><Icon name="hide" /> {{ t('filter.excluded') }}</span>
+      <span v-for="c in excluded" :key="c.k" class="fchip fchip-out">
+        <span class="fchip-k">{{ c.label }}</span><span class="fchip-v">{{ c.text }}</span>
+        <button type="button" class="fchip-x" :aria-label="t('filter.menu_out_off') + ': ' + c.label + ' ' + c.text" :title="t('filter.menu_out_off')" @click="dropQuery(c.k)"><Icon name="close" /></button>
+      </span>
+    </div>
+    <EventTable :has-more="!!cursor" :loading-more="loading" @more="load(false)" table-id="events" :items="items" :page-size="50" filterable :filters="route.query" @filter="toggleFilter" />
   </div>
 </template>
 
@@ -63,8 +70,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useFilterState } from '../filterState.js'
 import EventTimeline from '../components/EventTimeline.vue'
 import { get } from '../api.js'
-import { lang, t } from '../i18n.js'
-import { countryName, fmtNum } from '../util.js'
+import { lang, t, tOr } from '../i18n.js'
+import { countryName, fmtNum, safeText } from '../util.js'
 import ErrorBox from '../components/ErrorBox.vue'
 import Loading from '../components/Loading.vue'
 import EventTable from '../components/EventTable.vue'
@@ -79,6 +86,8 @@ import MapGrid from '../components/charts/MapGrid.vue'
 import CENTRE from '../components/charts/countryCentroids.js'
 
 const KEYS = ['since', 'until', 'host', 'path_prefix', 'q', 'src_ip', 'country', 'rule_id', 'outcome', 'decided_by', 'origin', 'family']
+// "exclude this value" from the value menu: not_<key> (shown as chips, kept when the form is applied)
+const NOT_KEYS = ['host', 'src_ip', 'country', 'rule_id', 'outcome', 'decided_by', 'origin', 'family'].map((k) => 'not_' + k)
 const DECIDERS = ['confident', 'score', 'fallback', 'other']
 const FAMILIES = ['protocol', 'lfi', 'rfi', 'rce', 'php', 'generic', 'xss', 'sqli', 'session', 'java', 'scanner', 'method', 'body', 'data_leak', 'local', 'other']
 
@@ -181,7 +190,7 @@ const countryItems = computed(() => {
     c.ips.add(e.src_ip)
     m.set(g.cc, c)
   }
-  return [...m.values()].map((c) => ({ ...c, sub: t('overview.geo_sources', { n: c.ips.size }), active: route.query.country === c.key }))
+  return [...m.values()].map((c) => ({ ...c, sub: t('overview.geo_sources', { n: c.ips.size }), active: route.query.country === c.key ? 'in' : route.query.not_country === c.key ? 'out' : false }))
     .sort((a, b) => (b.values.blocked + b.values.logged) - (a.values.blocked + a.values.logged))
 })
 
@@ -219,7 +228,7 @@ function fromQuery() {
 }
 function params() {
   const p = {}
-  for (const k of KEYS) {
+  for (const k of KEYS.concat(NOT_KEYS)) {
     const v = typeof route.query[k] === 'string' ? route.query[k] : ''
     if (v) p[k] = v
   }
@@ -251,17 +260,38 @@ function apply() {
     if (k === 'since' || k === 'until') v = toIso(v)
     if (v) q[k] = v
   }
+  for (const k of NOT_KEYS) if (typeof route.query[k] === 'string' && route.query[k]) q[k] = route.query[k]
   router.push({ query: q })
 }
 function reset() { router.push({ query: {} }) }
-// a value clicked in the list becomes (or, when it already is, stops being) that filter
-function toggleFilter(key, value) {
+// the value menu: mode 'in' filters by the value, 'out' leaves it out; choosing the active one again removes it
+function toggleFilter(key, value, mode = 'in') {
   const v = String(value ?? '')
+  const k = mode === 'out' ? 'not_' + key : key
+  const other = mode === 'out' ? key : 'not_' + key
   const q = { ...route.query }
-  if (q[key] === v) delete q[key]
-  else q[key] = v
+  if (q[k] === v) delete q[k]
+  else {
+    q[k] = v
+    if (q[other] === v) delete q[other]
+  }
   router.push({ query: q })
 }
+function dropQuery(k) {
+  const q = { ...route.query }
+  delete q[k]
+  router.push({ query: q })
+}
+const excluded = computed(() => NOT_KEYS.filter((k) => typeof route.query[k] === 'string' && route.query[k]).map((k) => {
+  const key = k.slice(4)
+  const v = route.query[k]
+  const text = key === 'outcome' ? t('outcome.' + v) : key === 'origin' ? t('origin.' + v) : key === 'decided_by' ? t('decided.' + v)
+    : key === 'family' ? tOr('family.' + v, v) : key === 'country' ? countryLabel(v) : v
+  return { k, label: t(EXCL_LABEL[key]), text: safeText(text, 80) }
+}))
+function countryLabel(cc) { return (countryName(cc, lang.value) || cc) + ' (' + cc + ')' }
+const EXCL_LABEL = { host: 'event.host', src_ip: 'filter.src_ip', country: 'filter.country', rule_id: 'filter.rule_id', outcome: 'event.outcome',
+  decided_by: 'event.decided_by', origin: 'event.origin', family: 'event.family' }
 
 watch(() => route.query, () => { fromQuery(); load(true) }, { immediate: true })
 </script>

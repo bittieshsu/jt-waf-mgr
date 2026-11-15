@@ -171,6 +171,8 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/status
 - `family`: `protocol`, `lfi`, `rfi`, `rce`, `php`, `generic`, `xss`, `sqli`, `session`, `java`, `scanner`,
   `method`, `body`, `data_leak`, `local` or `other`.
 - `limit` (default 100, at most 1000), `cursor`.
+- `not_<name>` for `host`, `src_ip`, `country`, `rule_id`, `outcome`, `decided_by`, `origin`, `family`: leave that
+  value out (the same checks as the filter itself). `GET /overview` takes the same filters.
 
 ```sh
 curl -sS -H "Authorization: Bearer $TOKEN" \

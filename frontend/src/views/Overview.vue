@@ -28,7 +28,7 @@
                 @click="setQuery({ outcome: o.value })"><Icon :name="o.icon" />{{ o.label }}</button>
       </div>
       <span v-if="chips.length" class="fchip-lead"><Icon name="filter" /> {{ t('overview.filter.active') }}</span>
-      <span v-for="c in chips" :key="c.key" class="fchip">
+      <span v-for="c in chips" :key="c.key" class="fchip" :class="{ 'fchip-out': c.out }">
         <span class="fchip-k">{{ c.label }}</span>
         <span class="fchip-v" :class="{ mono: c.mono }" :title="c.full">{{ c.text }}</span>
         <button type="button" class="fchip-x" :aria-label="t('overview.filter.remove', { name: c.label + ' ' + c.text })" :title="t('overview.filter.remove', { name: c.label + ' ' + c.text })"
@@ -94,9 +94,9 @@
 
       <section class="card">
         <div class="chartgrid">
-          <div><h3 class="charthead">{{ t('chart.outcome_split') }}</h3><SegBar :parts="outcomeParts" :label="t('chart.outcome_split')" pickable @pick="(p) => toggleFilter('outcome', p.key)" /></div>
-          <div><h3 class="charthead">{{ t('chart.block_reason') }}</h3><SegBar :parts="reasonParts" :label="t('chart.block_reason')" pickable @pick="(p) => toggleFilter('decided_by', p.key)" /></div>
-          <div><h3 class="charthead">{{ t('chart.origin_split') }}</h3><SegBar :parts="originParts" :label="t('chart.origin_split')" pickable @pick="(p) => toggleFilter('origin', p.key)" /></div>
+          <div><h3 class="charthead">{{ t('chart.outcome_split') }}</h3><SegBar :parts="outcomeParts" :label="t('chart.outcome_split')" pickable excludable @pick="(p, m) => toggleFilter('outcome', p.key, m)" /></div>
+          <div><h3 class="charthead">{{ t('chart.block_reason') }}</h3><SegBar :parts="reasonParts" :label="t('chart.block_reason')" pickable excludable @pick="(p, m) => toggleFilter('decided_by', p.key, m)" /></div>
+          <div><h3 class="charthead">{{ t('chart.origin_split') }}</h3><SegBar :parts="originParts" :label="t('chart.origin_split')" pickable excludable @pick="(p, m) => toggleFilter('origin', p.key, m)" /></div>
         </div>
         <h3 class="charthead">{{ t('overview.timeline') }}</h3>
         <TimeBars :data="data.timeline || []" :series="outcomeSeries" :label="t('chart.timeline')" selectable
@@ -139,17 +139,17 @@
       <div class="cols2">
         <section class="card">
           <h2><Icon name="server" /> {{ t('overview.by_host') }}</h2>
-          <CountList :items="data.by_host" pickable :active-key="filters.host" :open-label="t('filter.open_events')" :link-for="(it) => eventsLink('host', it.key)" @pick="(it) => toggleFilter('host', it.key)" />
+          <CountList :items="data.by_host" pickable excludable :active-key="filters.host" :excluded-key="filters.not_host" :open-label="t('filter.open_events')" :link-for="(it) => eventsLink('host', it.key)" @pick="(it, m) => toggleFilter('host', it.key, m)" />
         </section>
         <section class="card">
           <h2><Icon name="shield" /> {{ t('overview.by_family') }}</h2>
-          <CountList :items="data.by_family" :label-for="(it) => t('family.' + it.key)" pickable :active-key="filters.family" :open-label="t('filter.open_events')" :link-for="(it) => eventsLink('family', it.key)" @pick="(it) => toggleFilter('family', it.key)" />
+          <CountList :items="data.by_family" :label-for="(it) => t('family.' + it.key)"  pickable excludable :active-key="filters.family" :excluded-key="filters.not_family" :open-label="t('filter.open_events')" :link-for="(it) => eventsLink('family', it.key)" @pick="(it, m) => toggleFilter('family', it.key, m)" />
         </section>
         <section class="card span2">
           <h2><Icon name="network" /> {{ t('overview.by_src') }}</h2>
           <p v-if="data.geoip === false" class="muted small geohint"><Icon name="globe" /> {{ t('overview.geoip_off') }}
             <RouterLink v-if="hasRole('admin')" :to="{ path: '/admin/settings', hash: '#uiset-geoip' }">{{ t('overview.geoip_setup') }}</RouterLink></p>
-          <CountList :items="data.by_src" mono inline-sub pickable ip-keys :active-key="filters.src_ip" :open-label="t('filter.open_lookup')" :link-for="(it) => ({ path: '/lookup/' + encodeURIComponent(it.key) })" @pick="(it) => toggleFilter('src_ip', it.key)" />
+          <CountList :items="data.by_src" mono inline-sub pickable excludable ip-keys :active-key="filters.src_ip" :excluded-key="filters.not_src_ip" :open-label="t('filter.open_lookup')" :link-for="(it) => ({ path: '/lookup/' + encodeURIComponent(it.key) })" @pick="(it, m) => toggleFilter('src_ip', it.key, m)" />
         </section>
         <section v-if="(data.by_asn || []).length" class="card span2">
           <h2><Icon name="network" /> {{ t('overview.by_asn') }}</h2>
@@ -158,12 +158,12 @@
         <section v-if="(data.by_country || []).length" class="card span2">
           <h2><Icon name="globe" /> {{ t('overview.by_country') }}</h2>
           <p class="muted small">{{ t('map.external_hint') }}</p>
-          <MapGrid :items="countryItems" :series="outcomeSeries" :label="t('overview.by_country')" :active-key="filters.country || null"
-                   :open-label="t('filter.open_events')" @pick="(it) => toggleFilter('country', it.key)" />
+          <MapGrid :items="countryItems" :series="outcomeSeries" :label="t('overview.by_country')" :active-key="filters.country || null" excludable
+                   :open-label="t('filter.open_events')" @pick="(it, m) => toggleFilter('country', it.key, m)" />
         </section>
         <section class="card span2">
           <h2><Icon name="shield" /> {{ t('overview.by_rule') }}</h2>
-          <CountList :items="ruleItems" pickable :label-for="(it) => it.key + (it.family ? ' · ' + tOr('family.' + it.family, it.family) : '')" :active-key="filters.rule_id" :open-label="t('filter.open_rule')" :link-for="(it) => ({ path: '/rules/' + encodeURIComponent(it.key) })" @pick="(it) => toggleFilter('rule_id', it.key)" />
+          <CountList :items="ruleItems" pickable excludable :excluded-key="filters.not_rule_id" :label-for="(it) => it.key + (it.family ? ' · ' + tOr('family.' + it.family, it.family) : '')" :active-key="filters.rule_id" :open-label="t('filter.open_rule')" :link-for="(it) => ({ path: '/rules/' + encodeURIComponent(it.key) })" @pick="(it, m) => toggleFilter('rule_id', it.key, m)" />
         </section>
       </div>
       <p class="muted small">{{ t('overview.period', { since: fmtTime(data.since), until: fmtTime(data.until) }) }}</p>
@@ -199,7 +199,10 @@ const router = useRouter()
 const data = ref(null)
 
 // filters live in the URL (bookmarkable, Back works); the same names as the event list
-const FILTER_KEYS = ['origin', 'outcome', 'decided_by', 'host', 'src_ip', 'country', 'rule_id', 'family', 'path_prefix', 'q']
+const EXCL_KEYS = ['origin', 'outcome', 'decided_by', 'host', 'src_ip', 'country', 'rule_id', 'family']
+const FILTER_KEYS = ['origin', 'outcome', 'decided_by', 'host', 'src_ip', 'country', 'rule_id', 'family', 'path_prefix', 'q'].concat(EXCL_KEYS.map((k) => 'not_' + k))
+const EXCL_LABEL = { origin: 'event.origin', outcome: 'event.outcome', decided_by: 'event.decided_by', host: 'event.host', src_ip: 'event.source',
+  country: 'filter.country', rule_id: 'filter.rule_id', family: 'event.family' }
 const CHIP_LABEL = { decided_by: 'event.decided_by', host: 'event.host', src_ip: 'event.source', country: 'filter.country', rule_id: 'filter.rule_id',
   family: 'event.family', path_prefix: 'filter.path_prefix', q: 'filter.q' }
 const range = computed(() => (route.query.range === '7d' ? '7d'
@@ -244,11 +247,19 @@ const filters = computed(() => {
   return o
 })
 const hasFilters = computed(() => Object.keys(filters.value).length > 0)
+function chipText(k, v) {
+  return k === 'family' ? tOr('family.' + v, v) : k === 'decided_by' ? tOr('decided.' + v, v) : k === 'outcome' ? tOr('outcome.' + v, v)
+    : k === 'origin' ? tOr('origin.' + v, v) : k === 'country' ? countryName(v, lang.value) + ' (' + safeText(v, 4) + ')' : safeText(v, 60)
+}
 const chips = computed(() => Object.keys(CHIP_LABEL).filter((k) => filters.value[k]).map((k) => {
   const v = filters.value[k]
-  const text = k === 'family' ? tOr('family.' + v, v) : k === 'decided_by' ? tOr('decided.' + v, v) : k === 'country' ? countryName(v, lang.value) + ' (' + safeText(v, 4) + ')' : safeText(v, 60)
-  return { key: k, label: t(CHIP_LABEL[k]), text, full: safeText(v, 500), mono: ['src_ip', 'rule_id', 'path_prefix', 'q'].includes(k) }
-}))
+  return { key: k, label: t(CHIP_LABEL[k]), text: chipText(k, v), full: safeText(v, 500), mono: ['src_ip', 'rule_id', 'path_prefix', 'q'].includes(k) }
+}).concat(EXCL_KEYS.filter((k) => filters.value['not_' + k]).map((k) => {
+  const v = filters.value['not_' + k]
+  return { key: 'not_' + k, out: true, label: t('filter.excluded') + ' ' + t(EXCL_LABEL[k]), text: chipText(k, v), full: safeText(v, 500), mono: ['src_ip', 'rule_id'].includes(k) }
+})))
+// 'in': the value is the filter now; 'out': it is excluded now
+function act(key, v) { return filters.value[key] === v ? 'in' : filters.value['not_' + key] === v ? 'out' : false }
 const originOpts = computed(() => [
   { value: '', label: t('overview.filter.all'), icon: 'list' },
   { value: 'external', label: t('origin.external'), icon: 'globe' },
@@ -267,9 +278,14 @@ function setQuery(patch) {
   const same = Object.keys(q).length === Object.keys(route.query).length && Object.keys(q).every((k) => route.query[k] === q[k])
   if (!same) router.push({ query: q })
 }
-function toggleFilter(key, value) {
+// the value menu: mode 'in' filters by the value, 'out' leaves it out; choosing the active one again removes it
+function toggleFilter(key, value, mode = 'in') {
   const v = String(value ?? '')
-  setQuery({ [key]: filters.value[key] === v ? '' : v })
+  const k = mode === 'out' ? 'not_' + key : key
+  const other = mode === 'out' ? key : 'not_' + key
+  const patch = { [k]: filters.value[k] === v ? '' : v }
+  if (filters.value[other] === v) patch[other] = ''
+  setQuery(patch)
 }
 function clearAll() {
   const q = {}
@@ -280,7 +296,7 @@ function eventsLink(key, value) { return { path: '/events', query: { ...filters.
 const countryItems = computed(() => (data.value?.by_country || []).map((c) => ({
   key: c.key, label: c.key === '?' ? t('overview.geo_unknown') : countryName(c.key, lang.value) + ' (' + c.key + ')',
   sub: t('overview.geo_sources', { n: c.sources }), values: { blocked: c.blocked, logged: c.logged },
-  active: filters.value.country === c.key, to: c.key === '?' ? null : eventsLink('country', c.key) })))
+  active: act('country', c.key), to: c.key === '?' ? null : eventsLink('country', c.key) })))
 const asnItems = computed(() => (data.value?.by_asn || []).map((c) => ({
   key: c.key, label: c.key === '?' ? t('overview.geo_unknown') : 'AS' + c.key + ' ' + (c.label || ''),
   sub: t('overview.geo_sources', { n: c.sources }), values: { blocked: c.blocked, logged: c.logged } })))
@@ -338,23 +354,22 @@ const outcomeSeries = computed(() => [
   { key: 'logged', label: t('outcome.logged'), tone: 'logged' },
 ])
 const outcomeParts = computed(() => [
-  { key: 'blocked', label: t('outcome.blocked'), value: data.value.totals.blocked, tone: 'blocked', active: filters.value.outcome === 'blocked' },
-  { key: 'logged', label: t('outcome.logged'), value: data.value.totals.logged, tone: 'logged', active: filters.value.outcome === 'logged' },
+  { key: 'blocked', label: t('outcome.blocked'), value: data.value.totals.blocked, tone: 'blocked', active: act('outcome', 'blocked') },
+  { key: 'logged', label: t('outcome.logged'), value: data.value.totals.logged, tone: 'logged', active: act('outcome', 'logged') },
 ])
 // blocked_confident counts confident + fallback decisions; the rest of the blocks were decided by another rule
 // (picking a part filters decided_by: confident / score / other)
 const reasonParts = computed(() => {
   const tt = data.value.totals
-  const d = filters.value.decided_by
   return [
-    { key: 'confident', label: t('decided.confident'), value: tt.blocked_confident, tone: 's1', active: d === 'confident' },
-    { key: 'score', label: t('decided.score'), value: tt.blocked_score, tone: 's2', active: d === 'score' },
-    { key: 'other', label: t('decided.other'), value: Math.max(0, tt.blocked - tt.blocked_confident - tt.blocked_score), tone: 's3', active: d === 'other' },
+    { key: 'confident', label: t('decided.confident'), value: tt.blocked_confident, tone: 's1', active: act('decided_by', 'confident') },
+    { key: 'score', label: t('decided.score'), value: tt.blocked_score, tone: 's2', active: act('decided_by', 'score') },
+    { key: 'other', label: t('decided.other'), value: Math.max(0, tt.blocked - tt.blocked_confident - tt.blocked_score), tone: 's3', active: act('decided_by', 'other') },
   ]
 })
 const originParts = computed(() => [
-  { key: 'external', label: t('origin.external'), value: data.value.totals.external, tone: 's1', active: filters.value.origin === 'external' },
-  { key: 'internal', label: t('origin.internal'), value: data.value.totals.internal, tone: 's2', active: filters.value.origin === 'internal' },
+  { key: 'external', label: t('origin.external'), value: data.value.totals.external, tone: 's1', active: act('origin', 'external') },
+  { key: 'internal', label: t('origin.internal'), value: data.value.totals.internal, tone: 's2', active: act('origin', 'internal') },
 ])
 // focus sites with events get a card each (full width); the quiet ones share one line of chips
 const focusBusy = computed(() => (data.value && data.value.focus || []).filter((f) => f.events > 0))

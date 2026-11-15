@@ -169,6 +169,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/status
 - `family`：`protocol`、`lfi`、`rfi`、`rce`、`php`、`generic`、`xss`、`sqli`、`session`、`java`、`scanner`、
   `method`、`body`、`data_leak`、`local`、`other`。
 - `limit`（デフォルト 100、最大 1000）、`cursor`。
+- `not_<名前>`(`host`、`src_ip`、`country`、`rule_id`、`outcome`、`decided_by`、`origin`、`family`):その値を除外します (絞り込みと同じチェック)。`GET /overview` も同じ条件を受け付けます。
 
 ```sh
 curl -sS -H "Authorization: Bearer $TOKEN" \

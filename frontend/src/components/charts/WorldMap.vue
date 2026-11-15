@@ -1,5 +1,5 @@
 <!-- Where requests come from: a flat world map (drawn here, no map service, no tiles) with one bubble per country,
-     its area by the number of events. Hover / focus a bubble for the numbers; with `pickable` a click emits pick(item).
+     its area by the number of events. Hover / focus a bubble for the numbers; with `pickable` a click (or right-click) opens the value menu, which emits pick(item, mode).
      items: [{ key: <ISO country code>, label, values: { <seriesKey>: n }, sub? }]   series: [{ key, label, tone }]
      Countries without a known position (or "?") are counted in the note under the map. -->
 <template>
@@ -15,7 +15,7 @@
         <circle v-for="d in dots" :key="d.key" class="wm-dot" :class="['fill-' + tone, { on: d.item.key === activeKey, pick: pickable }]"
                 :cx="d.x" :cy="d.y" :r="d.r" tabindex="0" :aria-label="d.aria"
                 @pointermove="show($event, d)" @pointerleave="hide" @focus="show($event, d)" @blur="hide"
-                @click="pickable && pick(d)" @keydown.enter.prevent="pickable && pick(d)" />
+                @click="pickable && menu($event, d)" @keydown.enter.prevent="pickable && menu($event, d)" @contextmenu="pickable && menu($event, d)" />
       </g>
       <g class="wm-labels" aria-hidden="true">
         <text v-for="d in labelled" :key="'l' + d.key" :x="d.x + d.r + 1.2" :y="d.y + 1.4">{{ d.key }}</text>
@@ -33,12 +33,14 @@ import { fmtNum } from '../../util.js'
 import { useTip } from './tip.js'
 import ChartTip from './ChartTip.vue'
 import CENTRE from './countryCentroids.js'
+import { filterItems, openValueMenu } from '../../valueMenu.js'
 
 const props = defineProps({
   items: { type: Array, default: () => [] },
   series: { type: Array, default: () => [] },
   tone: { type: String, default: 's1' },
   pickable: Boolean,
+  excludable: Boolean,
   activeKey: { type: String, default: null },
   label: { type: String, default: '' },
   marker: Boolean,      // one place to point at (an address's location): shown even with no events
@@ -75,7 +77,13 @@ function show(e, d) {
   if (d.item.sub) rows.push({ value: '', label: d.item.sub })
   at(e, d.item.label, rows)
 }
-function pick(d) { hide(); emit('pick', d.item) }
+function pick(d, m = 'in') { hide(); emit('pick', d.item, m) }
+function menu(e, d) {
+  e.preventDefault()
+  hide()
+  const a = d.item.active === 'out' ? 'out' : d.item.key === props.activeKey ? 'in' : null
+  openValueMenu(e, filterItems({ value: d.item.key, active: a, excludable: props.excludable, onFilter: (m) => pick(d, m), openTo: d.item.to || null }))
+}
 </script>
 
 <style scoped>

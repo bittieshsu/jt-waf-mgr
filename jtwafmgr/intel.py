@@ -970,9 +970,129 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
     return rid
 
 
+# --- "Test connection" in Settings: done by this unit (the web service never connects out) -----------------------
+TEST_REQUEST = 'intel-test.request'
+TEST_RESULT = 'intel-test.json'
+
+
+def _state(cfg, name):
+    return os.path.join(os.path.dirname(os.path.abspath(cfg['paths']['db'])), name)
+
+
+def request_test(cfg):
+    at = util.iso(time.time())
+    fd = os.open(_state(cfg, TEST_REQUEST), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.write(fd, at.encode())
+    finally:
+        os.close(fd)
+    return at
+
+
+def test_result(cfg):
+    try:
+        with open(_state(cfg, TEST_RESULT), encoding='utf-8') as fh:
+            r = json.load(fh)
+        return r if isinstance(r, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def _get_json(url, headers, timeout):
+    h = {'Accept': 'application/json', 'User-Agent': 'jt-waf-mgr/' + __version__}
+    h.update(headers)
+    req = urllib.request.Request(url, headers=h, method='GET')
+    try:
+        with _open(req, timeout) as r:
+            raw = r.read(MAX_RESPONSE + 1)
+    except urllib.error.HTTPError as e:
+        detail = e.read(500).decode('utf-8', 'replace')
+        e.close()
+        raise IntelError({401: 'unauthorized', 403: 'unauthorized', 404: 'not_found'}.get(e.code, 'http_%d' % e.code), detail)
+    except (urllib.error.URLError, OSError) as e:
+        raise IntelError('unreachable', getattr(e, 'reason', e))
+    try:
+        return json.loads(raw.decode('utf-8', 'replace'))
+    except ValueError:
+        raise IntelError('bad_response', raw[:200])
+
+
+def connection_test(cfg):
+    """The models the server offers, a one-word answer from the chosen (or default) model, and the search tool."""
+    c = cfg['intel']
+    t = time.time()
+    out = {'ok': True, 'provider': c['provider']}
+    if c['provider'] == 'anthropic':
+        if not c['api_key']:
+            raise IntelError('not_configured', 'set the API key')
+        base = (c['url'] or ANTHROPIC_URL).rstrip('/')
+        headers = {'x-api-key': c['api_key'], 'anthropic-version': ANTHROPIC_VERSION}
+        d = _get_json(base + '/v1/models?limit=100', headers, 30)
+        models = [m.get('id') for m in (d.get('data') or []) if isinstance(m, dict) and m.get('id')]
+        model = c['model'] or ANTHROPIC_MODEL
+        r = _json_call(base + '/v1/messages', {'model': model, 'max_tokens': 16,
+                                               'messages': [{'role': 'user', 'content': 'Reply with the single word OK.'}]},
+                       headers, c['timeout_seconds'])
+        text = ''.join(b.get('text', '') for b in (r.get('content') or []) if isinstance(b, dict))
+    else:
+        base, model, key = openai_target(cfg)
+        if not base:
+            raise IntelError('not_configured', 'set the second-tier LLM URL (or the first tier)')
+        headers = {'Authorization': 'Bearer ' + key} if key else {}
+        d = _get_json(base + '/models', headers, 30)
+        models = [m.get('id') for m in (d.get('data') or []) if isinstance(m, dict) and m.get('id')]
+        model = model or (models[0] if models else '')
+        if model and models and model not in models:
+            raise IntelError('model_not_found', 'available: ' + ', '.join(models[:10]))
+        r = _json_call(base + '/chat/completions', {'model': model, 'max_tokens': 400, 'temperature': 0,
+                                                     'messages': [{'role': 'user', 'content': 'Reply with the single word OK.'}]},
+                       headers, c['timeout_seconds'])
+        text = (((r.get('choices') or [{}])[0] or {}).get('message') or {}).get('content') or ''
+        out['first_tier'] = not c['url']
+    out.update(models=models[:100], model=model, reply=re.sub(r'(?s)<think>.*?</think>', '', text).strip()[:40])
+    if c['search'] == 'mcp':
+        try:
+            tools = Mcp(c['mcp_url'], timeout=30).tools()
+            out['search'] = {'ok': 'web_search' in tools, 'tools': tools[:20]}
+        except IntelError as e:
+            out['search'] = {'ok': False, 'error': e.code}
+    out['seconds'] = round(time.time() - t, 1)
+    return out
+
+
+def run_test(app, log=print):
+    """Answer a pending connection test (if any), result to a file the web service reads."""
+    cfg = app.cfg
+    try:
+        with open(_state(cfg, TEST_REQUEST), encoding='utf-8') as fh:
+            asked = fh.read(64).strip()
+        os.unlink(_state(cfg, TEST_REQUEST))
+    except OSError:
+        return None
+    key = cfg['intel']['api_key'] or (cfg['llm'].get('api_key') if not cfg['intel']['url'] else '') or ''
+    try:
+        out = connection_test(cfg)
+        app.audit.log('intel.tested', 'intel', 'system', None, 'ok', model=out.get('model'))
+    except IntelError as e:
+        detail = str(e.detail or '')
+        if key and len(key) >= 4:
+            detail = detail.replace(key, '[key]')
+        out = {'ok': False, 'error': e.code, 'detail': util.clip(detail, 300)}
+        app.audit.log('intel.tested', 'intel', 'system', None, 'failed', error=e.code)
+    out.update(requested_at=asked, finished_at=util.iso(time.time()))
+    tmp = _state(cfg, '.' + TEST_RESULT + '.tmp')
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640)
+    with os.fdopen(fd, 'w') as fh:
+        json.dump(out, fh)
+    os.replace(tmp, _state(cfg, TEST_RESULT))
+    log('intel: connection test: %s' % ('ok' if out.get('ok') else out.get('error')))
+    return out
+
+
 def run_job(app, log=print):
-    """jt-waf-mgr-intel.service: run when asked, or when intel.interval_hours has passed."""
+    """jt-waf-mgr-intel.service: run when asked, or when intel.interval_hours has passed (a connection test first)."""
     cfg, db = app.cfg, app.db
+    run_test(app, log)
     asked = os.path.exists(request_file(cfg))
     if asked:
         try:

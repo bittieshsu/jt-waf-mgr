@@ -156,6 +156,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/status
 - `family`：`protocol`、`lfi`、`rfi`、`rce`、`php`、`generic`、`xss`、`sqli`、`session`、`java`、`scanner`、
   `method`、`body`、`data_leak`、`local` 或 `other`。
 - `limit`（預設 100，最多 1000）、`cursor`。
+- `not_<名稱>`(`host`、`src_ip`、`country`、`rule_id`、`outcome`、`decided_by`、`origin`、`family`):排除這個值 (檢查方式與篩選相同)。`GET /overview` 接受同樣的篩選。
 
 ```sh
 curl -sS -H "Authorization: Bearer $TOKEN" \

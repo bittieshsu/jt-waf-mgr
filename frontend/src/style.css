@@ -701,6 +701,28 @@ td .geotag { display: flex; margin-top: 2px; }
 .pickval.ruleid { color: var(--muted); margin-right: 5px; }
 td .pickval + .geotag { margin-top: 2px; }
 .c-src .pickval .badge { margin-left: 4px; }
+/* a filterable value (FilterValue.vue): the value opens its page; the small funnel (or a right-click) opens the menu */
+.fv { display: inline-flex; align-items: center; gap: 2px; min-width: 0; max-width: 100%; vertical-align: middle; }
+.fv-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fv-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 0; margin: 0;
+  border: none; border-radius: 3px; background: none; color: var(--muted); cursor: pointer; opacity: .45; }
+.fv-btn .icon { width: .8em; height: .8em; }
+.fv:hover .fv-btn, .fv-btn:focus-visible, .fv-btn[aria-expanded="true"] { opacity: 1; color: var(--accent); }
+.fv-btn:hover { background: var(--panel-2); }
+.fv-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+.fv.quiet .fv-btn { opacity: 0; }
+.fv.quiet:hover .fv-btn, .fv.quiet .fv-btn:focus-visible { opacity: 1; }
+.fv-in .fv-text { color: var(--accent); font-weight: 600; }
+.fv-in .fv-btn, .fv-out .fv-btn { opacity: 1; color: var(--accent); }
+.fv-out .fv-text { text-decoration: line-through; color: var(--muted); }
+@media (hover: none) { .fv.quiet .fv-btn { opacity: .45; } }
+.vmenu { position: fixed; z-index: 1050; min-width: 180px; max-width: min(320px, calc(100vw - 12px)); padding: 4px; display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: 0 8px 24px rgba(10, 20, 40, .2); }
+.vm-item { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 6px 10px; border: none; border-radius: 5px; background: none;
+  color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; white-space: nowrap; }
+.vm-item .icon { width: 16px; height: 16px; color: var(--muted); flex: none; }
+a.vm-item:hover, button.vm-item:hover, .vm-item:focus-visible { background: var(--panel-2); text-decoration: none; outline: none; }
+.vm-item:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
 .openlink { display: inline-flex; align-items: center; padding: 2px; margin-left: 2px; color: var(--muted); border-radius: 3px; flex: none; }
 .openlink:hover { color: var(--accent); }
 .openlink .icon { width: .95em; height: .95em; }
@@ -719,6 +741,9 @@ td .pickval + .geotag { margin-top: 2px; }
 .fchip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; border: 1px solid var(--accent); border-radius: 16px;
   padding: 1px 2px 1px 10px; background: var(--panel-2); font-size: 13.5px; }
 .fchip-k { color: var(--muted); flex: none; }
+.fchips { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin: 0 0 10px; }
+.fchip.fchip-out { border-style: dashed; }
+.fchip-out .fchip-v { text-decoration: line-through; }
 .fchip-v { color: var(--text); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fchip-x { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; border: none;
   background: none; color: var(--muted); cursor: pointer; padding: 0; }

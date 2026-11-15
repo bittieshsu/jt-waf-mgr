@@ -27,6 +27,9 @@ def main(path):
             sys.exit('%s: placeholders differ between languages' % k)
         if '／' in v['zh-TW'] + v['ja']:
             sys.exit('%s: full-width slash; use "/"' % k)
+        for m in re.finditer(r'(?<=[\u3400-\u9fff\w])\(', v['zh-TW']):
+            if not re.search(r'(?:sha256|HMAC|web_search)$', v['zh-TW'][:m.start()]):
+                sys.exit('%s: zh-TW has "(" right after a word; put a space before it' % k)
         for bad, good in (('收編', '納管'), ('擋下', '封鎖'), ('阻擋', '封鎖'), ('擋', '封鎖')):
             if bad in v['zh-TW']:
                 sys.exit('%s: zh-TW uses "%s"; use "%s"' % (k, bad, good))

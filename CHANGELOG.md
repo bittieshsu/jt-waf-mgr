@@ -2,6 +2,19 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.47 (2026-11-15)
+
+- Threat intelligence settings: "Test connection" and a model list, like the first tier. The intel service does the test
+  (the web service never connects out): the models offered, a one-word answer, and the MCP search tool. Works before
+  the search is switched on.
+- Value menu (like Graylog): a right-click on a value, or its small funnel icon, opens "Filter by this value",
+  "Exclude this value", "Copy value" (and "Open" where there is a page). The value itself now opens its page (an
+  address opens the IP lookup, a rule ID the rule page) instead of filtering. Exclusions show as chips and are sent as
+  `not_<name>` (event list and overview APIs). The address card no longer covers the menu or a tooltip.
+- Settings: the local LLM card is now "First-tier LLM (self-hosted)"; it serves the scheduled event analysis and the
+  "AI analysis" button on an event (the text said only the former).
+- Chinese text: a space before a half-width "(" after a word (checked by the i18n check).
+
 ## 0.4.46 (2026-11-15)
 
 - Blocked page: also shown to addresses on the IP block list (the page's internal location allows everyone; before,

@@ -416,7 +416,16 @@ def _by_geo(app, since, until, field, top=15, fw='', fa=()):
 
 # --- events --------------------------------------------------------------------------------
 
-FILTER_KEYS = ('host', 'src_ip', 'country', 'rule_id', 'outcome', 'decided_by', 'origin', 'family', 'path_prefix', 'q')
+# a value can also be left out: not_<key> (the "exclude" of the value menu)
+EXCLUDE_KEYS = ('host', 'src_ip', 'country', 'rule_id', 'outcome', 'decided_by', 'origin', 'family')
+FILTER_KEYS = ('host', 'src_ip', 'country', 'rule_id', 'outcome', 'decided_by', 'origin', 'family', 'path_prefix', 'q') + \
+    tuple('not_' + k for k in EXCLUDE_KEYS)
+
+
+class _OneKey:
+    """The request seen with one query value only: the same checks build the clause that is then negated."""
+    def __init__(self, req, key, value):
+        self.app, self.query = req.app, {key: value}
 
 
 def _event_filters(req, with_time=True):
@@ -428,7 +437,22 @@ def _event_filters(req, with_time=True):
     if until is not None:
         where.append('ts<?')
         args.append(until)
-    q = req.query
+    _value_filters(req, req.query, where, args)
+    for k in EXCLUDE_KEYS:
+        v = req.query.get('not_' + k)
+        if v:
+            tw = [x for x in where if x.startswith('ts')]
+            w, a = list(tw), list(args[:len(tw)])
+            _value_filters(_OneKey(req, k, v), {k: v}, w, a)
+            extra, extra_args = w[len(tw):], a[len(tw):]
+            if extra:
+                # NULL counts as "not that value": COALESCE keeps rows the clause cannot judge
+                where.append('NOT COALESCE((%s), 0)' % ' AND '.join(extra))
+                args += extra_args
+    return where, args
+
+
+def _value_filters(req, q, where, args):
     if q.get('host'):
         where.append('host=?')
         args.append(q['host'].lower())
@@ -504,7 +528,6 @@ def _event_filters(req, with_time=True):
             raise ApiError(400, 'bad_request', 'unknown family')
         where.append('families LIKE ?')
         args.append('%%,%s,%%' % q['family'])
-    return where, args
 
 
 def events(app, req):
@@ -2190,6 +2213,25 @@ def llm_test_result(app, req):
                                'pending': os.path.exists(analyst._state_path(app.cfg, analyst.TEST_REQUEST))})
 
 
+def intel_test(app, req):
+    """Admin: ask the threat intelligence unit (it may reach the second-tier LLM; the web service may not) for a
+    connection test: the models offered, a one-word answer, the search tool. Read with GET /intel/test."""
+    from .. import intel
+    try:
+        at = intel.request_test(app.cfg)
+    except OSError as e:
+        raise ApiError(500, 'request_failed', 'request_failed', detail=str(e)[:200])
+    app.audit.log('intel.test_requested', req.user['username'], src_ip=req.client_ip)
+    return json_response(202, {'requested_at': at})
+
+
+def intel_test_result(app, req):
+    import os
+    from .. import intel
+    return json_response(200, {'result': intel.test_result(app.cfg),
+                               'pending': os.path.exists(intel._state(app.cfg, intel.TEST_REQUEST))})
+
+
 def register_compliance(router):
     R = router.add
     admin = ('admin',)
@@ -2208,6 +2250,8 @@ def register_compliance(router):
     R('POST', V + '/settings/syslog/test', syslog_test, admin)
     R('POST', V + '/llm/test', llm_test, admin)
     R('GET', V + '/llm/test', llm_test_result, admin)
+    R('POST', V + '/intel/test', intel_test, admin)
+    R('GET', V + '/intel/test', intel_test_result, admin)
     R('POST', V + '/geoip/update', geoip_update, admin)
     R('GET', V + '/countries', countries_status, ('role', 'viewer', None))
     R('GET', V + '/countries/sites', country_sites, ('role', 'viewer', 'rules:read'))
