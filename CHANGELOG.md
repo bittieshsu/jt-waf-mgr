@@ -2,6 +2,15 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.60 (2026-11-16)
+
+- Event list: an attack flood is one row. The same request (source, site, method, path, rules, outcome) again within
+  a minute folds into the row of its newest event, marked "×n" with the time span; a switch above the list shows
+  every event again (remembered in this browser). Only the list folds: every count, chart, analysis and check still
+  counts each event.
+- Second-tier LLM: Google Gemini as a provider, through Google's OpenAI-compatible endpoint (the URL can stay empty;
+  a Google AI Studio key and a model are needed); it searches through the MCP server.
+
 ## 0.4.59 (2026-11-16)
 
 - War room, third stage: the last two pages. AI and threat intelligence: the latest event analysis (events looked at,

@@ -60,7 +60,11 @@
         <button type="button" class="fchip-x" :aria-label="t('filter.menu_out_off') + ': ' + c.label + ' ' + c.text" :title="t('filter.menu_out_off')" @click="dropQuery(c.k)"><Icon name="close" /></button>
       </span>
     </div>
-    <EventTable :has-more="!!cursor" :loading-more="loading" @more="load(false)" table-id="events" :items="items" :page-size="50" filterable :filters="route.query" @filter="toggleFilter" />
+    <!-- an attack flood: the same request again and again from one source is one row (×n) here; every count above
+         and every page elsewhere still counts each event -->
+    <div class="mergebar"><label class="check small"><input v-model="merge" type="checkbox" /> {{ t('events.merge') }}</label>
+      <span v-if="merge && mergedAway" class="small muted">{{ t('events.merged_n', { n: fmtNum(mergedAway) }) }}</span></div>
+    <EventTable :has-more="!!cursor" :loading-more="loading" @more="load(false)" table-id="events" :items="shownItems" :page-size="50" filterable :filters="route.query" @filter="toggleFilter" />
   </div>
 </template>
 
@@ -99,6 +103,32 @@ const cursor = ref(null)
 const loading = ref(false)
 const error = ref(null)
 
+// merge runs of the same request from one source within MERGE_GAP seconds (an attack flood) into one row
+const MERGE_KEY = 'jtwaf.events.merge'
+const MERGE_GAP = 60
+const merge = ref((() => { try { return window.localStorage.getItem(MERGE_KEY) !== '0' } catch { return true } })())
+watch(merge, (v) => { try { window.localStorage.setItem(MERGE_KEY, v ? '1' : '0') } catch { /* storage unavailable */ } })
+function sameKey(e) { return [e.src_ip, e.host, e.method, e.path, e.outcome, e.decided_by || '', [].concat(e.rule_ids || []).join(',')].join('|') }
+const shownItems = computed(() => {
+  if (!merge.value) return items.value
+  const out = []
+  const open = new Map()          // key -> the row it is merged into
+  for (const e of items.value) {  // newest first
+    const k = sameKey(e)
+    const row = open.get(k)
+    const ts = Date.parse(e.ts)
+    if (row && Date.parse(row.first_ts) - ts <= MERGE_GAP * 1000) {
+      row.repeat++
+      row.first_ts = e.ts
+      continue
+    }
+    const r = { ...e, repeat: 1, first_ts: e.ts }
+    open.set(k, r)
+    out.push(r)
+  }
+  return out
+})
+const mergedAway = computed(() => items.value.length - shownItems.value.length)
 const GUIDE_KEY = 'jtwaf.guide.events'
 function readFlag(k, d) { try { const v = window.localStorage.getItem(k); return v === null ? d : v === '1' } catch { return d } }
 const showGuide = ref(readFlag(GUIDE_KEY, true))
@@ -297,6 +327,7 @@ watch(() => route.query, () => { fromQuery(); load(true) }, { immediate: true })
 </script>
 
 <style scoped>
+.mergebar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 0 0 8px; }
 .field > label { font-weight: 500; }
 .field > .selectbox, .field > .datepicker { width: 100%; }
 .field > .datepicker :deep(.dp-btn) { flex: 1; }

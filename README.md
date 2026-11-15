@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.59
+# jt-waf-mgr v0.4.60
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -101,7 +101,7 @@ nginx and ModSecurity keep working with the last rules.
 - **Periodic WAF review**: every 3 hours (stored, and sent to your notification channels): requests blocked by the
   CRS score alone with possible false blocks first, new internal hits, outside attacks that got through, what was done
   automatically, one line per focus site.
-- **Second-tier LLM (threat intelligence)**: a stronger LLM, local (OpenAI-compatible) or cloud (OpenAI-compatible or
+- **Second-tier LLM (threat intelligence)**: a stronger LLM, local (OpenAI-compatible) or cloud (OpenAI-compatible, Google Gemini or
   Anthropic), searches the web every few hours for new vulnerabilities in the software list the program guesses and a
   person confirms (this host's web-facing packages: about 50 products; the CRS; the applications the sites run:
   about 300 recognised from the paths they answer), above all those exploited in the wild.

@@ -433,6 +433,15 @@ async function audit(page, where) {
   // the event's AI card names the LLM server and model
   await page.goto(base + '/events/1', { waitUntil: 'networkidle' });
   ok((await page.locator('.factgrid dl.facts > div').count()) >= 8, 'event detail: facts in aligned rows');
+  // 0.4.60: an attack flood is one row (×n) in the events list; switching the merge off shows every event
+  await page.goto(base + '/events', { waitUntil: 'networkidle' });
+  const merged = page.locator('.datatable tbody tr').filter({ hasText: '×8' });
+  ok((await merged.count()) === 1, 'events: a flood of the same request is one row (×8)');
+  const nMerged = await page.locator('.mergebar').count();
+  await page.locator('.mergebar input').uncheck();
+  await page.waitForTimeout(300);
+  ok(nMerged === 1 && (await page.locator('.datatable tbody tr').filter({ hasText: '×8' }).count()) === 0, 'events: merge off lists each event');
+  await page.locator('.mergebar input').check();
   // 0.4.57: several tightening changes approved at once; settings exported and imported (picked ones only)
   await page.goto(base + '/changes?tab=pending_approval', { waitUntil: 'networkidle' });
   if (await page.locator('.batchbar').count()) {

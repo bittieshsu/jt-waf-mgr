@@ -35,6 +35,10 @@ for i in range(40):
     ip = wr.choice(['203.0.113.%d' % wr.randint(1, 120), '198.51.100.%d' % wr.randint(1, 50), '192.0.2.%d' % wr.randint(1, 20)])
     lines.append(record(host=wr.choice(hosts), uri=wr.choice(['/wp-login.php', '/.env', '/']), ip=ip, status=403 if wr.random() < .55 else 200,
                         engine='Enabled', rules=wr.choice([[930110, 949110], [913100, 949110], [920350]]), ts=now - wr.randint(30, 25 * 60)))
+# a small flood: the same probe 8 times within a minute from one source (the events list folds it into one row)
+for i in range(8):
+    lines.append(record(host='shop.example.com', uri='/xmlrpc.php', method='POST', ip='203.0.113.201', status=403, engine='Enabled',
+                        rules=[913100, 949110], ts=now - 300 - i * 6))
 open(R + '/modsec_audit.log', 'w').write('\n'.join(lines) + '\n')
 cfg = config.load(R + '/config.toml')
 app = App(cfg)

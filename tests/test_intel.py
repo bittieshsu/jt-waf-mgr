@@ -217,6 +217,21 @@ class TestRun(Base):
         self.assertEqual(self.app.db.one("SELECT COUNT(*) FROM alerts WHERE kind='exploited_vulnerability'")[0], 1)
         self.assertEqual(self.app.db.one("SELECT COUNT(*) FROM intel_threats")[0], 2)
 
+    def test_gemini_through_its_openai_compatible_endpoint(self):
+        c = self.app.cfg.data['intel']
+        c.update(provider='gemini', model='', api_key='')
+        self.assertEqual(intel.readiness(self.app.cfg), 'llm_not_configured')     # a key and a model are needed
+        c.update(model='gemini-test', api_key='g-key', patches=False)
+        self.assertIsNone(intel.readiness(self.app.cfg))
+        self.assertTrue(intel.openai_target(self.app.cfg)[0].startswith(self.url))  # the URL set wins; empty: Google's
+        Fake.script = [openai_reply(content=json.dumps(dict(ANSWER, threats=[])))]
+        rid = intel.run(self.app, 'manual', log=lambda m: None)
+        r = self.app.db.one('SELECT provider, model, error FROM intel_runs WHERE id=?', (rid,))
+        self.assertEqual((r['provider'], r['model'], r['error']), ('gemini', 'gemini-test', None))
+        self.assertIn('/v1/chat/completions', [p for p, h, b in Fake.seen])
+        c.update(url='')
+        self.assertEqual(intel.openai_target(self.app.cfg)[0], intel.GEMINI_URL)
+
     def test_handled_threat_raises_no_alert(self):
         a = dict(ANSWER, threats=[dict(ANSWER['threats'][0], exploited=False)])
         Fake.script = [openai_reply(content=json.dumps(a))]

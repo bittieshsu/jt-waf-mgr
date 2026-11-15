@@ -102,7 +102,7 @@ EDITABLE = {
     'syslog.facility': ('choice', {'choices': tuple(FACILITIES)}),
     'countries.enabled': ('bool', {}),
     'intel.enabled': ('bool', {}),
-    'intel.provider': ('choice', {'choices': ('openai', 'anthropic')}),
+    'intel.provider': ('choice', {'choices': ('openai', 'anthropic', 'gemini')}),
     'intel.url': ('str', {'re': r'(https?://[A-Za-z0-9.-]+(?::\d{1,5})?(?:/[\w./-]*)?)?', 'max': 300}),
     'intel.model': ('str', {'re': r'[\w.:/-]{0,120}', 'max': 120}),
     'intel.api_key': ('secret', {'re': r'[\x21-\x7e]{0,300}'}),

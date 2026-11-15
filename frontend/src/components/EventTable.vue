@@ -6,7 +6,8 @@
 <template>
   <DataTable :id="tableId" :columns="cols" :rows="items" row-key="id" :default-sort="{ key: 'ts', dir: -1 }"
              :page-size="pageSize" :toolbar="toolbar" :empty="emptyText || ''" class="events">
-    <template #cell-ts="{ row }"><RouterLink :to="'/events/' + row.id">{{ fmtShortTime(row.ts) }}</RouterLink></template>
+    <template #cell-ts="{ row }"><RouterLink :to="'/events/' + row.id">{{ fmtShortTime(row.ts) }}</RouterLink>
+      <span v-if="row.repeat > 1" class="badge tiny b-warn gapl" :title="t('events.repeat_title', { n: row.repeat, from: fmtTime(row.first_ts), to: fmtTime(row.ts) })">×{{ row.repeat }}</span></template>
     <template #cell-outcome="{ row }">
       <FilterValue v-if="filterable" :value="outKey(row)" :text="t('event.outcome')" :field="t('event.outcome')" :active="act('outcome', outKey(row))" @filter="(m) => emit('filter', 'outcome', outKey(row), m)"><OutcomeBadge :outcome="row.outcome" :decided-by="row.decided_by" :redirected="row.redirected" /></FilterValue>
       <OutcomeBadge v-else :outcome="row.outcome" :decided-by="row.decided_by" :redirected="row.redirected" />

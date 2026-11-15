@@ -163,7 +163,8 @@ DEFAULTS = {
     'intel': {
         # threat intelligence (intel.py, jt-waf-mgr-intel.service): a second, stronger LLM that searches the web for
         # new vulnerabilities in the confirmed software list (product names and versions only -- never requests,
-        # addresses or site names). provider: openai (any OpenAI-compatible server, local or cloud) or anthropic.
+        # addresses or site names). provider: openai (any OpenAI-compatible server, local or cloud), anthropic, or
+        # gemini (Google's OpenAI-compatible endpoint; it searches through the MCP server).
         # search: mcp (web_search through an MCP server, e.g. a SearXNG one) or provider (Anthropic's own web search).
         'enabled': False,
         'provider': 'openai',
@@ -483,8 +484,8 @@ class Config:
         if nt['smtp_tls'] not in ('none', 'starttls', 'tls'):
             raise ConfigError('notify.smtp_tls: none, starttls or tls')
         it = data['intel']
-        if it['provider'] not in ('openai', 'anthropic'):
-            raise ConfigError('intel.provider: openai or anthropic')
+        if it['provider'] not in ('openai', 'anthropic', 'gemini'):
+            raise ConfigError('intel.provider: openai, anthropic or gemini')
         if it['search'] not in ('mcp', 'provider'):
             raise ConfigError('intel.search: mcp or provider')
         if it['search'] == 'provider' and it['provider'] != 'anthropic':

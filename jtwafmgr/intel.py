@@ -52,6 +52,7 @@ def is_urgent(t):
     return bool(t.get('exploited')) and t.get('affected') in MAY_AFFECT and not unverified(t)
 ANTHROPIC_URL = 'https://api.anthropic.com'
 OPENAI_URL = 'https://api.openai.com/v1'       # its Responses API has its own web search (provider search)
+GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai'   # Google's OpenAI-compatible endpoint
 ANTHROPIC_VERSION = '2026-10-21'
 ANTHROPIC_MODEL = 'claude-opus-5-5'
 FALLBACK_BETA = 'server-side-fallback-2026-07-01'
@@ -495,6 +496,8 @@ def openai_target(cfg):
     """(url, model, key): the second tier's own server, or -- its URL left empty -- the first tier's (the local LLM
     of the event analysis), so a local-only setup needs nothing entered twice."""
     c, l1 = cfg['intel'], cfg['llm']
+    if c['provider'] == 'gemini':
+        return (c['url'] or GEMINI_URL).rstrip('/'), c['model'], c['api_key']
     if c['url']:
         return c['url'].rstrip('/'), c['model'], c['api_key']
     return (l1.get('url') or '').rstrip('/'), c['model'] or l1.get('model') or '', l1.get('api_key') or ''
@@ -995,6 +998,8 @@ def readiness(cfg):
     if c['provider'] == 'openai' and not all(openai_target(cfg)[:2]):
         return 'llm_not_configured'
     if c['provider'] == 'anthropic' and not c['api_key']:
+        return 'llm_not_configured'
+    if c['provider'] == 'gemini' and not (c['api_key'] and c['model']):
         return 'llm_not_configured'
     if c['search'] == 'mcp' and not c['mcp_url']:
         return 'search_not_configured'
