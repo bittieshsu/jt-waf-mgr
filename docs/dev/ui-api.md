@@ -378,3 +378,10 @@ Editing comes in a later phase (config file for now).
 
 ## 0.4.52
 - Software guess data in `jtwafmgr/data/software-signatures.json` (`signatures: [name, regex, samples]`, `packages`, `package_patterns`), loaded by `software._load`; `software.product_of(pkg)`. `tests/test_software_signatures.py` checks samples and common paths.
+
+## 0.4.53
+- `confirmDialog.js` (`askConfirm(message, {title, ok, danger}) -> Promise<boolean>`, `ConfirmDialog.vue` in App.vue); `tools/check_ui.py` rejects `window.confirm/alert/prompt`.
+- `GET /api/v1/vhosts/blocked-page/preview` (viewer, rules:read): the blocked page as HTML with sample SSI values; its own `Content-Security-Policy` (style by sha256, `sandbox`, no script) replaces the default one for that response (`server._send`: a response header of the same name wins).
+- `uisettings.PROVIDER_SETS`: changing `intel.provider` stores `intel.url/api_key/model` under the settings row `stash.intel.provider.<old>` and restores those of the new provider (values in the same request win); audit `settings.provider_switched` (no secret). `intel.connection_test` no longer tests MCP.
+- Software: renaming a guessed entry adds the old name to `meta` `software.dismissed`.
+- `tools/check_i18n.zh_punct_problems` (full-width ；，： next to Chinese, a space after ")" before a word; notations host:port, header lines, HMAC(...), URLs exempt); `tools/i18n_add.py` uses it.

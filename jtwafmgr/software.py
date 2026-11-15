@@ -263,6 +263,9 @@ def save(db, actor, name, version, hosts=None, notes='', confirmed_flag=True, si
     r = db.one('SELECT * FROM software WHERE id=?', (int(sid),))
     if not r:
         raise SoftwareError('not_found')
+    if r['source'] == 'guess' and r['name'] != name:
+        # a person renamed a guess (Exchange -> Z-Push): the old name is not guessed again
+        _set_dismissed(db, dismissed_names(db) + [r['name']])
     db.x("UPDATE software SET name=?, version=?, hosts=?, notes=?, confirmed=?, source='person', updated_at=?, updated_by=? "
          'WHERE id=?', (name, version, json.dumps(hosts or json.loads(r['hosts'] or '[]')), notes,
                         1 if confirmed_flag else 0, now, actor, r['id']))

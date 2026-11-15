@@ -12,7 +12,7 @@
   ["Casdoor", "^/api/(?:get-account|login/oauth/access_token|get-app-login)(?:[/?]|$)", ["/api/get-account"]],
   ["privacyIDEA", "^/(?:validate/(?:check|samlcheck|triggerchallenge)|static/templates/(?:baseline|login)\\.html)", ["/validate/check"]],
   ["LemonLDAP::NG", "^/(?:\\?lmAuth=|static/common/js/portal\\.min\\.js|oauth2/authorize\\?.*lemonldap)", ["/static/common/js/portal.min.js"]],
-  ["Exchange (OWA)", "^/(?:owa/|ecp/|EWS/Exchange\\.asmx|Microsoft-Server-ActiveSync|mapi/(?:emsmdb|nspi)|rpc/rpcproxy\\.dll|OAB/)", ["/owa/auth/logon.aspx", "/Microsoft-Server-ActiveSync?Cmd=Sync", "/mapi/emsmdb/?MailboxId=x"]],
+  ["Exchange (OWA)", "^/(?:owa/|ecp/|EWS/Exchange\\.asmx|mapi/(?:emsmdb|nspi)|rpc/rpcproxy\\.dll|OAB/)", ["/owa/auth/logon.aspx", "/EWS/Exchange.asmx", "/mapi/emsmdb/?MailboxId=x"]],
   ["Skype for Business Server", "^/(?:lwa/|ucwa/|Autodiscover/AutodiscoverService\\.svc)", ["/ucwa/oauth/v1/applications"]],
   ["Zimbra", "^/(?:service/(?:soap|home|upload)|zimbraAdmin/|public/(?:login|Preferences)\\.jsp)", ["/service/soap/AuthRequest", "/zimbraAdmin/"]],
   ["Roundcube", "^/(?:roundcube/|webmail/)?\\?_task=", ["/?_task=mail&_mbox=INBOX", "/roundcube/?_task=login"]],

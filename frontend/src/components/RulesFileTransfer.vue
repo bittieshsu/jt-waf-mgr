@@ -51,6 +51,7 @@
 import { computed, ref } from 'vue'
 import { post } from '../api.js'
 import { t, tOr } from '../i18n.js'
+import { askConfirm } from '../confirmDialog.js'
 import { hasRole } from '../store.js'
 import { saveBlob } from '../util.js'
 import Icon from './Icon.vue'
@@ -123,7 +124,7 @@ async function preview() {
   } catch (e) { error.value = e } finally { busy.value = false }
 }
 async function submit() {
-  if (!window.confirm(t('rulesfile.confirm', { n: toPropose.value }))) return
+  if (!(await askConfirm(t('rulesfile.confirm', { n: toPropose.value }), { ok: t('rulesfile.propose', { n: toPropose.value }) }))) return
   busy.value = true
   error.value = null
   try {

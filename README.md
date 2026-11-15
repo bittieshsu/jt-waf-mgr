@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.52
+# jt-waf-mgr v0.4.53
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -40,6 +40,20 @@ something you can read, and every change into a workflow you can trust:
 - **Trust the trail**: hash-chained, append-only audit trail anchored outside the database and in syslog; signed
   releases; fingerprints of every nginx / ModSecurity / CRS file; compliance views for ISO/IEC 27001:2022, Taiwan's
   Cyber Security Management Act and OWASP Top 10:2025.
+
+## Three ways to use it
+
+![The three ways to use jt-waf-mgr](docs/modes/deploy-modes.en.svg)
+
+1. **nginx is the web server**: the sites live on the nginx host itself (static files, PHP-FPM, ...). ModSecurity
+   inspects every request before nginx answers it, and jt-waf-mgr manages the rules, approvals and analysis.
+2. **nginx as a reverse proxy**: the sites run on other servers; nginx with ModSecurity sits in front of them and
+   forwards only the requests that pass the WAF.
+3. **Both on one host**: some sites are served by this nginx, others are proxied to other servers. The same WAF, the
+   same rules and the same interface cover them all, and the WAF is switched on site by site.
+
+In every case jt-waf-mgr runs on the nginx host, beside the WAF: requests never pass through it, and if it stops,
+nginx and ModSecurity keep working with the last rules.
 
 ## Features
 

@@ -45,6 +45,29 @@ class TestUiSettings(unittest.TestCase):
         app2 = App(_c.load(None, {k: dict(v) for k, v in self.env.cfg.data.items() if k in ('paths', 'integrity', 'backup', 'geoip', 'managed', 'syslog')}))
         self.assertEqual(app2.cfg['compliance']['level'], 'medium')
 
+    def test_provider_switch_keeps_and_restores_its_settings(self):
+        g = lambda k: self.app.cfg['intel'][k]
+        uisettings.set_many(self.app, {'intel.provider': 'openai', 'intel.url': 'http://192.0.2.10:8080/v1',
+                                       'intel.api_key': 'sk-local-0123456789', 'intel.model': 'qwen-big'}, 'admin1')
+        # to Anthropic for the first time: the OpenAI-compatible settings are put away, the fields start empty
+        uisettings.set_many(self.app, {'intel.provider': 'anthropic'}, 'admin1')
+        self.assertEqual((g('provider'), g('url'), g('api_key'), g('model')), ('anthropic', '', '', ''))
+        uisettings.set_many(self.app, {'intel.api_key': 'sk-ant-abcdefghij', 'intel.model': 'claude-opus-5-5'}, 'admin1')
+        # back: the OpenAI-compatible server, key and model return
+        uisettings.set_many(self.app, {'intel.provider': 'openai'}, 'admin1')
+        self.assertEqual((g('url'), g('api_key'), g('model')), ('http://192.0.2.10:8080/v1', 'sk-local-0123456789', 'qwen-big'))
+        # and again: Anthropic's key and model return; a value typed in the same save wins
+        uisettings.set_many(self.app, {'intel.provider': 'anthropic', 'intel.model': 'claude-sonnet-5-5'}, 'admin1')
+        self.assertEqual((g('url'), g('api_key'), g('model')), ('', 'sk-ant-abcdefghij', 'claude-sonnet-5-5'))
+        # the put-away key is never shown, and the switch is audited without it
+        pub = json.dumps(uisettings.public(self.app.cfg, self.app.db))
+        self.assertNotIn('sk-local', pub)
+        self.assertNotIn('stash.', pub)
+        audit = json.dumps([dict(r) for r in self.app.db.q("SELECT * FROM audit WHERE action LIKE 'settings.%'")])
+        self.assertIn('settings.provider_switched', audit)
+        self.assertNotIn('sk-local', audit)
+        self.assertNotIn('sk-ant', audit)
+
     def test_invalid_values_refused(self):
         for k, v in (('auth.lockout_threshold', 1), ('geoip.account_id', 'abc'), ('network.known_scanners', ['not-an-ip']),
                      ('llm.url', 'ftp://x'), ('compliance.level', 'extreme'), ('nope.key', 1), ('ui.login_notice', 5)):

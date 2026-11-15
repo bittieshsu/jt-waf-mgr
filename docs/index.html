@@ -74,6 +74,7 @@ h2 { font-size: 30px; margin: 0 0 10px; } h2 + p.sub { color: var(--muted); marg
 .card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 20px 16px; box-shadow: var(--shadow); transition: .15s; }
 .card:hover { border-color: rgba(37, 99, 196, .35); box-shadow: 0 6px 22px rgba(37, 99, 196, .10); }
 section.alt .card { background: var(--panel-2); }
+.modes-fig { margin: 0 0 22px; } .modes-fig img { display: block; width: 100%; height: auto; border-radius: 16px; border: 1px solid var(--border); }
 .card h3 { margin: 0 0 8px; font-size: 17px; display: flex; gap: 10px; align-items: center; }
 .card h3 .ic { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, var(--blue-h), var(--blue-d)); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; flex: none; box-shadow: 0 2px 8px rgba(37, 99, 196, .30); }
 .card p { margin: 0; color: var(--muted); font-size: 15px; }
@@ -211,6 +212,16 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
   </div>
   <a class="shotlink" href="shots/en/overview.png" data-shot="overview"><img class="shot" src="shots/en/thumb/overview.webp" alt=""></a>
 </div></div>
+
+<section id="modes" class="alt"><div class="wrap">
+  <h2 data-t="modes_h"></h2><p class="sub" data-t="modes_sub"></p>
+  <figure class="modes-fig"><img id="modes-img" src="modes/deploy-modes.en.svg" width="980" height="480" alt="" loading="lazy"></figure>
+  <div class="grid modes-grid">
+    <div class="card"><h3><span class="ic">1</span><span data-t="m1_h"></span></h3><p data-t="m1"></p></div>
+    <div class="card"><h3><span class="ic">2</span><span data-t="m2_h"></span></h3><p data-t="m2"></p></div>
+    <div class="card"><h3><span class="ic">3</span><span data-t="m3_h"></span></h3><p data-t="m3"></p></div>
+  </div>
+</div></section>
 
 <section id="features"><div class="wrap">
   <h2 data-t="features_h"></h2><p class="sub" data-t="features_sub"></p>
@@ -399,6 +410,10 @@ sudo ./uninstall.sh --purge</pre></div>
 <script>
 const T = {
  en: {
+  modes_h: 'Three ways to use it', modes_sub: 'jt-waf-mgr runs on the nginx host, beside ModSecurity: requests never pass through it, and nginx keeps protecting the sites with the last rules if it stops.',
+  m1_h: 'nginx is the web server', m1: 'The sites live on the nginx host itself (static files, PHP-FPM ...). ModSecurity inspects every request before nginx answers it; jt-waf-mgr manages the rules, approvals and analysis.',
+  m2_h: 'nginx as a reverse proxy', m2: 'The sites run on other servers. nginx with ModSecurity sits in front of them as the WAF and forwards only the requests that pass.',
+  m3_h: 'Both on one host', m3: 'Some sites served by this nginx, some proxied to other servers: one WAF, one set of rules, one interface, switched on site by site.',
   nav_specs: "Specs",
   nav_how: "How it works",
   sp_h: "What's inside, and who wrote it",
@@ -466,7 +481,7 @@ const T = {
   f1_h: 'Events you can read', f1: 'Blocked and logged requests by site, attack type, source country and network (with a world map drawn in the page, no map service), rule and time. "Blocked only by the CRS score" first: the likely false positives.',
   f2_h: 'Safe rule changes', f2: 'Exclusions, confident blocks, redactions, plugin toggles and expert rules, checked against the access logs and a sandbox, approved, applied by a small root program that restores on failure.',
   f3_h: 'WAF model', f3: 'How a request is decided on your sites, drawn from the live configuration: engine per site, scoring, thresholds, exclusions and blocks.',
-  f15_h: 'Threat intelligence', f15: 'A second, stronger LLM (local or cloud, OpenAI-compatible or Anthropic) searches the web for new vulnerabilities in your confirmed software list, above all those exploited in the wild. Only product names and versions leave the host.',
+  f15_h: 'Threat intelligence', f15: 'A second, stronger LLM (local or cloud, OpenAI-compatible or Anthropic) searches the web for new vulnerabilities in your confirmed software list, above all those exploited in the wild, and writes its own virtual patch for those a URL or header gives away: a narrow confident block that goes through the same checks as any change (static check, access-log evidence, sandbox). Exploited and affecting your version: applied at once with an urgent alert; otherwise applied or left for approval as you set it. After you update the software it reminds you to remove the rule. Only product names and versions leave the host.',
   f16_h: 'Periodic WAF review', f16: 'Every 3 hours: who may have been blocked by mistake, new internal hits, attacks that got through, what was done automatically, a line per focus site. Sent to your channels.',
   f4_h: 'Self-hosted LLM analysis', f4: 'Your own OpenAI-compatible LLM server reviews recent events on a schedule and proposes narrow blocks and exclusions. The program decides, a person approves.',
   f5_h: 'Alerts to follow up', f5: 'An attack the site may have answered, users hit by a false positive, outside configuration changes, integrity problems: open until handled, reminded until then.',
@@ -562,6 +577,10 @@ const T = {
   api_link: 'API manual →',
  },
  'zh-TW': {
+  modes_h: '三種使用方式', modes_sub: 'jt-waf-mgr 裝在 nginx 主機上、在 ModSecurity 旁邊：請求不會經過它；它停止時，nginx 仍以最後一版規則保護網站。',
+  m1_h: 'nginx 本身就是網站伺服器', m1: '網站就在 nginx 這台主機上 (靜態網頁、PHP-FPM 等)。nginx 回應前 ModSecurity 先檢查每個請求，jt-waf-mgr 加強 WAF 的防護與管理。',
+  m2_h: 'nginx 當反向代理', m2: '網站在後面其他的網站伺服器上；nginx 加上 ModSecurity 在前面提供 WAF 保護，只轉送通過檢查的請求。',
+  m3_h: '混用', m3: '同一台 nginx 有些站台是本機網站、有些反向代理到其他伺服器，全部透過 ModSecurity 與 jt-waf-mgr 加強 WAF 防護，可以逐站啟用。',
   nav_specs: "規格",
   nav_how: "運作架構",
   sp_h: "規格與來源",
@@ -629,8 +648,8 @@ const T = {
   f1_h: '看得懂的事件', f1: '封鎖與只記錄的請求，依站台、攻擊類型、來源國家與網路（頁面內繪製的世界地圖，不使用地圖服務）、規則與時間呈現。「只因 CRS 分數被封鎖」排最前面：最可能是誤判。',
   f2_h: '安全的規則變更', f2: '排除、確定封鎖、遮蔽、外掛開關與專家規則，先用存取記錄與沙箱檢查，再經核准，由失敗會自動還原的小型 root 程式套用。',
   f3_h: 'WAF 判斷流程', f3: '依實際設定畫出請求在你的站台上怎麼被判定：各站台引擎、計分、門檻、排除與封鎖。',
-  f15_h: '威脅情報', f15: '第二層、較強的 LLM(地端或雲端,OpenAI 相容或 Anthropic)上網搜尋你確認過的軟體清單有沒有新漏洞,特別是已經被利用的。離開本機的只有產品名稱與版本。',
-  f16_h: 'WAF 定期檢討', f16: '每 3 小時:誰可能被誤封鎖、新的內部命中、沒被封鎖的攻擊、自動處理了什麼、每個重點站台一行。送到你的通知管道。',
+  f15_h: '威脅情報', f15: '第二層、較強的 LLM (地端或雲端，OpenAI 相容或 Anthropic) 上網搜尋你確認過的軟體清單有沒有新漏洞，特別是已經被利用的；能從網址或標頭辨識的漏洞，會自己寫出很窄的預先防護規則 (確定封鎖)，和一般變更一樣經過靜態檢查、存取記錄證據與沙箱。已被利用且影響你們版本的會立即套用並發出緊急警示，其他依設定自動套用或等人核准；軟體更新後會提醒移除規則。離開本機的只有產品名稱與版本。',
+  f16_h: 'WAF 定期檢討', f16: '每 3 小時：誰可能被誤封鎖、新的內部命中、沒被封鎖的攻擊、自動處理了什麼、每個重點站台一行。送到你的通知管道。',
   f4_h: '地端 LLM 分析', f4: '你自己的 OpenAI 相容 LLM 伺服器定期檢視事件，提出很窄的封鎖與排除。由程式決定，由人核准。',
   f5_h: '待處理警示', f5: '可能沒被封鎖的攻擊、影響使用者的誤判、設定被外部修改、完整性問題：處理前一直開著，並定期提醒。',
   f6_h: '通知', f6: 'Email、Telegram、Teams、Slack、Discord、Zulip、Nextcloud Talk 與簽章 webhook；事件 × 管道矩陣，每個管道都能測試。',
@@ -725,6 +744,10 @@ const T = {
   api_link: 'API 介接手冊 →',
  },
  ja: {
+  modes_h: '3 つの使い方', modes_sub: 'jt-waf-mgr は nginx ホスト上で ModSecurity の横に置かれます。リクエストは jt-waf-mgr を通らず、停止しても nginx は最後のルールでサイトを守り続けます。',
+  m1_h: 'nginx が Web サーバー', m1: 'サイトは nginx ホスト上にあります (静的ファイル、PHP-FPM など)。nginx が応答する前に ModSecurity が各リクエストを検査し、jt-waf-mgr がルール、承認、分析を管理します。',
+  m2_h: 'nginx がリバースプロキシ', m2: 'サイトは別のサーバーにあります。ModSecurity を組み込んだ nginx が前段で WAF として保護し、通過したリクエストだけを転送します。',
+  m3_h: '両方を 1 台で', m3: '一部のサイトはこの nginx が配信し、一部は別のサーバーへプロキシします。WAF、ルール、画面は 1 つで、サイトごとに有効にできます。',
   nav_specs: "構成",
   nav_how: "仕組み",
   sp_h: "構成と作成元",
@@ -792,7 +815,7 @@ const T = {
   f1_h: '読めるイベント', f1: 'ブロック・記録のみのリクエストを、サイト、攻撃の種類、送信元の国とネットワーク（ページ内で描画する世界地図、地図サービスは不使用）、ルール、時間ごとに表示。「CRS スコアだけでブロック」を先頭に：誤検知の可能性が高いものです。',
   f2_h: '安全なルール変更', f2: '除外、確定ブロック、マスク、プラグイン切替、エキスパートルールを、アクセスログとサンドボックスで確認し、承認後、失敗時に復元する小さな root プログラムが適用。',
   f3_h: 'WAF 判定フロー', f3: '現在の設定から、サイトでリクエストがどう判定されるか（サイトごとのエンジン、スコア、しきい値、除外、ブロック）を図示。',
-  f15_h: '脅威インテリジェンス', f15: '2 層目のより強力な LLM(ローカルまたはクラウド、OpenAI 互換または Anthropic)が、確認済みソフトウェアの新しい脆弱性、特に悪用されているものを Web で検索。ホストから出るのは製品名とバージョンだけ。',
+  f15_h: '脅威インテリジェンス', f15: '2 層目のより強力な LLM (ローカルまたはクラウド、OpenAI 互換または Anthropic) が、確認済みソフトウェアの新しい脆弱性、特に悪用されているものを Web で検索し、URL やヘッダーで見分けられるものには自ら仮想パッチ (狭い確定ブロック) を書きます。通常の変更と同じく静的チェック、アクセスログの証拠、サンドボックスを通ります。悪用済みで自分たちのバージョンに影響するものは即時適用して緊急アラート、それ以外は設定に応じて自動適用または承認待ち。ソフトウェア更新後はルールの削除を促します。ホストから出るのは製品名とバージョンだけ。',
   f16_h: 'WAF 定期レビュー', f16: '3 時間ごと:誤ブロックの可能性、新しい内部の一致、通過した攻撃、自動処理の内容、重点サイトごとの 1 行。通知チャネルへ送信。',
   f4_h: 'オンプレミス LLM 分析', f4: '自前の OpenAI 互換 LLM サーバーが定期的にイベントを確認し、狭いブロックと除外を提案。決めるのはプログラム、承認するのは人。',
   f5_h: '対応待ちアラート', f5: '防がれていない可能性のある攻撃、利用者に影響する誤検知、設定の外部変更、完全性の問題：対応されるまで開いたまま、定期的に再通知。',
@@ -909,6 +932,7 @@ function apply(lang) {
   }
   document.getElementById('lb-x').setAttribute('aria-label', d.close)
   document.getElementById('how-link').href = 'how.html?lang=' + lang
+  const mi = document.getElementById('modes-img'); mi.src = 'modes/deploy-modes.' + lang + '.svg'; mi.alt = d.modes_h
   document.getElementById('ms-guide').href = 'https://github.com/jasoncheng7115/jt-waf-mgr/blob/main/docs/MODSECURITY' + ({ 'zh-TW': '.zh-TW', ja: '.ja' }[lang] || '') + '.md'
   document.getElementById('off-guide').href = 'https://github.com/jasoncheng7115/jt-waf-mgr/blob/main/docs/OFFLINE' + ({ 'zh-TW': '.zh-TW', ja: '.ja' }[lang] || '') + '.md'
   document.getElementById('api-guide').href = 'https://github.com/jasoncheng7115/jt-waf-mgr/blob/main/docs/API' + ({ 'zh-TW': '.zh-TW', ja: '.ja' }[lang] || '') + '.md'

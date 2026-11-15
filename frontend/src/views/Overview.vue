@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="pagehead">
-      <h1>{{ t('overview.title') }}</h1>
+      <h1>{{ t('nav.dashboard') }}</h1>
       <button type="button" class="btn small ghost" :class="{ on: showGuide }" :aria-pressed="showGuide ? 'true' : 'false'" @click="toggleGuide"><Icon name="help" />{{ t('guide.how') }}</button>
       <button type="button" class="btn small ghost" :disabled="loading" @click="load(false)"><Icon name="refresh" />{{ t('common.refresh') }}</button>
     </div>

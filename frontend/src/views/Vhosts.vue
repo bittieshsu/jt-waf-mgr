@@ -32,9 +32,11 @@
       <p class="small">{{ t('blockpage.status', { ours: pageCount('ours'), can: pagePlan, own: pageCount('own') }) }}</p>
       <p v-if="pageInfo && pageInfo.refresh && pageCount('ours') > 0" class="alert info">{{ t('blockpage.refresh_hint') }}</p>
       <p v-if="pageInfo && !pageInfo.ok && pageInfo.error !== 'nothing_to_do'" class="alert warn">{{ t('blockpage.plan_error', { error: pageInfo.error }) }}</p>
-      <div v-if="isApprover" class="actions">
-        <RouterLink v-if="pageChanges['*']" :to="'/changes/' + pageChanges['*']">{{ t('sitewaf.pending', { id: pageChanges['*'] }) }}</RouterLink>
-        <template v-else>
+      <div class="actions">
+        <a class="btn small" href="/api/v1/vhosts/blocked-page/preview" target="_blank" rel="noopener noreferrer" data-preview="blocked-page"
+           :title="t('blockpage.preview_hint')"><Icon name="show" />{{ t('blockpage.preview') }}</a>
+        <RouterLink v-if="isApprover && pageChanges['*']" :to="'/changes/' + pageChanges['*']">{{ t('sitewaf.pending', { id: pageChanges['*'] }) }}</RouterLink>
+        <template v-else-if="isApprover">
           <button v-if="pagePlan > 0" type="button" class="btn small primary" @click="startSite(null, 'enable', 'page')"><Icon name="page" />{{ t('blockpage.apply_all') }}</button>
           <button v-else-if="pageInfo && pageInfo.refresh" type="button" class="btn small primary" @click="startSite(null, 'enable', 'page')"><Icon name="refresh" />{{ t('blockpage.refresh') }}</button>
           <button v-if="pageCount('ours') > 0" type="button" class="btn small danger" @click="startSite(null, 'disable', 'page')"><Icon name="cancel" />{{ t('blockpage.remove_all') }}</button>

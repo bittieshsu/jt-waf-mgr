@@ -80,6 +80,8 @@ def main():
                 problems.append('%s: raw <table>; use DataTable (or add it to TABLE_EXEMPT with the reason)' % rel)
     # request data (paths, user agents, network names, model answers) must never become markup
     sink = re.compile(r'\bv-html\b|\.innerHTML\b|\.outerHTML\b|insertAdjacentHTML|document\.write\(')
+    # the app's own dialog only: the browser's ignores the theme and the language (and may be suppressed)
+    native = re.compile(r'\b(?:window|self|globalThis)\.(?:confirm|alert|prompt)\b|(?<![\w.$])(?:alert|prompt)\(')
     for dirpath, _, files in os.walk(SRC):
         for name in files:
             if not name.endswith(('.vue', '.js')) or name == 'worldLand.js':
@@ -90,6 +92,9 @@ def main():
                 code = re.sub(r'//.*$', '', line)
                 if sink.search(code):
                     problems.append('%s:%d: HTML sink (v-html / innerHTML); render as text' % (os.path.relpath(path, ROOT), i))
+                if native.search(code):
+                    problems.append("%s:%d: the browser's own dialog (confirm / alert / prompt); use askConfirm "
+                                    "(confirmDialog.js)" % (os.path.relpath(path, ROOT), i))
     problems += settings_groups_shown()
     for p in problems:
         print(p)

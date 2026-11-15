@@ -106,6 +106,7 @@ import { ref, computed, onMounted } from 'vue'
 import { state } from '../store.js'
 import { get, post, patch } from '../api.js'
 import { t, errText, LANGUAGES, setLang, lang } from '../i18n.js'
+import { askConfirm } from '../confirmDialog.js'
 import { safeText, groupBy4, fmtMinute, fmtDate, fmtNum } from '../util.js'
 import ErrorBox from '../components/ErrorBox.vue'
 import TruncText from '../components/TruncText.vue'
@@ -161,7 +162,7 @@ async function loadSessions() {
 }
 
 async function revokeOthers() {
-  if (!window.confirm(t('sessions.revoke_confirm'))) return
+  if (!(await askConfirm(t('sessions.revoke_confirm'), { ok: t('sessions.revoke_others'), danger: true }))) return
   busy.value = true; sessMsg.value = ''
   try {
     await post('/auth/sessions/revoke-others')

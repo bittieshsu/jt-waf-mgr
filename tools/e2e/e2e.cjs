@@ -232,6 +232,37 @@ async function audit(page, where) {
     await allBtn.click();
     ok((await page.locator('textarea').inputValue()).length > 5, 'sites: blocked page for every site opens the form with a reason');
   } else problems.push('FAIL sites: no "apply to every site" button for the blocked page');
+  // the blocked page can be previewed: its own page (sandboxed, only its own inline style), sample values, no SSI left
+  const pv = page.locator('#blocked-page a[data-preview=blocked-page]');
+  ok((await pv.count()) === 1 && (await pv.getAttribute('target')) === '_blank', 'sites: blocked page preview link');
+  const pr = await page.request.get(base + '/api/v1/vhosts/blocked-page/preview');
+  const pcsp = pr.headers()['content-security-policy'] || '';
+  const pbody = await pr.text();
+  ok(pr.status() === 200 && /text\/html/.test(pr.headers()['content-type'] || '') && /sandbox/.test(pcsp) && /sha256-/.test(pcsp)
+     && !/'self'|unsafe-inline/.test(pcsp) && pbody.includes('403') && !pbody.includes('<!--#'), 'sites: blocked page preview (own policy, sample values)');
+  // the app's own confirmation dialog, never the browser's: cancel keeps things as they were
+  let nativeDialogs = 0;
+  const countNative = () => { nativeDialogs += 1; };
+  page.on('dialog', countNative);
+  await page.goto(base + '/intel', { waitUntil: 'networkidle' });
+  const allConfirm = page.locator('button', { hasText: '全部確認' });
+  if (await allConfirm.count()) {
+    await allConfirm.first().click();
+    await page.waitForSelector('.cdialog', { timeout: 3000 }).catch(() => {});
+    ok((await page.locator('.cdialog[role=alertdialog]').count()) === 1 && (await page.locator('.cdialog [data-cd=ok].primary').count()) === 1,
+       'dialog: the app\'s own confirmation (confirm all)');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.cdialog', { state: 'detached', timeout: 3000 }).catch(() => {});
+    ok((await page.locator('.cdialog').count()) === 0 && (await allConfirm.count()) === 1, 'dialog: Esc cancels, nothing confirmed');
+    await page.locator('#intel-software button.danger, .card button.btn.tiny.danger').first().click();
+    await page.waitForSelector('.cdialog', { timeout: 3000 }).catch(() => {});
+    const focusedCancel = await page.evaluate(() => document.activeElement && document.activeElement.dataset.cd === 'cancel');
+    ok((await page.locator('.cdialog [data-cd=ok].danger').count()) === 1 && focusedCancel, 'dialog: a delete asks in red, starting on cancel');
+    await page.locator('.cdialog [data-cd=cancel]').click();
+    ok((await page.locator('.cdialog').count()) === 0, 'dialog: cancel closes it');
+  } else problems.push('FAIL dialog: no "confirm all" button on the threat intelligence page');
+  page.off('dialog', countNative);
+  ok(nativeDialogs === 0, 'dialog: the browser\'s own dialog never opened');
   // "someone was blocked": an address goes to the address lookup
   await page.goto(base + '/events', { waitUntil: 'networkidle' });
   await page.fill('.findvisit input', '203.0.113.9');
@@ -252,6 +283,19 @@ async function audit(page, where) {
   ok((await page.locator('.archdesc h3').innerText()).length > 0, 'guide: node description shown');
   // overview country chart
   await page.goto(base + '/', { waitUntil: 'networkidle' });
+  // request volume: the range buttons are as tall as the site picker next to them
+  await page.goto(base + '/traffic', { waitUntil: 'networkidle' });
+  const hSeg = await page.locator('.ovfilters > .seg').first().boundingBox({ timeout: 5000 }).catch(() => null);
+  const hSel = await page.locator('.ovfilters .sb-btn').first().boundingBox({ timeout: 5000 }).catch(() => null);
+  ok(hSeg && hSel && Math.abs(hSeg.height - hSel.height) <= 1, 'traffic: range buttons as tall as the site picker (' + (hSeg && hSeg.height) + ' / ' + (hSel && hSel.height) + ')');
+  await page.goto(base + '/', { waitUntil: 'networkidle' });
+  // "Overview" is a menu: the dashboard is its first entry
+  const ovBtn = page.locator('.mainnav button.navmorebtn').first();
+  if (await ovBtn.count()) {
+    await ovBtn.click();
+    ok((await page.locator('.navdrop a.navitem[href="/"]', { hasText: '儀表板' }).count()) === 1, 'nav: Overview menu with the dashboard');
+    await page.keyboard.press('Escape');
+  }
   ok((await page.locator('text=依國家').count()) > 0, 'overview: by-country chart');
   // world map: land drawn (lazy-loaded outline), one bubble per country, tooltip on a bubble
   await page.waitForSelector('.worldmap .wm-land', { timeout: 5000 }).catch(() => {});
@@ -366,6 +410,9 @@ async function audit(page, where) {
   await page.goto(base + '/admin/settings', { waitUntil: 'networkidle' });
   await page.waitForSelector('#dns-names tbody tr, .dnstable tbody tr', { timeout: 5000 }).catch(() => {});
   ok((await page.locator('.dnstable tbody tr').count()) === 4, 'settings: the DNS check results per name');
+  // country lists in Settings: four short facts side by side, the lists in use as a table of their own
+  ok((await page.locator('.cosets').count()) === 1 && (await page.locator('.setrow').count()) === 0
+     && (await page.locator('section.card', { hasText: '國家清單' }).locator('dl.kv.two dt').count()) === 4, 'settings: country lists laid out (facts, then the lists in use)');
   // country blocks: the form lists the staged countries, the preview builds the rule, Settings shows the lists
   await page.goto(base + '/changes/new?kind=country', { waitUntil: 'networkidle' });
   await page.locator('.card.form .field.grow input.mono').first().fill('shop.example.com');
@@ -432,7 +479,7 @@ async function audit(page, where) {
      'country limits page: per site, with names, actions and the change for a name no site has');
   await page.goto(base + '/admin/settings', { waitUntil: 'networkidle' });
   await page.waitForSelector('.coreg tbody tr', { timeout: 5000 }).catch(() => {});
-  ok((await page.locator('.coreg tbody tr').count()) === 5 && (await page.locator('.setbadge').count()) >= 1,
+  ok((await page.locator('.coreg tbody tr').count()) === 5 && (await page.locator('.cosets tbody tr').count()) >= 1,
      'country block: the registries and the lists in use in Settings');
   // several rules at once: tick, "switch off" opens the change form with its preview (or why it cannot)
   await page.goto(base + '/rules', { waitUntil: 'networkidle' });

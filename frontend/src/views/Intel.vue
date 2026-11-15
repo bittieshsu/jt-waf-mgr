@@ -143,6 +143,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { del, get, patch, post } from '../api.js'
 import { t, tOr } from '../i18n.js'
+import { askConfirm } from '../confirmDialog.js'
 import { hasRole } from '../store.js'
 import { fmtMinute, fmtNum, safeText } from '../util.js'
 import Icon from '../components/Icon.vue'
@@ -212,16 +213,18 @@ const guess = () => act(async () => {
 })
 const confirm = (r) => act(async () => { data.value.software = (await patch('/intel/software/' + r.id, { confirmed: true })).software })
 const waiting = computed(() => ((data.value && data.value.software) || []).filter((r) => !r.confirmed).length)
-const confirmAll = () => act(async () => {
-  if (!window.confirm(t('intel.confirm_all_ask', { n: waiting.value }))) return
+const confirmAll = async () => {
+  if (!(await askConfirm(t('intel.confirm_all_ask', { n: waiting.value }), { ok: t('intel.confirm_all', { n: waiting.value }) }))) return
+  await act(async () => {
   const r = await post('/intel/software/confirm-all', {})
   data.value.software = r.software
   guessMsg.value = t('intel.confirmed_n', { n: r.confirmed })
-})
-const remove = (r) => act(async () => {
-  if (!window.confirm(t('intel.delete_confirm', { name: r.name }))) return
-  data.value.software = (await del('/intel/software/' + r.id)).software
-})
+  })
+}
+const remove = async (r) => {
+  if (!(await askConfirm(t('intel.delete_confirm', { name: r.name }), { ok: t('common.delete'), danger: true }))) return
+  await act(async () => { data.value.software = (await del('/intel/software/' + r.id)).software })
+}
 const saveSw = () => act(async () => {
   const body = { name: edit.name, version: edit.version, hosts: hostList(), confirmed: true }
   const r = edit.id ? await patch('/intel/software/' + edit.id, body) : await post('/intel/software', body)

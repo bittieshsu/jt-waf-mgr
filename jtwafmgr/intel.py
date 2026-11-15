@@ -1076,7 +1076,7 @@ def _state(cfg, name):
 
 
 def request_test(cfg, what='all'):
-    """what: 'all' (the LLM and the search) or 'mcp' (the MCP search server only)."""
+    """what: 'all' (the LLM) or 'mcp' (the MCP search server only)."""
     at = util.iso(time.time())
     fd = os.open(_state(cfg, TEST_REQUEST), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
@@ -1129,7 +1129,8 @@ def mcp_test(cfg):
 
 
 def connection_test(cfg):
-    """The models the server offers, a one-word answer from the chosen (or default) model, and the search tool."""
+    """The models the server offers and a one-word answer from the chosen (or default) model; with the provider's
+    own search, whether this provider offers it."""
     c = cfg['intel']
     t = time.time()
     out = {'ok': True, 'provider': c['provider']}
@@ -1165,12 +1166,7 @@ def connection_test(cfg):
         ok = c['provider'] == 'anthropic' or openai_search_ok(cfg)
         out['search'] = {'ok': ok, 'provider': True, 'tools': ['web_search (provider)'] if ok else [],
                          'error': None if ok else 'provider_search_unsupported'}
-    if c['search'] == 'mcp':
-        try:
-            tools = Mcp(c['mcp_url'], timeout=30).tools()
-            out['search'] = {'ok': 'web_search' in tools, 'tools': tools[:20]}
-        except IntelError as e:
-            out['search'] = {'ok': False, 'error': e.code}
+    # the MCP search server has its own test (mcp_test, its own button): this one is about the LLM only
     out['seconds'] = round(time.time() - t, 1)
     return out
 

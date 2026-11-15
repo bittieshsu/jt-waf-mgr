@@ -30,6 +30,7 @@ tools/check_ui.py
 tools/i18n_add.py
 tools/make_thumbs.py
 tools/make_worldmap.py
+tools/make_modes.py
 tools/preflight.py
 tools/make_release.sh
 tools/make_sbom.py
@@ -57,6 +58,7 @@ docs/API.ja.md
 docs/index.html
 docs/how.html
 docs/shots/
+docs/modes/
 docs/logo-mark.svg
 docs/favicon.svg
 docs/.nojekyll

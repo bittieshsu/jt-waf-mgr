@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <h1>{{ t('notfound.title') }}</h1>
-    <p><RouterLink class="btn" to="/"><Icon name="back" />{{ t('nav.overview') }}</RouterLink></p>
+    <p><RouterLink class="btn" to="/"><Icon name="back" />{{ t('nav.dashboard') }}</RouterLink></p>
   </div>
 </template>
 

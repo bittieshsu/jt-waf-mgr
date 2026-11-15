@@ -128,6 +128,7 @@ import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { get, post } from '../api.js'
 import { t, lang } from '../i18n.js'
+import { askConfirm } from '../confirmDialog.js'
 import { hasRole, refreshPending } from '../store.js'
 import { safeText } from '../util.js'
 import ErrorBox from '../components/ErrorBox.vue'
@@ -151,7 +152,7 @@ const canRestore = computed(() => hasRole('approver'))
 const restoreNote = ref('')
 const restoring = ref(false)
 async function restore() {
-  if (!window.confirm(t('managed.restore_confirm'))) return
+  if (!(await askConfirm(t('managed.restore_confirm'), { danger: true }))) return
   restoring.value = true
   error.value = null
   try {

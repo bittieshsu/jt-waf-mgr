@@ -842,6 +842,9 @@ table.grid th { background: var(--head-bg); }
 .ovfilters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--border);
   border-radius: 8px; padding: 8px 10px; }
 .ovfilters > .field { margin: 0; flex: 0 1 300px; min-width: min(220px, 100%); }
+/* the range buttons as tall as the site picker next to them */
+.ovfilters > .seg { align-self: stretch; }
+.ovfilters > .seg button { padding-top: 0; padding-bottom: 0; }
 .ovfilters.active { border: 2px solid var(--accent); background: var(--guide-bg); }
 .fchip-lead { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--accent); }
 .fchip { background: var(--accent); border-color: var(--accent); }
@@ -946,6 +949,12 @@ form + *, .actions + .pwage, form + .pwage { margin-top: 16px; }
   justify-content: center; padding: 6vh 16px 16px; overflow: auto; }
 .card.modal { width: min(860px, 100%); margin: 0; box-shadow: 0 18px 50px rgba(10, 20, 40, .35); outline: none; }
 .card.modal .charthead { margin-top: 12px; }
+.modalback.cdback { z-index: 1100; align-items: flex-start; padding-top: 18vh; }
+.card.modal.cdialog { width: min(480px, 100%); padding: 18px 20px 16px; }
+.cdialog h2 { margin: 0 0 10px; font-size: 16px; }
+.cdialog .cd-msg { margin: 0 0 16px; line-height: 1.6; white-space: pre-line; overflow-wrap: anywhere; }
+.cdialog .cd-actions { justify-content: flex-end; margin: 0; }
+@media (max-width: 640px) { .modalback.cdback { padding-top: 10vh; } .cdialog .cd-actions .btn { flex: 1 1 0; justify-content: center; } }
 
 /* ---- filter forms: applied conditions in colour, changed-but-not-applied ones marked (filterState.js) ---- */
 .field.f-applied > span, .field.f-applied > label { color: var(--accent); font-weight: 600; }

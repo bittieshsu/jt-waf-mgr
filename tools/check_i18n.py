@@ -108,6 +108,27 @@ REQUIRED = {
         'password_too_simple', 'password_reused', 'password_too_recent'],
 }
 
+# Chinese punctuation (user 2026-11-15): full-width ；，： in Chinese text; a half-width ")" followed by a word gets a
+# space after it. Code spans and notations keep their form: host:port, a header line, a formula, a URL.
+CJK = r'[\u3000-\u303f\u3400-\u9fff\uff00-\uffef]'
+NOTATION = re.compile(r'`[^`]*`|主機:埠|主機:\d+|\s:埠|名稱: 值|HMAC\([^)]*\)|https?://\S+')
+
+
+def zh_punct_problems(v):
+    """What is wrong with the punctuation of one zh-TW string (empty when nothing)."""
+    text = NOTATION.sub(' ', v)
+    out = []
+    if ';' in re.sub(r'&\w+;', '', text):
+        out.append('half-width ";" (use "；")')
+    if re.search(r'%s\s*,|,\s*%s' % (CJK, CJK), text):
+        out.append('half-width "," next to Chinese (use "，")')
+    if re.search(r'(?<!\d)%s\s*:(?!//)|(?<![\d/]):\s*%s' % (CJK, CJK), text):
+        out.append('half-width ":" next to Chinese (use "：")')
+    if re.search(r'\)(?=[\w{\u3400-\u9fff])', text):
+        out.append('")" right before a word; put a space after it')
+    return out
+
+
 LITERAL = re.compile(r"""\b(?:t|tOr)\(\s*'([A-Za-z0-9_.\-]+)'\s*[,)]""")
 
 
@@ -143,6 +164,9 @@ def main():
                     if not re.search(r'(?:sha256|HMAC|web_search)$', v[:m.start()]):
                         problems.append('zh-TW.json: %s has "(" right after a word; put a space before it' % k)
                         break
+            if lang == 'zh-TW' and isinstance(v, str):
+                for msg in zh_punct_problems(v):
+                    problems.append('zh-TW.json: %s: %s' % (k, msg))
             # wording the user rejected for Taiwan usage (2026-11-13): 擋 -> 封鎖, 收編 -> 納管; (2026-11-14) 收緊 -> 加嚴
             if lang == 'zh-TW' and isinstance(v, str):
                 for bad, good in ZH_TERMS:

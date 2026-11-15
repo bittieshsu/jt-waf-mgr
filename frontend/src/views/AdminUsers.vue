@@ -89,6 +89,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { get, post, patch } from '../api.js'
 import { state, ROLES } from '../store.js'
 import { t, errText } from '../i18n.js'
+import { askConfirm } from '../confirmDialog.js'
 import { safeText, fmtMinute, fmtDate, dateInputToIso, isoToDateInput } from '../util.js'
 import ErrorBox from '../components/ErrorBox.vue'
 import CopyText from '../components/CopyText.vue'
@@ -212,7 +213,7 @@ async function saveExpiry(u) {
 }
 
 async function signout(u) {
-  if (!window.confirm(t('users.signout_confirm', { user: u.username }))) return
+  if (!(await askConfirm(t('users.signout_confirm', { user: u.username }), { ok: t('users.signout'), danger: true }))) return
   busy.value = true; error.value = null; okMsg.value = ''
   try {
     await post('/users/' + encodeURIComponent(u.username) + '/signout')
@@ -222,7 +223,7 @@ async function signout(u) {
 }
 
 async function reset(u) {
-  if (!window.confirm(t('users.reset_confirm', { user: u.username }))) return
+  if (!(await askConfirm(t('users.reset_confirm', { user: u.username }), { ok: t('users.reset'), danger: true }))) return
   busy.value = true; error.value = null; tempPw.value = null; okMsg.value = ''
   try {
     const r = await post('/users/' + encodeURIComponent(u.username) + '/reset')

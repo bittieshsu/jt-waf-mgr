@@ -91,6 +91,7 @@
       <span v-else>{{ t('footer.source') }}</span>
     </footer>
     <ValueMenu />
+    <ConfirmDialog />
   </div>
 </template>
 
@@ -106,6 +107,7 @@ import LangSwitch from './components/LangSwitch.vue'
 import ThemeSwitch from './components/ThemeSwitch.vue'
 import Icon from './components/Icon.vue'
 import ValueMenu from './components/ValueMenu.vue'
+import ConfirmDialog from './components/ConfirmDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -119,7 +121,10 @@ const sourceUrl = computed(() => {
 
 // navigation: groups (each a drop-down) and a few direct links, drawn inline when they fit, else in the menu panel
 const navGroups = computed(() => [
-  { key: 'overview', to: '/', label: t('nav.overview'), icon: 'chart', exact: true, inlineIcon: true },
+  // the war room (a live board) joins this group when its design is ready
+  { key: 'overview', label: t('nav.overview'), icon: 'chart', items: [
+    { to: '/', label: t('nav.dashboard'), icon: 'chart', exact: true },
+  ] },
   { key: 'events', label: t('nav.g_events'), icon: 'list', badge: alertCount.open || 0, badgeTitle: t('nav.open_alerts'), items: [
     { to: '/events', label: t('nav.events_list'), icon: 'list' },
     { to: '/alerts', label: t('nav.alerts'), icon: 'bell', badge: alertCount.open || 0, badgeTitle: t('nav.open_alerts') },

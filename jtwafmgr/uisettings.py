@@ -24,6 +24,14 @@ BOUND = {'llm.url': ('llm.api_key',), 'intel.url': ('intel.api_key',), 'notify.z
          'notify.nextcloud_url': ('notify.nextcloud_secret',), 'notify.smtp_host': ('notify.smtp_password',),
          'notify.webhook_url': ('notify.webhook_token', 'notify.webhook_secret')}
 SECRET = object()
+# a provider choice and the settings that belong to that provider: switching keeps the old provider's values (key
+# included, server side only) and brings back what was used with the new one, so switching back restores them
+PROVIDER_SETS = {'intel.provider': ('intel.url', 'intel.api_key', 'intel.model')}
+STASH = 'stash.'           # settings rows "stash.<provider key>.<provider>" (JSON), never shown or exported
+
+
+def _stash_key(pk, provider):
+    return '%s%s.%s' % (STASH, pk, provider)
 
 # key -> (type, extra): type is bool | int | str | list | secret | choice
 EDITABLE = {
@@ -341,6 +349,33 @@ def set_many(app, changes, actor, src_ip=None):
         if k in EDITABLE and EDITABLE[k][0] == 'secret' and v is None:
             continue
         clean[k] = _validate(k, v)
+    # switching provider: put away the old provider's settings, bring back the new one's (what the person typed in
+    # the same save wins); a provider never used before starts empty
+    stash_writes, switched = [], []
+    for pk, keys in PROVIDER_SETS.items():
+        ps, pn = pk.split('.', 1)
+        old_p = cfg.data.get(ps, {}).get(pn)
+        if pk not in clean or clean[pk] == old_p:
+            continue
+        cur = {k: cfg.data.get(k.split('.', 1)[0], {}).get(k.split('.', 1)[1]) for k in keys}
+        stash_writes.append((_stash_key(pk, old_p), cur))
+        row = db.one('SELECT value FROM settings WHERE key=?', (_stash_key(pk, clean[pk]),))
+        try:
+            saved = json.loads(row['value']) if row else {}
+        except ValueError:
+            saved = {}
+        restored = []
+        for k in keys:
+            if k in clean:
+                continue
+            v = saved.get(k) if isinstance(saved, dict) else None
+            try:
+                clean[k] = _validate(k, v if isinstance(v, str) else '')
+            except SettingError:
+                clean[k] = ''
+            if clean[k]:
+                restored.append(k)
+        switched.append((pk, old_p, clean[pk], restored))
     trial = copy.deepcopy(cfg.data)
     for k, v in clean.items():
         _with(trial, k, v)
@@ -377,6 +412,11 @@ def set_many(app, changes, actor, src_ip=None):
             ss, sn = sk.split('.', 1)
             if cfg.data.get(ss, {}).get(sn) and sk not in clean:
                 raise SettingError('key_required_for_new_host', key=sk)
+    for key, values in stash_writes:
+        db.x('INSERT OR REPLACE INTO settings(key, value, updated_by, updated_at) VALUES (?,?,?,?)',
+             (key, json.dumps(values), actor, util.now()))
+    for pk, old_p, new_p, restored in switched:
+        app.audit.log('settings.provider_switched', actor, src_ip=src_ip, key=pk, old=old_p, new=new_p, restored=restored)
     changed = []
     for k, v in clean.items():
         sec, name = k.split('.', 1)

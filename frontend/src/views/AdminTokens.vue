@@ -64,6 +64,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { get, post, del } from '../api.js'
 import { t, errText } from '../i18n.js'
+import { askConfirm } from '../confirmDialog.js'
 import { safeText, fmtShortTime, isoToDateInput } from '../util.js'
 import ErrorBox from '../components/ErrorBox.vue'
 import CopyText from '../components/CopyText.vue'
@@ -157,7 +158,7 @@ async function create() {
 }
 
 async function revoke(tk) {
-  if (!window.confirm(t('tokens.revoke_confirm', { name: tk.name }))) return
+  if (!(await askConfirm(t('tokens.revoke_confirm', { name: tk.name }), { ok: t('tokens.revoke'), danger: true }))) return
   busy.value = true; error.value = null
   try { await del('/tokens/' + encodeURIComponent(tk.id)) } catch (e) { error.value = e }
   busy.value = false

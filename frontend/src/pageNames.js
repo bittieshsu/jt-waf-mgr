@@ -2,7 +2,7 @@
 import { t } from './i18n.js'
 
 const KEYS = {
-  '/': 'nav.overview', '/events': 'nav.events_list', '/alerts': 'nav.alerts', '/analysis': 'nav.analysis', '/reviews': 'nav.reviews', '/intel': 'nav.intel',
+  '/': 'nav.dashboard', '/events': 'nav.events_list', '/alerts': 'nav.alerts', '/analysis': 'nav.analysis', '/reviews': 'nav.reviews', '/intel': 'nav.intel',
   '/lookup': 'nav.lookup', '/traffic': 'nav.traffic', '/blocks': 'nav.blocks', '/rules': 'nav.rules_list', '/vhosts': 'nav.vhosts',
   '/countries': 'nav.countries', '/crs': 'nav.crs', '/managed': 'nav.managed', '/changes': 'nav.changes_list',
   '/changes/new': 'changes.new', '/config-changes': 'nav.config_changes', '/guide': 'nav.guide', '/account': 'nav.account',

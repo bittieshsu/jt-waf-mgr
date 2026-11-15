@@ -465,6 +465,25 @@ class TestSoftware(unittest.TestCase):
         self.assertNotIn('Rocket.Chat', software.dismissed_names(self.app.db))
         self.app.db.x("DELETE FROM software WHERE name='Rocket.Chat'")
 
+    def test_renamed_guess_is_not_guessed_again(self):
+        d = os.path.join(self.env.dir, 'tr4')
+        os.makedirs(d, exist_ok=True)
+        lines = [json.dumps({'vhost': 'mail.example.com', 'path': '/owa/auth/logon.aspx', 'http_status': 200})] * 5
+        lines += [json.dumps({'vhost': 'push.example.com', 'path': '/Microsoft-Server-ActiveSync?Cmd=Ping', 'http_status': 200})] * 9
+        with open(os.path.join(d, 'access.log'), 'w') as fh:
+            fh.write('\n'.join(lines) + '\n')
+        self.app.cfg.data['traffic']['logs'] = [d + '/*access.log']
+        self.assertEqual(software.scan_logs(self.app.cfg).get('Exchange (OWA)'), {'mail.example.com': 5})   # ActiveSync alone: no
+        software.refresh(self.app, 'alice')
+        r = self.app.db.one("SELECT id FROM software WHERE name='Exchange (OWA)'")
+        software.save(self.app.db, 'alice', 'Z-Push', '', ['mail.example.com'], sid=r['id'])
+        software.refresh(self.app, 'alice')
+        names = {x['name'] for x in software.listing(self.app.db)}
+        self.assertIn('Z-Push', names)
+        self.assertNotIn('Exchange (OWA)', names)                    # the person's rename stands
+        self.app.db.x("DELETE FROM software WHERE name='Z-Push'")
+        self.app.db.set_meta(software.DISMISSED_KEY, '[]')
+
     def test_validation(self):
         for name, ver in (('<script>', '1'), ('ok', 'a b'), ('', '1')):
             with self.assertRaises(software.SoftwareError):
@@ -599,7 +618,7 @@ class TestConnectionTest(Base):
         r = intel.test_result(self.app.cfg)
         self.assertTrue(r['ok'], r)
         self.assertEqual((r['models'], r['model'], r['reply']), (['m', 'big-model'], 'm', 'OK'))
-        self.assertEqual(r['search'], {'ok': True, 'tools': ['web_search', 'code_search']})
+        self.assertNotIn('search', r)                             # the MCP server has its own test button
         self.assertFalse(os.path.exists(intel._state(self.app.cfg, intel.TEST_REQUEST)))
         self.assertEqual(self.app.db.one("SELECT COUNT(*) FROM intel_runs")[0], 0)          # no search was run
         self.assertTrue(self.app.db.one("SELECT 1 FROM audit WHERE action='intel.tested'"))

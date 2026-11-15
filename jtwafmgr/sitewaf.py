@@ -217,6 +217,24 @@ def page_html():
         return fh.read()
 
 
+PREVIEW_REQUEST_ID = '5f0c2a9e7d4b41c8a1e3b6d2f9087c14'     # a sample: the real one is nginx's $request_id
+
+
+def page_preview(host='www.example.com'):
+    """(html, content security policy) of the blocked page with sample values where nginx fills in the request id,
+    the site and the time (SSI). Its own inline style is allowed by hash only: no script, nothing loaded."""
+    import base64
+    import time
+    vals = {'request_id': PREVIEW_REQUEST_ID, 'host': host, 'date_local': time.strftime('%Y-%m-%d %H:%M:%S %Z')}
+    html = re.sub(r'<!--#\s*echo\s+var="(\w+)"[^>]*-->', lambda m: vals.get(m.group(1), ''), page_html())
+    html = re.sub(r'<!--#[^>]*-->', '', html)
+    hashes = ["'sha256-%s'" % base64.b64encode(hashlib.sha256(m.group(1).encode('utf-8')).digest()).decode()
+              for m in re.finditer(r'<style>(.*?)</style>', html, re.S)]
+    csp = ("default-src 'none'; style-src %s; img-src data:; base-uri 'none'; form-action 'none'; "
+           "frame-ancestors 'none'; sandbox" % (' '.join(hashes) or "'none'"))
+    return html, csp
+
+
 def page_paths(cfg):
     """(snippet path, directory of the page, page path): managed files next to the rule files."""
     d = cfg['managed']['dir']

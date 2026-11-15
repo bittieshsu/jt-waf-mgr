@@ -2,6 +2,27 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.53 (2026-11-15)
+
+- Confirmations use the app's own dialog (the page's colours and language; delete / revoke in red, starting on
+  "cancel"; Esc or a click outside cancels) instead of the browser's; the UI check rejects window.confirm / alert /
+  prompt.
+- Sites > Blocked page: "Preview" opens the page in a new tab with a sample request id, site and time (its own
+  sandboxed policy: only its inline style, by hash).
+- Second-tier LLM: switching provider saves at once and keeps each provider's server, API key and model (the key on
+  the server only): switching back brings them back. "Test connection" next to the model tests the LLM only; the MCP
+  server has its own button.
+- Software guess: a guessed entry renamed by a person (Exchange -> Z-Push) is not guessed again; Exchange is no
+  longer guessed from ActiveSync alone (Z-Push, Zimbra and others answer it too).
+- Navigation: "Overview" is a menu; the current overview is its "Dashboard" (a live war-room board will join it).
+- Overview and traffic: the range buttons are as tall as the site picker. Settings > Country lists: the four facts
+  side by side, the lists in use as a table of their own.
+- Chinese interface and documents: full-width semicolon, comma and colon in Chinese text, a space after a half-width
+  ")" followed by a word (the i18n check rejects the old forms).
+- README and project site: the three ways to use it (nginx as the web server, as a reverse proxy, or both on one
+  host), with a diagram; the site's threat intelligence card now says the second tier writes its own virtual
+  patches.
+
 ## 0.4.52 (2026-11-15)
 
 - Software guess: about 300 applications instead of 43 (identity, mail and groupware, files and documents, chat,

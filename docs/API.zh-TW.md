@@ -156,7 +156,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/status
 - `family`：`protocol`、`lfi`、`rfi`、`rce`、`php`、`generic`、`xss`、`sqli`、`session`、`java`、`scanner`、
   `method`、`body`、`data_leak`、`local` 或 `other`。
 - `limit`（預設 100，最多 1000）、`cursor`。
-- `not_<名稱>`(`host`、`src_ip`、`country`、`rule_id`、`outcome`、`decided_by`、`origin`、`family`):排除這個值 (檢查方式與篩選相同)。`GET /overview` 接受同樣的篩選。
+- `not_<名稱>`(`host`、`src_ip`、`country`、`rule_id`、`outcome`、`decided_by`、`origin`、`family`)：排除這個值 (檢查方式與篩選相同)。`GET /overview` 接受同樣的篩選。
 
 ```sh
 curl -sS -H "Authorization: Bearer $TOKEN" \
@@ -413,7 +413,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" 'https://waf.example.com/api/v1/rules
 - **`GET /events/{id}/analysis`**（scope `events:read`）：單一事件最近一次的 AI 分析（`state` queued / running / done、`verdict`、`confidence`、`summary`、`evidence`、`action`、`action_reason`、`model`、`error`）與 LLM 是否就緒。`POST /events/{id}/analysis`（operator，網頁登入）：排入分析；LLM 未就緒回 409 `llm_not_ready`。
 - **`POST /vhosts/waf`**（approver，網頁登入）：`{"host", "mode": "enable"|"disable", "reason"}` -> 202 `{"change_id"}`：以變更為一個站台開啟（或再關閉）ModSecurity。`GET /vhosts` 會標示 `waf_by_us`（由這裡開啟的）並列出進行中的 `site_changes`。
 - **`POST /vhosts/blocked-page`**（approver，網頁登入）：`{"host": "<站台>"|"*", "mode": "enable"|"disable", "reason"}` -> 202 `{"change_id"}`：以變更替一個站台或全部站台套用（或移除）被封鎖時看到的頁面（有請求編號；種類 `site_page`，不算加嚴也不算放寬）。`GET /vhosts` 在每個 server 區塊加 `blocked_page`（`ours`、`own`＝有自己的 403 頁面、或 null），並列出進行中的 `page_changes` 與 `blocked_page` `{ok, plan, refresh}`（「全部站台」會更動幾個 server 區塊；`refresh`：這一版有較新的片段或頁面）。
-- `GET /events` 也可以用 `unique_id`(ModSecurity 給單一請求的請求編號)查詢。
+- `GET /events` 也可以用 `unique_id` (ModSecurity 給單一請求的請求編號) 查詢。
 - **`GET /reviews`**、**`GET /reviews/{id}`**（scope `events:read`）：WAF 定期檢討（每 `review.interval_hours` 小時）：數量、只靠分數封鎖的請求（依站台與路徑分組，可能誤封鎖的排前面）、新的內部命中、沒被封鎖的外部攻擊、自動處理了什麼、每個重點站台一行。不含請求內容與查詢字串。`POST /reviews/run`（approver，網頁登入）：立即檢討最近一段時間。
 - **`GET /dns`**（scope `rules:read`）：DNS 檢查結果，每個站名在各台內部、外部 DNS 的回答。
 - **`GET /geoip/{ip}`**：只回 GeoIP 結果（沒有安裝 GeoIP 資料庫時 `available: false`）。

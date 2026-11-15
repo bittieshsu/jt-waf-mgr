@@ -30,6 +30,9 @@ def main(path):
         for m in re.finditer(r'(?<=[\u3400-\u9fff\w])\(', v['zh-TW']):
             if not re.search(r'(?:sha256|HMAC|web_search)$', v['zh-TW'][:m.start()]):
                 sys.exit('%s: zh-TW has "(" right after a word; put a space before it' % k)
+        from check_i18n import zh_punct_problems          # same rules as the check (full-width ；，：, ") " spacing)
+        for msg in zh_punct_problems(v['zh-TW']):
+            sys.exit('%s: zh-TW %s' % (k, msg))
         for bad, good in (('收編', '納管'), ('擋下', '封鎖'), ('阻擋', '封鎖'), ('擋', '封鎖')):
             if bad in v['zh-TW']:
                 sys.exit('%s: zh-TW uses "%s"; use "%s"' % (k, bad, good))

@@ -17,19 +17,17 @@
         <dd>{{ st.last_run ? fmtMinute(st.last_run) : '—' }}
           <span v-if="st.last_ok === false" class="badge b-blocked">{{ t('countries.last_failed') }}</span>
           <span v-if="st.requested" class="badge b-warn">{{ t('countries.queued') }}</span></dd>
-        <dt>{{ t('countries.sets') }}</dt>
-        <dd><span v-if="!st.sets.length">—</span>
-          <div v-for="s in st.sets" :key="s" class="setrow">
-            <span class="badge mono setbadge">{{ s }}</span>
-            <span>{{ s.split('-').map(countryName).join(t('common.list_sep')) }}</span>
-            <span v-if="(st.set_users || {})[s]" class="muted small gapl">{{ t('countries.set_used_by', { sites: st.set_users[s].join(t('common.list_sep')) }) }}</span>
-          </div>
-          <div class="muted small">{{ t('countries.sets_hint') }}</div></dd>
         <dt>{{ t('countries.applied') }}</dt>
         <dd>{{ st.applied.at ? fmtMinute(st.applied.at) : '—' }}
           <span v-if="st.applied.ok === false" class="badge b-blocked">{{ t('countries.apply_failed') }}</span>
           <span v-if="st.pending" class="badge b-warn">{{ t('countries.writing') }}</span></dd>
       </dl>
+      <h3 class="subhead">{{ t('countries.sets') }}</h3>
+      <p v-if="!st.sets.length" class="muted small">—</p>
+      <DataTable v-else id="country-sets" class="cosets" :columns="setCols" :rows="setRows" row-key="set" :toolbar="false">
+        <template #cell-set="{ row }"><span class="badge mono">{{ row.set }}</span></template>
+      </DataTable>
+      <p class="muted small">{{ t('countries.sets_hint') }}</p>
       <p v-for="(e, k) in st.last_errors" :key="k" class="small warn">{{ k }}: {{ safeText(e, 200) }}</p>
       <div v-if="regRows.length" class="coreg">
         <DataTable id="country-registries" :columns="cols" :rows="regRows" row-key="name" :toolbar="false">
@@ -73,6 +71,16 @@ const cols = computed(() => [
   { key: 'countries', label: t('countries.col.countries'), num: true },
   { key: 'size', label: t('countries.col.size'), num: true },
 ])
+const setCols = computed(() => [
+  { key: 'set', label: t('countries.col.set'), nowrap: true },
+  { key: 'names', label: t('countries.col.names') },
+  { key: 'sites', label: t('countries.col.sites') },
+])
+const setRows = computed(() => ((st.value && st.value.sets) || []).map((x) => ({
+  set: x,
+  names: x.split('-').map(countryName).join(t('common.list_sep')),
+  sites: (((st.value.set_users || {})[x]) || []).join(t('common.list_sep')) || '—',
+})))
 const regRows = computed(() => Object.entries((st.value && st.value.registries) || {}).map(([name, r]) => Object.assign({ name: name.toUpperCase() }, r)))
 const steps = computed(() => [
   { key: 'dl', label: t('countries.step.download'), desc: t('countries.step.download_d'), icon: 'download' },
@@ -94,7 +102,7 @@ onMounted(load)
 </script>
 
 <style scoped>
-.setbadge { margin: 0 6px 0 0; }
-.setrow { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; margin-bottom: 4px; }
+.subhead { font-size: 14.5px; margin: 14px 0 6px; }
+.cosets { margin-bottom: 4px; }
 .coreg { margin: 12px 0 16px; }   /* the registries table: room above the buttons */
 </style>

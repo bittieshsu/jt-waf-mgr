@@ -283,8 +283,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if enc:
                 self._header('Content-Encoding', enc)
                 self._header('Vary', 'Accept-Encoding')
+            own = {k.lower() for k, _ in resp.headers}
             for k, v in SECURITY_HEADERS:
-                self._header(k, v)
+                if k.lower() not in own:            # a response may only make a header stricter for itself (preview)
+                    self._header(k, v)
             if req.path.startswith('/api/'):
                 self._header('Cache-Control', 'no-store')
             for k, v in resp.headers:

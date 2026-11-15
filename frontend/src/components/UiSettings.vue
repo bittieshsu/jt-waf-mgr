@@ -67,7 +67,8 @@
                   <Icon :name="mcpResult.ok ? 'check' : 'alert'" />{{ mcpResult.ok ? t('uiset.intel.mcp_ok', { tools: (mcpResult.search.tools || []).join(', '), seconds: mcpResult.seconds })
                     : t('uiset.intel.search_bad', { error: (mcpResult.error || '') + (mcpResult.detail ? ' ' + mcpResult.detail : '') }) }}</div>
               </div>
-              <SelectBox v-else-if="s[k].type === 'choice'" :id="'uiset-in-' + k" v-model="form[k]" :options="choiceOptions(k)" class="w-md" />
+              <SelectBox v-else-if="s[k].type === 'choice'" :id="'uiset-in-' + k" v-model="form[k]" :options="choiceOptions(k)" class="w-md"
+                         @update:model-value="(v) => onChoice(g, k, v)" />
               <div v-else-if="s[k].type === 'list' && s[k].choices" class="chips" role="group" :aria-label="t('uiset.' + k)">
                 <label v-for="c in s[k].choices" :key="c" class="chipcheck" :class="{ on: (form[k] || []).includes(c) }">
                   <input v-model="form[k]" type="checkbox" :value="c"><Icon v-if="(form[k] || []).includes(c)" name="check" /><span class="mono">{{ c }}</span></label>
@@ -176,6 +177,32 @@ const llmResult = ref(null)
 const llmError = ref(null)
 
 const CONN = ['llm.url', 'llm.api_key', 'llm.timeout_seconds']
+// a provider and its own settings: switching saves at once; the server puts the old provider's URL, key and model
+// away and brings back the new one's (the key never comes to the browser)
+const PROVIDER_SETS = { 'intel.provider': ['intel.url', 'intel.api_key', 'intel.model'] }
+function onChoice(g, k, v) {
+  if (PROVIDER_SETS[k] && s.value[k] && v !== s.value[k].value) switchProvider(g, k, v)
+}
+async function switchProvider(g, k, v) {
+  busy[g.key] = true
+  saveError[g.key] = null
+  msg[g.key] = ''
+  try {
+    const r = await patch('/settings/ui', { [k]: v })
+    for (const kk of [k, ...PROVIDER_SETS[k]]) {
+      s.value[kk] = r.settings[kk]
+      form[kk] = toForm(kk)
+      cleared[kk] = false
+    }
+    const back = PROVIDER_SETS[k].some((kk) => (r.settings[kk].type === 'secret' ? r.settings[kk].set : !!r.settings[kk].value))
+    msg[g.key] = t(back ? 'uiset.provider_restored' : 'uiset.provider_new', { name: tOr('uiset.' + k + '.' + v, v) })
+    intelResult.value = null
+    emit('saved', r.changed)
+  } catch (e) {
+    saveError[g.key] = e
+    form[k] = toForm(k)
+  } finally { busy[g.key] = false }
+}
 const connDirty = computed(() => !!s.value && CONN.some((k) => s.value[k] && isDirty(k)))
 const modelList = computed(() => (llmResult.value && llmResult.value.ok && llmResult.value.models) || [])
 const modelOptions = computed(() => {

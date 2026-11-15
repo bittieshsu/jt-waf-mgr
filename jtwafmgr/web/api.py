@@ -876,6 +876,14 @@ def site_waf_propose(app, req):
     return json_response(202, {'change_id': cid})
 
 
+def blocked_page_preview(app, req):
+    """The blocked page as a blocked visitor sees it, sample values in place of the request id, site and time. A page
+    of its own (opened in a new tab): its policy allows only its own inline style by hash, no script, sandboxed."""
+    from .. import sitewaf
+    html, csp = sitewaf.page_preview()
+    return Response(200, html.encode('utf-8'), 'text/html; charset=utf-8', [('Content-Security-Policy', csp)])
+
+
 def blocked_page_propose(app, req):
     """Approver: the page blocked visitors see, on (or off again) for one site or every site ('*'), as a change."""
     b = req.body()
@@ -1483,6 +1491,7 @@ def register(router):
     R('GET', V + '/reviews', reviews, viewer('events:read'))
     R('POST', V + '/vhosts/waf', site_waf_propose, ('role', 'approver', None))
     R('POST', V + '/vhosts/blocked-page', blocked_page_propose, ('role', 'approver', None))
+    R('GET', V + '/vhosts/blocked-page/preview', blocked_page_preview, viewer('rules:read'))
     R('GET', V + '/events/{id}/analysis', event_analysis, viewer('events:read'))
     R('POST', V + '/events/{id}/analysis', event_analyze, ('role', 'operator', None))
     R('GET', V + '/intel', intel_status, viewer('events:read'))
