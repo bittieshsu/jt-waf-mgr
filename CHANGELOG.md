@@ -2,6 +2,18 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.52 (2026-11-15)
+
+- Software guess: about 300 applications instead of 43 (identity, mail and groupware, files and documents, chat,
+  CMS and shops, ERP / CRM / service desk, development, monitoring and security, virtualisation, storage, network
+  and VPN gateways, application servers, home and media), plus PHP / ASP.NET / Java / ColdFusion as a last resort;
+  about 160 host products instead of 11 (glibc, OpenSSH, web, database, mail, DNS and VPN servers, container
+  runtimes, ...; versioned package names such as php8.2-fpm or postgresql-15 included).
+- The signatures moved to a data file (jtwafmgr/data/software-signatures.json); each carries sample paths, and a
+  test checks that every sample is guessed as its application and that common paths (/api/status, /dashboard/,
+  /assets/index-*.js, ...) are guessed as nothing. Too-wide signatures found that way were narrowed (Uptime Kuma no
+  longer matches any Vite site's /assets/index-*.js; Proxmox Backup Server is no longer hidden by Proxmox VE).
+
 ## 0.4.51 (2026-11-15)
 
 - Software guess: Zulip's API (/api/v1/messages and the like) is no longer taken for Rocket.Chat (its signature

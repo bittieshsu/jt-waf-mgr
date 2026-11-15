@@ -2,10 +2,13 @@
 
 The program guesses, a person confirms (only confirmed entries are ever sent to the second-tier LLM):
 - this host's own packages, with exact versions, from the Debian / Ubuntu package database (nginx, the ModSecurity
-  module and library, OpenSSL, Python) and the CRS version the ModSecurity configuration loads;
-- the applications behind the sites, from the paths they answer with 2xx / 3xx in the access logs (the last few
-  MB of each log): /realms/ answered by sso.example.com is Keycloak, /remote.php/dav is Nextcloud, ... -- names only:
+  module and library, OpenSSL, OpenSSH, glibc, web and database servers, ...) and the CRS version the ModSecurity
+  configuration loads;
+- the applications behind the sites, from the paths they answer with 2xx in the access logs (the last few MB of
+  each log): /realms/ answered by sso.example.com is Keycloak, /remote.php/dav is Nextcloud, ... -- names only:
   a version cannot be seen from outside, a person fills it in.
+The packages and path signatures are data: data/software-signatures.json (each signature carries sample paths that
+tests/test_software_signatures.py checks are guessed as it, and that no common path is).
 
 Sent to the LLM: product names and versions only -- never site names, addresses or request data.
 """
@@ -17,71 +20,40 @@ import re
 from . import traffic, util
 
 DPKG_STATUS = '/var/lib/dpkg/status'
-# package -> product name the vulnerability databases use
-PACKAGES = {
-    'nginx': 'nginx', 'nginx-core': 'nginx', 'nginx-full': 'nginx', 'nginx-extras': 'nginx', 'nginx-light': 'nginx',
-    'libnginx-mod-http-modsecurity': 'ModSecurity-nginx connector',
-    'libmodsecurity3': 'libmodsecurity (ModSecurity v3)', 'libmodsecurity3t64': 'libmodsecurity (ModSecurity v3)',
-    'openssl': 'OpenSSL', 'libssl3': 'OpenSSL', 'libssl3t64': 'OpenSSL',
-    'python3': 'Python', 'libpcre2-8-0': 'PCRE2', 'libxml2': 'libxml2', 'libxml2-16': 'libxml2', 'libyajl2': 'YAJL',
-    'liblua5.3-0': 'Lua', 'libmaxminddb0': 'libmaxminddb', 'openssh-server': 'OpenSSH',
-}
-# application -> paths only it answers (a hit counts only with a 2xx / 3xx answer: probes get 404)
-SIGNATURES = [
-    ('Keycloak', r'^/(?:auth/)?realms/[^/]+/(?:protocol/openid-connect|login-actions|account)'),
-    ('Nextcloud', r'^/(?:remote\.php/(?:web)?dav|ocs/v[12]\.php|index\.php/apps/|apps/files/)'),
-    ('WordPress', r'^/wp-(?:admin/admin-ajax\.php|includes/|content/|json/)'),
-    ('Zimbra', r'^/(?:service/(?:soap|home|upload)|zimbraAdmin/|public/(?:login|Preferences)\.jsp)'),
-    ('Odoo', r'^/(?:web/(?:dataset/call_kw|webclient/|login)|xmlrpc/2/)'),
-    ('Proxmox VE', r'^/(?:api2/(?:json|extjs)/|pve2/)'),
-    ('Proxmox Backup Server', r'^/api2/json/admin/datastore'),
-    ('Grafana', r'^/(?:api/(?:dashboards|datasources|frontend/settings)|public/build/)'),
-    ('GitLab', r'^/(?:api/v4/projects|-/manifest\.json|assets/webpack/)'),
-    ('Gitea', r'^/(?:api/v1/repos/|user/login\?redirect_to|assets/js/index\.js)'),
-    ('Zabbix', r'^/(?:zabbix/)?(?:zabbix\.php|jsrpc\.php)'),
-    ('Jitsi Meet', r'^/(?:http-bind|xmpp-websocket|colibri-ws/)'),
-    ('Zulip', r'^/(?:json/(?:events|messages)|static/webpack-bundles/|api/v1/(?:register|events)(?:[/?]|$))'),
-    ('Mattermost', r'^/api/v4/(?:users/me|websocket)(?:[/?]|$)'),
-    # a whole path segment: Zulip's /api/v1/messages is not Rocket.Chat's /api/v1/me
-    ('Rocket.Chat', r'^/(?:sockjs/|api/v1/(?:me|login)(?:[/?]|$))'),
-    ('Collabora Online', r'^/(?:cool|browser|loleaflet|hosting/discovery)'),
-    ('ONLYOFFICE Docs', r'^/(?:web-apps/apps/|coauthoring/|cache/files/)'),
-    ('draw.io', r'^/(?:js/app\.min\.js|drawio/|export3\.html)'),
-    ('Apache Guacamole', r'^/(?:guacamole/)?api/(?:tokens|session/)'),
-    ('MeshCentral', r'^/(?:meshrelay\.ashx|control\.ashx|agent\.ashx)'),
-    ('Wazuh dashboard', r'^/app/(?:wazuh|wz-home|endpoints-summary)'),
-    ('OpenSearch Dashboards', r'^/(?:api/saved_objects|ui/default_branding)'),
-    ('Graylog', r'^/api/(?:system/|search/universal|views/search)'),
-    ('NetBox', r'^/api/(?:dcim|ipam)/'),
-    ('Synology DSM', r'^/webapi/(?:entry\.cgi|auth\.cgi)'),
-    ('Home Assistant', r'^/(?:api/websocket|auth/authorize|frontend_latest/)'),
-    ('Jenkins', r'^/(?:jenkins/)?(?:ajaxBuildQueue|ajaxExecutors|static/[0-9a-f]{8}/)'),
-    ('Portainer', r'^/api/(?:endpoints|motd)'),
-    ('MinIO', r'^/(?:minio/|api/v1/buckets)'),
-    ('Vaultwarden', r'^/(?:identity/connect/token|api/ciphers|notifications/hub)'),
-    ('Roundcube', r'^/(?:roundcube/)?\?_task='),
-    ('phpMyAdmin', r'^/(?:phpmyadmin/)?(?:index\.php\?route=|js/dist/)'),
-    ('Uptime Kuma', r'^/(?:api/status-page/|upload/|assets/index-[\w-]+\.js)'),
-    ('Kibana', r'^/(?:internal/security/|api/status)'),
-    ('Nginx Proxy Manager', r'^/api/nginx/proxy-hosts'),
-    ('Moodle', r'^/(?:lib/ajax/service\.php|theme/yui_combo\.php)'),
-    ('Joomla', r'^/(?:administrator/index\.php|media/system/js/)'),
-    ('Drupal', r'^/(?:core/misc/drupal\.js|sites/default/files/)'),
-    ('Magento', r'^/(?:static/version\d+/|customer/section/load)'),
-    ('Exchange (OWA)', r'^/(?:owa/|ecp/|EWS/Exchange\.asmx|Microsoft-Server-ActiveSync)'),
-    ('Citrix NetScaler Gateway', r'^/(?:vpn/index\.html|logon/LogonPoint/)'),
-    ('Fortinet FortiGate SSL VPN', r'^/remote/(?:login|logincheck)'),
-    ('Ivanti Connect Secure', r'^/dana-na/'),
-]
+SIGNATURE_FILE = os.path.join(os.path.dirname(__file__), 'data', 'software-signatures.json')
+
+
+def _load(path=SIGNATURE_FILE):
+    """The guess data: Debian package -> product, package patterns, and application -> paths only it answers."""
+    try:
+        with open(path, encoding='utf-8') as fh:
+            d = json.load(fh)
+    except (OSError, ValueError):
+        return {}, [], []
+    return (dict(d.get('packages') or {}), [(re.compile(rx), name) for rx, name in d.get('package_patterns') or []],
+            [(name, rx) for name, rx, _samples in d.get('signatures') or []])
+
+
+PACKAGES, PACKAGE_PATTERNS, SIGNATURES = _load()
 _SIGS = [(name, re.compile(rx)) for name, rx in SIGNATURES]
 TAIL = 8 * 1024 * 1024          # read this much of the end of each access log
-MIN_HITS = 3                    # an application needs this many 2xx / 3xx answers on its paths
+MIN_HITS = 3                    # an application needs this many 2xx answers on its paths
 NAME_RE = re.compile(r'[\w .+()/:-]{1,120}')
 VERSION_RE = re.compile(r'[\w.+~:-]{0,60}')
 
 
+def product_of(pkg):
+    """The product name of a Debian package, or None when the guess does not follow it."""
+    if pkg in PACKAGES:
+        return PACKAGES[pkg]
+    for rx, name in PACKAGE_PATTERNS:
+        if rx.fullmatch(pkg):
+            return name
+    return None
+
+
 def dpkg_packages(path=DPKG_STATUS):
-    """{package: version} of the installed packages in PACKAGES."""
+    """{package: version} of the installed packages the guess follows (PACKAGES, PACKAGE_PATTERNS)."""
     out = {}
     try:
         with open(path, encoding='utf-8', errors='replace') as fh:
@@ -91,7 +63,7 @@ def dpkg_packages(path=DPKG_STATUS):
     for block in text.split('\n\n'):
         f = dict(re.findall(r'^([A-Za-z-]+): (.*)$', block, re.M))
         pkg = f.get('Package')
-        if pkg in PACKAGES and 'installed' in (f.get('Status') or '') and f.get('Version'):
+        if pkg and product_of(pkg) and 'installed' in (f.get('Status') or '') and f.get('Version'):
             out[pkg] = f['Version']
     return out
 
@@ -176,7 +148,7 @@ def guess(app):
     pk = dpkg_packages()
     seen = {}
     for pkg, ver in sorted(pk.items()):
-        name = PACKAGES[pkg]
+        name = product_of(pkg)
         if name in seen:
             continue
         seen[name] = True

@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.4.52 (2026-11-15)
+
+- 軟體推測：站台應用從 43 種增加到約 300 種 (身分驗證、郵件與群組軟體、檔案與文件、通訊、網站與電商、ERP/CRM/服務台、開發、監控與資安、虛擬化、儲存、網路與 VPN 閘道、應用程式伺服器、家用與影音)，最後再判斷 PHP/ASP.NET/Java/ColdFusion；本機套件從 11 種增加到約 160 種 (glibc、OpenSSH、網頁、資料庫、郵件、DNS、VPN 伺服器、容器執行環境等，也認得 php8.2-fpm、postgresql-15 這類帶版本的套件名稱)。
+- 特徵改放資料檔 (jtwafmgr/data/software-signatures.json)，每條都附範例路徑；測試會確認每個範例都判斷成該應用，而且 /api/status、/dashboard/、/assets/index-*.js 這類一般路徑不會判斷成任何應用。藉此找出並修正太寬的特徵 (Uptime Kuma 不再把所有 Vite 網站的 /assets/index-*.js 算進去；Proxmox Backup Server 不再被 Proxmox VE 搶先)。
+
 ## 0.4.51 (2026-11-15)
 
 - 軟體推測：Zulip 的 API (/api/v1/messages 等) 不再被當成 Rocket.Chat (特徵要符合完整的路徑段)，Mattermost 也一樣。

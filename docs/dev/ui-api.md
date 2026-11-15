@@ -375,3 +375,6 @@ Editing comes in a later phase (config file for now).
 
 ## 0.4.51
 - Software: `DELETE /api/v1/intel/software/<id>` on a guessed entry records its name in `meta` key `software.dismissed` (JSON list); `refresh` skips those names; adding the name by hand (`POST /api/v1/intel/software`) removes it from the list. Signatures match whole path segments (Rocket.Chat `/api/v1/me` no longer matches Zulip's `/api/v1/messages`).
+
+## 0.4.52
+- Software guess data in `jtwafmgr/data/software-signatures.json` (`signatures: [name, regex, samples]`, `packages`, `package_patterns`), loaded by `software._load`; `software.product_of(pkg)`. `tests/test_software_signatures.py` checks samples and common paths.

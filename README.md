@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.51
+# jt-waf-mgr v0.4.52
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -85,7 +85,8 @@ something you can read, and every change into a workflow you can trust:
   automatically, one line per focus site.
 - **Second-tier LLM (threat intelligence)**: a stronger LLM, local (OpenAI-compatible) or cloud (OpenAI-compatible or
   Anthropic), searches the web every few hours for new vulnerabilities in the software list the program guesses and a
-  person confirms (this host's packages, the CRS, the applications the sites run), above all those exploited in the wild.
+  person confirms (this host's packages: about 160 products; the CRS; the applications the sites run: about 300
+  recognised from the paths they answer), above all those exploited in the wild.
   Only product names and versions leave the host. Local models search through an MCP server (for example SearXNG);
   Anthropic and OpenAI's own API can use the provider's web search instead. The program reads only https pages on an
   allow-list, and "exploited" counts only when it read the CISA catalog itself in that run. A product can be confirmed

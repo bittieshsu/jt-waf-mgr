@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md) · [繁體中文](CHANGELOG_zh-TW.md) · **日本語**
 
+## 0.4.52 (2026-11-15)
+
+- ソフトウェア推定：サイトのアプリケーションを 43 種から約 300 種に拡大しました (認証、メールとグループウェア、ファイルと文書、チャット、CMS と EC、ERP/CRM/サービスデスク、開発、監視とセキュリティ、仮想化、ストレージ、ネットワークと VPN ゲートウェイ、アプリケーションサーバー、ホームとメディア)。最後に PHP/ASP.NET/Java/ColdFusion も判定します。このホストのパッケージは 11 種から約 160 種に拡大しました (glibc、OpenSSH、Web、データベース、メール、DNS、VPN サーバー、コンテナランタイムなど。php8.2-fpm や postgresql-15 のようなバージョン付きパッケージ名にも対応)。
+- 特徴はデータファイル (jtwafmgr/data/software-signatures.json) に移しました。各特徴にサンプルパスがあり、各サンプルがそのアプリケーションと判定されること、/api/status、/dashboard/、/assets/index-*.js などの一般的なパスが何とも判定されないことをテストで確認します。これにより広すぎる特徴を修正しました (Uptime Kuma が Vite サイトの /assets/index-*.js に一致しなくなり、Proxmox Backup Server が Proxmox VE に隠れなくなりました)。
+
 ## 0.4.51 (2026-11-15)
 
 - ソフトウェア推定：Zulip の API (/api/v1/messages など) を Rocket.Chat と誤認しないようにしました (特徴はパスの区切り単位で一致が必要)。Mattermost も同様です。
