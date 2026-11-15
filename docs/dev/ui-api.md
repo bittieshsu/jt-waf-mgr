@@ -435,3 +435,6 @@ Editing comes in a later phase (config file for now).
 
 ## 0.4.63
 - osv.py (setting `intel.osv`, default off): POST api.osv.dev/v1/query per confirmed dpkg product; cache `<data>/intel/osv-cache.json`; `GET /intel` has `osv` {enabled, ecosystem}.
+
+## 0.4.64
+- nvd.py (setting `intel.nvd`, default off): threat `nvd` {score, severity, vector, cwe, published, status}; `severity_model` keeps the model's.

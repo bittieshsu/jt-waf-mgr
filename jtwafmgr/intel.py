@@ -1020,6 +1020,7 @@ def status(app):
             'over_budget': over_budget(cfg, db), 'requested': os.path.exists(request_file(cfg)),
             'confirmed_software': len(software.confirmed(db)),
             'kev': __import__('jtwafmgr.kev', fromlist=['status']).status(cfg),
+            'nvd': {'enabled': bool(c.get('nvd'))},
             'osv': {'enabled': bool(c.get('osv')), 'ecosystem': __import__('jtwafmgr.osv', fromlist=['ecosystem']).ecosystem()},
             'last_run': run_summary(last) if last else None}
 
@@ -1124,6 +1125,8 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
             t['exploited'] = (t['exploited'] and t['id'] in session.cisa_ids) or t['id'] in kev_ids
             if t['id'] in kev_ids:
                 t['exploited_evidence'] = 'CISA Known Exploited Vulnerabilities catalog'
+        from . import nvd
+        nvd.enrich(cfg, threats, log=log)
         note = util.clip(str(answer.get('notes') or ''), 1000) if isinstance(answer, dict) else ''
     except Exception as e:      # noqa: BLE001 -- recorded, notified; the next run starts afresh
         code = e.code if isinstance(e, IntelError) else 'internal_%s' % type(e).__name__

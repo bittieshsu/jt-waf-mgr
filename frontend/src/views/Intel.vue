@@ -27,6 +27,7 @@
             <template v-if="st.kev.fetched_at">{{ t('intel.kev_v', { n: fmtNum(st.kev.entries), at: fmtMinute(st.kev.fetched_at) }) }}</template>
             <template v-else>{{ t('intel.kev_pending') }}</template></template>
             <span v-else class="muted">{{ t('intel.kev_off') }}</span></dd>
+          <dt>{{ t('intel.nvd') }}</dt><dd><template v-if="st.nvd && st.nvd.enabled">{{ t('intel.nvd_on') }}</template><span v-else class="muted">{{ t('intel.kev_off') }}</span></dd>
           <dt>{{ t('intel.osv') }}</dt><dd><template v-if="st.osv && st.osv.enabled">{{ st.osv.ecosystem ? t('intel.osv_on', { eco: st.osv.ecosystem }) : t('intel.osv_no_eco') }}</template>
             <span v-else class="muted">{{ t('intel.kev_off') }}</span></dd>
           <dt>{{ t('intel.schedule') }}</dt><dd>{{ t('intel.schedule_v', { h: st.interval_hours, d: st.days }) }}
@@ -55,7 +56,8 @@
             <span class="badge" :class="AFF[row.affected]">{{ t('intel.affected.' + row.affected) }}</span>
             <div v-if="row.preconditions" class="sub" :title="row.preconditions">{{ t('intel.needs', { what: row.preconditions.length > 80 ? row.preconditions.slice(0, 79) + '…' : row.preconditions }) }}
               <span class="badge tiny" :class="row.conditions_met === 'no' ? 'b-ok' : row.conditions_met === 'yes' ? 'b-blocked' : 'b-warn'">{{ t('intel.cond.' + (row.conditions_met || 'unknown')) }}</span></div></template>
-          <template #cell-severity="{ row }"><span class="badge" :class="SEV[row.severity] || 'b-logged'">{{ tOr('intel.sev.' + row.severity, row.severity) }}</span></template>
+          <template #cell-severity="{ row }"><span class="badge" :class="SEV[row.severity] || 'b-logged'">{{ tOr('intel.sev.' + row.severity, row.severity) }}</span>
+            <div v-if="row.nvd && row.nvd.score != null" class="sub mono" :title="row.nvd.vector || null">NVD {{ row.nvd.score }}<template v-if="row.nvd.cwe && row.nvd.cwe.length"> · {{ row.nvd.cwe.join(' ') }}</template></div></template>
           <template #cell-first_seen="{ row }">{{ fmtMinute(row.first_seen) }}</template>
           <template #cell-status="{ row }"><span class="badge" :class="row.status === 'open' ? 'b-warn' : 'b-logged'">{{ t('intel.st.' + row.status) }}</span></template>
           <template #expand="{ row }">

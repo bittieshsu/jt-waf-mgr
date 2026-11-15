@@ -2,6 +2,14 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.64 (2026-11-16)
+
+- Threat intelligence: NVD scores (Settings > threat intelligence, off until switched on). After each search the
+  intelligence job asks the NVD API for the CVSS score and weakness (CWE) of each CVE found -- only the CVE id is
+  sent, one request every 6 seconds, at most 20 a run, answers kept 7 days. The official severity replaces the
+  model's guess (both are kept); the intelligence page shows "NVD 9.8 · CWE-78" under the severity.
+- The war room in README and on the site now shows arcs to an entry point (synthetic destination in the test data).
+
 ## 0.4.63 (2026-11-16)
 
 - Threat intelligence: OSV queries (Settings > threat intelligence, off until switched on). Once a day the

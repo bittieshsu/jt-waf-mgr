@@ -58,6 +58,8 @@ a.create_token('wazuh-sync', ['events:read'], ['192.0.2.0/24'], None, 'admin')
 app.monitor.check_chain(); app.monitor.backup()
 # notifications and alerts (synthetic; nothing is sent: the notify unit does not run here)
 from jtwafmgr import alerts, uisettings
+# the war room's destination (a synthetic location): the maps draw arcs and tracers to it
+uisettings.set_many(app, {'warroom.dest_label': 'EDGE', 'warroom.dest_lat': '25.03', 'warroom.dest_lon': '121.56'}, 'admin')
 uisettings.set_many(app, {'notify.enabled': True, 'notify.base_url': 'https://waf.example.com', 'notify.webhook_enabled': True,
                           'notify.webhook_url': 'https://hooks.example.com/waf', 'notify.webhook_secret': 'e2e-signing-secret-0123456789',
                           'llm.enabled': True, 'llm.url': 'http://192.0.2.10:8080/v1', 'llm.model': 'example-model',

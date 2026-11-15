@@ -104,6 +104,7 @@ EDITABLE = {
     'intel.enabled': ('bool', {}),
     'intel.kev': ('bool', {}),
     'intel.osv': ('bool', {}),
+    'intel.nvd': ('bool', {}),
     'intel.provider': ('choice', {'choices': ('openai', 'anthropic', 'gemini')}),
     'intel.url': ('str', {'re': r'(https?://[A-Za-z0-9.-]+(?::\d{1,5})?(?:/[\w./-]*)?)?', 'max': 300}),
     'intel.model': ('str', {'re': r'[\w.:/-]{0,120}', 'max': 120}),

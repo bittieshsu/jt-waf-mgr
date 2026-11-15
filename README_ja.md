@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.63
+# jt-waf-mgr v0.4.64
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
