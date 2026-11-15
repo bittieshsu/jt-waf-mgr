@@ -372,3 +372,6 @@ Editing comes in a later phase (config file for now).
 - Provider search with `provider: "openai"`: `intel.ask_openai_responses` uses `POST {base}/responses` with `tools: [{type: "web_search"}, {type: "function", name: "fetch_url"}]`, `include: ["web_search_call.action.sources"]`, follows function calls with `previous_response_id` + `function_call_output`, and asks once more with `text.format` json_schema when the answer is not JSON. Only for `https://api.openai.com/v1` (`readiness` -> `provider_search_unsupported` otherwise).
 - Software: guesses count 2xx answers only and skip jt-waf-mgr's own site (`software.own_hosts`, the server blocks proxying to `[server] listen`); `refresh` removes unconfirmed guesses no longer made (`removed`); `POST /api/v1/intel/software/confirm-all` (approver, audit `software.confirmed_all`).
 - `intel.MAY_AFFECT = ('yes', 'unknown')`: an exploited vulnerability with an unknown version takes the urgent path (critical alert, no daily limit for its virtual patch).
+
+## 0.4.51
+- Software: `DELETE /api/v1/intel/software/<id>` on a guessed entry records its name in `meta` key `software.dismissed` (JSON list); `refresh` skips those names; adding the name by hand (`POST /api/v1/intel/software`) removes it from the list. Signatures match whole path segments (Rocket.Chat `/api/v1/me` no longer matches Zulip's `/api/v1/messages`).

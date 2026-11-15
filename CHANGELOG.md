@@ -2,6 +2,12 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.51 (2026-11-15)
+
+- Software guess: Zulip's API (/api/v1/messages and the like) is no longer taken for Rocket.Chat (its signature
+  now has to match a whole path segment); the same for Mattermost.
+- A guessed entry you remove stays removed: "Guess again" leaves it out (adding the name by hand takes it back).
+
 ## 0.4.50 (2026-11-15)
 
 - Second-tier LLM settings: the API key comes before the model (the model list needs the key), as on the first tier.

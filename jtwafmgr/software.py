@@ -40,9 +40,10 @@ SIGNATURES = [
     ('Gitea', r'^/(?:api/v1/repos/|user/login\?redirect_to|assets/js/index\.js)'),
     ('Zabbix', r'^/(?:zabbix/)?(?:zabbix\.php|jsrpc\.php)'),
     ('Jitsi Meet', r'^/(?:http-bind|xmpp-websocket|colibri-ws/)'),
-    ('Zulip', r'^/(?:json/(?:events|messages)|static/webpack-bundles/)'),
-    ('Mattermost', r'^/api/v4/(?:users/me|websocket)'),
-    ('Rocket.Chat', r'^/(?:sockjs/|api/v1/(?:me|login))'),
+    ('Zulip', r'^/(?:json/(?:events|messages)|static/webpack-bundles/|api/v1/(?:register|events)(?:[/?]|$))'),
+    ('Mattermost', r'^/api/v4/(?:users/me|websocket)(?:[/?]|$)'),
+    # a whole path segment: Zulip's /api/v1/messages is not Rocket.Chat's /api/v1/me
+    ('Rocket.Chat', r'^/(?:sockjs/|api/v1/(?:me|login)(?:[/?]|$))'),
     ('Collabora Online', r'^/(?:cool|browser|loleaflet|hosting/discovery)'),
     ('ONLYOFFICE Docs', r'^/(?:web-apps/apps/|coauthoring/|cache/files/)'),
     ('draw.io', r'^/(?:js/app\.min\.js|drawio/|export3\.html)'),
@@ -229,6 +230,8 @@ def refresh(app, actor):
     now = util.now()
     found = guess(app)
     # a guess the program no longer makes (and nobody confirmed or edited) goes away
+    dismissed = set(dismissed_names(db))
+    found = [g for g in found if g['name'] not in dismissed]     # a person removed it: not guessed again
     names = {g['name'] for g in found}
     for r in db.q("SELECT id, name FROM software WHERE source='guess' AND confirmed=0"):
         if r['name'] not in names:
@@ -282,6 +285,8 @@ def save(db, actor, name, version, hosts=None, notes='', confirmed_flag=True, si
         cur = db.x('INSERT INTO software(name, version, hosts, kind, source, confirmed, evidence, notes, updated_at, updated_by) '
                    "VALUES (?,?,?, 'site', 'person', ?, '', ?, ?, ?)",
                    (name, version, json.dumps(hosts), 1 if confirmed_flag else 0, notes, now, actor))
+        if name in dismissed_names(db):
+            _set_dismissed(db, [x for x in dismissed_names(db) if x != name])
         return cur.lastrowid
     r = db.one('SELECT * FROM software WHERE id=?', (int(sid),))
     if not r:
@@ -292,5 +297,25 @@ def save(db, actor, name, version, hosts=None, notes='', confirmed_flag=True, si
     return r['id']
 
 
+DISMISSED_KEY = 'software.dismissed'
+
+
+def dismissed_names(db):
+    """Guesses a person removed: "重新推測" leaves them out (adding the name by hand takes it off this list)."""
+    try:
+        v = json.loads(db.get_meta(DISMISSED_KEY, '[]') or '[]')
+    except ValueError:
+        return []
+    return [x for x in v if isinstance(x, str)] if isinstance(v, list) else []
+
+
+def _set_dismissed(db, names):
+    db.set_meta(DISMISSED_KEY, json.dumps(sorted(set(names))[:500]))
+
+
 def delete(db, sid):
-    return db.x('DELETE FROM software WHERE id=?', (int(sid),)).rowcount
+    r = db.one('SELECT name, source FROM software WHERE id=?', (int(sid),))
+    n = db.x('DELETE FROM software WHERE id=?', (int(sid),)).rowcount
+    if n and r['source'] == 'guess':
+        _set_dismissed(db, dismissed_names(db) + [r['name']])
+    return n

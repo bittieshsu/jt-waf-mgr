@@ -443,6 +443,28 @@ class TestSoftware(unittest.TestCase):
         self.assertTrue(all(r['confirmed'] for r in software.listing(self.app.db)))
         self.assertIn({'name': 'Keycloak', 'version': 'unknown'}, software.confirmed(self.app.db))   # a name is enough
 
+    def test_zulip_api_not_rocketchat_and_removed_guess_stays_removed(self):
+        d = os.path.join(self.env.dir, 'tr3')
+        os.makedirs(d, exist_ok=True)
+        lines = [json.dumps({'vhost': 'chat.example.com', 'path': p, 'http_status': 200})
+                 for p in ('/api/v1/messages', '/api/v1/messages/flags', '/api/v1/register', '/api/v1/events?x=1') * 3]
+        lines += [json.dumps({'vhost': 'rc.example.com', 'path': '/api/v1/me', 'http_status': 200})] * 6
+        with open(os.path.join(d, 'access.log'), 'w') as fh:
+            fh.write('\n'.join(lines) + '\n')
+        self.app.cfg.data['traffic']['logs'] = [d + '/*access.log']
+        found = software.scan_logs(self.app.cfg)
+        self.assertEqual(set(found.get('Rocket.Chat', {})), {'rc.example.com'})   # /api/v1/messages is not /api/v1/me
+        self.assertIn('chat.example.com', found.get('Zulip', {}))
+        software.refresh(self.app, 'alice')
+        r = self.app.db.one("SELECT id FROM software WHERE name='Rocket.Chat'")
+        self.assertTrue(software.delete(self.app.db, r['id']))
+        self.assertIn('Rocket.Chat', software.dismissed_names(self.app.db))
+        software.refresh(self.app, 'alice')                                     # a person removed it: not guessed again
+        self.assertIsNone(self.app.db.one("SELECT id FROM software WHERE name='Rocket.Chat'"))
+        software.save(self.app.db, 'alice', 'Rocket.Chat', '7.0.0')              # adding it by hand takes it off the list
+        self.assertNotIn('Rocket.Chat', software.dismissed_names(self.app.db))
+        self.app.db.x("DELETE FROM software WHERE name='Rocket.Chat'")
+
     def test_validation(self):
         for name, ver in (('<script>', '1'), ('ok', 'a b'), ('', '1')):
             with self.assertRaises(software.SoftwareError):
