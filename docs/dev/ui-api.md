@@ -417,3 +417,8 @@ Editing comes in a later phase (config file for now).
 - change_log action `approval_carried` (a tightening approval kept through a clean recheck).
 - components/CodeBlock.vue (`lang`: nginx, shell, ini, modsec, json, log, text): text spans only.
 - CLI: cli_admin.py (`--as USER`, audit source `cli`).
+
+## 0.4.58
+- `GET /warroom/snapshot` also: `flow` (`{external|internal: {confident, fallback, score, other, logged}}`), `sites`
+  (`[{host, events, blocked, logged, buckets[15]}]`, 2-minute cells, up to 40), `watched` (focus sites without events),
+  `score_only` (`[{host, events}]`). War room pages flow / sites / review; components/warroom/WarFlow.vue.

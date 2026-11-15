@@ -2,6 +2,15 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.58 (2026-11-16)
+
+- War room, second stage: three more pages. Decision flow: bands from source (outside / inside) through what decided
+  (confident rule, fallback refusal, CRS score, other rule, logged only) to the outcome, one event counted once; a band
+  or a node opens those events. Site activity: each site's events in 2-minute cells over the 30 minutes, with blocked
+  and logged, where the events concentrate, and the focus sites that had none. False-positive review: what the CRS
+  score alone blocked, by site, and the internal and outside logged-only events to look at, each a link to the event
+  list with the same window. Rotation goes through all five pages.
+
 ## 0.4.57 (2026-11-16)
 
 - Administration from the command line: `jt-waf-mgr blocks | alerts | changes | settings | tokens | intel | review`,

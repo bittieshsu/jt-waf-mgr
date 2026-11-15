@@ -110,6 +110,9 @@ def _snapshot(app):
     rows = app.db.q('SELECT id, ts, host, src_ip, origin, outcome, decided_by FROM events WHERE ts>=? AND id<=? ORDER BY id',
                     (since, hw))
     countries, minutes, srcs = {}, {}, {}
+    flow = {}                                  # origin -> decision -> n (decision: how the WAF decided, or logged)
+    sites = {}                                 # site (alias) -> {events, blocked, logged, buckets[15] of 2 minutes}
+    score_only = {}                            # site -> events blocked by the CRS score alone (where users get caught)
     totals = {'events': 0, 'blocked': 0, 'logged': 0, 'external': 0, 'internal': 0, 'unlocated': 0}
     decided = {}
     first_min = int(since // 60)
@@ -119,6 +122,16 @@ def _snapshot(app):
         totals[oc] += 1
         totals['internal' if r['origin'] == 'internal' else 'external'] += 1
         decided[r['decided_by'] or ''] = decided.get(r['decided_by'] or '', 0) + 1
+        dec = 'logged' if oc == 'logged' else (r['decided_by'] if r['decided_by'] in ('confident', 'fallback', 'score') else 'other')
+        org = 'internal' if r['origin'] == 'internal' else 'external'
+        flow.setdefault(org, {})[dec] = flow.setdefault(org, {}).get(dec, 0) + 1
+        host = _host(alias, r['host'])
+        st = sites.setdefault(host, {'host': host, 'events': 0, 'blocked': 0, 'logged': 0, 'buckets': [0] * 15})
+        st['events'] += 1
+        st[oc] += 1
+        st['buckets'][min(14, max(0, int((r['ts'] - since) // 120)))] += 1
+        if dec == 'score':
+            score_only[host] = score_only.get(host, 0) + 1
         m = int(r['ts'] // 60) - first_min
         b = minutes.setdefault(m, {'blocked': 0, 'logged': 0})
         b[oc] += 1
@@ -143,6 +156,9 @@ def _snapshot(app):
         'countries': sorted(countries.values(), key=lambda c: (-c['events'], c['cc'])),
         'minutes': [{'t': util.iso((first_min + i) * 60), **minutes.get(i, {'blocked': 0, 'logged': 0})} for i in range(31)],
         'latest': latest, 'destination': destination(app.cfg),
+        'flow': flow, 'score_only': sorted(({'host': h, 'events': n} for h, n in score_only.items()), key=lambda x: -x['events']),
+        'sites': sorted(sites.values(), key=lambda x: (-x['events'], x['host']))[:40],
+        'watched': sorted({_host(alias, h) for h in app.cfg['waf'].get('focus_sites') or []} - set(sites)),
         'rotate_seconds': int((app.cfg.data.get('warroom') or {}).get('rotate_seconds') or 25)}
 
 

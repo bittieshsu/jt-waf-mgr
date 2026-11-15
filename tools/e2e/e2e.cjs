@@ -473,6 +473,13 @@ async function audit(page, where) {
   ok((await page.locator('.wr .war-globe canvas').count()) === 1, 'war room: the globe');
   await page.waitForTimeout(800);
   await page.screenshot({ path: path.join(SHOTS, 'warroom-globe.png') });
+  await page.locator('.wr-tabs button').nth(2).click(); await page.waitForTimeout(500);
+  ok((await page.locator('.wr .war-flow .wf-node').count()) >= 3, 'war room: the decision flow');
+  await page.locator('.wr-tabs button').nth(3).click(); await page.waitForTimeout(500);
+  ok((await page.locator('.wr-sites li').count()) >= 1 && (await page.locator('.wr-cells').first().locator('i').count()) === 15, 'war room: sites in 2-minute cells');
+  await page.locator('.wr-tabs button').nth(4).click(); await page.waitForTimeout(500);
+  ok((await page.locator('.wr .wr-big').count()) === 1 && (await page.locator('.wr-clue').count()) === 2, 'war room: the review desk');
+  await page.locator('.wr-tabs button').nth(1).click(); await page.waitForTimeout(500);
   const firstRank = page.locator('.wr-ranklist button').first();
   if (await firstRank.count()) {
     await firstRank.click();

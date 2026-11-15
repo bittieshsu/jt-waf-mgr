@@ -63,6 +63,12 @@ class TestWarRoom(unittest.TestCase):
         self.assertIn('app.example.com', hosts)
         self.assertTrue(any(h.startswith('internal-') for h in hosts))
         self.assertIsNone(s['destination'])                          # not set: the maps draw no destination
+        # the decision flow counts each event once; the sites by alias, in 2-minute cells
+        self.assertEqual(sum(sum(d.values()) for d in s['flow'].values()), 3)
+        self.assertEqual(s['flow']['external'].get('confident'), 1)
+        app_site = next(x for x in s['sites'] if x['host'] == 'app.example.com')
+        self.assertEqual((app_site['events'], len(app_site['buckets']), sum(app_site['buckets'])), (2, 15, 2))
+        self.assertEqual(s['score_only'], [])
         self.assertIn('stopped', s['collector'])
 
     def test_events_after_an_id(self):
