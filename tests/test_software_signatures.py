@@ -47,7 +47,8 @@ class TestSignatures(unittest.TestCase):
     def test_loaded(self):
         self.assertEqual(len(software.SIGNATURES), len(self.data['signatures']))
         self.assertGreaterEqual(len(software.SIGNATURES), 300)
-        self.assertGreaterEqual(len(set(software.PACKAGES.values())), 150)
+        self.assertGreaterEqual(len(set(software.PACKAGES.values())), 40)
+        self.assertNotIn('libc6', software.PACKAGES)                        # web-related software only
 
     def test_names(self):
         names = [n for n, _rx, _s in self.data['signatures']]
@@ -76,7 +77,7 @@ class TestSignatures(unittest.TestCase):
     def test_packages(self):
         self.assertEqual(software.product_of('nginx-core'), 'nginx')
         self.assertEqual(software.product_of('php8.2-fpm'), 'PHP')
-        self.assertEqual(software.product_of('postgresql-15'), 'PostgreSQL')
+        self.assertIsNone(software.product_of('postgresql-15'))               # not web-facing
         self.assertEqual(software.product_of('openjdk-17-jre-headless'), 'OpenJDK')
         self.assertIsNone(software.product_of('php8.2-fpm-extra'))
         self.assertIsNone(software.product_of('fonts-dejavu'))

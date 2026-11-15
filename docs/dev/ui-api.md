@@ -385,3 +385,6 @@ Editing comes in a later phase (config file for now).
 - `uisettings.PROVIDER_SETS`: changing `intel.provider` stores `intel.url/api_key/model` under the settings row `stash.intel.provider.<old>` and restores those of the new provider (values in the same request win); audit `settings.provider_switched` (no secret). `intel.connection_test` no longer tests MCP.
 - Software: renaming a guessed entry adds the old name to `meta` `software.dismissed`.
 - `tools/check_i18n.zh_punct_problems` (full-width ；，： next to Chinese, a space after ")" before a word; notations host:port, header lines, HMAC(...), URLs exempt); `tools/i18n_add.py` uses it.
+
+## 0.4.54
+- `rollup.py`: tables `ev_hour`, `ev_hour_family`, `ev_hour_rule`, `ev_hour_src` (node_id, hour, host, origin, outcome, <dimension>, n), kept by triggers `events_rollup_{ins,del,upd}` on `events`; schema 15 creates them and counts existing events. `rollup.window(db, table, since, until, flt, group, by_hour)` = whole hours from the table + partial hours from the events. `GET /overview` uses them when the filters are only host / origin / outcome (and their `not_`), else scans as before (`api.OVERVIEW_ROLLUP`); answers cached `api.OVERVIEW_CACHE_SECONDS` (15 s, or up to 60 s while `MAX(events.id)` is unchanged). `tests/test_rollup.py` checks rollup == scan.

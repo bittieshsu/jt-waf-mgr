@@ -437,7 +437,14 @@ SCHEMA = [
     );
     CREATE INDEX event_analyses_event ON event_analyses(event_id);
     """,
+    # 15: hourly event counts kept by triggers (rollup.py), so dashboards do not scan every event of the window
+    lambda c: _rollup().create(c),
 ]
+
+
+def _rollup():
+    from . import rollup
+    return rollup
 
 
 def _chain_existing_audit(c):

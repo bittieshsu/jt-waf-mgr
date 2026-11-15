@@ -2,6 +2,19 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.54 (2026-11-15)
+
+- Large traffic: the dashboard reads hourly counts kept by SQLite triggers (by site, origin, outcome, decision,
+  attack type, rule and source) plus the partial hours at both ends from the events themselves: the same numbers,
+  without scanning every event of the window (synthetic 400,000 events: 7 days 6.0 s -> 0.95 s, 24 hours 0.96 s ->
+  0.34 s; the more concentrated the traffic, the larger the gain). The upgrade counts the stored events in (schema 15).
+- One dashboard answer is shared by every screen for 15 seconds (or while no new event arrives, up to a minute).
+- systemd: the web service runs below nginx (Nice 5, CPU and IO weight 50) and the background jobs lower still
+  (Nice 10, weight 20): a busy host serves the sites first; an idle one sees no difference.
+- Software guess: host packages limited to web-facing software (the web stack, other web servers, PHP / Node.js /
+  Java, web applications installed as packages: about 50 products; glibc, bash, git, mail and database servers and
+  the like are no longer guessed). Zimbra is also recognised from its sign-in page (a monitoring check sees only that).
+
 ## 0.4.53 (2026-11-15)
 
 - Confirmations use the app's own dialog (the page's colours and language; delete / revoke in red, starting on

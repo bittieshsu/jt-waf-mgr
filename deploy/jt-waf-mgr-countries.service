@@ -7,6 +7,10 @@ Wants=network-online.target
 # its own directory. It checks each registry file against its MD5 file and its own record counts before using it.
 
 [Service]
+# background work: below nginx and below the web interface when the host is busy
+Nice=10
+CPUWeight=20
+IOWeight=20
 Type=oneshot
 User=jtwaf
 Group=jtwaf

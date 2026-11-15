@@ -356,7 +356,9 @@ class Store:
 
     def purge(self, events_days, stats_days):
         t = util.now()
+        from .. import rollup
         with self.db.tx() as c:
+            rollup.purge(c, t - 86400 * events_days)       # first: the events' triggers then have less to count down
             c.execute('DELETE FROM event_rules WHERE ts < ?', (t - 86400 * events_days,))
             c.execute('DELETE FROM events WHERE ts < ?', (t - 86400 * events_days,))
             c.execute('DELETE FROM stats_daily WHERE day < ?',

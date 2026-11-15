@@ -9,6 +9,10 @@ Wants=network-online.target
 # other privilege than reading the settings and writing the notification rows.
 
 [Service]
+# background work: below nginx and below the web interface when the host is busy
+Nice=10
+CPUWeight=20
+IOWeight=20
 Type=oneshot
 User=jtwaf
 Group=jtwaf

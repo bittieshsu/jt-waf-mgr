@@ -3,6 +3,10 @@ Description=jt-waf-mgr (web management for nginx + ModSecurity v3 + OWASP CRS)
 After=network.target
 
 [Service]
+# below nginx when the host is busy (no effect when it is not): serving the sites always comes first
+Nice=5
+CPUWeight=50
+IOWeight=50
 Type=simple
 User=jtwaf
 Group=jtwaf

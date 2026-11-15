@@ -6,9 +6,10 @@ import collections
 import json
 import re
 import os
+import threading
 import time
 
-from .. import __version__, util
+from .. import __version__, rollup, util
 from ..auth import LANGUAGES, SCOPES_P1, AuthError
 from ..config import ROLES
 from .server import ApiError, Response, json_response
@@ -296,13 +297,179 @@ def _by_family(app, since, until, fw='', fa=()):
     return sorted(counts.values(), key=lambda c: -(c['blocked'] + c['logged']))
 
 
+OVERVIEW_ROLLUP = True          # read the hourly counts (rollup.py) when the filters allow; False: scan the events
+OVERVIEW_CACHE_SECONDS = 15     # one answer shared by every screen for this long (0: no cache; the tests)
+_ov_cache = {}
+_ov_lock = threading.Lock()
+
+
 def overview(app, req):
+    """The dashboard. The same question within OVERVIEW_CACHE_SECONDS (or with no new event since, up to a minute)
+    is answered once for every viewer: a wall of screens does not multiply the work."""
+    _range(req)
+    _event_filters(req, with_time=False)          # bad values answer 400 before anything is cached
+    if OVERVIEW_CACHE_SECONDS <= 0:
+        return json_response(200, _overview(app, req))
+    key = tuple(sorted((k, v) for k, v in req.query.items()))
+    hw = app.db.one('SELECT MAX(id) FROM events')[0]
+    with _ov_lock:
+        hit = _ov_cache.get(key)
+        now = time.time()
+        if hit and (now - hit[0] < OVERVIEW_CACHE_SECONDS or (hit[1] == hw and now - hit[0] < 60)):
+            return json_response(200, hit[2])
+        body = _overview(app, req)
+        if len(_ov_cache) >= 32:
+            _ov_cache.pop(min(_ov_cache, key=lambda k: _ov_cache[k][0]))
+        _ov_cache[key] = (now, hw, body)
+        return json_response(200, body)
+
+
+def _rollup_filter(req):
+    """The filters as rollup.window takes them, or None when one of them needs the events themselves."""
+    out = {}
+    for k in FILTER_KEYS:
+        v = req.query.get(k)
+        if not v:
+            continue
+        base = k[4:] if k.startswith('not_') else k
+        if base not in rollup.FILTERABLE or (base == 'outcome' and v not in ('blocked', 'logged')):
+            return None
+        out[k] = v.lower() if base == 'host' else v
+    return out
+
+
+def _top(counts, limit):
+    return sorted(counts.items(), key=lambda kv: (-(kv[1]['blocked'] + kv[1]['logged']), str(kv[0])))[:limit]
+
+
+def _overview_rollup(app, req, rng, since, until, flt, fw, fa):
+    """The dashboard from the hourly counts: the same answer as a scan of the events (tests/test_rollup.py)."""
+    db = app.db
+    ev = rollup.window(db, 'ev_hour', since, until, flt, group=('host', 'origin', 'outcome', 'decided_by'))
+
+    def totals(rows):
+        t = {'events': 0, 'blocked': 0, 'logged': 0, 'external': 0, 'internal': 0, 'blocked_confident': 0, 'blocked_score': 0}
+        for (host, origin, outcome, decided), n in rows.items():
+            t['events'] += n
+            t[outcome] = t.get(outcome, 0) + n
+            t[origin] = t.get(origin, 0) + n
+            if decided in ('confident', 'fallback'):
+                t['blocked_confident'] += n
+            elif decided == 'score':
+                t['blocked_score'] += n
+        return t
+    tot = totals(ev)
+    span = until - since
+    pv = totals(rollup.window(db, 'ev_hour', since - span, since, flt, group=('host', 'origin', 'outcome', 'decided_by')))
+    previous = {k: pv[k] for k in ('events', 'blocked', 'logged', 'external', 'internal')}
+    # timeline: hours, or local days beyond a week (whole-hour time zones; others scan the events)
+    size = 3600 if until - since <= 7 * 86400 + 60 else 86400
+    off = time.localtime(until).tm_gmtoff if size == 86400 else 0
+    if off % 3600:
+        timeline, size = _timeline(app, since, until, fw, fa, rolling=rng != 'custom')
+    else:
+        buckets = {}
+        for (h, origin, outcome), n in rollup.window(db, 'ev_hour', since, until, flt, group=('origin', 'outcome'), by_hour=True).items():
+            k = (h * 3600 + off) // size
+            b = buckets.setdefault(k, [0, 0, 0, 0])
+            b[0 if outcome == 'blocked' else 1] += n
+            b[2 if origin == 'external' else 3] += n
+        first, last = int((since + off) // size), int((until - 1 + off) // size)
+        if size == 3600 and rng != 'custom':
+            first += 1
+        z = (0, 0, 0, 0)
+        timeline = [{'t': util.iso(h * size - off), 'blocked': buckets.get(h, z)[0], 'logged': buckets.get(h, z)[1],
+                     'external': buckets.get(h, z)[2], 'internal': buckets.get(h, z)[3]} for h in range(first, last + 1)]
+
+    def by(rows, idx, keep=None):
+        acc = {}
+        for k, n in rows.items():
+            if keep and not keep(k):
+                continue
+            a = acc.setdefault(k[idx], {'blocked': 0, 'logged': 0})
+            a[k[2]] = a.get(k[2], 0) + n
+        return acc
+    by_host = [{'key': k, 'blocked': v['blocked'], 'logged': v['logged']} for k, v in _top(by(ev, 0), 15)]
+    fam = rollup.window(db, 'ev_hour_family', since, until, flt, group=('family', 'origin', 'outcome'))
+    by_family = [{'key': k, 'blocked': v['blocked'], 'logged': v['logged']} for k, v in _top(by(fam, 0), 10 ** 6)]
+    src = rollup.window(db, 'ev_hour_src', since, until, flt, group=('src_ip', 'origin', 'outcome'))
+    src_acc, origin_of = {}, {}
+    for (ip, origin, outcome), n in src.items():
+        a = src_acc.setdefault(ip, {'blocked': 0, 'logged': 0})
+        a[outcome] = a.get(outcome, 0) + n
+        origin_of[ip] = origin
+    by_src = [{'key': ip, 'origin': origin_of[ip], 'blocked': v['blocked'], 'logged': v['logged'], 'geo': geo(ip)}
+              for ip, v in _top(src_acc, 15)]
+    rules = rollup.window(db, 'ev_hour_rule', since, until, flt, group=('rule_id', 'origin', 'outcome'))
+    rule_acc = by(rules, 0, keep=lambda k: k[0] not in util.SCORING_RULES and k[0])
+    by_rule = []
+    for rid, v in _top(rule_acc, 15):
+        rule = app.site.rule(rid)
+        by_rule.append({'key': str(rid), 'msg': (rule.action('msg') if rule else '') or '',
+                        'family': util.family_of(rid, app.cfg['waf']['local_range']),
+                        'blocked': v['blocked'], 'logged': v['logged']})
+    ext_src = {ip: v for ip, v in src_acc.items() if origin_of[ip] == 'external'}
+    score_only = [event_summary(r) for r in db.q(
+        "SELECT * FROM events WHERE ts>=? AND ts<? AND outcome='blocked' AND decided_by='score' AND origin='external'" + fw +
+        ' ORDER BY ts DESC LIMIT 50', (since, until) + fa)]
+    focus = []
+    for host in app.cfg['waf']['focus_sites']:
+        h = host.lower()
+        f = {'n': 0, 'b': 0, 'e': 0, 'enb': 0}
+        for (hh, origin, outcome, decided), n in ev.items():
+            if hh != h:
+                continue
+            f['n'] += n
+            f['b'] += n if outcome == 'blocked' else 0
+            f['e'] += n if origin == 'external' else 0
+            f['enb'] += n if origin == 'external' and outcome == 'logged' else 0
+        recent = [event_summary(r) for r in db.q(
+            'SELECT * FROM events WHERE host=? AND ts>=? AND ts<?' + fw + ' ORDER BY ts DESC LIMIT 10', (h, since, until) + fa)]
+        focus.append({'host': h, 'events': f['n'], 'blocked': f['b'], 'external': f['e'], 'external_not_blocked': f['enb'],
+                      'recent': recent})
+    return {
+        'range': rng, 'since': util.iso(since), 'until': util.iso(until), 'bucket_seconds': size,
+        'max_days': CUSTOM_MAX_DAYS, 'totals': tot,
+        'filters': {k: req.query[k] for k in FILTER_KEYS if req.query.get(k)}, 'previous': previous,
+        'timeline': timeline, 'by_host': by_host, 'by_family': by_family, 'by_src': by_src, 'by_rule': by_rule,
+        'score_only': score_only, 'focus': focus,
+        'by_country': _geo_groups(ext_src, 'cc', 300), 'by_asn': _geo_groups(ext_src, 'asn', 15),
+        'geoip': _geo_available(app),
+    }
+
+
+def _geo_groups(src_counts, field, top):
+    """External sources {ip: {blocked, logged}} grouped by country or network owner; [] without GeoIP."""
+    if not GEO:
+        return []
+    acc = {}
+    for ip, v in sorted(src_counts.items(), key=lambda kv: -(kv[1]['blocked'] + kv[1]['logged']))[:20000]:
+        g = geo(ip)
+        if not g or g.get('scope') != 'external':
+            continue
+        k = g.get(field)
+        if k is None:
+            k = '?'
+        a = acc.setdefault(k, {'key': str(k), 'blocked': 0, 'logged': 0, 'sources': 0,
+                               'label': g.get('org') if field == 'asn' else g.get('country')})
+        a['blocked'] += v['blocked']
+        a['logged'] += v['logged']
+        a['sources'] += 1
+    if not acc or all(k == '?' for k in acc):
+        return []
+    return sorted(acc.values(), key=lambda x: -(x['blocked'] + x['logged']))[:top]
+
+
+def _overview(app, req):
     rng, since, until = _range(req)
     # the same filters as the event list (origin, outcome, host, src_ip, rule_id, family, decided_by…);
     # the time window comes from range only
     fwl, fa = _event_filters(req, with_time=False)
     fw = ''.join(' AND ' + w for w in fwl)
     fa = tuple(fa)
+    flt = _rollup_filter(req) if OVERVIEW_ROLLUP else None
+    if flt is not None:
+        return _overview_rollup(app, req, rng, since, until, flt, fw, fa)
     t = app.db.one(
         "SELECT COUNT(*) n, SUM(outcome='blocked') b, SUM(outcome='logged') l, SUM(origin='external') ext, "
         "SUM(origin='internal') int, SUM(decided_by IN ('confident','fallback')) bc, SUM(decided_by='score') bs "
@@ -331,7 +498,7 @@ def overview(app, req):
             'SELECT * FROM events WHERE host=? AND ts>=? AND ts<?' + fw + ' ORDER BY ts DESC LIMIT 10', (h, since, until) + fa)]
         focus.append({'host': h, 'events': f['n'] or 0, 'blocked': f['b'] or 0, 'external': f['e'] or 0,
                       'external_not_blocked': f['enb'] or 0, 'recent': recent})
-    return json_response(200, {
+    return {
         'range': rng, 'since': util.iso(since), 'until': util.iso(until), 'bucket_seconds': size,
         'max_days': CUSTOM_MAX_DAYS,
         'totals': {'events': t['n'] or 0, 'blocked': t['b'] or 0, 'logged': t['l'] or 0, 'external': t['ext'] or 0,
@@ -344,7 +511,7 @@ def overview(app, req):
         'by_rule': _by_rule(app, since, until, fw=fw, fa=fa), 'score_only': score_only, 'focus': focus,
         'by_country': _by_geo(app, since, until, 'cc', top=300, fw=fw, fa=fa), 'by_asn': _by_geo(app, since, until, 'asn', fw=fw, fa=fa),
         'geoip': _geo_available(app),
-    })
+    }
 
 
 def _geo_available(app):

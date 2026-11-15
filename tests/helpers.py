@@ -6,6 +6,9 @@ import tempfile
 import time
 
 from jtwafmgr import config
+from jtwafmgr.web import api as _api
+
+_api.OVERVIEW_CACHE_SECONDS = 0       # a test sees its own writes at once (the cache has its own test)
 
 FIXTURE_SITE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fixtures', 'site')
 

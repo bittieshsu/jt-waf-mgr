@@ -2,8 +2,8 @@
 
 The program guesses, a person confirms (only confirmed entries are ever sent to the second-tier LLM):
 - this host's own packages, with exact versions, from the Debian / Ubuntu package database (nginx, the ModSecurity
-  module and library, OpenSSL, OpenSSH, glibc, web and database servers, ...) and the CRS version the ModSecurity
-  configuration loads;
+  module and library, OpenSSL, other web servers, PHP / Node.js / Java, web applications installed as packages:
+  web-facing software only) and the CRS version the ModSecurity configuration loads;
 - the applications behind the sites, from the paths they answer with 2xx in the access logs (the last few MB of
   each log): /realms/ answered by sso.example.com is Keycloak, /remote.php/dav is Nextcloud, ... -- names only:
   a version cannot be seen from outside, a person fills it in.
