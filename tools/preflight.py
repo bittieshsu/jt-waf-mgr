@@ -249,6 +249,24 @@ def check_version():
     return v
 
 
+
+def _inline_code(text):
+    """A <script> without src, a <style> element or a style attribute anywhere (an HTML parser, not a pattern)."""
+    from html.parser import HTMLParser
+
+    class P(HTMLParser):
+        found = False
+
+        def handle_starttag(self, tag, attrs):
+            names = {k.lower() for k, _ in attrs}
+            if (tag == 'script' and 'src' not in names) or tag == 'style' or 'style' in names:
+                self.found = True
+    p = P()
+    p.feed(text)
+    p.close()
+    return p.found
+
+
 def check_frontend():
     idx = os.path.join(ROOT, 'jtwafmgr', 'static', 'index.html')
     if not os.path.exists(idx):
@@ -256,7 +274,7 @@ def check_frontend():
         return
     with open(idx) as fh:
         html = fh.read()
-    if re.search(r'<script(?![^>]*\bsrc=)[^>]*>', html) or '<style' in html or ' style=' in html:
+    if _inline_code(html):
         fail('frontend', 'inline script or style in index.html (CSP forbids it)')
     for src in re.findall(r'(?:src|href)="(/assets/[^"]+)"', html):
         if not os.path.exists(os.path.join(ROOT, 'jtwafmgr', 'static', src.lstrip('/'))):

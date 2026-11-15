@@ -27,7 +27,7 @@ import tempfile
 import time
 import urllib.parse
 
-from . import config as config_mod
+from . import config as config_mod, util
 from .managed import FILES
 from .rulegen import SpecError, check_raw_text
 
@@ -261,7 +261,7 @@ class Applier:
         try:
             sock = socket.create_connection(('127.0.0.1', port), 15)
             if u.scheme == 'https':
-                ctx = ssl.create_default_context()
+                ctx = util.tls_context()
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 sock = ctx.wrap_socket(sock, server_hostname=host)   # SNI carries the site name

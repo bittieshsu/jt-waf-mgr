@@ -401,7 +401,7 @@ class Audit:
         if proto == 'tls':
             import ssl
             try:
-                s = ssl.create_default_context(cafile=ca_file).wrap_socket(s, server_hostname=host)
+                s = util.tls_context(cafile=ca_file).wrap_socket(s, server_hostname=host)
             except BaseException:
                 s.close()
                 raise

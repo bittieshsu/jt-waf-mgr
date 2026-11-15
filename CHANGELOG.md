@@ -2,6 +2,16 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.48 (2026-11-15)
+
+Fixes from GitHub code scanning (CodeQL):
+- Every TLS client of the program (health checks, syslog over TLS, notifications, e-mail, the threat intelligence
+  fetches) refuses anything older than TLS 1.2.
+- Response headers: a CR or LF in a header value is removed before it is sent (no value comes from a request today;
+  this keeps it so).
+- preflight finds inline scripts and styles in the built page with an HTML parser instead of a pattern (upper case,
+  odd spacing).
+
 ## 0.4.47 (2026-11-15)
 
 - Threat intelligence settings: "Test connection" and a model list, like the first tier. The intel service does the test

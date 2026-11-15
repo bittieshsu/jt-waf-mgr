@@ -263,6 +263,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if ROLE_RANK.get(req.user['role'], 0) < ROLE_RANK[need]:
             raise ApiError(403, 'forbidden')
 
+    def _header(self, name, value):
+        """Every response header goes through here: a CR or LF in a value (never expected) cannot start a new header."""
+        self.send_header(re.sub(r'[\r\n]', '', str(name)), re.sub(r'[\r\n]', '', str(value)))
+
     def _send(self, req, resp, head):
         if getattr(resp, 'stream', None) is not None:
             return self._send_stream(req, resp, head)
@@ -274,17 +278,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
             enc = 'gzip'
         try:
             self.send_response(resp.status)
-            self.send_header('Content-Type', resp.ctype)
-            self.send_header('Content-Length', str(len(body)))
+            self._header('Content-Type', resp.ctype)
+            self._header('Content-Length', str(len(body)))
             if enc:
-                self.send_header('Content-Encoding', enc)
-                self.send_header('Vary', 'Accept-Encoding')
+                self._header('Content-Encoding', enc)
+                self._header('Vary', 'Accept-Encoding')
             for k, v in SECURITY_HEADERS:
-                self.send_header(k, v)
+                self._header(k, v)
             if req.path.startswith('/api/'):
-                self.send_header('Cache-Control', 'no-store')
+                self._header('Cache-Control', 'no-store')
             for k, v in resp.headers:
-                self.send_header(k, v)
+                self._header(k, v)
             self.end_headers()
             if not head and resp.status not in (204, 304):
                 self.wfile.write(body)
@@ -294,13 +298,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _send_stream(self, req, resp, head):
         try:
             self.send_response(resp.status)
-            self.send_header('Content-Type', resp.ctype)
-            self.send_header('Content-Length', str(resp.length))
+            self._header('Content-Type', resp.ctype)
+            self._header('Content-Length', str(resp.length))
             for k, v in SECURITY_HEADERS:
-                self.send_header(k, v)
-            self.send_header('Cache-Control', 'no-store')
+                self._header(k, v)
+            self._header('Cache-Control', 'no-store')
             for k, v in resp.headers:
-                self.send_header(k, v)
+                self._header(k, v)
             self.end_headers()
             if not head:
                 left = resp.length

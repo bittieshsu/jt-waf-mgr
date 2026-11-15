@@ -2,6 +2,7 @@
 import datetime
 import ipaddress
 import re
+import ssl
 import time
 
 MONTHS = {m: i for i, m in enumerate(
@@ -11,6 +12,13 @@ MONTHS = {m: i for i, m in enumerate(
 def now():
     return time.time()
 
+
+
+def tls_context(cafile=None):
+    """Every TLS client of the program: the system's verification defaults, TLS 1.2 or newer only."""
+    ctx = ssl.create_default_context(cafile=cafile)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    return ctx
 
 def iso(ts):
     """Epoch seconds -> RFC 3339 with the local offset."""

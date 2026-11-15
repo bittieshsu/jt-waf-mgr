@@ -898,7 +898,7 @@ def _opener():
     global _OPENER
     if _OPENER is None:
         _OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect(),
-                                              urllib.request.HTTPSHandler(context=ssl.create_default_context()))
+                                              urllib.request.HTTPSHandler(context=util.tls_context()))
     return _OPENER
 
 
@@ -973,7 +973,7 @@ def send_email(n, m):
     msg.add_alternative(fmt_email_html(m), subtype='html')
     if n['smtp_username'] and n['smtp_tls'] == 'none':
         raise SendError('refusing to send the SMTP password without TLS (choose STARTTLS or TLS)')
-    ctx = ssl.create_default_context()
+    ctx = util.tls_context()
     try:
         if n['smtp_tls'] == 'tls':
             s = smtplib.SMTP_SSL(n['smtp_host'], n['smtp_port'], timeout=TIMEOUT, context=ctx)

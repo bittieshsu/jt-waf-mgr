@@ -279,7 +279,7 @@ def _get_pinned(url, ip, timeout):
             sock = socket.create_connection((ip, 443), timeout)
             self.sock = self._context.wrap_socket(sock, server_hostname=host)
 
-    conn = Pinned(host, 443, timeout=timeout, context=ssl.create_default_context())
+    conn = Pinned(host, 443, timeout=timeout, context=util.tls_context())
     try:
         path = (u.path or '/') + ('?' + u.query if u.query else '')
         conn.request('GET', path, headers={'Host': host, 'User-Agent': 'jt-waf-mgr/' + __version__ + ' (threat intelligence)',
