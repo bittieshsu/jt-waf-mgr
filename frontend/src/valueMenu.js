@@ -1,14 +1,18 @@
 // The value menu (like Graylog's field-value actions): a right-click on a value, or its small funnel icon, opens one
 // menu with "filter by this value" / "exclude this value" (when the list supports it), an "open" link where there is
 // a page for it, and "copy". Clicking the value itself does its own thing (opens its page), never filters.
+// The menu's first row shows the value itself (and the field it belongs to): not a button, skipped by the arrow keys.
 import { reactive } from 'vue'
 import { t } from './i18n.js'
 
 export const vmenu = reactive({ open: false, x: 0, y: 0, items: [], opener: null })
 
 // items for a filterable value. active: 'in' (it is the filter now), 'out' (it is excluded now) or null.
-export function filterItems({ value, active = null, excludable = true, onFilter, openTo = null, openLabel = '' }) {
+// head: the value as people read it (default: the value); field: what it is (site, rule, country...).
+export function filterItems({ value, active = null, excludable = true, onFilter, openTo = null, openLabel = '', head = '', field = '' }) {
   const items = []
+  const shown = String(head || (value ?? '')).replace(/\s+/g, ' ').trim()
+  if (shown) items.push({ key: 'head', head: true, label: shown, field: String(field || '').trim() })
   if (onFilter) {
     items.push({ key: 'in', icon: active === 'in' ? 'clear' : 'filter', label: t(active === 'in' ? 'filter.menu_in_off' : 'filter.menu_in'), run: () => onFilter('in') })
     if (excludable) items.push({ key: 'out', icon: active === 'out' ? 'clear' : 'hide', label: t(active === 'out' ? 'filter.menu_out_off' : 'filter.menu_out'), run: () => onFilter('out') })
@@ -36,7 +40,7 @@ async function copy(text) {
 
 // ev: the contextmenu event (menu at the pointer) or the click on the funnel (menu under it)
 export function openValueMenu(ev, items) {
-  if (!items.length) return
+  if (!items.some((it) => !it.head)) return
   let x, y
   if (ev && ev.type === 'contextmenu' && (ev.clientX || ev.clientY)) {
     x = ev.clientX

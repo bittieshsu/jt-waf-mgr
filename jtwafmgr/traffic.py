@@ -297,12 +297,12 @@ def run(app, stop, interval=60, log=print):
         stop.wait(interval)
 
 
-def report(app, since, until, host=None):
+def report(app, since, until, host=None, not_host=None):
     """The counts of a window: hourly (or daily beyond 7 days) series, per site, totals; with the WAF's own
-    numbers (blocked / logged events) for the same sites and time."""
+    numbers (blocked / logged events) for the same sites and time. host: only that site; not_host: all but it."""
     size = 3600 if until - since <= 7 * 86400 + 60 else 86400
     off = time.localtime(until).tm_gmtoff if size == 86400 else 0
-    hw, ha = (' AND host=?', (host,)) if host else ('', ())
+    hw, ha = (' AND host=?', (host,)) if host else (' AND host!=?', (not_host,)) if not_host else ('', ())
     sums = ', '.join('SUM(%s) %s' % (k, k) for k in COLS)
     buckets = {}
     for r in app.db.q('SELECT CAST((hour + ?) / ? AS INTEGER) b, %s FROM traffic_hourly WHERE hour>=? AND hour<?%s GROUP BY b'
@@ -341,6 +341,6 @@ def report(app, since, until, host=None):
     polled = app.db.get_meta('traffic_polled_at')
     return {'enabled': bool(app.cfg['traffic']['enabled']), 'alert': bool(app.cfg['traffic']['alert']),
             'polled_at': util.iso(float(polled)) if polled else None, 'bucket_seconds': size,
-            'since': util.iso(since), 'until': util.iso(until), 'host': host or '',
+            'since': util.iso(since), 'until': util.iso(until), 'host': host or '', 'not_host': (not_host or '') if not host else '',
             'series': series, 'by_host': list(by_host.values()), 'totals': totals, 'previous': previous,
             'files': len(files(app.cfg)) if app.cfg['traffic']['enabled'] else 0}

@@ -4,7 +4,11 @@
   <Teleport to="body">
     <div v-if="vmenu.open" ref="el" class="vmenu" role="menu" :style="{ left: pos.x + 'px', top: pos.y + 'px' }" @keydown="onKey">
       <template v-for="it in vmenu.items" :key="it.key">
-        <RouterLink v-if="it.to" :to="it.to" class="vm-item" role="menuitem" @click="closeValueMenu(false)"><Icon :name="it.icon" />{{ it.label }}</RouterLink>
+        <div v-if="it.head" class="vm-head" :title="it.label.length > 40 ? it.label : null">
+          <span v-if="it.field" class="vm-field">{{ it.field }}</span>
+          <span class="vm-val">{{ it.label.length > 300 ? it.label.slice(0, 299) + '…' : it.label }}</span>
+        </div>
+        <RouterLink v-else-if="it.to" :to="it.to" class="vm-item" role="menuitem" @click="closeValueMenu(false)"><Icon :name="it.icon" />{{ it.label }}</RouterLink>
         <button v-else type="button" class="vm-item" role="menuitem" @click="run(it)"><Icon :name="it.icon" />{{ it.label }}</button>
       </template>
     </div>

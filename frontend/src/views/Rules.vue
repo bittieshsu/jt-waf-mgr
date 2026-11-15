@@ -167,7 +167,7 @@ const cols = computed(() => [
   { key: 'phase', label: t('rule.phase'), align: 'num', hidden: true },
   { key: 'disruptive', label: t('rule.action') },
   { key: 'msg', label: t('rule.description'), class: 'c-fill', value: (r) => r.msg || r.comment || r.directive || '', text: (r) => [r.msg, r.comment, r.directive, r.file].filter(Boolean).join(' ') },
-  { key: 'hosts', label: t('rule.hosts'), text: (r) => ((r.hosts || []).length ? r.hosts.join(' ') : t('rules.global')) },
+  { key: 'hosts', label: t('rule.hosts'), class: 'c-hosts', text: (r) => ((r.hosts || []).length ? r.hosts.join(' ') : t('rules.global')) },
   { key: 'provenance', label: t('prov.title'), value: (r) => (r.provenance ? tOr('prov.' + r.provenance.channel, r.provenance.channel) : '') },
   { key: 'hits_7d', label: t('rule.hits_7d'), align: 'num', hidden: true },
   { key: 'hits_30d', label: t('rule.hits_30d'), align: 'num' },

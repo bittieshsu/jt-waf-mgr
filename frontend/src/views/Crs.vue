@@ -16,14 +16,14 @@
         <RouterLink class="btn small" to="/waf"><Icon name="go" />{{ t('waf.crs_link') }}</RouterLink>
       </div>
       <div class="tiles">
-        <div class="tile"><div class="tl">{{ t('crs.version') }}</div><div class="tv">{{ safeText(crs.version, 20) || '—' }}</div></div>
-        <div class="tile"><div class="tl">{{ t('crs.engine_mode') }}</div><div class="tv small">{{ safeText(crs.engine_mode, 30) || '—' }}</div>
+        <div class="tile stat"><div class="tl"><Icon name="versions" />{{ t('crs.version') }}</div><div class="tv">{{ safeText(crs.version, 20) || '—' }}</div></div>
+        <div class="tile stat"><div class="tl"><Icon name="shield" />{{ t('crs.engine_mode') }}</div><div class="tv small">{{ safeText(crs.engine_mode, 30) || '—' }}</div>
           <div v-if="wafModel" class="ts"><RouterLink to="/waf">{{ t('waf.lane.external') }}{{ t('waf.sum.colon') }}{{ wafMode(wafModel.summary.external) }}</RouterLink></div></div>
-        <div class="tile"><div class="tl">{{ t('crs.paranoia_level') }}</div><div class="tv">{{ crs.blocking_paranoia_level ?? crs.paranoia_level ?? '—' }}</div>
+        <div class="tile stat"><div class="tl"><Icon name="alert" />{{ t('crs.paranoia_level') }}</div><div class="tv">{{ crs.blocking_paranoia_level ?? crs.paranoia_level ?? '—' }}</div>
           <div class="ts">{{ t('crs.detection_paranoia') }} {{ crs.detection_paranoia_level ?? '—' }}</div></div>
-        <div class="tile"><div class="tl">{{ t('crs.thresholds') }}</div><div class="tv">{{ crs.inbound_threshold ?? '—' }} / {{ crs.outbound_threshold ?? '—' }}</div>
+        <div class="tile stat"><div class="tl"><Icon name="chart" />{{ t('crs.thresholds') }}</div><div class="tv">{{ crs.inbound_threshold ?? '—' }} / {{ crs.outbound_threshold ?? '—' }}</div>
           <div class="ts">{{ t('crs.inbound_outbound') }}</div></div>
-        <div class="tile"><div class="tl">{{ t('crs.rules') }}</div><div class="tv">{{ fmtNum(crs.rule_count) }}</div><div class="ts">{{ t('crs.rule_files', { n: fmtNum(crs.rule_files) }) }}</div></div>
+        <div class="tile stat"><div class="tl"><Icon name="list" />{{ t('crs.rules') }}</div><div class="tv">{{ fmtNum(crs.rule_count) }}</div><div class="ts">{{ t('crs.rule_files', { n: fmtNum(crs.rule_files) }) }}</div></div>
       </div>
       <section class="card">
         <div class="chartgrid">

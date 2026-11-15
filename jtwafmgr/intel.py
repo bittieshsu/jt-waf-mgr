@@ -4,7 +4,8 @@ confirmed (software.py), and the program keeps what it found (intel_threats).
 Runs in its own unit (jt-waf-mgr-intel.service: a timer every hour, it decides itself whether intel.interval_hours
 has passed; a path unit for "search now"). The web service never talks to the LLM or the web.
 
-What leaves the host: product names and versions, and the questions the model asks the search engine. Never
+What leaves the host: product names and versions, a few host facts for the preconditions (operating system,
+architecture, C library, sshd's UsePAM), and the questions the model asks the search engine. Never
 requests, addresses, site names or anything from the events.
 
 Two providers:
@@ -38,6 +39,17 @@ REQUEST = 'intel.request'
 # "may affect us": our version is inside the range, or not known (a product confirmed by name only) -- an exploited
 # vulnerability then gets the urgent path; the virtual patch only tightens and still passes every check
 MAY_AFFECT = ('yes', 'unknown')
+
+
+def unverified(t):
+    """An exploited vulnerability with preconditions (a C library, a build or configuration option...) that the host
+    facts could not confirm: it gets a warning to check, not the urgent path (a version match alone over-reports)."""
+    return bool(t.get('preconditions')) and t.get('conditions_met') != 'yes'
+
+
+def is_urgent(t):
+    """Exploited in the wild, may affect us, and nothing left to verify: the urgent path (critical alert, no daily limit)."""
+    return bool(t.get('exploited')) and t.get('affected') in MAY_AFFECT and not unverified(t)
 ANTHROPIC_URL = 'https://api.anthropic.com'
 OPENAI_URL = 'https://api.openai.com/v1'       # its Responses API has its own web search (provider search)
 ANTHROPIC_VERSION = '2026-10-21'
@@ -62,7 +74,8 @@ SCHEMA = {
         'threats': {'type': 'array', 'items': {
             'type': 'object', 'additionalProperties': False,
             'required': ['id', 'product', 'summary', 'affected_versions', 'fixed_version', 'our_version', 'affected',
-                         'exploited', 'exploited_evidence', 'severity', 'attack_vector', 'request_pattern', 'references'],
+                         'exploited', 'exploited_evidence', 'severity', 'attack_vector', 'request_pattern', 'references',
+                         'preconditions', 'conditions_met'],
             'properties': {
                 'id': {'type': 'string'}, 'product': {'type': 'string'}, 'summary': {'type': 'string'},
                 'affected_versions': {'type': 'string'}, 'fixed_version': {'type': 'string'},
@@ -71,7 +84,8 @@ SCHEMA = {
                 'severity': {'type': 'string', 'enum': list(SEVERITIES)},
                 'attack_vector': {'type': 'string', 'enum': list(VECTORS)},
                 'request_pattern': {'type': 'string'},
-                'references': {'type': 'array', 'items': {'type': 'string'}}}}}}}
+                'references': {'type': 'array', 'items': {'type': 'string'}},
+                'preconditions': {'type': 'string'}, 'conditions_met': {'type': 'string', 'enum': list(AFFECTED)}}}}}}
 
 SYSTEM = """You are the threat intelligence analyst of a web application firewall (nginx + ModSecurity + OWASP CRS).
 Find vulnerabilities, published or updated in the last {days} days, in the software listed by the user, with the
@@ -85,6 +99,12 @@ Rules:
   invent ids, versions or references. If nothing relevant is new, return an empty list.
 - "affected": "yes" only if the listed version is inside the affected range; "no" if it is outside; "unknown" if
   the version is unknown or the range unclear.
+- "preconditions": what the vulnerability needs besides the version, as the advisory or the distribution's tracker
+  says (an operating system, a C library such as musl, a build or configuration option such as sshd without PAM, an
+  enabled module, exposure to the internet); empty if nothing. Distribution trackers often list every package
+  version as vulnerable: read their notes for such conditions. "conditions_met": compare the preconditions with the
+  host facts given by the user: "no" when one is clearly not met, "yes" when all are met or there are none,
+  "unknown" when the facts do not say.
 - "exploited": true only with a source saying it is exploited in the wild (put the source in exploited_evidence).
   Confirm it by reading the CISA KEV catalog with the fetch tool in this run (https://www.cisa.gov/...).
 - "attack_vector" and "request_pattern": how a malicious HTTP request to the vulnerable service looks, as publicly
@@ -92,6 +112,50 @@ Rules:
   code. Use "unknown" and an empty pattern when it is not documented or not reachable over HTTP.
 - At most {max_threats} threats; the most severe first. Answer with the JSON object only.
 """
+
+
+def host_facts(cfg=None):
+    """What this host is, for a vulnerability's preconditions: operating system, architecture, C library, and a few
+    settings of exposed services. No names, addresses or paths of the sites -- the same kind of fact as a package
+    version. A fact that cannot be read is left out (the model then answers "unknown")."""
+    import platform
+    facts = {}
+    try:
+        with open('/etc/os-release', encoding='utf-8') as fh:
+            osr = dict(line.rstrip('\n').split('=', 1) for line in fh if '=' in line)
+        facts['operating system'] = osr.get('PRETTY_NAME', '').strip('"')[:80] or 'unknown'
+    except OSError:
+        pass
+    facts['architecture'] = platform.machine() or 'unknown'
+    try:
+        lib = os.confstr('CS_GNU_LIBC_VERSION')
+    except (ValueError, OSError):
+        lib = None
+    import glob
+    if lib:
+        facts['C library'] = lib
+    elif glob.glob('/lib/ld-musl-*'):
+        facts['C library'] = 'musl'
+    sshd = _sshd_use_pam()
+    if sshd:
+        facts['OpenSSH server UsePAM'] = sshd
+    return facts
+
+
+def _sshd_use_pam():
+    """sshd's UsePAM (the first value wins, as sshd reads it; drop-ins come first when included at the top)."""
+    import glob
+    files = sorted(glob.glob('/etc/ssh/sshd_config.d/*.conf')) + ['/etc/ssh/sshd_config']
+    for f in files:
+        try:
+            with open(f, encoding='utf-8', errors='replace') as fh:
+                for line in fh:
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[0].lower() == 'usepam':
+                        return 'yes' if parts[1].lower() == 'yes' else 'no'
+        except OSError:
+            continue
+    return 'no (not set: the OpenSSH default)' if os.path.exists('/etc/ssh/sshd_config') else None
 
 
 class IntelError(Exception):
@@ -787,7 +851,7 @@ def propose_patches(app, run_id, ask=None, log=print, session=None):
             log('intel: run %d: virtual patch for %s proposed as change #%d' % (run_id, r['cve'], cid))
         else:
             log('intel: run %d: no virtual patch for %s (%s)' % (run_id, r['cve'], note))
-            if r['exploited'] and r['affected'] in MAY_AFFECT:
+            if is_urgent(dict(json.loads(r['details'] or '{}'), exploited=r['exploited'], affected=r['affected'])):
                 _patch_alert(app, r, 'no rule could be written (%s)' % note)
     return proposed, tin, tout
 
@@ -827,7 +891,7 @@ def _affects(affected):
 def patch_failed(app, cid, error):
     """Called by the workflow when a change's checks fail: for an urgent virtual patch, a critical alert."""
     r = app.db.one('SELECT * FROM intel_threats WHERE patch_change_id=?', (cid,))
-    if r and r['exploited'] and r['affected'] in MAY_AFFECT and r['status'] == 'open':
+    if r and r['status'] == 'open' and is_urgent(dict(json.loads(r['details'] or '{}'), exploited=r['exploited'], affected=r['affected'])):
         _patch_alert(app, r, 'change #%d did not pass its checks (%s)' % (cid, util.clip(str(error or ''), 120)))
 
 
@@ -880,7 +944,13 @@ def clean(answer, products):
             'severity': t.get('severity') if t.get('severity') in SEVERITIES else 'unknown',
             'attack_vector': t.get('attack_vector') if t.get('attack_vector') in VECTORS else 'unknown',
             'request_pattern': util.clip(str(t.get('request_pattern') or ''), 500),
-            'references': refs})
+            'references': refs,
+            'preconditions': util.clip(str(t.get('preconditions') or ''), 300),
+            'conditions_met': t.get('conditions_met') if t.get('conditions_met') in AFFECTED else 'unknown'})
+        # a precondition the host does not meet (musl when it runs glibc, sshd without PAM when PAM is on): it does
+        # not affect us, whatever the version says
+        if out[-1]['preconditions'] and out[-1]['conditions_met'] == 'no':
+            out[-1]['affected'] = 'no'
         if len(out) >= MAX_THREATS:
             break
     return out
@@ -958,7 +1028,7 @@ def run_summary(r):
 def _store(app, run_id, threats, now):
     """Keep each threat (one row per id and product); returns the new ones and the exploited ones that affect us."""
     db = app.db
-    new, urgent = [], []
+    new, urgent, check = [], [], []
     for t in threats:
         r = db.one('SELECT * FROM intel_threats WHERE cve=? AND product=?', (t['id'], t['product']))
         if r:
@@ -976,8 +1046,8 @@ def _store(app, run_id, threats, now):
             became = t['exploited']
         st = db.one('SELECT status FROM intel_threats WHERE id=?', (tid,))['status']
         if became and t['affected'] in MAY_AFFECT and st == 'open':
-            urgent.append(dict(t, threat_id=tid))
-    return new, urgent
+            (urgent if is_urgent(t) else check).append(dict(t, threat_id=tid))
+    return new, urgent, check
 
 
 def _budget_left(cfg, db):
@@ -1015,8 +1085,10 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
         log('intel: no confirmed software')
         return rid
     system = SYSTEM.format(days=c['days'], max_threats=MAX_THREATS)
+    facts = host_facts(cfg)
     user = ('Software to check (product and version; "unknown" when not known):\n' +
             '\n'.join('- %s %s' % (p['name'], p['version']) for p in products) +
+            '\n\nHost facts (for the preconditions):\n' + '\n'.join('- %s: %s' % kv for kv in facts.items()) +
             '\n\nToday is %s.' % time.strftime('%Y-%m-%d', time.localtime(now)))
     ask = ask or (ask_anthropic if provider == 'anthropic' else
                   ask_openai_responses if c['search'] == 'provider' else ask_openai)
@@ -1037,7 +1109,7 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
         log('intel: run %d failed: %s' % (rid, code))
         return rid
     finish(threats=json.dumps(threats, ensure_ascii=False), note=note)
-    new, urgent = _store(app, rid, threats, util.now())
+    new, urgent, check = _store(app, rid, threats, util.now())
     if c.get('patches', True):
         try:
             propose_patches(app, rid, ask=patch_ask, log=log, session=session)
@@ -1057,11 +1129,18 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
                            {'reason': '%s in %s %s is exploited in the wild and %s: %s' % (
                                t['id'], t['product'], t['our_version'] or '', _affects(t['affected']), util.clip(t['summary'], 200)),
                             'cve': t['id'], 'product': t['product'], 'run_id': rid}, link='/intel')
+    for t in check:
+        # exploited, but only under conditions this host may not meet: a person checks, nothing is rushed
+        alerts.raise_alert(db, app.audit, 'intel', 'exploited_vulnerability', 'warning', 'intel-check:%s:%s' % (t['id'], t['product']),
+                           {'reason': '%s in %s %s is exploited in the wild, but only where %s; this could not be confirmed '
+                                      'for this host: check whether it applies.' % (
+                                          t['id'], t['product'], t['our_version'] or '', util.clip(t['preconditions'], 200)),
+                            'cve': t['id'], 'product': t['product'], 'run_id': rid}, link='/intel')
     if new:
         notify.enqueue(db, cfg, 'intel.new_threats', {'run_id': rid, 'threats': [
             {'id': t['id'], 'product': t['product'], 'severity': t['severity'], 'affected': t['affected'],
              'exploited': t['exploited']} for t in new[:10]], 'count': len(new)},
-            severity='critical' if any(t['exploited'] and t['affected'] in MAY_AFFECT for t in new) else 'warning')
+            severity='critical' if any(is_urgent(t) for t in new) else 'warning')
     log('intel: run %d: %d threats (%d new, %d urgent), %d tokens' % (rid, len(threats), len(new), len(urgent), tokens))
     return rid
 

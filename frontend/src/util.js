@@ -180,3 +180,14 @@ export function countryName(code, lang) {
   if (!/^[A-Z]{2}$/.test(code || '')) return code || ''
   try { return new Intl.DisplayNames([lang], { type: 'region' }).of(code) || code } catch { return code }
 }
+
+// "3 hours ago" in the page language (Intl, no dictionary entries): the coarsest unit that is at least 1
+export function fmtAgo(iso, lang) {
+  const t = Date.parse(iso)
+  if (!Number.isFinite(t)) return ''
+  const s = Math.round((t - Date.now()) / 1000)
+  const a = Math.abs(s)
+  const [n, u] = a < 60 ? [s, 'second'] : a < 3600 ? [Math.round(s / 60), 'minute'] : a < 86400 ? [Math.round(s / 3600), 'hour']
+    : [Math.round(s / 86400), 'day']
+  try { return new Intl.RelativeTimeFormat(lang || undefined, { numeric: 'auto' }).format(n, u) } catch { return '' }
+}

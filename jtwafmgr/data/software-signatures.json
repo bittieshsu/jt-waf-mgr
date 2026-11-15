@@ -13,6 +13,7 @@
   ["privacyIDEA", "^/(?:validate/(?:check|samlcheck|triggerchallenge)|static/templates/(?:baseline|login)\\.html)", ["/validate/check"]],
   ["LemonLDAP::NG", "^/(?:\\?lmAuth=|static/common/js/portal\\.min\\.js|oauth2/authorize\\?.*lemonldap)", ["/static/common/js/portal.min.js"]],
   ["Exchange (OWA)", "^/(?:owa/|ecp/|EWS/Exchange\\.asmx|mapi/(?:emsmdb|nspi)|rpc/rpcproxy\\.dll|OAB/)", ["/owa/auth/logon.aspx", "/EWS/Exchange.asmx", "/mapi/emsmdb/?MailboxId=x"]],
+  ["Z-Push", "^/Microsoft-Server-ActiveSync(?:[/?]|$)", ["/Microsoft-Server-ActiveSync?Cmd=Sync&User=x&DeviceId=y&DeviceType=z"]],
   ["Skype for Business Server", "^/(?:lwa/|ucwa/|Autodiscover/AutodiscoverService\\.svc)", ["/ucwa/oauth/v1/applications"]],
   ["Zimbra", "^/(?:service/(?:soap|home|upload|zimlet)|zimbraAdmin/|public/(?:login|Preferences)\\.jsp|css/common,login,zhtml|skins/_base/(?:logos|base3?)/|js/(?:Startup|Ajax|Zimbra|zimbraMail)\\w*_all\\.js)", ["/service/soap/AuthRequest", "/zimbraAdmin/", "/css/common,login,zhtml,skin.css", "/skins/_base/logos/LoginBanner.png"]],
   ["Roundcube", "^/(?:roundcube/|webmail/)?\\?_task=", ["/?_task=mail&_mbox=INBOX", "/roundcube/?_task=login"]],
@@ -62,7 +63,7 @@
   ["Penpot", "^/api/(?:rpc/command/|main/methods/)", ["/api/rpc/command/get-profile"]],
   ["Excalidraw", "^/(?:excalidraw-assets(?:-dev)?/|socket\\.io/\\?.*room=)", ["/excalidraw-assets/vendor.js"]],
   ["LimeSurvey", "^/(?:limesurvey/)?index\\.php(?:/admin|/survey|\\?r=(?:survey|admin))", ["/index.php/admin/authentication/sa/login", "/index.php?r=survey/index"]],
-  ["Zulip", "^/(?:json/(?:events|messages|users)|static/webpack-bundles/|api/v1/(?:register|events|server_settings)(?:[/?]|$))", ["/json/events?queue_id=x", "/api/v1/register", "/api/v1/server_settings"]],
+  ["Zulip", "^/(?:json/(?:events|messages|users)|static/webpack-bundles/|api/v1/(?:register|server_settings)(?:[/?]|$))", ["/json/events?queue_id=x", "/api/v1/register", "/api/v1/server_settings"]],
   ["Mattermost", "^/api/v4/(?:users/me|websocket|system/ping|config/client)(?:[/?]|$)", ["/api/v4/users/me", "/api/v4/system/ping"]],
   ["Rocket.Chat", "^/(?:sockjs/|api/v1/(?:me|login|method\\.call/[\\w.%-]+|rooms\\.get|subscriptions\\.get)(?:\\?|$))", ["/api/v1/me", "/sockjs/info", "/api/v1/method.call/login"]],
   ["Matrix (Synapse)", "^/_(?:matrix|synapse)/(?:client|federation|media|key|admin)/", ["/_matrix/client/v3/sync", "/_matrix/federation/v1/version"]],
@@ -171,7 +172,7 @@
   ["Checkmk", "^/[^/]+/check_mk/", ["/monitoring/check_mk/index.py"]],
   ["Icinga Web 2", "^/icingaweb2/", ["/icingaweb2/dashboard"]],
   ["Nagios", "^/nagios[34]?/(?:cgi-bin/|js/|images/)", ["/nagios/cgi-bin/status.cgi"]],
-  ["LibreNMS / Observium", "^/(?:ajax_dash\\.php|ajax/dash|graph\\.php\\?|device/device=)", ["/graph.php?device=1&type=x", "/device/device=1/"]],
+  ["LibreNMS / Observium", "^/(?:ajax_dash\\.php|ajax/dash|graph\\.php\\?|device/device=|api/v0/(?:devices|ports|resources|bgp|alerts|inventory|logs|routing|services|system|devicegroups|portgroups)(?:[/?]|$))", ["/graph.php?device=1&type=x", "/device/device=1/", "/api/v0/devices", "/api/v0/ports?columns=ifName"]],
   ["Cacti", "^/cacti/", ["/cacti/graph_view.php"]],
   ["PRTG Network Monitor", "^/(?:public/login\\.htm|api/table\\.json|controls/[\\w.]+\\.htm)", ["/public/login.htm", "/api/table.json?content=sensors"]],
   ["Munin", "^/munin/", ["/munin/index.html"]],
@@ -382,8 +383,17 @@
   "zabbix-frontend-php": "Zabbix"
  },
  "package_patterns": [
-  ["^php\\d+(?:\\.\\d+)?-(?:fpm|cli|common)$", "PHP"],
-  ["^libapache2-mod-php\\d+(?:\\.\\d+)?$", "PHP"],
-  ["^openjdk-\\d+-jre(?:-headless)?$", "OpenJDK"]
+  [
+   "^php\\d+(?:\\.\\d+)?-(?:fpm|cli|common)$",
+   "PHP"
+  ],
+  [
+   "^libapache2-mod-php\\d+(?:\\.\\d+)?$",
+   "PHP"
+  ],
+  [
+   "^openjdk-\\d+-jre(?:-headless)?$",
+   "OpenJDK"
+  ]
  ]
 }

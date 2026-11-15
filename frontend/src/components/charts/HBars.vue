@@ -1,5 +1,5 @@
 <!-- Ranked horizontal bars, one or more stacked series, value at the tip, hover / focus tooltip.
-     items: [{ key, label, values: { <seriesKey>: n }, to? (router link), mono?, sub?, active? }]
+     items: [{ key, label, values: { <seriesKey>: n }, to? (router link), mono?, sub?, active?, head? (the value menu's first row) }]
      series: [{ key, label, tone }]   (2+ series get a legend)
      pickable: the label keeps following `to` (or is plain text); its funnel icon, a right-click on it, or a click on
      the bar opens the value menu, which emits `pick(item, mode)` (mode 'in' filter, 'out' exclude -- the latter only
@@ -10,7 +10,7 @@
     <div v-for="it in items" :key="it.key" class="hb-row" :class="{ 'hb-on': pickable && it.active }">
       <div class="hb-label" :class="{ mono: it.mono || mono }" :data-ip="pickable ? null : (it.ip || null)">
         <div v-if="pickable" class="hb-line">
-          <FilterValue :value="it.key" :text="clip(it.label, 100)" :to="it.to || null" :data-ip="it.ip || ''" :active="mode(it)" :excludable="excludable"
+          <FilterValue :value="it.key" :text="clip(it.label, 100)" :head="String(it.head || it.label || '')" :field="field" :to="it.to || null" :data-ip="it.ip || ''" :active="mode(it)" :excludable="excludable"
                        @filter="(m) => pick(it, m)">{{ clip(it.label) }}</FilterValue>
         </div>
         <template v-else><RouterLink v-if="it.to" :to="it.to">{{ clip(it.label) }}</RouterLink><span v-else>{{ clip(it.label) }}</span></template>
@@ -48,6 +48,7 @@ const props = defineProps({
   pickable: Boolean,
   openLabel: { type: String, default: '' },
   inlineSub: Boolean,     // the sub text (origin, country) on the label's line instead of a second line
+  field: { type: String, default: '' },    // what the values are (the value menu's first row)
   excludable: Boolean,    // the value menu also offers "exclude"
 })
 const emit = defineEmits(['pick'])
@@ -65,6 +66,6 @@ function menu(e, it) {
   e.preventDefault()
   hide()
   openValueMenu(e, filterItems({ value: it.key, active: mode(it) || null, excludable: props.excludable, onFilter: (m) => pick(it, m),
-    openTo: it.to || null, openLabel: props.openLabel }))
+    openTo: it.to || null, openLabel: props.openLabel, head: String(it.head || it.label || ''), field: props.field }))
 }
 </script>

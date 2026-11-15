@@ -152,7 +152,7 @@ TEXT = {
         'f.key': '設定', 'f.target': '對象', 'f.alert': '警示', 'f.severity': '嚴重度', 'f.path': '路徑',
         'f.host': '站台', 'f.count': '次數', 'f.since': '開始', 'f.node': '節點', 'f.channel': '管道',
         'f.items': '項目', 'f.state': '狀態',
-        'dir.tighten': '加嚴', 'dir.loosen': '放寬', 'dir.neutral': '不變',
+        'dir.tighten': '加強', 'dir.loosen': '放寬', 'dir.neutral': '不變',
         'k.attack_in_progress': '攻擊進行中', 'k.attack_passed': '攻擊可能沒被封鎖', 'k.false_positive': '誤判影響使用者',
         'k.integrity': '完整性問題', 'k.config_outside': '設定被外部修改', 'k.apply_failed': '套用失敗',
         'k.backup_failed': '備份失敗', 'k.auth_attack': '驗證遭到攻擊', 'k.other': '其他',

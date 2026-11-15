@@ -21,7 +21,7 @@
     <div v-if="legend" class="legend">
       <template v-for="p in parts" :key="p.key">
         <span v-if="canPick(p)" class="lg-item"><span class="lg" :class="'tone-' + p.tone"></span>
-          <FilterValue :value="p.key" :text="p.label" :active="mode(p)" :excludable="excludable" @filter="(m) => pick(p, m)">{{ p.label }} <span class="muted">{{ fmtNum(p.value || 0) }}</span></FilterValue>
+          <FilterValue :value="p.key" :text="p.label" :head="p.label" :field="label" :active="mode(p)" :excludable="excludable" @filter="(m) => pick(p, m)">{{ p.label }} <span class="muted">{{ fmtNum(p.value || 0) }}</span></FilterValue>
         </span>
         <span v-else class="lg-item"><span class="lg" :class="'tone-' + p.tone"></span>{{ p.label }} <span class="muted">{{ fmtNum(p.value || 0) }}</span></span>
       </template>
@@ -54,6 +54,6 @@ function menu(e, p) {
   if (!canPick(p)) return
   e.preventDefault()
   hide()
-  openValueMenu(e, filterItems({ value: p.key, active: mode(p) || null, excludable: props.excludable, onFilter: (m) => pick(p, m) }))
+  openValueMenu(e, filterItems({ value: p.key, active: mode(p) || null, excludable: props.excludable, onFilter: (m) => pick(p, m), head: p.label, field: props.label }))
 }
 </script>

@@ -32,7 +32,7 @@ ae3c8d2c761419d1482c21aa46ae09425f766737c6b5c8b181d8bd42f92049f9
 
 ## 2. ホストに必要なシステムパッケージ
 
-- Python 3.11 以上：Debian 12 / 13 と Ubuntu 24.04 には標準で入っています。
+- Python 3.11 以上：Debian 12 / 13 と Ubuntu 24.04 以降には標準で入っています。
 - nginx、ModSecurity-nginx コネクタ、libmodsecurity 3.0.9 以上：社内の apt ミラーから。ミラーがない場合は、
   **同じリリース** のシステム（使い捨ての VM など）で .deb をダウンロードして持ち込みます：
 

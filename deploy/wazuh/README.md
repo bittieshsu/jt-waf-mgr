@@ -29,3 +29,39 @@ built-in night-time rules would raise every login), and sibling decoders copy `s
 If the Wazuh agent on the jt-waf-mgr host reads both `/var/log/syslog` and `/var/log/messages`, every line arrives twice
 and the frequency rules (5 failed logins in 5 minutes) fire at half the count. Send jt-waf-mgr's records to a facility
 that only one of those files gets, or have the agent read just one of them.
+
+## Active response: block an address on the nginx in front of your sites
+
+`active-response/jt-waf-block.py` (standard library only) lets a Wazuh active response block the alert's source
+address through jt-waf-mgr's IP block API, and lift it again when Wazuh sends `delete`. The API applies its own
+limits: internal networks, the protected list and known scanners are never blocked, a token can block for 7 days at most.
+
+1. In jt-waf-mgr: Admin → API tokens, a token with `blocks:write` limited to the address of the host that runs the response.
+2. On that host, as root:
+   ```sh
+   install -m 750 -o root -g wazuh jt-waf-block.py /var/ossec/active-response/bin/jt-waf-block.py
+   install -m 640 -o root -g wazuh /dev/null /var/ossec/etc/jt-waf-block.conf
+   ```
+   and in `/var/ossec/etc/jt-waf-block.conf`:
+   ```ini
+   url = https://waf.example.com
+   token = jwm_...
+   source = wazuh/<this host>
+   ttl = 3600
+   ```
+3. In the manager's `ossec.conf`:
+   ```xml
+   <command>
+     <name>jt-waf-block</name>
+     <executable>jt-waf-block.py</executable>
+     <timeout_allowed>yes</timeout_allowed>
+   </command>
+   <active-response>
+     <command>jt-waf-block</command>
+     <location>local</location>
+     <rules_id>31151,31152</rules_id>     <!-- the rules that should block -->
+     <timeout>3600</timeout>              <!-- Wazuh sends "delete" after it: the block is lifted -->
+   </active-response>
+   ```
+Each call is logged to `/var/ossec/logs/active-responses.log`, and on the jt-waf-mgr side to the audit trail under the
+token's name.

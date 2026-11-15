@@ -24,7 +24,10 @@
                       :aria-expanded="openMenu === 'g:' + g.key ? 'true' : 'false'" :aria-controls="'navgrp-' + g.key" @click="toggleMenu('g:' + g.key)">
                 <Icon :name="g.icon" />{{ g.label }}<span v-if="g.badge" class="badge tiny b-warn" :title="g.badgeTitle">{{ g.badge }}</span><Icon :name="openMenu === 'g:' + g.key ? 'collapse' : 'expand'" /></button>
               <div v-if="openMenu === 'g:' + g.key" :id="'navgrp-' + g.key" ref="panelEl" class="navdrop" :class="{ left: gi < navGroups.length / 2 }" @keydown.esc="closeMenu(true)">
-                <RouterLink v-for="l in g.items" :key="l.to" :to="l.to" class="navitem" v-bind="activeProps(l)"><Icon :name="l.icon" />{{ l.label }}<span v-if="l.badge" class="badge tiny b-warn" :title="l.badgeTitle">{{ l.badge }}</span></RouterLink>
+                <template v-for="l in g.items" :key="l.to || l.href">
+                  <a v-if="l.href" :href="l.href" class="navitem navext" target="_blank" rel="noopener noreferrer"><Icon :name="l.icon" />{{ l.label }}<Icon name="external" class="navext-i" /></a>
+                  <RouterLink v-else :to="l.to" class="navitem" v-bind="activeProps(l)"><Icon :name="l.icon" />{{ l.label }}<span v-if="l.badge" class="badge tiny b-warn" :title="l.badgeTitle">{{ l.badge }}</span></RouterLink>
+                </template>
               </div>
             </div>
           </template>
@@ -35,7 +38,8 @@
         <LangSwitch />
         <RouterLink v-if="state.user" to="/account" class="userlink" :title="t('nav.account')">
           <span class="username">{{ safeText(state.user.display_name || state.user.username, 40) }}</span>
-          <span class="role">{{ t('role.' + state.user.role) }}</span>
+          <span class="roleicon" :class="'r-' + state.user.role" :title="t('nav.role_title', { role: t('role.' + state.user.role) })"
+                :aria-label="t('nav.role_title', { role: t('role.' + state.user.role) })" role="img"><Icon :name="ROLE_ICON[state.user.role] || 'user'" /></span>
         </RouterLink>
         <button v-if="state.user" type="button" class="btn small ghost logoutbtn" :title="t('nav.logout')" @click="logout"><Icon name="logout" /><span class="btntext">{{ t('nav.logout') }}</span></button>
       </div>
@@ -43,10 +47,13 @@
         <section v-for="g in navGroups.filter((x) => x.items)" :key="g.key" class="np-group">
           <h2 class="np-head"><Icon :name="g.icon" />{{ g.label }}</h2>
           <div class="np-links">
-            <RouterLink v-for="l in g.items" :key="l.to" :to="l.to" class="navitem" v-bind="activeProps(l)"><Icon :name="l.icon" />{{ l.label }}<span v-if="l.badge" class="badge tiny b-warn" :title="l.badgeTitle">{{ l.badge }}</span></RouterLink>
+            <template v-for="l in g.items" :key="l.to || l.href">
+                  <a v-if="l.href" :href="l.href" class="navitem navext" target="_blank" rel="noopener noreferrer"><Icon :name="l.icon" />{{ l.label }}<Icon name="external" class="navext-i" /></a>
+                  <RouterLink v-else :to="l.to" class="navitem" v-bind="activeProps(l)"><Icon :name="l.icon" />{{ l.label }}<span v-if="l.badge" class="badge tiny b-warn" :title="l.badgeTitle">{{ l.badge }}</span></RouterLink>
+                </template>
           </div>
         </section>
-        <section class="np-group">
+        <section v-if="navGroups.some((x) => x.to)" class="np-group">
           <div class="np-links">
             <RouterLink v-for="g in navGroups.filter((x) => x.to)" :key="g.key" :to="g.to" class="navitem" v-bind="activeProps(g)"><Icon :name="g.icon" />{{ g.label }}</RouterLink>
           </div>
@@ -110,6 +117,8 @@ import ValueMenu from './components/ValueMenu.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 
 const route = useRoute()
+// the role next to the name: an icon, its name in the tooltip (the same icons as the roles in the guide)
+const ROLE_ICON = { viewer: 'show', operator: 'tool', approver: 'approve', admin: 'settings' }
 const router = useRouter()
 const bare = computed(() => !!route.meta.bare || !state.user)
 const isAdmin = computed(() => hasRole('admin'))
@@ -155,10 +164,31 @@ const navGroups = computed(() => [
     { to: '/admin/notify', label: t('nav.notify'), icon: 'notify' },
     { to: '/admin/settings', label: t('nav.settings'), icon: 'settings' },
   ] }] : []),
-  { key: 'guide', to: '/guide', label: t('nav.guide'), icon: 'help', inlineIcon: true },
+  { key: 'help', label: t('nav.guide'), icon: 'help', items: helpItems.value },
 ])
+// the help menu: this app's own guide, then the public pages of the project (from the source address: GitHub gives
+// the Pages site, the documents and the issue list; another forge only the source itself)
+const helpItems = computed(() => {
+  const items = [{ to: '/guide', label: t('nav.help_guide'), icon: 'guide' }]
+  const src = sourceUrl.value
+  const gh = /^https:\/\/github\.com\/([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+?)\/?$/.exec(src)
+  const lg = lang.value === 'zh-TW' ? 'zh-TW' : lang.value === 'ja' ? 'ja' : 'en'
+  if (gh) {
+    const pages = 'https://' + gh[1].toLowerCase() + '.github.io/' + gh[2] + '/'
+    const blob = src.replace(/\/$/, '') + '/blob/main/'
+    items.push(
+      { href: pages + '?lang=' + lg, label: t('nav.help_site'), icon: 'globe' },
+      { href: pages + 'how.html?lang=' + lg, label: t('nav.help_how'), icon: 'map' },
+      { href: blob + 'docs/API' + (lg === 'en' ? '' : '.' + lg) + '.md', label: t('nav.help_api'), icon: 'code' },
+      { href: blob + 'CHANGELOG' + (lg === 'en' ? '' : '_' + lg) + '.md', label: t('nav.help_changelog'), icon: 'history' },
+      { href: src.replace(/\/$/, '') + '/issues', label: t('nav.help_issues'), icon: 'warning' },
+    )
+  }
+  if (src) items.push({ href: src, label: t('nav.help_source'), icon: 'code' })
+  return items
+})
 const trig = {}
-function groupActive(g) { return g.items.some((l) => route.path === l.to || route.path.startsWith(l.to + '/')) }
+function groupActive(g) { return g.items.some((l) => l.to && (route.path === l.to || route.path.startsWith(l.to + '/'))) }
 function activeProps(l) { return l.exact ? { 'exact-active-class': 'active', 'active-class': '' } : { 'active-class': 'active' } }
 // 0 = the groups inline; 2 = they do not fit (or a phone): one menu button with everything.
 const navLevel = ref(0)

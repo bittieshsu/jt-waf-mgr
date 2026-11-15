@@ -132,7 +132,11 @@ def zh_punct_problems(v):
 LITERAL = re.compile(r"""\b(?:t|tOr)\(\s*'([A-Za-z0-9_.\-]+)'\s*[,)]""")
 
 
-ZH_TERMS = [('收編', '納管'), ('擋下', '封鎖'), ('阻擋', '封鎖'), ('擋', '封鎖'), ('收緊', '加嚴')]
+ZH_TERMS = [('收編', '納管'), ('擋下', '封鎖'), ('阻擋', '封鎖'), ('擋', '封鎖'), ('收緊', '加強'), ('\u52a0\u56b4', '加強'),
+            ('\u6f02\u79fb', '被外部修改'), ('\u9ed1\u540d\u55ae', '封鎖清單'), ('\u767d\u540d\u55ae', '允許清單')]
+# the same rule in the other languages (any case): denylist / allowlist, 拒否リスト / 許可リスト
+OTHER_TERMS = [('black' + 'list', 'denylist'), ('white' + 'list', 'allowlist'),
+               ('\u30d6\u30e9\u30c3\u30af\u30ea\u30b9\u30c8', '拒否リスト'), ('\u30db\u30ef\u30a4\u30c8\u30ea\u30b9\u30c8', '許可リスト')]
 
 
 def main():
@@ -167,11 +171,16 @@ def main():
             if lang == 'zh-TW' and isinstance(v, str):
                 for msg in zh_punct_problems(v):
                     problems.append('zh-TW.json: %s: %s' % (k, msg))
-            # wording the user rejected for Taiwan usage (2026-11-13): 擋 -> 封鎖, 收編 -> 納管; (2026-11-14) 收緊 -> 加嚴
+            # wording the user rejected for Taiwan usage (2026-11-13): 擋 -> 封鎖, 收編 -> 納管; (2026-11-14/15) 收緊 and its
+            # first replacement -> 加強; the "drift" term -> 被外部修改; the black / white list terms in every language
             if lang == 'zh-TW' and isinstance(v, str):
                 for bad, good in ZH_TERMS:
                     if bad in v:
                         problems.append('zh-TW.json: %s uses "%s"; use "%s"' % (k, bad, good))
+            if isinstance(v, str):
+                for bad, good in OTHER_TERMS:
+                    if bad in v.lower():
+                        problems.append('%s.json: %s uses "%s"; use "%s"' % (lang, k, bad, good))
             # placeholders must match the English ones
             if isinstance(v, str) and k in dicts['en']:
                 want = set(re.findall(r'\{(\w+)\}', dicts['en'][k]))
@@ -198,6 +207,15 @@ def main():
         for m in members:
             if prefix + m not in en:
                 problems.append('en.json: missing %s%s' % (prefix, m))
+    # every audit action the back end writes has its name on the audit page (auditact.<action>), in all languages
+    for dirpath, _, files in os.walk(os.path.join(ROOT, 'jtwafmgr')):
+        for name in files:
+            if not name.endswith('.py'):
+                continue
+            path = os.path.join(dirpath, name)
+            for m in re.finditer(r"audit\.log\(\s*'([a-z_]+\.[a-z_.]+)'", open(path, encoding='utf-8').read()):
+                if 'auditact.' + m.group(1) not in en:
+                    problems.append('%s: audit action %s has no auditact.%s string' % (os.path.relpath(path, ROOT), m.group(1), m.group(1)))
     if '--unused' in sys.argv:
         dyn = tuple(REQUIRED) + ('settings.',)
         for k in sorted(en - used):

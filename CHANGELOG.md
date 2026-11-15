@@ -2,6 +2,37 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.55 (2026-11-16)
+
+- Filter and exclude everywhere: a right-click on a value in any table opens the value menu (filter by / exclude this
+  value for that table, shown as chips above it; copy; open a link in a new tab). The menu's first row shows the value
+  and what it is. Traffic: a site can be excluded too (`not_host`).
+- Help is a menu: user guide, product website, how it works, API manual, changelog, report a problem, source code.
+- Number tiles look like the dashboard's on every page (IP lookup with a 7- and 30-day trend, CRS, WAF model, periodic
+  review); the UI check rejects plain tiles. The role next to your name is an icon (its name in the tooltip).
+- Event AI analysis: the steps as they happen (queued, started, gathering, asking the LLM with the time waited,
+  checking) with a spinner; the LLM server and model used; a 502/503/504 from the server is retried once; failures
+  explained. Every "loading" has a spinner.
+- Event detail: a card title and facts in aligned rows. Periodic review: focus sites in a table. Long values (site
+  patterns in the rules list, nginx lines in country limits, the request column of the events) stay inside their
+  column with "..." and the full text on hover.
+- Sites: "outside requests, 7 days" says what it counts (every request from outside, any country, answered or not),
+  and for a site under a country limit how many of them the country rule blocked.
+- IP blocks: the sites each address went for before it was blocked; the places the list does not cover are a table,
+  and an `internal` location (the blocked page, error pages) is no longer listed. Locations marked `internal` no
+  longer count as skipping the WAF either.
+- Threat intelligence: a vulnerability's preconditions (a C library, a build or configuration option such as sshd
+  without PAM) are compared with a few host facts sent with the software list (operating system, architecture,
+  C library, sshd's UsePAM): not met means not affected; not confirmed means a warning to check instead of the urgent
+  path. A version match alone no longer raises a critical alert.
+- Software guess: ActiveSync alone is Z-Push (not where Exchange, Zimbra, SOGo or Kerio answer it); LibreNMS from its
+  API; Zulip no longer from `/api/v1/events`.
+- Architecture diagrams (user guide and website) show the second-tier LLM, the access logs, the download services and
+  their sources; "Admins + tokens". Wazuh active response: an example script that blocks through the API
+  (deploy/wazuh/active-response). Each GitHub Release carries the SBOM as its own file; the website links to it.
+- Wording: zh-TW uses 加強 and 被外部修改, denylist / allowlist terms in every language (preflight and the i18n check
+  refuse the old ones); every audit action has its name in all three languages (checked).
+
 ## 0.4.54 (2026-11-15)
 
 - Large traffic: the dashboard reads hourly counts kept by SQLite triggers (by site, origin, outcome, decision,
@@ -192,7 +223,7 @@ Fixes from an independent security review of the threat intelligence and the AI 
 - Periodic WAF review: only outside attacks the site answered with content (2xx) are listed as not refused; probes
   answered 4xx and requests that only got a redirect (a plain-HTTP block that answers 301 before ModSecurity runs) are
   counted apart.
-- Wording (zh-TW): 加嚴 instead of 收緊 (the check refuses the old word).
+- Wording (zh-TW): 加強 instead of 收緊 (the check refuses the old word).
 
 ## 0.4.36 (2026-11-15)
 
@@ -322,7 +353,7 @@ Fixes from an independent security review of the threat intelligence and the AI 
 - The sandbox fails the check rather than leave out a site's samples when it has no address of an allowed country to
   send from, and never sends from an address the country rules always let through.
 - Nothing private leaves: the pre-push check looks at every commit being pushed (its message, author and committer,
-  every file it adds or changes against the PUBLISH.txt whitelist and the privacy scan, merges included) and every
+  every file it adds or changes against the PUBLISH.txt allowlist and the privacy scan, merges included) and every
   tag (message and tagger). Private networks, addresses at the end of a sentence, upper-case mailboxes, more key and
   token formats and UTF-16 text are detected; binary files other than PNG and WebP images are refused; the marker
   that allows an address on purpose never lets a private name or a key through; without the private denylist the

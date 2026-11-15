@@ -32,6 +32,17 @@ class TestNginx(unittest.TestCase):
         self.assertEqual(app['upstreams'], ['http://192.0.2.10:8080'])
         self.assertTrue(app['realip'])
 
+    def test_internal_location_is_no_bypass(self):
+        # error pages and jt-waf-mgr's own blocked page: `internal`, so no client can ask for them
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, 'nginx.conf')
+            with open(p, 'w') as fh:
+                fh.write('http { modsecurity on; server { listen 443; server_name a.example.com;\n'
+                         '  location = /jt-blocked.html { internal; modsecurity off; }\n'
+                         '  location /raw/ { modsecurity off; } } }\n')
+            s = NginxConfig(p).servers()[0]
+            self.assertEqual([b['location'] for b in s['bypass']], ['/raw/'])
+
     def test_restrictions(self):
         self.assertIn('if ($lan = 0) { return 444; }', self.servers['intranet.example.com']['restrictions'])
         self.assertEqual(self.servers['static.example.com']['restrictions'], ['allow 192.0.2.0/24', 'deny all'])

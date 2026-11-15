@@ -21,10 +21,16 @@
             <span class="gapl" :class="data.ptr.confirmed ? 'ok' : 'warn'">{{ data.ptr.confirmed ? t('ipcard.ptr_confirmed') : t('ipcard.ptr_unconfirmed') }}</span></template>
           <span v-else class="muted gapl">{{ data.ptr.error ? t('ipcard.ptr_error') : t('ipcard.ptr_none') }}</span></p>
         <div class="tiles">
-          <div class="tile"><div class="tl">{{ t('lookup.d7_events') }}</div><div class="tv">{{ fmtNum(data.d7.events) }}</div><div class="ts">{{ t('outcome.blocked') }} {{ fmtNum(data.d7.blocked) }}</div></div>
-          <div class="tile"><div class="tl">{{ t('lookup.d30_events') }}</div><div class="tv">{{ fmtNum(data.d30.events) }}</div><div class="ts">{{ t('outcome.blocked') }} {{ fmtNum(data.d30.blocked) }}</div></div>
-          <div class="tile"><div class="tl">{{ t('lookup.first_seen') }}</div><div class="tv small">{{ fmtTime(data.first_seen) }}</div></div>
-          <div class="tile"><div class="tl">{{ t('lookup.last_seen') }}</div><div class="tv small">{{ fmtTime(data.last_seen) }}</div></div>
+          <div class="tile stat t-events"><div class="tl"><Icon name="list" />{{ t('lookup.d7_events') }}</div><div class="tv">{{ fmtNum(data.d7.events) }}</div>
+            <div class="ts">{{ t('outcome.blocked') }} {{ fmtNum(data.d7.blocked) }}</div>
+            <Sparkline class="stat-spark" :values="spark(7, 'events')" tone="s1" :label="t('lookup.d7_events')" /></div>
+          <div class="tile stat t-blocked"><div class="tl"><Icon name="block" />{{ t('lookup.d30_events') }}</div><div class="tv">{{ fmtNum(data.d30.events) }}</div>
+            <div class="ts">{{ t('outcome.blocked') }} {{ fmtNum(data.d30.blocked) }}</div>
+            <Sparkline class="stat-spark" :values="spark(30, 'blocked')" tone="blocked" :label="t('lookup.d30_events')" /></div>
+          <div class="tile stat"><div class="tl"><Icon name="history" />{{ t('lookup.first_seen') }}</div><div class="tv small">{{ data.first_seen ? fmtTime(data.first_seen) : '—' }}</div>
+            <div v-if="data.first_seen" class="ts">{{ ago(data.first_seen) }}</div></div>
+          <div class="tile stat"><div class="tl"><Icon name="timer" />{{ t('lookup.last_seen') }}</div><div class="tv small">{{ data.last_seen ? fmtTime(data.last_seen) : '—' }}</div>
+            <div v-if="data.last_seen" class="ts">{{ ago(data.last_seen) }}</div></div>
         </div>
         <div class="chartgrid">
           <div><h3 class="charthead">{{ t('chart.ip_split', { period: t('lookup.d7_events') }) }}</h3><SegBar :parts="split(data.d7)" :label="t('lookup.d7_events')" /></div>
@@ -59,7 +65,8 @@ import EventTimeline from '../components/EventTimeline.vue'
 const since30 = new Date(Date.now() - 30 * 86400e3).toISOString()
 import { lang, t, tOr } from '../i18n.js'
 import { hasRole } from '../store.js'
-import { countryName, safeText, fmtNum, fmtTime } from '../util.js'
+import { countryName, safeText, fmtNum, fmtTime, fmtAgo } from '../util.js'
+import Sparkline from '../components/charts/Sparkline.vue'
 import ErrorBox from '../components/ErrorBox.vue'
 import Loading from '../components/Loading.vue'
 import OriginBadge from '../components/OriginBadge.vue'
@@ -141,4 +148,7 @@ async function load() {
   try { data.value = await get('/lookups/ip/' + encodeURIComponent(props.ip)) } catch (e) { error.value = e } finally { loading.value = false }
 }
 watch(() => props.ip, load, { immediate: true })
+// the trend on a tile: the last `days` days of the 30-day series (events or blocked)
+function spark(days, key) { return ((data.value && data.value.daily) || []).slice(-days).map((d) => ({ t: d.t, v: d[key] || 0 })) }
+function ago(iso) { return fmtAgo(iso, lang.value) }
 </script>

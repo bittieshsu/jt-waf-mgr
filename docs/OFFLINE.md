@@ -31,7 +31,7 @@ ae3c8d2c761419d1482c21aa46ae09425f766737c6b5c8b181d8bd42f92049f9
 
 ## 2. System packages the host needs
 
-- Python 3.11 or newer: Debian 12 / 13 and Ubuntu 24.04 have it.
+- Python 3.11 or newer: Debian 12 / 13 and Ubuntu 24.04 or later have it.
 - nginx, the ModSecurity-nginx connector and libmodsecurity 3.0.9 or newer: from an internal apt mirror; without one,
   download the .deb files on a system of **the same release** (a throwaway VM, for example) and bring them in:
 

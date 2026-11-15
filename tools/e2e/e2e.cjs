@@ -205,9 +205,9 @@ async function audit(page, where) {
   if (await rvBtn.count()) {
     await rvBtn.click();
     await page.waitForURL(/\/reviews\/\d+/, { timeout: 10000 }).catch(() => {});
-    await page.locator('.rvtiles .rvtile').first().waitFor({ timeout: 10000 }).catch(() => {});
+    await page.locator('.rvtiles .tile.stat').first().waitFor({ timeout: 10000 }).catch(() => {});
     ok(/\/reviews\/\d+/.test(page.url()), 'review now opens the new review');
-    ok(await page.locator('.rvtiles .rvtile').count() >= 4, 'review shows its tiles');
+    ok(await page.locator('.rvtiles .tile.stat').count() >= 4, 'review shows its tiles');
   } else problems.push('reviews: no review-now button');
   // AI analysis of one event: the card and its advice
   await page.goto(base + '/events', { waitUntil: 'networkidle' });
@@ -353,18 +353,18 @@ async function audit(page, where) {
   ok((await page.locator('.datatable tbody tr').count()) === 1, 'traffic: one site');
   // temporary IP blocks: the list, the include hint (the e2e nginx does not load the file), adding and ending one
   await page.goto(base + '/blocks', { waitUntil: 'networkidle' });
-  ok((await page.locator('.datatable tbody tr').count()) === 3 && (await page.locator('.alert.warn pre').innerText()).includes('blocked-ips.conf'),
+  ok((await page.locator('.datatable').first().locator('tbody tr').count()) === 3 && (await page.locator('.alert.warn pre').innerText()).includes('blocked-ips.conf'),
      'blocks: active list and the include line');
   await page.locator('.card.form input.mono').fill('203.0.113.99');
   await page.locator('.card.form .field.grow input').fill('e2e test');
   await page.locator('.card.form button.primary').click();
-  await page.waitForFunction(() => document.querySelectorAll('.datatable tbody tr').length === 4, null, { timeout: 5000 }).catch(() => {});
-  ok((await page.locator('.datatable tbody tr').count()) === 4, 'blocks: an approver blocks an address');
-  await page.locator('.datatable tbody tr').filter({ hasText: '203.0.113.99' }).locator('button', { hasText: '立即解除' }).click();
+  await page.waitForFunction(() => document.querySelector('.datatable').querySelectorAll('tbody tr').length === 4, null, { timeout: 5000 }).catch(() => {});
+  ok((await page.locator('.datatable').first().locator('tbody tr').count()) === 4, 'blocks: an approver blocks an address');
+  await page.locator('.datatable').first().locator('tbody tr').filter({ hasText: '203.0.113.99' }).locator('button', { hasText: '立即解除' }).click();
   await page.locator('section[role=dialog] input').fill('e2e done');
   await page.locator('section[role=dialog] button.danger').click();
-  await page.waitForFunction(() => document.querySelectorAll('.datatable tbody tr').length === 3, null, { timeout: 5000 }).catch(() => {});
-  ok((await page.locator('.datatable tbody tr').count()) === 3, 'blocks: ending one with a note');
+  await page.waitForFunction(() => document.querySelector('.datatable').querySelectorAll('tbody tr').length === 3, null, { timeout: 5000 }).catch(() => {});
+  ok((await page.locator('.datatable').first().locator('tbody tr').count()) === 3, 'blocks: ending one with a note');
   // the country of each blocked address; extending a block; an admin can make one permanent
   const r66 = page.locator('.datatable tbody tr').filter({ hasText: '203.0.113.66' }).first();
   ok((await r66.locator('.ipcell').innerText()).includes('US'), 'blocks: the country beside the address');
@@ -406,6 +406,33 @@ async function audit(page, where) {
   const cardText = await page.locator('#jt-ipcard').innerText({ timeout: 2000 }).catch(() => '');
   ok(ipText && cardText.includes(ipText), 'address card on hover (' + ipText + ')');
   await page.mouse.move(2, 2);
+  // 0.4.55: the value menu shows the value on top; a right-click on any table cell filters / excludes in that table
+  await page.goto(base + '/admin/audit', { waitUntil: 'networkidle' });
+  const auCell = page.locator('.datatable tbody td').nth(2);
+  const auText = (await auCell.innerText()).trim();
+  await auCell.click({ button: 'right' });
+  await page.waitForSelector('.vmenu .vm-head', { timeout: 3000 }).catch(() => {});
+  ok((await page.locator('.vmenu .vm-head .vm-val').innerText().catch(() => '')).trim() === auText, 'value menu: the value on its first row');
+  const auRows = await page.locator('.datatable tbody tr').count();
+  await page.locator('.vmenu .vm-item').nth(1).click();          // exclude this value
+  await page.waitForTimeout(300);
+  ok((await page.locator('.dt-vf.fchip-out').count()) === 1 && (await page.locator('.datatable tbody tr').count()) <= auRows, 'table right-click: exclude a value (chip shown)');
+  await page.locator('.dt-vf .fchip-x').click();
+  ok((await page.locator('.dt-vf').count()) === 0, 'table right-click: the chip removes the filter');
+  // the help menu: the guide plus the project's pages
+  await page.locator('.mainnav button.navmorebtn').last().click();
+  ok((await page.locator('.navdrop a.navitem').count()) >= 3 && (await page.locator('.navdrop a.navext').count()) >= 2, 'help menu: guide and external pages');
+  await page.keyboard.press('Escape');
+  // number tiles look like the dashboard's everywhere
+  for (const u of ['/lookup/203.0.113.9', '/crs', '/waf', '/reviews/8']) {
+    await page.goto(base + u, { waitUntil: 'networkidle' });
+    const plain = await page.locator('.tiles > .tile:not(.stat)').count();
+    const st = await page.locator('.tiles > .tile.stat').count();
+    ok(plain === 0 && st >= 3, 'stat tiles on ' + u + ' (' + st + ')');
+  }
+  // the event's AI card names the LLM server and model
+  await page.goto(base + '/events/1', { waitUntil: 'networkidle' });
+  ok((await page.locator('.factgrid dl.facts > div').count()) >= 8, 'event detail: facts in aligned rows');
   // the DNS check card in Settings: what each server answered
   await page.goto(base + '/admin/settings', { waitUntil: 'networkidle' });
   await page.waitForSelector('#dns-names tbody tr, .dnstable tbody tr', { timeout: 5000 }).catch(() => {});
@@ -457,7 +484,7 @@ async function audit(page, where) {
   await appRow.locator('a', { hasText: '修改' }).first().click();
   await page.waitForLoadState('networkidle');
   await page.waitForFunction(() => document.querySelectorAll('.cochip').length === 2, null, { timeout: 5000 }).catch(() => {});
-  const dirBadge = async () => { await page.waitForTimeout(900); return (await page.locator('.card').filter({ hasText: 'ipMatchFromFile' }).locator('.badge', { hasText: /加嚴|放寬/ }).first().innerText()).trim() }
+  const dirBadge = async () => { await page.waitForTimeout(900); return (await page.locator('.card').filter({ hasText: 'ipMatchFromFile' }).locator('.badge', { hasText: /加強|放寬/ }).first().innerText()).trim() }
   ok(/item=/.test(page.url()) && (await page.locator('.cochip').count()) === 2, 'country modify: the form holds the rule in place');
   await page.locator('.cochip', { hasText: 'JP' }).locator('button').click();
   const dTight = await dirBadge();
@@ -466,7 +493,7 @@ async function audit(page, where) {
   await page.locator('#co-add').click().catch(() => {});
   await page.keyboard.press('Escape').catch(() => {});
   const dLoose = await dirBadge();
-  ok(dTight.includes('加嚴') && dLoose.includes('放寬'), 'country modify: fewer countries tighten, another one loosens (' + dTight + ' / ' + dLoose + ')');
+  ok(dTight.includes('加強') && dLoose.includes('放寬'), 'country modify: fewer countries tighten, another one loosens (' + dTight + ' / ' + dLoose + ')');
   // country limits by site: names in the interface language, "add limit" where the WAF runs, a note where it is off,
   // and a waiting change for a name no server block has
   await page.goto(base + '/countries', { waitUntil: 'networkidle' });

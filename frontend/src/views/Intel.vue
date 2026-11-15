@@ -46,7 +46,9 @@
           <template #cell-flags="{ row }">
             <span v-if="row.exploited" class="badge b-blocked">{{ t('intel.exploited') }}</span>
             <span v-else-if="row.exploited_claimed" class="badge b-warn" :title="t('intel.claimed_hint')">{{ t('intel.claimed') }}</span>
-            <span class="badge" :class="AFF[row.affected]">{{ t('intel.affected.' + row.affected) }}</span></template>
+            <span class="badge" :class="AFF[row.affected]">{{ t('intel.affected.' + row.affected) }}</span>
+            <div v-if="row.preconditions" class="sub" :title="row.preconditions">{{ t('intel.needs', { what: row.preconditions.length > 80 ? row.preconditions.slice(0, 79) + '…' : row.preconditions }) }}
+              <span class="badge tiny" :class="row.conditions_met === 'no' ? 'b-ok' : row.conditions_met === 'yes' ? 'b-blocked' : 'b-warn'">{{ t('intel.cond.' + (row.conditions_met || 'unknown')) }}</span></div></template>
           <template #cell-severity="{ row }"><span class="badge" :class="SEV[row.severity] || 'b-logged'">{{ tOr('intel.sev.' + row.severity, row.severity) }}</span></template>
           <template #cell-first_seen="{ row }">{{ fmtMinute(row.first_seen) }}</template>
           <template #cell-status="{ row }"><span class="badge" :class="row.status === 'open' ? 'b-warn' : 'b-logged'">{{ t('intel.st.' + row.status) }}</span></template>

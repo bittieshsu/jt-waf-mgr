@@ -1,5 +1,5 @@
 #!/bin/sh
 # Before anything leaves this machine: every commit being pushed (message, author and committer, every changed
-# file against the PUBLISH.txt whitelist and the privacy scan) and every annotated tag (tools/git-hooks/check_push.py).
+# file against the PUBLISH.txt allowlist and the privacy scan) and every annotated tag (tools/git-hooks/check_push.py).
 TOP=$(git rev-parse --show-toplevel)
 exec python3 "$TOP/tools/git-hooks/check_push.py" "$@"

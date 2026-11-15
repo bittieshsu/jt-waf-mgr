@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.54
+# jt-waf-mgr v0.4.55
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -91,7 +91,7 @@ ModSecurity は最後のルールのまま動作し続けます。
   先頭に)、新しい内部の一致、通過した外部攻撃、自動処理の内容、重点サイトごとの 1 行。
 - **2 層目の LLM (脅威インテリジェンス)**:より強力な LLM(ローカルの OpenAI 互換、またはクラウドの OpenAI 互換 / Anthropic)が
   数時間ごとに、プログラムが推測し人が確認したソフトウェア一覧(このホストの Web 関連パッケージ約 50 種、CRS、応答するパスから判別するサイトのアプリケーション約 300 種)の新しい
-  脆弱性、特に悪用されているものを Web で検索します。このホストから出るのは製品名とバージョンだけです。ローカルモデルは MCP
+  脆弱性、特に悪用されているものを Web で検索します。このホストから出るのは製品名とバージョン、それに脆弱性の前提条件を判断するためのホスト情報(OS、アーキテクチャ、C ライブラリ、sshd の UsePAM)だけです。ローカルモデルは MCP
   サーバー(例:SearXNG)で検索します。Anthropic と OpenAI 公式 API はプロバイダー自身の Web 検索も使えます。プログラムは
   許可リストの https ページだけを読み、「悪用中」はその実行でプログラム自身が CISA カタログを読んだときだけ認めます。
   製品は名前だけでも確認できます。悪用されていて当方のバージョンに影響する脆弱性は
@@ -130,7 +130,7 @@ ModSecurity は最後のルールのまま動作し続けます。
 
 ## 要件
 
-- Debian 12 / 13 または Ubuntu 24.04（22.04 の libmodsecurity パッケージは古いため 3.0.9 以上を自分でビルド）、**Python 3.11 以上（標準ライブラリのみ、pip もパッケージも不要）**：オフラインで
+- Debian 12 / 13 または Ubuntu 24.04 以降（22.04 の libmodsecurity パッケージは古いため 3.0.9 以上を自分でビルド）、**Python 3.11 以上（標準ライブラリのみ、pip もパッケージも不要）**：オフラインで
   インストールできます。
 - nginx と ModSecurity-nginx コネクタ、libmodsecurity 3.0.9 以上、`SecAuditLogFormat JSON`。OWASP CRS 4.x は jt-waf-mgr が
   ダウンロード・検証・インストールできます（[OWASP CRS](#owasp-crs) を参照）。監査ログは
@@ -365,7 +365,7 @@ AI は誤ることがあります。自動適用は強化（許可 → ブロッ
 - **その他の SIEM**：最大 8 つの syslog 送信先に、それぞれプロトコル、形式（JSON、CEF、LEEF、GELF、key=value、
   RFC 3164 / 5424）、内容（監査記録、イベント、アラート）を設定。
 - **fail2ban**：「ブロック中の IP」ページに API でブロック・解除するアクションがあります。
-- **チャットと webhook**：メール、Telegram、Teams、Slack、Discord、Zulip、Nextcloud Talk、HMAC 署名付き webhook。
+- **メッセージアプリと webhook**：メール、Telegram、Teams、Slack、Discord、Zulip、Nextcloud Talk、HMAC 署名付き webhook。
 
 ## 連携用 API
 

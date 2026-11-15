@@ -30,7 +30,7 @@ ae3c8d2c761419d1482c21aa46ae09425f766737c6b5c8b181d8bd42f92049f9
 
 ## 2. 主機需要的系統套件
 
-- Python 3.11 以上：Debian 12 / 13 與 Ubuntu 24.04 預設就有。
+- Python 3.11 以上：Debian 12 / 13 與 Ubuntu 24.04 以上預設就有。
 - nginx、ModSecurity-nginx 連接器、libmodsecurity 3.0.9 以上：從內部的 apt 鏡像安裝；沒有鏡像時，在**同版本**的系統
   （例如一台拋棄式 VM）下載 .deb 帶進去：
 

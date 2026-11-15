@@ -4,7 +4,7 @@
      pickable: the value menu (funnel icon / right-click) emits `pick(item, mode)`; linkFor gives the page the key
      itself opens; activeKey / excludedKey mark the key that is the current filter / exclusion. -->
 <template>
-  <HBars :items="bars" :series="series" :mono="mono" :pickable="pickable" :excludable="excludable" :open-label="openLabel" :inline-sub="inlineSub" @pick="(b, m) => emit('pick', b.item, m)" />
+  <HBars :items="bars" :series="series" :mono="mono" :pickable="pickable" :excludable="excludable" :open-label="openLabel" :field="field" :inline-sub="inlineSub" @pick="(b, m) => emit('pick', b.item, m)" />
 </template>
 
 <script setup>
@@ -24,6 +24,7 @@ const props = defineProps({
   activeKey: { type: [String, Number], default: null },
   excludable: Boolean,
   excludedKey: { type: [String, Number], default: null },
+  field: { type: String, default: '' },     // what the keys are (the value menu's first row)
   ipKeys: Boolean,          // the keys are addresses: the address card shows on hover
 })
 const emit = defineEmits(['pick'])
@@ -39,6 +40,7 @@ const bars = computed(() => (props.items || []).map((it) => ({
   sub: [it.origin ? t('origin.' + it.origin) : '', geoText(it.geo), it.msg || ''].filter(Boolean).join(' · ') || null,
   active: props.activeKey != null && String(props.activeKey) === String(it.key) ? 'in'
     : props.excludedKey != null && String(props.excludedKey) === String(it.key) ? 'out' : false,
+  head: [props.labelFor ? props.labelFor(it) : String(it.key ?? ''), it.msg ? clip(it.msg, 200) : ''].filter(Boolean).join(' · '),
   item: it,
   ip: props.ipKeys ? String(it.key) : null,
 })))

@@ -129,6 +129,27 @@ def check_privacy(files, deny):
             check_blob(rel, fh.read(), deny)
 
 
+# wording the user ruled out everywhere (2026-11-15): use denylist / allowlist (封鎖清單 / 允許清單, 拒否リスト /
+# 許可リスト), 加強, 被外部修改. Spelled with escapes so this file does not trip its own check.
+REJECTED_TERMS = ['\u9ed1\u540d\u55ae', '\u767d\u540d\u55ae', 'black' + 'list', 'white' + 'list',
+                  '\u30d6\u30e9\u30c3\u30af\u30ea\u30b9\u30c8', '\u30db\u30ef\u30a4\u30c8\u30ea\u30b9\u30c8',
+                  '\u52a0\u56b4', '\u6f02\u79fb']
+
+
+def check_wording(files):
+    for rel in files:
+        with open(os.path.join(ROOT, rel), 'rb') as fh:
+            data = fh.read()
+        if not is_text(data):
+            continue
+        text = data.decode('utf-8', 'replace')
+        low = text.lower()
+        for term in REJECTED_TERMS:
+            i = low.find(term)
+            if i >= 0:
+                fail('wording', '%s:%d uses a rejected term (%s); see the wording rules' % (rel, low.count('\n', 0, i) + 1, term))
+
+
 def _utf16(data):
     """Text in UTF-16 (a byte-order mark, or a zero byte in every other place): decoded, else None."""
     head = data[:4096]
@@ -246,6 +267,10 @@ def check_version():
         for other in ('README.md', 'README_zh-TW.md', 'README_ja.md'):
             if other != f and '(%s)' % other not in head:
                 fail('version', '%s: no language link to %s right under the title' % (f, other))
+    # the version badge on the Pages home page (it showed an old version for a while)
+    with open(os.path.join(ROOT, 'docs', 'index.html'), encoding='utf-8') as fh:
+        if '<span class="ver">v%s</span>' % v not in fh.read():
+            fail('version', 'docs/index.html: the version badge must read v%s' % v)
     return v
 
 
@@ -306,6 +331,7 @@ def main():
     v = check_version()
     files = publish_list()
     check_privacy(files, deny)
+    check_wording(files)
     check_frontend()
     tests = 'skipped' if a.no_tests else run_tests()
     if a.tar:

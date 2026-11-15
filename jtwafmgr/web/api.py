@@ -999,10 +999,13 @@ def vhosts(app, req):
     items.sort(key=lambda s: (s['server_names'][0] if s['server_names'] else '~', s['file'], s['line']))
     _vhost_countries(app, items)
     ext = _outside_requests(app)
+    refused = _country_refused(app)
     from .. import sitewaf
     lines = {}
     for s in items:
         s['outside_7d'] = sum(ext.get(x.lower(), 0) for x in s['server_names'] if x and x != '_') if ext is not None else None
+        s['country_refused_7d'] = (sum(refused.get(x.lower(), 0) for x in s['server_names'] if x and x != '_')
+                                   if refused is not None and s.get('countries') else None)
         s['dns'] = _dns_of(app, s['server_names'])
         # switched on from here (the marked include right after `server {`): it can be switched off from here too
         if s['file'] not in lines:
@@ -1089,6 +1092,18 @@ def _outside_requests(app, days=7):
     return {h.lower(): n or 0 for h, n in rows}
 
 
+def _country_refused(app, days=7):
+    """Outside requests the country rules refused per site name over the last days (the WAF's events: a request an
+    nginx `if` turned away before the WAF is not among them); None when it cannot be read."""
+    lo, hi = app.cfg['waf']['country_range']
+    try:
+        rows = app.db.q("SELECT host, SUM(n) FROM ev_hour_rule WHERE hour >= ? AND rule_id BETWEEN ? AND ? "
+                        "AND origin = 'external' GROUP BY host", (int((util.now() - days * 86400) // 3600), lo, hi))
+    except Exception:          # noqa: BLE001 -- not migrated yet: the line stays out
+        return None
+    return {h.lower(): n or 0 for h, n in rows}
+
+
 def _vhost_countries(app, servers):
     """Each site's country limits: the managed country rules whose site scope covers one of its names, and the
     country changes still on their way (checking, waiting for approval, being applied)."""
@@ -1136,7 +1151,7 @@ def crs(app, req):
 
 def traffic_report(app, req):
     """Request counts from the nginx access logs (per site and hour) next to the WAF's numbers.
-    range: 24h, 7d, 30d or custom (since / until); host: one site."""
+    range: 24h, 7d, 30d or custom (since / until); host: one site; not_host: every site but one."""
     from .. import traffic
     if req.query.get('range') == '30d':
         rng, until = '30d', util.now()
@@ -1144,9 +1159,11 @@ def traffic_report(app, req):
     else:
         rng, since, until = _range(req)
     host = (req.query.get('host') or '').strip().lower()
-    if host and host not in ('(default)', '(other)') and not traffic.HOST_RE.fullmatch(host):
-        raise ApiError(400, 'bad_request', 'host')
-    out = traffic.report(app, since, until, host or None)
+    not_host = (req.query.get('not_host') or '').strip().lower()
+    for k, v in (('host', host), ('not_host', not_host)):
+        if v and v not in ('(default)', '(other)') and not traffic.HOST_RE.fullmatch(v):
+            raise ApiError(400, 'bad_request', k)
+    out = traffic.report(app, since, until, host or None, None if host else (not_host or None))
     out['range'] = rng
     return json_response(200, out)
 
@@ -1208,7 +1225,15 @@ def lookup_ip(app, req):
     rules_ = app.db.q('SELECT r.rule_id k, COUNT(*) n FROM event_rules r JOIN events e ON e.id=r.event_id '
                       'WHERE e.src_ip=? AND r.ts>=? AND r.rule_id NOT IN (%s) GROUP BY r.rule_id ORDER BY n DESC LIMIT 20'
                       % ','.join(str(x) for x in sorted(util.SCORING_RULES)), (ip, t - 30 * 86400))
+    # events per day over the 30 days (oldest first; the last is the day up to now): the trend on the tiles
+    day0 = t - 30 * 86400
+    per = {r['d']: (r['n'], r['b'] or 0) for r in app.db.q(
+        "SELECT CAST((ts - ?) / 86400 AS INTEGER) d, COUNT(*) n, SUM(outcome='blocked') b FROM events "
+        'WHERE src_ip=? AND ts>=? GROUP BY d', (day0, ip, day0))}
+    daily = [{'t': util.iso(day0 + i * 86400), 'events': per.get(i, (0, 0))[0], 'blocked': per.get(i, (0, 0))[1]}
+             for i in range(30)]
     return json_response(200, {
+        'daily': daily,
         'ip': ip, 'origin': 'internal' if util.ip_in(ip, app.cfg.internal_networks) else 'external', 'geo': geo(ip),
         'd7': {'events': d7['n'] or 0, 'blocked': d7['b'] or 0}, 'd30': {'events': d30['n'] or 0, 'blocked': d30['b'] or 0},
         'first_seen': util.iso(d30['f']), 'last_seen': util.iso(d30['l']),
@@ -1381,7 +1406,8 @@ def event_analysis(app, req):
         raise ApiError(404, 'not_found')
     from ..analyst import llm_ready
     return json_response(200, {'analysis': eventai.latest(app.db, eid), 'llm_ready': llm_ready(app.cfg) is None,
-                               'llm_not_ready_reason': llm_ready(app.cfg), 'llm_local': eventai.llm_local(app.cfg)})
+                               'llm_not_ready_reason': llm_ready(app.cfg), 'llm_local': eventai.llm_local(app.cfg),
+                               'llm_server': eventai.server_label(app.cfg), 'llm_model': app.cfg['llm'].get('model') or ''})
 
 
 def event_analyze(app, req):
@@ -1402,7 +1428,8 @@ def event_analyze(app, req):
     except OSError as e:
         raise ApiError(500, 'request_failed', 'could not queue the analysis', error=e.strerror)
     app.audit.log('event.analysis_requested', req.user['username'], src_ip=req.client_ip, event_id=eid)
-    return json_response(202, {'analysis': row, 'llm_ready': True})
+    return json_response(202, {'analysis': eventai.latest(app.db, eid) or row, 'llm_ready': True, 'llm_local': eventai.llm_local(app.cfg),
+                               'llm_server': eventai.server_label(app.cfg), 'llm_model': app.cfg['llm'].get('model') or ''})
 
 
 def reviews(app, req):
@@ -2269,6 +2296,7 @@ def country_sites(app, req):
             site['country_changes'][(c['change_id'], c.get('item_id'))] = c
     since = util.now() - 7 * 86400
     ext = _outside_requests(app)
+    refused = _country_refused(app)
     lk = None
     try:
         lk = app.countries.lookup()
@@ -2287,6 +2315,8 @@ def country_sites(app, req):
         widest = min(serving, key=lambda b: order.index(b['reach']) if b['reach'] in order else 0)
         site['reach'], site['reach_by'] = widest['reach'], widest['reach_by']
         site['outside_7d'] = sum(ext.get(x.lower(), 0) for x in site['names']) if ext is not None else None
+        site['country_refused_7d'] = (sum(refused.get(x.lower(), 0) for x in site['names'])
+                                      if refused is not None and site['countries'] else None)
         site['dns'] = _dns_of(app, site['names'])
         # a rule names one site; a server block with several names is limited only where a rule names it
         mine = [r for r in rules if r['item_id'] in {c['item_id'] for c in site['countries']}]

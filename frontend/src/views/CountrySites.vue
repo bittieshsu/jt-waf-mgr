@@ -49,6 +49,7 @@
         <template #cell-reach="{ row }">
           <span class="badge" :class="REACH_CLS[row.reach] || 'b-logged'" :title="row.reach_by || t('vhosts.reach_hint')">{{ t('vhosts.reach.' + (row.reach || 'open')) }}</span>
           <div v-if="row.outside_7d != null" class="sub">{{ t('vhosts.outside_7d', { n: fmtNum(row.outside_7d) }) }}</div>
+          <div v-if="row.country_refused_7d != null" class="sub">{{ t('vhosts.country_refused_7d', { n: fmtNum(row.country_refused_7d) }) }}</div>
         </template>
         <template #cell-limit="{ row }">
           <div v-for="c in row.countries" :key="'r' + c.item_id" class="limit">
@@ -64,7 +65,7 @@
             <span class="small muted">{{ t('op.' + (c.op || 'add')) }}</span>
             <span v-for="cc in c.countries" :key="cc" class="cochip small"><b class="mono">{{ cc }}</b> {{ countryName(cc) }}</span>
           </div>
-          <span v-if="!row.countries.length && !row.country_changes.length" class="muted">{{ t('csites.none') }}</span>
+          <span v-if="!row.countries.length && !row.country_changes.length" class="muted nowrap">{{ t('csites.none') }}</span>
           <p v-if="row.uncovered && row.uncovered.length" class="small warn">{{ t('csites.names_uncovered', { names: row.uncovered.join(' ') }) }}</p>
         </template>
         <template #cell-recent="{ row }">
@@ -81,11 +82,11 @@
           <p v-if="row.waf_off" class="small warn">{{ row.countries.length ? t('vhosts.country_waf_off_rule') : t('vhosts.country_waf_off') }}</p>
           <div v-if="row.bypass.length" class="small" :class="row.countries.length ? 'warn' : 'muted'">
             {{ t('vhosts.country_bypass', { n: row.bypass.length }) }}
-            <div v-for="b in row.bypass" :key="b" class="mono"><TruncText :text="b" :max="80" mono /></div>
+            <div v-for="b in row.bypass" :key="b"><TruncText :text="b" :max="400" mono expand /></div>
           </div>
           <div v-if="row.restrictions.length" class="small muted">
             {{ t('csites.nginx_limits') }}
-            <div v-for="(r, i) in row.restrictions" :key="i" class="mono"><TruncText :text="r" :max="100" mono /></div>
+            <div v-for="(r, i) in row.restrictions" :key="i"><TruncText :text="r" :max="400" mono expand /></div>
           </div>
           <span v-if="!row.waf_off && !row.bypass.length && !row.restrictions.length" class="muted">—</span>
         </template>
@@ -132,11 +133,11 @@ import { get, post } from '../api.js'
 import { t, lang } from '../i18n.js'
 import { hasRole, refreshPending } from '../store.js'
 import { fmtMinute, fmtNum } from '../util.js'
+import TruncText from '../components/TruncText.vue'
 import Icon from '../components/Icon.vue'
 import ErrorBox from '../components/ErrorBox.vue'
 import Loading from '../components/Loading.vue'
 import DataTable from '../components/DataTable.vue'
-import TruncText from '../components/TruncText.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -172,7 +173,7 @@ const cols = computed(() => [
   { key: 'dns', label: t('dns.col.dns'), nowrap: true, value: (v) => (v.dns ? t('dns.class.' + v.dns.class) : '') },
   { key: 'limit', label: t('csites.col.limit'), value: (s) => (s.countries.length ? 0 : 1) + ' ' + limitText(s), text: limitText },
   { key: 'recent', label: t('csites.col.recent'), num: true, value: (s) => (s.recent ? s.recent.refused : -1) },
-  { key: 'notes', label: t('csites.col.notes'), value: (s) => (s.waf_off ? 2 : 0) + s.bypass.length,
+  { key: 'notes', label: t('csites.col.notes'), class: 'c-fill', value: (s) => (s.waf_off ? 2 : 0) + s.bypass.length,
     text: (s) => s.bypass.concat(s.restrictions).join(' ') },
   { key: 'actions', label: t('csites.col.actions'), sortable: false },
 ])

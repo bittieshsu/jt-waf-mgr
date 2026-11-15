@@ -1,6 +1,7 @@
 <!-- A value that can be filtered on: the value itself opens its page (`to`) or is plain text; the small funnel icon
      next to it -- or a right-click on the value -- opens the value menu (filter / exclude / open / copy).
      active: 'in' (the current filter), 'out' (excluded now) or ''.  quiet: the icon shows on hover / focus only.
+     head: the value as the menu's first row shows it (default: the text shown here); field: what the value is.
      Emits filter(mode) with mode 'in' or 'out'. -->
 <template>
   <span class="fv" :class="{ quiet, 'fv-in': active === 'in', 'fv-out': active === 'out' }" @contextmenu="open">
@@ -25,13 +26,18 @@ const props = defineProps({
   dataIp: { type: String, default: '' },
   active: { type: String, default: '' },
   excludable: { type: Boolean, default: true },
+  head: { type: String, default: '' },
+  field: { type: String, default: '' },
   quiet: Boolean,
 })
 const emit = defineEmits(['filter'])
 const label = computed(() => props.text || String(props.value ?? ''))
 function open(e) {
   e.preventDefault()
+  const box = e.currentTarget && e.currentTarget.closest ? e.currentTarget.closest('.fv') : null
+  const shown = box && box.querySelector('.fv-text') ? box.querySelector('.fv-text').textContent : ''
   openValueMenu(e, filterItems({ value: props.value, active: props.active || null, excludable: props.excludable,
-    onFilter: (mode) => emit('filter', mode), openTo: props.openTo, openLabel: props.openLabel }))
+    onFilter: (mode) => emit('filter', mode), openTo: props.openTo, openLabel: props.openLabel,
+    head: props.head || shown || label.value, field: props.field }))
 }
 </script>

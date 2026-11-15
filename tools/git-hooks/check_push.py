@@ -6,7 +6,7 @@
   session link);
 - author and committer are the identity configured for this repository (user.name / user.email), so a commit made
   elsewhere with a personal or work identity does not slip out;
-- every file it adds or changes is on the PUBLISH.txt whitelist of that commit and passes the same privacy scan as
+- every file it adds or changes is on the PUBLISH.txt allowlist of that commit and passes the same privacy scan as
   the release (text, screenshot metadata, binaries against the denylist);
 and every annotated tag being pushed has a clean message. The pre-commit hook already ran these on the working
 tree; this repeats them on what is actually pushed (a commit made with --no-verify, an amended or rebased one).
@@ -30,7 +30,7 @@ def git(*args, binary=False):
     return r.stdout if binary else r.stdout.decode('utf-8', 'replace')
 
 
-def whitelist(commit):
+def allowlist(commit):
     try:
         text = git('show', '%s:PUBLISH.txt' % commit)
     except subprocess.CalledProcessError:
@@ -57,16 +57,16 @@ def check_commit(commit, identity, deny, local=None):
     for role, w in zip(('author', 'committer'), who):
         if identity and w != identity:
             problems.append('%s is not the identity configured for this repository' % role)
-    pats = whitelist(commit)
+    pats = allowlist(commit)
     if pats is None:
         problems.append('no PUBLISH.txt in the commit')
         pats = []
-    # a commit cannot widen its own whitelist: the path must also be on the PUBLISH.txt checked out here
+    # a commit cannot widen its own allowlist: the path must also be on the PUBLISH.txt checked out here
     local = local if local is not None else pats
     before = len(preflight.failures)
     for path in changed_files(commit):
         if not (listed(path, pats) and listed(path, local)):
-            problems.append('%s is not on the PUBLISH.txt whitelist' % path)
+            problems.append('%s is not on the PUBLISH.txt allowlist' % path)
             continue
         data = git('cat-file', 'blob', '%s:%s' % (commit, path), binary=True)
         preflight.check_blob(path, data, deny)
@@ -85,7 +85,7 @@ def check_tag(ref, identity=None):
     return out
 
 
-def local_whitelist():
+def local_allowlist():
     try:
         with open(os.path.join(git('rev-parse', '--show-toplevel').strip(), 'PUBLISH.txt'), encoding='utf-8') as fh:
             return [l.split('#', 1)[0].strip() for l in fh if l.split('#', 1)[0].strip()]
@@ -106,7 +106,7 @@ def main(lines, remote='origin'):
         print('refused: no private denylist (%s); set JT_WAF_DENYLIST to it, or to an empty file if there is '
               'nothing private to keep out' % preflight.DENYLIST, file=sys.stderr)
         return 1
-    local = local_whitelist()
+    local = local_allowlist()
     me = identity()
     if not me:
         print('refused: no user.name / user.email configured for this repository', file=sys.stderr)

@@ -9,25 +9,31 @@
     <template v-if="ev">
       <FlowSteps :title="t('guide.evd.title')" :steps="flow" />
       <section class="card">
+        <h2><Icon name="page" /> {{ t('event.request') }}</h2>
         <div class="reqline">
           <OutcomeBadge :outcome="ev.outcome" :decided-by="ev.decided_by" />
           <span class="method">{{ safeText(ev.method, 12) }}</span>
           <span class="mono breakall">{{ safeText(ev.host, 255) }}{{ safeText(pathWithQuery(ev), 4000) }}</span>
         </div>
-        <dl class="kv two">
-          <dt>{{ t('event.time') }}</dt><dd>{{ fmtTime(ev.ts) }}</dd>
-          <dt>{{ t('event.status') }}</dt><dd class="mono">{{ ev.status }}</dd>
-          <dt>{{ t('event.source') }}</dt>
-          <dd><span class="mono" :data-ip="ev.src_ip">{{ safeText(ev.src_ip, 45) }}</span><template v-if="ev.client_port">:<span class="mono">{{ ev.client_port }}</span></template> <OriginBadge :origin="ev.origin" /> <GeoTag :geo="ev.src_geo" full /></dd>
-          <dt>{{ t('event.host') }}</dt><dd class="mono breakall">{{ safeText(ev.host, 255) }}<template v-if="ev.server_port">:{{ ev.server_port }}</template></dd>
-          <dt>{{ t('event.decided_by') }}</dt><dd>{{ ev.decided_by ? t('decided.' + ev.decided_by) : '—' }}</dd>
-          <dt>{{ t('event.engine') }}</dt><dd class="mono">{{ safeText(ev.engine, 40) || '—' }}</dd>
-          <dt>{{ t('event.anomaly_score') }}</dt><dd class="mono">{{ ev.anomaly_score === null || ev.anomaly_score === undefined ? '—' : ev.anomaly_score }}</dd>
-          <dt>{{ t('event.http_version') }}</dt><dd class="mono">{{ safeText(ev.http_version, 10) || '—' }}</dd>
-          <dt>{{ t('event.unique_id') }}</dt><dd class="mono breakall">{{ safeText(ev.unique_id, 300) }}</dd>
-          <dt>{{ t('event.family') }}</dt>
-          <dd><span v-for="fm in ev.families || []" :key="fm" class="chip fam">{{ t('family.' + fm) }}</span><template v-if="!(ev.families || []).length">—</template></dd>
-        </dl>
+        <!-- two columns of facts, one per row: label, value; the rows line up across both columns -->
+        <div class="factgrid">
+          <dl class="facts">
+            <div><dt>{{ t('event.time') }}</dt><dd>{{ fmtTime(ev.ts) }}</dd></div>
+            <div><dt>{{ t('event.source') }}</dt>
+              <dd><span class="mono" :data-ip="ev.src_ip">{{ safeText(ev.src_ip, 45) }}</span><template v-if="ev.client_port">:<span class="mono">{{ ev.client_port }}</span></template> <OriginBadge :origin="ev.origin" /> <GeoTag :geo="ev.src_geo" full /></dd></div>
+            <div><dt>{{ t('event.host') }}</dt><dd class="mono breakall">{{ safeText(ev.host, 255) }}<template v-if="ev.server_port">:{{ ev.server_port }}</template></dd></div>
+            <div><dt>{{ t('event.status') }}</dt><dd class="mono">{{ ev.status }}</dd></div>
+            <div><dt>{{ t('event.http_version') }}</dt><dd class="mono">{{ safeText(ev.http_version, 10) || '—' }}</dd></div>
+          </dl>
+          <dl class="facts">
+            <div><dt>{{ t('event.decided_by') }}</dt><dd>{{ ev.decided_by ? t('decided.' + ev.decided_by) : '—' }}</dd></div>
+            <div><dt>{{ t('event.anomaly_score') }}</dt><dd class="mono">{{ ev.anomaly_score === null || ev.anomaly_score === undefined ? '—' : ev.anomaly_score }}</dd></div>
+            <div><dt>{{ t('event.family') }}</dt>
+              <dd><span v-for="fm in ev.families || []" :key="fm" class="chip fam">{{ t('family.' + fm) }}</span><template v-if="!(ev.families || []).length">—</template></dd></div>
+            <div><dt>{{ t('event.engine') }}</dt><dd class="mono">{{ safeText(ev.engine, 40) || '—' }}</dd></div>
+            <div><dt>{{ t('event.unique_id') }}</dt><dd class="mono breakall">{{ safeText(ev.unique_id, 300) }}</dd></div>
+          </dl>
+        </div>
         <p class="muted small">{{ t('event.redacted_note') }}</p>
         <div class="actions">
           <RouterLink class="btn small" :to="{ path: '/events', query: { src_ip: ev.src_ip } }"><Icon name="filter" />{{ t('event.same_ip') }}</RouterLink>
@@ -52,11 +58,21 @@
         <p v-if="aiInfo && !aiInfo.llm_ready" class="muted small">{{ t('evai.not_ready') }}</p>
         <p v-if="aiInfo && aiInfo.llm_ready && aiInfo.llm_local === false" class="alert warn small">{{ t('evai.not_local') }}</p>
         <ErrorBox :error="aiError" />
-        <p v-if="aiPending" class="muted" role="status"><Icon name="timer" /> {{ ai.state === 'running' ? t('evai.running') : t('evai.queued') }}</p>
-        <template v-else-if="ai && ai.error"><p class="alert warn small">{{ t('evai.failed', { e: ai.error }) }}</p></template>
+        <!-- which server and model answer (or answered) -->
+        <p v-if="llmServer || llmModel" class="llmline">
+          <span v-if="llmServer">{{ t('evai.server') }} <b class="mono">{{ llmServer }}</b></span>
+          <span v-if="llmModel">{{ t('evai.model') }} <b class="mono">{{ llmModel }}</b></span>
+        </p>
+        <ol v-if="aiPending" class="jobsteps" role="status" aria-live="polite">
+          <li v-for="st in aiSteps" :key="st.key" :class="st.state">
+            <span class="js-mark"><Spinner v-if="st.state === 'now'" /><Icon v-else-if="st.state === 'done'" name="check" /><Icon v-else name="more" /></span>
+            <span><span class="js-label">{{ st.label }}</span><span v-if="st.sub" class="js-sub gapl">{{ st.sub }}</span></span>
+          </li>
+        </ol>
+        <template v-else-if="ai && ai.error"><p class="alert warn small">{{ aiErrorText(ai.error) }}</p></template>
         <template v-else-if="ai && ai.verdict">
           <p><span class="badge" :class="VCLS[ai.verdict]">{{ t('evai.v.' + ai.verdict) }}</span>
-            <span class="muted small gapl">{{ t('evai.confidence', { n: Math.round((ai.confidence || 0) * 100) }) }} · {{ ai.model }} · {{ fmtTime(ai.finished_at) }}</span></p>
+            <span class="muted small gapl">{{ t('evai.confidence', { n: Math.round((ai.confidence || 0) * 100) }) }} · {{ fmtTime(ai.finished_at) }}<template v-if="ai.seconds"> · {{ t('evai.took', { n: Math.round(ai.seconds) }) }}</template></span></p>
           <p>{{ ai.summary }}</p>
           <ul v-if="(ai.evidence || []).length" class="aievidence"><li v-for="(x, i) in ai.evidence" :key="i">{{ x }}</li></ul>
           <p class="small"><b>{{ t('evai.advice') }}</b> {{ t('evai.a.' + ai.action) }}<span v-if="ai.action_reason" class="muted gapl">{{ ai.action_reason }}</span></p>
@@ -100,10 +116,11 @@ import GeoTag from '../components/GeoTag.vue'
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { get, post } from '../api.js'
 import { hasRole } from '../store.js'
-import { t } from '../i18n.js'
+import { t, tOr } from '../i18n.js'
 import { safeText, safeMultiline, fmtTime, pathWithQuery } from '../util.js'
 import ErrorBox from '../components/ErrorBox.vue'
 import Loading from '../components/Loading.vue'
+import Spinner from '../components/Spinner.vue'
 import OutcomeBadge from '../components/OutcomeBadge.vue'
 import OriginBadge from '../components/OriginBadge.vue'
 import Icon from '../components/Icon.vue'
@@ -179,12 +196,39 @@ let aiTimer = null
 async function loadAi() {
   clearTimeout(aiTimer)
   try { aiInfo.value = await get('/events/' + encodeURIComponent(props.id) + '/analysis') } catch (e) { aiError.value = e; return }
-  if (aiPending.value) aiTimer = setTimeout(loadAi, 4000)
+  if (aiPending.value) aiTimer = setTimeout(loadAi, 2000)
 }
 async function askAi() {
   aiBusy.value = true
   aiError.value = null
-  try { aiInfo.value = await post('/events/' + encodeURIComponent(props.id) + '/analysis', {}); aiTimer = setTimeout(loadAi, 3000) } catch (e) { aiError.value = e } finally { aiBusy.value = false }
+  try { aiInfo.value = await post('/events/' + encodeURIComponent(props.id) + '/analysis', {}); aiTimer = setTimeout(loadAi, 1500) } catch (e) { aiError.value = e } finally { aiBusy.value = false }
+}
+// the server and model: the ones that answered this analysis, else the ones set now
+const llmServer = computed(() => (ai.value && ai.value.server) || (aiInfo.value && aiInfo.value.llm_server) || '')
+const llmModel = computed(() => (ai.value && ai.value.model) || (aiInfo.value && aiInfo.value.llm_model) || '')
+// a clock for the waiting times while it runs
+const nowMs = ref(Date.now())
+let tick = null
+watch(aiPending, (on) => { clearInterval(tick); if (on) tick = setInterval(() => { nowMs.value = Date.now() }, 1000) }, { immediate: true })
+onBeforeUnmount(() => { clearInterval(tick); clearTimeout(aiTimer) })
+function since(iso) { const t0 = Date.parse(iso || ''); return Number.isFinite(t0) ? Math.max(0, Math.round((nowMs.value - t0) / 1000)) : 0 }
+// queued -> the analysis unit starts -> gathers the context -> asks the LLM (maybe once more) -> checks the answer
+const aiSteps = computed(() => {
+  const a = ai.value || {}
+  const order = ['queued', 'started', 'context', 'asking', 'checking']
+  const cur = a.state === 'queued' ? 'queued' : a.stage === 'retrying' ? 'asking' : (a.stage || 'started')
+  const at = order.indexOf(cur)
+  const sub = {
+    queued: a.ahead ? t('evai.step.queued_ahead', { n: a.ahead }) : t('evai.step.queued_wait', { s: since(a.requested_at) }),
+    asking: a.stage === 'retrying' ? t('evai.step.retrying', { e: a.error || '' })
+      : (a.attempt === 2 ? t('evai.step.second') + ' · ' : '') + t('evai.step.waited', { s: since(a.stage_at), max: a.timeout || '—' }),
+  }
+  return order.map((k, i) => ({ key: k, label: t('evai.step.' + k), state: i < at ? 'done' : i === at ? 'now' : 'todo', sub: i === at ? sub[k] || '' : '' }))
+})
+function aiErrorText(code) {
+  const k = 'evai.err.' + code
+  const msg = tOr(k, '')
+  return msg ? msg + ' (' + code + ')' : t('evai.failed', { e: code })
 }
 watch(() => props.id, loadAi, { immediate: true })
 onBeforeUnmount(() => clearTimeout(aiTimer))

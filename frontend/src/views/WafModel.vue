@@ -24,13 +24,13 @@
       </section>
 
       <div class="tiles">
-        <div class="tile"><div class="tl">{{ t('waf.fact.engine_global') }}</div><div class="tv small mono">{{ safeText(md.engine.global, 30) }}</div>
+        <div class="tile stat"><div class="tl"><Icon name="shield" />{{ t('waf.fact.engine_global') }}</div><div class="tv small mono">{{ safeText(md.engine.global, 30) }}</div>
           <div class="ts">{{ t('waf.fact.engine_global_d') }}</div></div>
-        <div class="tile"><div class="tl">{{ t('waf.lane.external') }}</div><div class="tv small">{{ modeText(md.summary.external) }}</div></div>
-        <div class="tile"><div class="tl">{{ t('waf.lane.internal') }}</div><div class="tv small">{{ modeText(md.summary.internal) }}</div></div>
-        <div class="tile"><div class="tl">{{ t('waf.fact.threshold') }}</div><div class="tv">{{ md.scoring.threshold }}</div>
+        <div class="tile stat"><div class="tl"><Icon name="globe" />{{ t('waf.lane.external') }}</div><div class="tv small">{{ modeText(md.summary.external) }}</div></div>
+        <div class="tile stat"><div class="tl"><Icon name="network" />{{ t('waf.lane.internal') }}</div><div class="tv small">{{ modeText(md.summary.internal) }}</div></div>
+        <div class="tile stat"><div class="tl"><Icon name="chart" />{{ t('waf.fact.threshold') }}</div><div class="tv">{{ md.scoring.threshold }}</div>
           <div class="ts">{{ t('waf.fact.paranoia', { n: md.crs.blocking_paranoia_level }) }}</div></div>
-        <div class="tile"><div class="tl">{{ t('waf.fact.vhosts') }}</div><div class="tv">{{ fmtNum(vhOn) }} / {{ fmtNum(md.vhosts.total) }}</div>
+        <div class="tile stat"><div class="tl"><Icon name="server" />{{ t('waf.fact.vhosts') }}</div><div class="tv">{{ fmtNum(vhOn) }} / {{ fmtNum(md.vhosts.total) }}</div>
           <div class="ts">{{ t('waf.fact.bypass', { n: fmtNum(md.vhosts.bypass_locations) }) }}</div></div>
       </div>
 

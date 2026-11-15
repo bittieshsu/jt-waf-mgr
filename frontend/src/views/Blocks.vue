@@ -49,6 +49,10 @@
       <DataTable id="blocks" :columns="cols" :rows="data.items" :row-key="(r) => r.id" :page-size="50">
         <template #cell-ip="{ row }"><span class="ipcell"><RouterLink class="mono" :data-ip="row.ip" :to="'/lookup/' + encodeURIComponent(row.ip.split('/')[0])">{{ safeText(row.ip, 64) }}</RouterLink>
           <GeoTag :geo="row.geo" compact /></span></template>
+        <template #cell-sites="{ row }">
+          <span v-if="!(row.sites || []).length" class="muted">—</span>
+          <span v-for="x in row.sites || []" :key="x.host" class="sitecnt"><span class="mono">{{ safeText(x.host, 80) }}</span> <span class="muted">×{{ fmtNum(x.events) }}</span></span>
+        </template>
         <template #cell-source="{ row }"><span class="mono small">{{ safeText(row.source, 64) }}</span>
           <div class="sub">{{ safeText(row.created_by, 64) }} · {{ row.via === 'token' ? t('blocks.via_token') : row.via === 'system' ? t('blocks.via_system') : t('blocks.via_ui') }}</div></template>
         <template #cell-reason="{ row }"><TruncText :text="row.reason" :max="120" /></template>
@@ -101,10 +105,11 @@
       <section v-if="data.uncovered.length" class="card">
         <h2><Icon name="warning" /> {{ t('blocks.uncovered') }}</h2>
         <p class="muted small">{{ t('blocks.uncovered_hint') }}</p>
-        <ul class="plain">
-          <li v-for="(u, i) in data.uncovered" :key="i" class="mono small">{{ safeText(u.server, 120) }}<template v-if="u.location"> · location {{ safeText(u.location, 200) }}</template>
-            <span class="muted"> ({{ shortFile(u.file) }}:{{ u.line }})</span></li>
-        </ul>
+        <DataTable id="blocks-uncovered" :columns="uncoveredCols" :rows="data.uncovered" :row-key="(r) => r.file + ':' + r.line" :page-size="25">
+          <template #cell-server="{ row }"><span class="mono">{{ safeText(row.server, 120) }}</span></template>
+          <template #cell-location="{ row }"><TruncText v-if="row.location" :text="row.location" :max="200" mono /><span v-else class="muted">{{ t('blocks.whole_server') }}</span></template>
+          <template #cell-where="{ row }"><span class="mono small" :title="safeText(row.file, 400)">{{ shortFile(row.file) }}:{{ row.line }}</span></template>
+        </DataTable>
       </section>
     </template>
   </div>
@@ -187,8 +192,14 @@ const f2b = computed(() => ['# /etc/fail2ban/action.d/jt-waf-block.conf   (chmod
   '[Init]', 'waf    = ' + window.location.origin, 'token  = jwm_...', 'source = <host>/<name>'].join('\n'))
 function shortFile(f) { return safeText(String(f || '').split('/').slice(-2).join('/'), 120) }
 
+const uncoveredCols = computed(() => [
+  { key: 'server', label: t('blocks.col.server'), required: true },
+  { key: 'location', label: t('blocks.col.location'), class: 'c-fill', value: (r) => r.location || '' },
+  { key: 'where', label: t('blocks.col.where'), nowrap: true, value: (r) => r.file + ':' + String(r.line).padStart(6, '0') },
+])
 const cols = computed(() => [
   { key: 'ip', label: t('blocks.ip'), required: true, nowrap: true, text: (r) => r.ip + ' ' + ((r.geo && r.geo.cc) || '') },
+  { key: 'sites', label: t('blocks.sites'), class: 'c-hosts', value: (r) => ((r.sites || [])[0] || {}).host || '', text: (r) => (r.sites || []).map((x) => x.host).join(' ') },
   { key: 'source', label: t('blocks.source'), text: (r) => r.source + ' ' + r.created_by },
   { key: 'reason', label: t('blocks.reason') },
   { key: 'created_at', label: t('blocks.since'), nowrap: true, text: (r) => fmtShortTime(r.created_at) },
@@ -232,4 +243,5 @@ ul.plain { list-style: none; padding: 0; margin: 6px 0 0; }
 ul.plain li { padding: 3px 0; }
 ol.steps { margin: 6px 0 10px; padding-left: 22px; }
 ol.steps li { margin: 4px 0; }
+.sitecnt { display: block; white-space: nowrap; }
 </style>

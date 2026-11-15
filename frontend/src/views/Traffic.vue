@@ -18,7 +18,11 @@
                 @click="setQuery({ range: r.value })"><Icon :name="r.icon" />{{ r.label }}</button>
       </div>
       <div class="field trafhost"><label for="traf-host" class="sr-only">{{ t('traffic.site') }}</label>
-        <SelectBox id="traf-host" :model-value="host" :options="hostOpts" searchable @update:model-value="(v) => setQuery({ host: v })" /></div>
+        <SelectBox id="traf-host" :model-value="host" :options="hostOpts" searchable @update:model-value="(v) => setQuery({ host: v, not_host: '' })" /></div>
+    </div>
+    <div v-if="notHost" class="fchips">
+      <span class="fchip fchip-out"><span class="fchip-k">{{ t('traffic.excluded_site') }}</span><span class="fchip-v mono">{{ notHost }}</span>
+        <button type="button" class="fchip-x" :aria-label="t('table.vf_remove')" :title="t('table.vf_remove')" @click="setQuery({ not_host: '' })"><Icon name="close" /></button></span>
     </div>
     <Loading v-if="loading && !data" />
     <template v-if="data && data.enabled">
@@ -43,7 +47,8 @@
       </section>
       <DataTable id="traffic-sites" :columns="cols" :rows="data.by_host" :row-key="(r) => r.host" :page-size="50">
         <template #cell-host="{ row }">
-          <button type="button" class="linkbtn mono" :title="t('traffic.pick_site')" @click="setQuery({ host: row.host })"><Icon name="filter" /><TruncText :text="row.host" :max="80" mono /></button>
+          <FilterValue class="mono" :value="row.host" :head="row.host" :field="t('traffic.site')" :active="host === row.host ? 'in' : notHost === row.host ? 'out' : ''"
+                       @filter="(m) => pickHost(row.host, m)"><TruncText :text="row.host" :max="80" mono /></FilterValue>
         </template>
         <template #cell-share="{ row }">{{ fmtPct(pct(row.blocked, row.total)) }}</template>
         <template #cell-bytes="{ row }">{{ fmtBytes(row.bytes || 0) }}</template>
@@ -69,6 +74,7 @@ import Icon from '../components/Icon.vue'
 import DataTable from '../components/DataTable.vue'
 import SelectBox from '../components/SelectBox.vue'
 import TruncText from '../components/TruncText.vue'
+import FilterValue from '../components/FilterValue.vue'
 import TimeBars from '../components/charts/TimeBars.vue'
 import Sparkline from '../components/charts/Sparkline.vue'
 
@@ -87,6 +93,12 @@ const RANGES = computed(() => [
 ])
 const range = computed(() => (['24h', '7d', '30d'].includes(route.query.range) ? route.query.range : '24h'))
 const host = computed(() => String(route.query.host || ''))
+const notHost = computed(() => (host.value ? '' : String(route.query.not_host || '')))
+// the value menu of a site: filter (only this site) or exclude (every site but this one); again: off
+function pickHost(h, mode) {
+  if (mode === 'in') setQuery(host.value === h ? { host: '' } : { host: h, not_host: '' })
+  else setQuery(notHost.value === h ? { not_host: '' } : { not_host: h, host: '' })
+}
 const hostOpts = computed(() => [{ value: '', label: t('traffic.all_sites'), icon: 'server' }]
   .concat(knownHosts.value.map((h) => ({ value: h, label: h }))))
 
@@ -154,14 +166,15 @@ async function load() {
   try {
     const p = { range: range.value }
     if (host.value) p.host = host.value
+    else if (notHost.value) p.not_host = notHost.value
     data.value = await get('/traffic', p)
-    if (!host.value) knownHosts.value = data.value.by_host.map((r) => r.host).sort()
-    else if (!knownHosts.value.includes(host.value)) knownHosts.value = [...knownHosts.value, host.value].sort()
+    if (!host.value && !notHost.value) knownHosts.value = data.value.by_host.map((r) => r.host).sort()
+    else if (host.value && !knownHosts.value.includes(host.value)) knownHosts.value = [...knownHosts.value, host.value].sort()
   } catch (e) {
     error.value = e
   } finally {
     loading.value = false
   }
 }
-watch(() => [range.value, host.value], load, { immediate: true })
+watch(() => [range.value, host.value, notHost.value], load, { immediate: true })
 </script>

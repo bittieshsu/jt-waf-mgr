@@ -439,6 +439,19 @@ class ApiTest(unittest.TestCase):
         # tokens never reach the person's removal
         self.assertEqual(self.tok('POST', '/api/v1/blocks/1/remove', self.tok_w, {'note': 'x'})[0], 403)
 
+    def test_list_names_the_sites_an_address_went_for(self):
+        now = time.time()
+        for i, host in enumerate(['shop.example.com'] * 3 + ['www.example.com']):
+            self.app.db.x("INSERT INTO events(node_id, unique_id, ts, host, method, path, query, src_ip, origin, status, outcome, "
+                          "rule_ids, local_rule_ids, families, message, matches) VALUES ('n', ?, ?, ?, 'GET', '/.env', '', "
+                          "'203.0.113.61', 'external', 403, 'blocked', '', '', '', '', '[]')", ('site-%d' % i, now - 600 - i, host))
+        st, obj, _ = self.tok('POST', '/api/v1/blocks', self.tok_w, {'ip': '203.0.113.61', 'ttl': 3600, 'source': 'mail2/x', 'reason': 'r'})
+        self.assertEqual(st, 201, obj)
+        st, obj, _ = self.tok('GET', '/api/v1/blocks', self.tok_w)
+        it = next(i for i in obj['items'] if i['ip'] == '203.0.113.61')
+        self.assertEqual(it['sites'], [{'host': 'shop.example.com', 'events': 3}, {'host': 'www.example.com', 'events': 1}])
+        self.tok('DELETE', '/api/v1/blocks/203.0.113.61?source=mail2/x', self.tok_w)
+
     def test_people(self):
         c = Client(self.port)
         c.login('viewer1')

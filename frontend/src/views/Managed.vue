@@ -217,7 +217,7 @@ const cols = computed(() => [
   { key: 'category', label: t('rules.category'), nowrap: true, value: (it) => t('category.' + catOf(it)) },
   { key: 'description', label: t('rule.description'), value: (it) => it.msg || firstComment(it) || firstLine(it.text),
     text: (it) => [it.msg, it.comment, it.text].filter(Boolean).join(' ') },
-  { key: 'hosts', label: t('rule.hosts'), value: (it) => (it.hosts || []).join(' ') || t('rules.global') },
+  { key: 'hosts', label: t('rule.hosts'), class: 'c-hosts', value: (it) => (it.hosts || []).join(' ') || t('rules.global') },
   { key: 'origin', label: t('managed.origin'), nowrap: true, value: (it) => t('managed.origin_' + it.origin), text: (it) => t('managed.origin_' + it.origin) + (it.change_id ? ' #' + it.change_id : '') },
   { key: 'status', label: t('managed.status'), value: (it) => (it.enabled ? t('managed.enabled') : t('managed.disabled')) },
   { key: 'actions', label: t('common.actions'), sortable: false, filterable: false },

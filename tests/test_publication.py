@@ -120,7 +120,7 @@ class TestFiles(Base):
         self.assertIn('release/MANIFEST.sha256 missing', got)
         self.assertIn('private address', got)
 
-    def test_the_publish_whitelist_leaves_private_paths_out(self):
+    def test_the_publish_allowlist_leaves_private_paths_out(self):
         if not os.path.exists(os.path.join(TOP, 'PUBLISH.txt')):
             self.skipTest('not a full source tree (no PUBLISH.txt)')
         files = preflight.publish_list()
@@ -210,7 +210,7 @@ class TestPush(Base):
             ('docs/a.md', 'write to %s\n' % MAILBOX, 'docs', None, 'mailbox'),
             ('docs/k.pem', KEY + '\n', 'key', None, 'private key'),
             ('docs/s.png', png([(b'tEXt', b'Comment\x00made on my laptop')]), 'shot', None, 'tEXt'),
-            ('CLAUDE.md', 'notes\n', 'notes', None, 'not on the PUBLISH.txt whitelist'),
+            ('CLAUDE.md', 'notes\n', 'notes', None, 'not on the PUBLISH.txt allowlist'),
             ('docs/a.md', 'fine\n', 'fine\n\n' + SESSION, None, 'Session'),
             ('docs/a.md', 'fine\n', 'from %s' % PRIV_IP, None, 'private address'),
             ('docs/a.md', 'fine again\n', 'fine', {'GIT_AUTHOR_EMAIL': 'someone@example.net'}, 'author is not'),
@@ -263,14 +263,14 @@ class TestPush(Base):
         self.assertEqual(code, 1)
         self.assertIn('tagger is not', err)
 
-    def test_a_commit_cannot_widen_its_own_whitelist(self):
+    def test_a_commit_cannot_widen_its_own_allowlist(self):
         self.write('PUBLISH.txt', 'PUBLISH.txt\nREADME.md\ndocs/\nnotes/\n')
         self.write('notes/private.md', 'meeting notes\n')
         self.commit('more files')
         self.write('PUBLISH.txt', 'PUBLISH.txt\nREADME.md\ndocs/\n')       # what is checked out here
         code, err = self.push(since=self.base)
         self.assertEqual(code, 1)
-        self.assertIn('notes/private.md is not on the PUBLISH.txt whitelist', err)
+        self.assertIn('notes/private.md is not on the PUBLISH.txt allowlist', err)
 
     def test_a_missing_denylist_refuses_the_push(self):
         self.write('docs/a.md', 'fine\n')

@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.54
+# jt-waf-mgr v0.4.55
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -101,7 +101,8 @@ nginx and ModSecurity keep working with the last rules.
   Anthropic), searches the web every few hours for new vulnerabilities in the software list the program guesses and a
   person confirms (this host's web-facing packages: about 50 products; the CRS; the applications the sites run:
   about 300 recognised from the paths they answer), above all those exploited in the wild.
-  Only product names and versions leave the host. Local models search through an MCP server (for example SearXNG);
+  Only product names and versions leave the host, with a few facts for the vulnerabilities' preconditions
+  (operating system, architecture, C library, sshd's UsePAM). Local models search through an MCP server (for example SearXNG);
   Anthropic and OpenAI's own API can use the provider's web search instead. The program reads only https pages on an
   allow-list, and "exploited" counts only when it read the CISA catalog itself in that run. A product can be confirmed
   by name alone; an exploited vulnerability that affects (or, without a version, may affect) you raises a critical
@@ -144,7 +145,7 @@ nginx and ModSecurity keep working with the last rules.
 
 ## Requirements
 
-- Debian 12 / 13 or Ubuntu 24.04 (22.04's libmodsecurity package is too old: build 3.0.9 or later yourself), **Python 3.11 or newer — standard library only, no pip, no wheels**: the
+- Debian 12 / 13 or Ubuntu 24.04 or later (22.04's libmodsecurity package is too old: build 3.0.9 or later yourself), **Python 3.11 or newer — standard library only, no pip, no wheels**: the
   service installs offline.
 - nginx with the ModSecurity-nginx connector, libmodsecurity 3.0.9+, `SecAuditLogFormat JSON`; OWASP CRS 4.x, which
   jt-waf-mgr can download, verify and install for you (see [The OWASP CRS](#the-owasp-crs));
@@ -392,7 +393,7 @@ The AI may be wrong. Automatic application only ever tightens (allow → block);
 - **Other SIEM**: up to 8 syslog destinations, each with its own protocol, format (JSON, CEF, LEEF, GELF, key=value,
   RFC 3164 / 5424) and content (audit trail, events, alerts).
 - **fail2ban**: the IP blocks page shows a ready action that blocks and unblocks through the API.
-- **Chat and webhooks**: e-mail, Telegram, Teams, Slack, Discord, Zulip, Nextcloud Talk, an HMAC-signed webhook.
+- **Messaging apps and webhooks**: e-mail, Telegram, Teams, Slack, Discord, Zulip, Nextcloud Talk, an HMAC-signed webhook.
 
 ## API for integrations
 

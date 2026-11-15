@@ -25,7 +25,6 @@ COMMON = [
     '/api/v1/session', '/api/v1/version', '/api/v1/info', '/api/v1/data', '/api/v1/media', '/api/v1/notifications',
     '/api/v1/rules', '/api/v1/series', '/api/v1/login/x',
     '/api/v1/messages', '/api/v1/messages/flags', '/api/v1/messages?anchor=1',      # Zulip's API, not Rocket.Chat
-    '/Microsoft-Server-ActiveSync?Cmd=Sync',   # Exchange, Z-Push, Zimbra, Kerio ... all answer ActiveSync
     '/Autodiscover/Autodiscover.xml',
 ]
 GENERIC = {'PHP', 'Microsoft IIS / ASP.NET', 'Java Servlet / JSP', 'Adobe ColdFusion'}

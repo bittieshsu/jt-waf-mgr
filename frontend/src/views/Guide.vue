@@ -14,14 +14,14 @@
       <h2><Icon name="map" /> {{ t('guide.arch.title') }}</h2>
       <p class="muted small">{{ t('guide.arch.hint') }}</p>
       <div class="archwrap">
-        <svg class="archsvg" viewBox="0 0 1000 625" role="group" :aria-label="t('guide.arch.title')">
+        <svg ref="archEl" class="archsvg" viewBox="0 0 1000 745" role="group" :aria-label="t('guide.arch.title')">
           <defs>
             <marker id="arch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M0,0 L10,5 L0,10 z" class="arch-arrowhead" />
             </marker>
           </defs>
-          <rect class="arch-group" x="190" y="282" width="640" height="330" rx="12" />
-          <text class="arch-grouplabel" x="816" y="600" text-anchor="end">jt-waf-mgr · {{ t('guide.arch.service') }}</text>
+          <rect class="arch-group" x="190" y="282" width="640" height="450" rx="12" />
+          <text class="arch-grouplabel" x="816" y="720" text-anchor="end">jt-waf-mgr · {{ t('guide.arch.service') }}</text>
           <path v-for="e in edges" :key="e.key" class="arch-edge" :class="{ hot: e.from === sel || e.to === sel, main: e.main }" :d="e.d" marker-end="url(#arch-arrow)" />
           <g v-for="e in edges" :key="'l' + e.key">
             <text v-if="e.label" class="arch-edgelabel" :x="e.lx" :y="e.ly" :text-anchor="e.anchor || 'middle'">{{ t(e.label) }}</text>
@@ -30,8 +30,8 @@
              :aria-pressed="sel === n.key ? 'true' : 'false'" :aria-label="t('guide.node.' + n.key + '.name')"
              @click="sel = n.key" @keydown.enter.prevent="sel = n.key" @keydown.space.prevent="sel = n.key">
             <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="8" />
-            <text class="arch-name" :x="n.x + n.w / 2" :y="n.y + (n.sub ? n.h / 2 - 3 : n.h / 2 + 5)" text-anchor="middle">{{ t('guide.node.' + n.key + '.name') }}</text>
-            <text v-if="n.sub" class="arch-sub" :x="n.x + n.w / 2" :y="n.y + n.h / 2 + 15" text-anchor="middle">{{ t('guide.node.' + n.key + '.sub') }}</text>
+            <text class="arch-name" :data-max="n.w - 14" :x="n.x + n.w / 2" :y="n.y + (n.sub ? n.h / 2 - 3 : n.h / 2 + 5)" text-anchor="middle">{{ t('guide.node.' + n.key + '.name') }}</text>
+            <text v-if="n.sub" class="arch-sub" :data-max="n.w - 14" :x="n.x + n.w / 2" :y="n.y + n.h / 2 + 15" text-anchor="middle">{{ t('guide.node.' + n.key + '.sub') }}</text>
           </g>
         </svg>
       </div>
@@ -74,32 +74,37 @@
 
 <script setup>
 import { goToLabel } from '../pageNames.js'
-import { computed, ref } from 'vue'
-import { t } from '../i18n.js'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { t, lang } from '../i18n.js'
 import { state, hasRole } from '../store.js'
 import Icon from '../components/Icon.vue'
 import FlowSteps from '../components/FlowSteps.vue'
 
-// Layout of the architecture diagram (viewBox 1000 x 520).
+// Layout of the architecture diagram (viewBox 1000 x 745).
 const nodes = [
   { key: 'clients', x: 20, y: 40, w: 170, h: 70, kind: 'ext', icon: 'globe' },
   { key: 'nginx', x: 330, y: 28, w: 300, h: 94, kind: 'core', sub: true, icon: 'shield', to: '/crs' },
   { key: 'sites', x: 790, y: 40, w: 190, h: 70, kind: 'ext', icon: 'server', to: '/vhosts' },
-  { key: 'auditlog', x: 300, y: 180, w: 160, h: 64, kind: 'file', sub: true, icon: 'page' },
-  { key: 'managed', x: 490, y: 180, w: 160, h: 64, kind: 'file', sub: true, icon: 'code', to: '/managed' },
+  { key: 'access', x: 20, y: 180, w: 150, h: 64, kind: 'file', sub: true, icon: 'page', to: '/traffic' },
+  { key: 'auditlog', x: 210, y: 180, w: 160, h: 64, kind: 'file', sub: true, icon: 'page' },
+  { key: 'managed', x: 400, y: 180, w: 210, h: 64, kind: 'file', sub: true, icon: 'code', to: '/managed' },
   { key: 'apply', x: 690, y: 180, w: 170, h: 64, kind: 'root', sub: true, icon: 'lock' },
   { key: 'collector', x: 210, y: 320, w: 140, h: 60, kind: 'svc', icon: 'download', to: '/events' },
   { key: 'database', x: 370, y: 320, w: 140, h: 60, kind: 'svc', icon: 'database' },
   { key: 'workflow', x: 530, y: 320, w: 140, h: 60, kind: 'svc', icon: 'change', to: '/changes' },
   { key: 'webui', x: 688, y: 320, w: 142, h: 60, kind: 'svc', icon: 'page', to: '/' },
-  { key: 'sandbox', x: 515, y: 410, w: 175, h: 60, kind: 'svc', sub: true, icon: 'test' },
-  { key: 'monitor', x: 205, y: 410, w: 175, h: 60, kind: 'svc', sub: true, icon: 'verify', to: '/admin/system', role: 'admin' },
   { key: 'users', x: 848, y: 320, w: 146, h: 60, kind: 'ext', icon: 'users', to: '/admin/users', role: 'admin' },
+  { key: 'monitor', x: 205, y: 410, w: 150, h: 60, kind: 'svc', sub: true, icon: 'verify', to: '/admin/system', role: 'admin' },
+  { key: 'sandbox', x: 515, y: 410, w: 175, h: 60, kind: 'svc', sub: true, icon: 'test' },
   { key: 'siem', x: 20, y: 410, w: 150, h: 60, kind: 'ext', sub: true, icon: 'bell' },
-  { key: 'analyst', x: 370, y: 500, w: 150, h: 60, kind: 'svc', sub: true, icon: 'timer', to: '/analysis', role: 'approver' },
-  { key: 'notify', x: 640, y: 500, w: 160, h: 60, kind: 'svc', sub: true, icon: 'notify', to: '/admin/notify', role: 'admin' },
-  { key: 'llm', x: 20, y: 500, w: 150, h: 60, kind: 'ext', sub: true, icon: 'server' },
-  { key: 'channels', x: 848, y: 500, w: 146, h: 60, kind: 'ext', sub: true, icon: 'chat' },
+  { key: 'analyst', x: 210, y: 520, w: 150, h: 60, kind: 'svc', sub: true, icon: 'timer', to: '/analysis', role: 'approver' },
+  { key: 'intel', x: 390, y: 520, w: 160, h: 60, kind: 'svc', sub: true, icon: 'ai', to: '/intel', role: 'approver' },
+  { key: 'notify', x: 640, y: 520, w: 160, h: 60, kind: 'svc', sub: true, icon: 'notify', to: '/admin/notify', role: 'admin' },
+  { key: 'updaters', x: 640, y: 630, w: 160, h: 60, kind: 'svc', sub: true, icon: 'download', to: '/crs' },
+  { key: 'llm', x: 20, y: 520, w: 150, h: 60, kind: 'ext', sub: true, icon: 'server' },
+  { key: 'llm2', x: 20, y: 630, w: 150, h: 60, kind: 'ext', sub: true, icon: 'search' },
+  { key: 'channels', x: 848, y: 520, w: 146, h: 60, kind: 'ext', sub: true, icon: 'chat' },
+  { key: 'sources', x: 848, y: 630, w: 146, h: 60, kind: 'ext', sub: true, icon: 'globe' },
 ]
 const N = Object.fromEntries(nodes.map((n) => [n.key, n]))
 function mid(k, side) {
@@ -115,25 +120,46 @@ function edge(key, from, fs, to, ts, opts = {}) {
 const edges = [
   edge('c-n', 'clients', 'r', 'nginx', 'l', { label: 'guide.edge.requests', main: true }),
   edge('n-s', 'nginx', 'r', 'sites', 'l', { label: 'guide.edge.allowed', main: true }),
-  edge('n-a', 'nginx', 'b', 'auditlog', 't', { a: [380, 122], b: [380, 180], label: 'guide.edge.blocked_logged', lx: 386, ly: 156, anchor: 'start' }),
-  edge('m-n', 'managed', 't', 'nginx', 'b', { a: [570, 180], b: [570, 122], label: 'guide.edge.loads', lx: 576, ly: 156, anchor: 'start' }),
+  edge('n-ac', 'nginx', 'b', 'access', 't', { d: 'M340,122 L340,150 L95,150 L95,180', label: 'guide.edge.every', lx: 210, ly: 144 }),
+  edge('n-a', 'nginx', 'b', 'auditlog', 't', { a: [360, 122], b: [360, 180], label: 'guide.edge.blocked_logged', lx: 366, ly: 166, anchor: 'start' }),
+  edge('m-n', 'managed', 't', 'nginx', 'b', { a: [560, 180], b: [560, 122], label: 'guide.edge.loads', lx: 566, ly: 140, anchor: 'start' }),
   edge('ap-m', 'apply', 'l', 'managed', 'r', { label: 'guide.edge.writes' }),
   edge('ap-n', 'apply', 't', 'nginx', 'r', { d: 'M775,180 L775,92 L630,92', label: 'guide.edge.test_reload', lx: 782, ly: 140, anchor: 'start' }),
-  edge('a-c', 'auditlog', 'b', 'collector', 't', { d: 'M380,244 L380,264 L280,264 L280,320', label: 'guide.edge.reads', lx: 386, ly: 259, anchor: 'start' }),
+  edge('ac-c', 'access', 'b', 'collector', 't', { d: 'M95,244 L95,296 L235,296 L235,320', label: 'guide.edge.counts', lx: 101, ly: 272, anchor: 'start' }),
+  edge('a-c', 'auditlog', 'b', 'collector', 't', { d: 'M290,244 L290,320', label: 'guide.edge.reads', lx: 296, ly: 272, anchor: 'start' }),
   edge('c-d', 'collector', 'r', 'database', 'l'),
   edge('w-d', 'workflow', 'l', 'database', 'r'),
   edge('u-w', 'webui', 'l', 'workflow', 'r'),
   edge('w-ap', 'workflow', 't', 'apply', 'b', { d: 'M640,320 L640,290 L775,290 L775,244', label: 'guide.edge.approved', lx: 650, ly: 284, anchor: 'start' }),
-  edge('w-sb', 'workflow', 'b', 'sandbox', 't'),
+  edge('w-sb', 'workflow', 'b', 'sandbox', 't', { a: [600, 380], b: [600, 410] }),
   edge('us-u', 'users', 'l', 'webui', 'r', { main: true }),
   edge('mo-si', 'monitor', 'l', 'siem', 'r'),
-  edge('d-mo', 'database', 'b', 'monitor', 'r', { d: 'M440,380 L440,440 L380,440', label: 'guide.edge.verifies', lx: 446, ly: 410, anchor: 'start' }),
-  edge('an-d', 'analyst', 't', 'database', 'b', { d: 'M470,500 L470,380', label: 'guide.edge.proposes', lx: 464, ly: 472, anchor: 'end' }),
+  edge('d-mo', 'database', 'b', 'monitor', 'r', { d: 'M385,380 L385,440 L355,440', label: 'guide.edge.verifies', lx: 391, ly: 425, anchor: 'start' }),
+  edge('an-d', 'analyst', 't', 'database', 'b', { d: 'M300,520 L300,496 L420,496 L420,380', label: 'guide.edge.proposes', lx: 306, ly: 512, anchor: 'start' }),
+  edge('in-d', 'intel', 't', 'database', 'b', { d: 'M460,520 L460,380', label: 'guide.edge.precaution', lx: 466, ly: 512, anchor: 'start' }),
   edge('an-llm', 'analyst', 'l', 'llm', 'r', { label: 'guide.edge.asks' }),
-  edge('d-no', 'database', 'b', 'notify', 't', { d: 'M500,380 L500,485 L720,485 L720,500', label: 'guide.edge.queue', lx: 590, ly: 498 }),
+  edge('in-l2', 'intel', 'b', 'llm2', 'r', { d: 'M470,580 L470,660 L170,660', label: 'guide.edge.public_only', lx: 320, ly: 654 }),
+  edge('d-no', 'database', 'b', 'notify', 't', { d: 'M495,380 L495,488 L720,488 L720,520', label: 'guide.edge.queue', lx: 610, ly: 482 }),
   edge('no-ch', 'notify', 'r', 'channels', 'l', { label: 'guide.edge.sends' }),
+  edge('src-up', 'sources', 'l', 'updaters', 'r', { label: 'guide.edge.download', lx: 824, ly: 622 }),
 ]
 const sel = ref('nginx')
+// a name or sub line longer than its box (some languages run long) is squeezed to fit, never cut or spilled
+const archEl = ref(null)
+async function fitText() {
+  await nextTick()
+  for (const el of archEl.value ? archEl.value.querySelectorAll('text[data-max]') : []) {
+    el.removeAttribute('textLength')
+    el.removeAttribute('lengthAdjust')
+    const max = Number(el.getAttribute('data-max'))
+    if (el.getComputedTextLength && el.getComputedTextLength() > max) {
+      el.setAttribute('textLength', String(max))
+      el.setAttribute('lengthAdjust', 'spacingAndGlyphs')
+    }
+  }
+}
+onMounted(fitText)
+watch(lang, fitText)
 const current = computed(() => N[sel.value])
 function canSee(n) { return !n.role || hasRole(n.role) }
 

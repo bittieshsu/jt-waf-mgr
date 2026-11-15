@@ -265,7 +265,8 @@ def _scan_locations(children, waf, bypass, restrictions, upstreams, prefix):
         loc = ' '.join(d.args)
         flag = _flag(d.children, 'modsecurity')
         here = waf if flag is None else flag
-        if waf and flag is False:
+        # an `internal` location (error pages, jt-waf-mgr's own blocked page) cannot be asked for by a client: no bypass
+        if waf and flag is False and not any(c.name == 'internal' for c in d.children):
             bypass.append({'location': loc, 'file': d.file, 'line': d.line})
         for c in d.children:
             if c.name == 'return' and c.args and c.args[0] in ('403', '404', '444') and loc:

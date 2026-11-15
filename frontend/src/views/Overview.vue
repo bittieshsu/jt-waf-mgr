@@ -139,17 +139,17 @@
       <div class="cols2">
         <section class="card">
           <h2><Icon name="server" /> {{ t('overview.by_host') }}</h2>
-          <CountList :items="data.by_host" pickable excludable :active-key="filters.host" :excluded-key="filters.not_host" :open-label="t('filter.open_events')" :link-for="(it) => eventsLink('host', it.key)" @pick="(it, m) => toggleFilter('host', it.key, m)" />
+          <CountList :items="data.by_host" :field="t('event.host')" pickable excludable :active-key="filters.host" :excluded-key="filters.not_host" :open-label="t('filter.open_events')" :link-for="(it) => eventsLink('host', it.key)" @pick="(it, m) => toggleFilter('host', it.key, m)" />
         </section>
         <section class="card">
           <h2><Icon name="shield" /> {{ t('overview.by_family') }}</h2>
-          <CountList :items="data.by_family" :label-for="(it) => t('family.' + it.key)"  pickable excludable :active-key="filters.family" :excluded-key="filters.not_family" :open-label="t('filter.open_events')" :link-for="(it) => eventsLink('family', it.key)" @pick="(it, m) => toggleFilter('family', it.key, m)" />
+          <CountList :items="data.by_family" :field="t('event.family')" :label-for="(it) => t('family.' + it.key)"  pickable excludable :active-key="filters.family" :excluded-key="filters.not_family" :open-label="t('filter.open_events')" :link-for="(it) => eventsLink('family', it.key)" @pick="(it, m) => toggleFilter('family', it.key, m)" />
         </section>
         <section class="card span2">
           <h2><Icon name="network" /> {{ t('overview.by_src') }}</h2>
           <p v-if="data.geoip === false" class="muted small geohint"><Icon name="globe" /> {{ t('overview.geoip_off') }}
             <RouterLink v-if="hasRole('admin')" :to="{ path: '/admin/settings', hash: '#uiset-geoip' }">{{ t('overview.geoip_setup') }}</RouterLink></p>
-          <CountList :items="data.by_src" mono inline-sub pickable excludable ip-keys :active-key="filters.src_ip" :excluded-key="filters.not_src_ip" :open-label="t('filter.open_lookup')" :link-for="(it) => ({ path: '/lookup/' + encodeURIComponent(it.key) })" @pick="(it, m) => toggleFilter('src_ip', it.key, m)" />
+          <CountList :items="data.by_src" :field="t('field.src_ip')" mono inline-sub pickable excludable ip-keys :active-key="filters.src_ip" :excluded-key="filters.not_src_ip" :open-label="t('filter.open_lookup')" :link-for="(it) => ({ path: '/lookup/' + encodeURIComponent(it.key) })" @pick="(it, m) => toggleFilter('src_ip', it.key, m)" />
         </section>
         <section v-if="(data.by_asn || []).length" class="card span2">
           <h2><Icon name="network" /> {{ t('overview.by_asn') }}</h2>
@@ -163,7 +163,7 @@
         </section>
         <section class="card span2">
           <h2><Icon name="shield" /> {{ t('overview.by_rule') }}</h2>
-          <CountList :items="ruleItems" pickable excludable :excluded-key="filters.not_rule_id" :label-for="(it) => it.key + (it.family ? ' · ' + tOr('family.' + it.family, it.family) : '')" :active-key="filters.rule_id" :open-label="t('filter.open_rule')" :link-for="(it) => ({ path: '/rules/' + encodeURIComponent(it.key) })" @pick="(it, m) => toggleFilter('rule_id', it.key, m)" />
+          <CountList :items="ruleItems" :field="t('filter.rule_id')" pickable excludable :excluded-key="filters.not_rule_id" :label-for="(it) => it.key + (it.family ? ' · ' + tOr('family.' + it.family, it.family) : '')" :active-key="filters.rule_id" :open-label="t('filter.open_rule')" :link-for="(it) => ({ path: '/rules/' + encodeURIComponent(it.key) })" @pick="(it, m) => toggleFilter('rule_id', it.key, m)" />
         </section>
       </div>
       <p class="muted small">{{ t('overview.period', { since: fmtTime(data.since), until: fmtTime(data.until) }) }}</p>

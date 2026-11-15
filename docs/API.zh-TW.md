@@ -269,7 +269,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
 {"change_id": 2, "direction": "tighten", "state": "checking", "rule_id": 10204}
 ```
 
-`direction` 是 `tighten`（加嚴：封鎖或檢查更多）或 `loosen`（放寬：更少）。無法判斷的一律視為放寬。放寬一定要人核准。
+`direction` 是 `tighten`（加強：封鎖或檢查更多）或 `loosen`（放寬：更少）。無法判斷的一律視為放寬。放寬一定要人核准。
 
 **種類 `confident_block`**（確定封鎖：確定是攻擊的請求直接封鎖，不看異常分數）：
 
@@ -327,7 +327,7 @@ ModSecurity 看不到這個網址：國家限制若必須擋住這類請求，ng
 `raw_admin_only`。（權杖可以停用、啟用或刪除既有的專家模式項目。）
 
 **整批**（`"op": "bundle"`）：多個操作合成一筆變更，一起檢查、核准、套用（一個版本、一次 reload、一次還原）。`ops` 放
-1 到 100 個 `{"op", "kind", "spec", "item_id"}`，其中確定封鎖最多 20 個。只有每個操作都是加嚴時，整批才算加嚴。
+1 到 100 個 `{"op", "kind", "spec", "item_id"}`，其中確定封鎖最多 20 個。只有每個操作都是加強時，整批才算加強。
 
 ```sh
 curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{
@@ -412,7 +412,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" 'https://waf.example.com/api/v1/rules
 - **`GET /intel`**（scope `events:read`）：威脅情報：第二層 LLM 的狀態與 token 用量、找到的漏洞（編號、產品與我們的版本、是否已被利用、是否影響我們、嚴重度、請求特徵、參考資料、狀態）、軟體清單、搜尋記錄。`POST /intel/run`、`POST /intel/threats/{id}`（`{"status": "open"|"handled"|"ignored"}`）、`POST /intel/software`、`PATCH`/`DELETE /intel/software/{id}`、`POST /intel/software/guess`（也會移除不再推測、也沒人確認的項目）、`POST /intel/software/confirm-all`（`{"confirmed": n}`）：approver，網頁登入。`POST /intel/test`（admin；`{"what": "mcp"}` 只測 MCP 搜尋伺服器）與 `GET /intel/test`：連線測試，由威脅情報服務實際連線。
 - **`GET /events/{id}/analysis`**（scope `events:read`）：單一事件最近一次的 AI 分析（`state` queued / running / done、`verdict`、`confidence`、`summary`、`evidence`、`action`、`action_reason`、`model`、`error`）與 LLM 是否就緒。`POST /events/{id}/analysis`（operator，網頁登入）：排入分析；LLM 未就緒回 409 `llm_not_ready`。
 - **`POST /vhosts/waf`**（approver，網頁登入）：`{"host", "mode": "enable"|"disable", "reason"}` -> 202 `{"change_id"}`：以變更為一個站台開啟（或再關閉）ModSecurity。`GET /vhosts` 會標示 `waf_by_us`（由這裡開啟的）並列出進行中的 `site_changes`。
-- **`POST /vhosts/blocked-page`**（approver，網頁登入）：`{"host": "<站台>"|"*", "mode": "enable"|"disable", "reason"}` -> 202 `{"change_id"}`：以變更替一個站台或全部站台套用（或移除）被封鎖時看到的頁面（有請求編號；種類 `site_page`，不算加嚴也不算放寬）。`GET /vhosts` 在每個 server 區塊加 `blocked_page`（`ours`、`own`＝有自己的 403 頁面、或 null），並列出進行中的 `page_changes` 與 `blocked_page` `{ok, plan, refresh}`（「全部站台」會更動幾個 server 區塊；`refresh`：這一版有較新的片段或頁面）。
+- **`POST /vhosts/blocked-page`**（approver，網頁登入）：`{"host": "<站台>"|"*", "mode": "enable"|"disable", "reason"}` -> 202 `{"change_id"}`：以變更替一個站台或全部站台套用（或移除）被封鎖時看到的頁面（有請求編號；種類 `site_page`，不算加強也不算放寬）。`GET /vhosts` 在每個 server 區塊加 `blocked_page`（`ours`、`own`＝有自己的 403 頁面、或 null），並列出進行中的 `page_changes` 與 `blocked_page` `{ok, plan, refresh}`（「全部站台」會更動幾個 server 區塊；`refresh`：這一版有較新的片段或頁面）。
 - `GET /events` 也可以用 `unique_id` (ModSecurity 給單一請求的請求編號) 查詢。
 - **`GET /reviews`**、**`GET /reviews/{id}`**（scope `events:read`）：WAF 定期檢討（每 `review.interval_hours` 小時）：數量、只靠分數封鎖的請求（依站台與路徑分組，可能誤封鎖的排前面）、新的內部命中、沒被封鎖的外部攻擊、自動處理了什麼、每個重點站台一行。不含請求內容與查詢字串。`POST /reviews/run`（approver，網頁登入）：立即檢討最近一段時間。
 - **`GET /dns`**（scope `rules:read`）：DNS 檢查結果，每個站名在各台內部、外部 DNS 的回答。
@@ -545,7 +545,7 @@ checking or pending_approval -> cancelled
 - 由核准者或管理者在網頁介面（`/changes/<id>`）核准。放寬一定要經過這一步。
 - 用權杖提出的變更歸屬於建立該權杖的管理者：這位管理者不能核准，除非開啟了「單人模式」（此時放寬類要當下的一次性
   密碼與書面理由）。
-- 加嚴類自動套用**預設關閉**。管理者開啟後，`add` 一筆 `source: external` 的 `confident_block`，且證據顯示沒有成功的
+- 加強類自動套用**預設關閉**。管理者開啟後，`add` 一筆 `source: external` 的 `confident_block`，且證據顯示沒有成功的
   外部請求、也沒有內部請求時，可能不經人核准就套用（每天有上限）。所以腳本在等待時也要接受 `approved`、`applying`、
   `applied`。
 

@@ -105,6 +105,7 @@
       <template #cell-reach="{ row }">
         <span class="badge" :class="REACH_CLS[row.reach] || 'b-logged'" :title="row.reach_by ? safeText(row.reach_by, 300) : t('vhosts.reach_hint')">{{ t('vhosts.reach.' + (row.reach || 'open')) }}</span>
         <div v-if="row.outside_7d != null && !row.redirect_only" class="sub" :class="{ warn: row.reach === 'internal' && row.outside_7d > 0 }">{{ t('vhosts.outside_7d', { n: fmtNum(row.outside_7d) }) }}</div>
+        <div v-if="row.country_refused_7d != null" class="sub">{{ t('vhosts.country_refused_7d', { n: fmtNum(row.country_refused_7d) }) }}</div>
       </template>
       <template #cell-bypass="{ row }">
         <div v-for="b in row.bypass || []" :key="b.file + b.line" class="mono" :title="safeText(b.file, 500) + ':' + b.line"><TruncText :text="b.location" :max="120" mono /></div>
@@ -247,7 +248,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.cosum { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; white-space: nowrap; text-decoration: none; color: inherit; }
+.cosum { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; white-space: nowrap; text-decoration: none; color: inherit; }
 .cosum > span { display: inline-flex; gap: 4px; align-items: center; }
 .cosum .off { opacity: .6; }
 .cosum:hover .mono { text-decoration: underline; }

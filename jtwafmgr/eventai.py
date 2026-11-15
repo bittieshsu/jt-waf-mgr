@@ -85,7 +85,32 @@ def _row(r):
 
 
 def latest(db, event_id):
-    return _row(db.one('SELECT * FROM event_analyses WHERE event_id=? ORDER BY id DESC LIMIT 1', (int(event_id),)))
+    d = _row(db.one('SELECT * FROM event_analyses WHERE event_id=? ORDER BY id DESC LIMIT 1', (int(event_id),)))
+    if d and d['state'] == 'queued':          # how many requests are answered before this one
+        d['ahead'] = db.one('SELECT COUNT(*) n FROM event_analyses WHERE finished_at IS NULL AND id < ?', (d['id'],))['n']
+    return d
+
+
+RETRY_CODES = ('http_502', 'http_503', 'http_504', 'unreachable')
+RETRY_PAUSE = 10
+
+
+def server_label(cfg):
+    """The LLM server as the page names it: scheme, host and port of its URL (never a path, a query or a key)."""
+    import urllib.parse
+    try:
+        u = urllib.parse.urlsplit(cfg['llm'].get('url') or '')
+        host = u.hostname or ''
+        if ':' in host:
+            host = '[%s]' % host
+        return ('%s://%s%s' % (u.scheme, host, ':%d' % u.port if u.port else '')) if u.scheme and host else ''
+    except ValueError:
+        return ''
+
+
+def _stage(db, rid, stage, **more):
+    """Where a running analysis is (shown on the event page while it waits): context, asking, retrying, checking."""
+    db.x('UPDATE event_analyses SET details=? WHERE id=?', (json.dumps(dict(more, stage=stage, stage_at=util.iso(util.now()))), rid))
 
 
 def request(app, event_id, actor, lang):
@@ -196,12 +221,27 @@ def run_pending(app, log=print):
             db.x('UPDATE event_analyses SET finished_at=?, error=? WHERE id=?', (util.now(), why or 'event_gone', r['id']))
             continue
         try:
+            _stage(db, r['id'], 'context')
             ctx = context(app, ev)
-            text, usage, secs = client.chat([
-                {'role': 'system', 'content': SYSTEM.replace('{lang}', LANGS.get(r['lang'], 'English'))},
-                {'role': 'user', 'content': json.dumps(ctx, ensure_ascii=False)}], max_tokens=4000, temperature=0, schema=SCHEMA)
+            msgs = [{'role': 'system', 'content': SYSTEM.replace('{lang}', LANGS.get(r['lang'], 'English'))},
+                    {'role': 'user', 'content': json.dumps(ctx, ensure_ascii=False)}]
+            timeout = client.timeout
+            for attempt in (1, 2):
+                _stage(db, r['id'], 'asking', attempt=attempt, timeout=timeout, server=server_label(cfg))
+                try:
+                    text, usage, secs = client.chat(msgs, max_tokens=4000, temperature=0, schema=SCHEMA)
+                    break
+                except llm.LLMError as e:
+                    # a gateway or a model still loading answers 5xx now and then: once more after a pause
+                    if attempt == 2 or e.code not in RETRY_CODES:
+                        raise
+                    _stage(db, r['id'], 'retrying', attempt=attempt, error=e.code, timeout=timeout, server=server_label(cfg))
+                    log('event analysis: event %d: %s, trying again' % (r['event_id'], e.code))
+                    time.sleep(RETRY_PAUSE)
+            _stage(db, r['id'], 'checking', server=server_label(cfg))
             out = clean(llm.parse_json_reply(text), ev)
             out['seconds'] = secs
+            out['server'] = server_label(cfg)
             db.x('UPDATE event_analyses SET finished_at=?, verdict=?, confidence=?, action=?, details=? WHERE id=?',
                  (util.now(), out['verdict'], out['confidence'], out['action'], json.dumps(out, ensure_ascii=False), r['id']))
             app.audit.log('event.analysed', 'analyst', 'system', None, 'ok', event_id=r['event_id'], verdict=out['verdict'],

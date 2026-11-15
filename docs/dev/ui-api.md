@@ -388,3 +388,16 @@ Editing comes in a later phase (config file for now).
 
 ## 0.4.54
 - `rollup.py`: tables `ev_hour`, `ev_hour_family`, `ev_hour_rule`, `ev_hour_src` (node_id, hour, host, origin, outcome, <dimension>, n), kept by triggers `events_rollup_{ins,del,upd}` on `events`; schema 15 creates them and counts existing events. `rollup.window(db, table, since, until, flt, group, by_hour)` = whole hours from the table + partial hours from the events. `GET /overview` uses them when the filters are only host / origin / outcome (and their `not_`), else scans as before (`api.OVERVIEW_ROLLUP`); answers cached `api.OVERVIEW_CACHE_SECONDS` (15 s, or up to 60 s while `MAX(events.id)` is unchanged). `tests/test_rollup.py` checks rollup == scan.
+
+## 0.4.55
+- `GET /traffic?not_host=<site>`: every site but one (ignored with `host`); the answer carries `not_host`.
+- `GET /blocks`: each single-address item has `sites` (`[{host, events}]`, up to 4): its WAF events per site in the
+  7 days up to the block (hourly counts).
+- `GET /vhosts`, `GET /countries/sites`: `country_refused_7d` (outside requests the country rules blocked in 7 days;
+  null without a country rule). `outside_7d` is every outside request, whatever its country or answer.
+- `GET /lookup/{ip}`: `daily` (30 days, oldest first: `{t, events, blocked}`).
+- `GET|POST /events/{id}/analysis`: `llm_server` (scheme, host and port of the URL only) and `llm_model`; a running
+  analysis has `stage` (`context`, `asking`, `retrying`, `checking`), `stage_at`, `attempt`, `timeout`, `error`
+  (while retrying); a queued one `ahead`. A finished one has `server` and `seconds`.
+- Intel threats: `preconditions` and `conditions_met` (`yes` / `no` / `unknown`); `no` makes `affected` `no`.
+- nginx: a location with `internal` is not a WAF bypass and not an IP-block gap.

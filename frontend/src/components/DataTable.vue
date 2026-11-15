@@ -8,11 +8,15 @@
        text?:  (row) => string,   // what the quick search and column filter match (default String(value))
        sortable?: true, filterable?: true,
        hidden?: false,            // hidden until the user picks it
+       menu?: true,               // a right-click on a cell: filter by / exclude its value (text columns; false: off)
        required?: false,          // cannot be hidden
        align?: 'num' | null, nowrap?: false, class?: string,
      }]
      Rows render as plain text unless a cell slot is given (attacker-controlled data stays text). A column that does not
-     sort can draw its own header with #head-<key>="{ col }" (for example a select-all box). -->
+     sort can draw its own header with #head-<key>="{ col }" (for example a select-all box).
+     A right-click on a text cell opens the value menu: "filter by this value" / "exclude this value" for this table
+     (exact match; shown as chips above the table) and "copy". A value inside that has a menu of its own (FilterValue:
+     filters the page, not just the table) keeps it. -->
 <template>
   <div class="datatable">
     <div v-if="toolbar" class="dt-toolbar">
@@ -35,6 +39,11 @@
       </div>
       <button v-if="quick || activeFilters" type="button" class="btn small ghost" @click="clearFilters"><Icon name="clear" />{{ t('table.clear_filters') }}</button>
       <slot name="toolbar" />
+      <span v-for="(f, k) in valFilter" :key="'vf-' + k" class="fchip dt-vf" :class="{ 'fchip-out': f.mode === 'out' }">
+        <span class="fchip-k">{{ f.mode === 'out' ? t('table.vf_out', { col: f.label }) : f.label }}</span>
+        <span class="fchip-v" :title="f.shown.length > 40 ? f.shown : null">{{ f.shown }}</span>
+        <button type="button" class="fchip-x" :aria-label="t('table.vf_remove')" :title="t('table.vf_remove')" @click="delete valFilter[k]"><Icon name="close" /></button>
+      </span>
       <span class="dt-count">{{ t(hasMore ? 'table.rows_more' : 'table.rows', { n: fmtNum(filtered.length) }) }}<template v-if="filtered.length !== rows.length"> / {{ fmtNum(rows.length) }}</template></span>
     </div>
     <div ref="wrap" class="tablewrap" @scroll="syncFromWrap">
@@ -69,7 +78,7 @@
           <tr :class="[rowClass ? rowClass(r) : null, { clickable: clickable, 'dt-open': isExpanded(r, i) }]"
               :tabindex="clickable ? 0 : null" @click="clickable && $emit('row-click', r, $event)"
               @keydown.enter="clickable && $emit('row-click', r, $event)">
-            <td v-for="c in visibleCols" :key="c.key" :class="[c.align, c.class, { nowrap: c.nowrap }]">
+            <td v-for="c in visibleCols" :key="c.key" :class="[c.align, c.class, { nowrap: c.nowrap }]" @contextmenu="cellMenu($event, c, r)">
               <slot :name="'cell-' + c.key" :row="r" :value="valueOf(c, r)">{{ plain(valueOf(c, r)) }}</slot>
             </td>
           </tr>
@@ -90,7 +99,7 @@
       <button type="button" class="btn small ghost" :disabled="page === 0" :aria-label="t('table.first')" @click="page = 0"><Icon name="prev" /><Icon name="prev" /></button>
       <button type="button" class="btn small ghost" :disabled="page === 0" @click="page--"><Icon name="prev" />{{ t('table.prev') }}</button>
       <span class="dt-page">{{ t(hasMore ? 'table.page_more' : 'table.page', { n: page + 1, of: pages }) }}</span>
-      <button type="button" class="btn small ghost" :disabled="(page >= pages - 1 && !hasMore) || loadingMore" @click="next">{{ loadingMore ? t('common.loading') : t('table.next') }}<Icon name="next" /></button>
+      <button type="button" class="btn small ghost" :disabled="(page >= pages - 1 && !hasMore) || loadingMore" @click="next"><template v-if="loadingMore"><Spinner />{{ t('common.loading') }}</template><template v-else>{{ t('table.next') }}<Icon name="next" /></template></button>
       <button type="button" class="btn small ghost" :disabled="page >= pages - 1" :aria-label="t('table.last')" @click="page = pages - 1"><Icon name="next" /><Icon name="next" /></button>
       <SelectBox v-model="pageSize" small :options="sizeOptions" :aria-label="t('table.page_size')" />
     </div>
@@ -104,6 +113,8 @@ import { t, lang } from '../i18n.js'
 import { fmtNum } from '../util.js'
 import Icon from './Icon.vue'
 import SelectBox from './SelectBox.vue'
+import Spinner from './Spinner.vue'
+import { filterItems, openValueMenu } from '../valueMenu.js'
 
 const props = defineProps({
   id: { type: String, required: true },              // remembers columns / page size / sort per table
@@ -235,7 +246,30 @@ const pickOptions = computed(() => {
   return out
 })
 const activeFilters = computed(() => Object.values(colFilter).filter((v) => v && String(v).trim()).length
-  + Object.values(colPick).filter((v) => v).length)
+  + Object.values(colPick).filter((v) => v).length + Object.keys(valFilter).length)
+
+// right-click filters: { <column key>: { mode: 'in' | 'out', v: the cell's text, shown: what it reads, label: column } }
+const valFilter = reactive({})
+function menuable(c) { return c.menu !== false && c.filterable !== false && c.align !== 'num' }
+function cellMenu(e, c, r) {
+  if (e.defaultPrevented || !menuable(c)) return          // a value with its own menu (FilterValue) already opened it
+  const v = textOf(c, r).trim()
+  if (!v || v.length > 500) return
+  const shown = (e.currentTarget && e.currentTarget.textContent || '').replace(/\s+/g, ' ').trim() || v
+  const cur = valFilter[c.key]
+  const active = cur && cur.v === v ? cur.mode : null
+  if (e.target && e.target.closest && e.target.closest('input, textarea, select')) return
+  e.preventDefault()
+  const items = filterItems({ value: shown, head: shown, field: c.label, active,
+    onFilter: (mode) => {
+      if (active === mode) delete valFilter[c.key]
+      else valFilter[c.key] = { mode, v, shown, label: c.label }
+    } })
+  // a link keeps "open in a new tab" (the browser's own menu is replaced here)
+  const link = e.target && e.target.closest ? e.target.closest('a[href]') : null
+  if (link) items.splice(items.length - 1, 0, { key: 'newtab', icon: 'external', label: t('table.open_new_tab'), run: () => window.open(link.href, '_blank', 'noopener') })
+  openValueMenu(e, items)
+}
 const filtered = computed(() => {
   const q = quick.value.trim().toLowerCase()
   const cf = Object.entries(colFilter).filter(([, v]) => v && String(v).trim()).map(([k, v]) => [props.columns.find((c) => c.key === k), String(v).trim().toLowerCase()]).filter(([c]) => c)
@@ -244,6 +278,8 @@ const filtered = computed(() => {
   if (cf.length) out = out.filter((r) => cf.every(([c, v]) => textOf(c, r).toLowerCase().includes(v)))
   const cp = Object.entries(colPick).filter(([k, v]) => v && pickOptions.value[k]).map(([k, v]) => [props.columns.find((c) => c.key === k), v]).filter(([c]) => c)
   if (cp.length) out = out.filter((r) => cp.every(([c, v]) => pickText(c, r) === v))
+  const vf = Object.entries(valFilter).map(([k, f]) => [props.columns.find((c) => c.key === k), f]).filter(([c]) => c)
+  if (vf.length) out = out.filter((r) => vf.every(([c, f]) => (textOf(c, r).trim() === f.v) === (f.mode === 'in')))
   const c = props.columns.find((x) => x.key === sortKey.value)
   if (c) {
     const coll = new Intl.Collator(lang.value, { numeric: true, sensitivity: 'base' })
@@ -262,7 +298,7 @@ const filtered = computed(() => {
 const pages = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize.value)))
 const from = computed(() => page.value * pageSize.value)
 const pageRows = computed(() => filtered.value.slice(from.value, from.value + pageSize.value))
-watch([quick, colFilter, colPick, pageSize, sortKey, sortDir], () => { page.value = 0 }, { deep: true })
+watch([quick, colFilter, colPick, valFilter, pageSize, sortKey, sortDir], () => { page.value = 0 }, { deep: true })
 watch(pages, (n) => { if (page.value > n - 1) page.value = n - 1 })
 
 function sortBy(c) {
@@ -274,6 +310,7 @@ function clearFilters() {
   quick.value = ''
   for (const k of Object.keys(colFilter)) colFilter[k] = ''
   for (const k of Object.keys(colPick)) colPick[k] = ''
+  for (const k of Object.keys(valFilter)) delete valFilter[k]
 }
 const sizeOptions = computed(() => [10, 25, 50, 100, 200].map((n) => ({ value: n, label: t('table.per_page', { n }) })))
 

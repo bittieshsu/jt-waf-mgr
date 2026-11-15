@@ -10,7 +10,8 @@ The program guesses, a person confirms (only confirmed entries are ever sent to 
 The packages and path signatures are data: data/software-signatures.json (each signature carries sample paths that
 tests/test_software_signatures.py checks are guessed as it, and that no common path is).
 
-Sent to the LLM: product names and versions only -- never site names, addresses or request data.
+Sent to the LLM: product names and versions (and the host facts of intel.host_facts) -- never site names, addresses
+or request data.
 """
 import collections
 import json
@@ -142,6 +143,9 @@ def own_hosts(app):
     return out
 
 
+ACTIVESYNC_SERVERS = ('Exchange (OWA)', 'Zimbra', 'SOGo', 'Kerio Connect')
+
+
 def guess(app):
     """What the program can tell: [{name, version, hosts, evidence, kind}]."""
     out = []
@@ -168,7 +172,14 @@ def guess(app):
         crs = None
     if crs:
         out.append({'name': 'OWASP CRS', 'version': crs, 'hosts': [], 'kind': 'host', 'evidence': 'ModSecurity configuration'})
-    for name, by_host in sorted(scan_logs(app.cfg, exclude=own_hosts(app)).items()):
+    found = scan_logs(app.cfg, exclude=own_hosts(app))
+    # ActiveSync alone means Z-Push; on a host that also shows a mail server with its own ActiveSync it is that one
+    with_own = set()
+    for n in ACTIVESYNC_SERVERS:
+        with_own.update(found.get(n, {}))
+    if 'Z-Push' in found:
+        found['Z-Push'] = {h: c for h, c in found['Z-Push'].items() if h not in with_own}
+    for name, by_host in sorted(found.items()):
         hosts = sorted(h for h, n in by_host.items() if n >= MIN_HITS)
         if hosts:
             out.append({'name': name, 'version': '', 'hosts': hosts, 'kind': 'site',

@@ -20,35 +20,37 @@
             <h2><Icon name="report" /> #{{ rv.id }} · {{ window(rv) }}</h2>
             <span class="badge" :class="rv.level === 'warning' ? 'b-warn' : 'b-ok'">{{ verdict(rv) }}</span>
           </div>
-          <div class="rvtiles">
-            <div class="rvtile"><span class="muted small">{{ t('review.events') }}</span><b>{{ fmtNum(rv.events) }}</b>
-              <span class="muted small">{{ t('review.blocked_logged', { b: fmtNum(rv.blocked), l: fmtNum(rv.logged) }) }}</span></div>
-            <div class="rvtile" :class="{ attn: rv.possible_false_blocks }"><span class="muted small">{{ t('review.suspects') }}</span><b>{{ fmtNum(rv.possible_false_blocks) }}</b>
-              <span class="muted small">{{ t('review.of_groups', { n: fmtNum(rv.score_only_groups) }) }}</span></div>
-            <div class="rvtile" :class="{ attn: rv.internal_new }"><span class="muted small">{{ t('review.internal_new') }}</span><b>{{ fmtNum(rv.internal_new) }}</b>
-              <span class="muted small">{{ t('review.of_groups', { n: fmtNum((rv.internal || []).length) }) }}</span></div>
-            <div class="rvtile"><span class="muted small">{{ t('review.not_refused') }}</span><b>{{ fmtNum(rv.outside_not_refused_groups) }}</b>
-              <span class="muted small">{{ (rv.outside_failed_probes || rv.outside_redirected) ? t('review.not_through', { a: fmtNum(rv.outside_failed_probes || 0), b: fmtNum(rv.outside_redirected || 0) }) : t('review.groups') }}</span></div>
-            <div class="rvtile"><span class="muted small">{{ t('review.done') }}</span><b>{{ fmtNum(rv.applied) }}</b>
-              <span class="muted small">{{ t('review.done_hint', { b: fmtNum(sum(rv.ip_blocks)), p: fmtNum((rv.analysis || {}).proposals || 0) }) }}</span></div>
+          <div class="tiles rvtiles">
+            <div class="tile stat t-events"><div class="tl"><Icon name="list" />{{ t('review.events') }}</div><div class="tv">{{ fmtNum(rv.events) }}</div>
+              <div class="ts">{{ t('review.blocked_logged', { b: fmtNum(rv.blocked), l: fmtNum(rv.logged) }) }}</div></div>
+            <div class="tile stat" :class="rv.possible_false_blocks ? 't-blocked' : 't-logged'"><div class="tl"><Icon name="block" />{{ t('review.suspects') }}</div>
+              <div class="tv">{{ fmtNum(rv.possible_false_blocks) }}</div><div class="ts">{{ t('review.of_groups', { n: fmtNum(rv.score_only_groups) }) }}</div></div>
+            <div class="tile stat t-int"><div class="tl"><Icon name="network" />{{ t('review.internal_new') }}</div><div class="tv">{{ fmtNum(rv.internal_new) }}</div>
+              <div class="ts">{{ t('review.of_groups', { n: fmtNum((rv.internal || []).length) }) }}</div></div>
+            <div class="tile stat t-ext"><div class="tl"><Icon name="alert" />{{ t('review.not_refused') }}</div><div class="tv">{{ fmtNum(rv.outside_not_refused_groups) }}</div>
+              <div class="ts">{{ (rv.outside_failed_probes || rv.outside_redirected) ? t('review.not_through', { a: fmtNum(rv.outside_failed_probes || 0), b: fmtNum(rv.outside_redirected || 0) }) : t('review.of_events', { n: fmtNum(sumN(rv.outside_not_refused)) }) }}</div></div>
+            <div class="tile stat"><div class="tl"><Icon name="change" />{{ t('review.done') }}</div><div class="tv">{{ fmtNum(rv.applied) }}</div>
+              <div class="ts">{{ t('review.done_hint', { b: fmtNum(sum(rv.ip_blocks)), p: fmtNum((rv.analysis || {}).proposals || 0) }) }}</div></div>
           </div>
-          <p class="small">
-            <span>{{ t('review.waiting', { a: fmtNum(rv.open_alerts), c: fmtNum((rv.awaiting_approval || []).length) }) }}</span>
-            <RouterLink v-if="rv.open_alerts" class="gapl" to="/alerts">{{ t('review.go_alerts') }}</RouterLink>
-            <RouterLink v-if="(rv.awaiting_approval || []).length" class="gapl" to="/changes">{{ t('review.go_changes') }}</RouterLink>
-          </p>
+          <div class="alert integritybanner rvwait" :class="rv.open_alerts || (rv.awaiting_approval || []).length ? 'warn' : 'info'" role="status">
+            <Icon name="bell" /><span>{{ t('review.waiting', { a: fmtNum(rv.open_alerts), c: fmtNum((rv.awaiting_approval || []).length) }) }}</span>
+            <span class="rvbtns">
+              <RouterLink v-if="rv.open_alerts" class="btn small" to="/alerts"><Icon name="go" />{{ t('review.go_alerts') }}</RouterLink>
+              <RouterLink v-if="(rv.awaiting_approval || []).length" class="btn small" to="/changes"><Icon name="go" />{{ t('review.go_changes') }}</RouterLink>
+            </span>
+          </div>
         </section>
 
         <section v-if="(rv.focus || []).length" class="card">
           <h2><Icon name="shield" /> {{ t('review.focus') }}</h2>
-          <ul class="rvfocus">
-            <li v-for="f in rv.focus" :key="f.host" :class="{ attn: f.outside_not_refused || f.s429 || (f.repeated_login || []).length }">
-              <b class="mono">{{ f.host }}</b>
-              <span class="gapl">{{ t('review.focus_line', { e: fmtNum(f.events), b: fmtNum(f.blocked), o: fmtNum(f.outside_not_refused), l: fmtNum(f.login_events), r: fmtNum(f.requests), x: fmtNum(f.external_requests), s: fmtNum(f.s429) }) }}</span>
-              <div v-if="(f.repeated_login || []).length" class="small">{{ t('review.repeated') }}
-                <span v-for="p in f.repeated_login" :key="p[0]" class="gapl"><span class="mono" :data-ip="p[0]">{{ p[0] }}</span> ×{{ p[1] }}</span></div>
-            </li>
-          </ul>
+          <DataTable id="review-focus" :columns="focusCols" :rows="rv.focus" :row-key="(r) => r.host" :page-size="25"
+                     :row-class="(f) => (f.outside_not_refused || f.s429 || (f.repeated_login || []).length ? 'rvattn' : null)">
+            <template #cell-host="{ row }"><span class="mono">{{ row.host }}</span></template>
+            <template #cell-repeated="{ row }">
+              <span v-if="!(row.repeated_login || []).length" class="muted">—</span>
+              <span v-for="p in row.repeated_login || []" :key="p[0]" class="rvrep"><span class="mono" :data-ip="p[0]">{{ p[0] }}</span> ×{{ p[1] }}</span>
+            </template>
+          </DataTable>
         </section>
 
         <section class="card">
@@ -160,6 +162,18 @@ const cols = computed(() => [
   { key: 'applied', label: t('review.col.applied'), align: 'num' },
   { key: 'trigger', label: t('review.col.trigger'), hidden: true, value: (r) => t('review.trigger.' + r.trigger) },
 ])
+function sumN(list) { return (list || []).reduce((a, r) => a + (r.n || 0), 0) }
+const focusCols = computed(() => [
+  { key: 'host', label: t('review.col.host'), required: true },
+  { key: 'events', label: t('review.col.events'), align: 'num', nowrap: true },
+  { key: 'blocked', label: t('review.col.blocked'), align: 'num', nowrap: true },
+  { key: 'outside_not_refused', label: t('review.not_refused'), align: 'num', nowrap: true },
+  { key: 'login_events', label: t('review.col.login'), align: 'num', nowrap: true },
+  { key: 'requests', label: t('review.col.requests'), align: 'num', nowrap: true },
+  { key: 'external_requests', label: t('review.col.external_requests'), align: 'num', nowrap: true },
+  { key: 's429', label: '429', align: 'num', nowrap: true },
+  { key: 'repeated', label: t('review.col.repeated'), sortable: false, value: (r) => (r.repeated_login || []).map((p) => p[0]).join(' ') },
+])
 const groupCols = computed(() => [
   { key: 'what', label: t('review.col.what'), value: (r) => (r.suspect ? 0 : 1) },
   { key: 'host', label: t('review.col.host') },
@@ -206,12 +220,13 @@ onMounted(load)
 </script>
 
 <style scoped>
-.rvtiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 0 0 12px; }
-.rvtile { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); }
-.rvtile b { font-size: 22px; font-variant-numeric: tabular-nums; }
-.rvtile.attn { border-color: var(--warn); }
-.rvfocus, .rvlist { list-style: none; margin: 0; padding: 0; }
-.rvfocus li, .rvlist li { padding: 6px 0; border-bottom: 1px solid var(--border); }
-.rvfocus li:last-child, .rvlist li:last-child { border-bottom: 0; }
-.rvfocus li.attn { box-shadow: inset 3px 0 0 var(--warn); padding-left: 8px; }
+.rvtiles { margin: 0 0 12px; }
+.rvwait { margin: 0; }
+.rvbtns { display: inline-flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+.rvrep { white-space: nowrap; }
+.rvrep + .rvrep { margin-left: 10px; }
+:deep(tr.rvattn > td:first-child) { box-shadow: inset 3px 0 0 var(--warn); }
+.rvlist { list-style: none; margin: 0; padding: 0; }
+.rvlist li { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.rvlist li:last-child { border-bottom: 0; }
 </style>

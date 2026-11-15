@@ -153,6 +153,9 @@ class PollTest(unittest.TestCase):
         self.assertEqual(rep['by_host'][0]['host'], 'shop.example.com')
         one = traffic.report(self.app, now - 86400, now, host='api.example.com')
         self.assertEqual((one['totals']['total'], one['totals']['blocked']), (50, 0))
+        rest = traffic.report(self.app, now - 86400, now, not_host='shop.example.com')
+        self.assertEqual((rest['totals']['total'], rest['totals']['blocked'], rest['not_host']), (50, 0, 'shop.example.com'))
+        self.assertEqual([h['host'] for h in rest['by_host']], ['api.example.com'])
         month = traffic.report(self.app, now - 30 * 86400, now)
         self.assertEqual(month['bucket_seconds'], 86400)
 

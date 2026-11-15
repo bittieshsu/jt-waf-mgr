@@ -8,11 +8,11 @@
              :page-size="pageSize" :toolbar="toolbar" :empty="emptyText || ''" class="events">
     <template #cell-ts="{ row }"><RouterLink :to="'/events/' + row.id">{{ fmtShortTime(row.ts) }}</RouterLink></template>
     <template #cell-outcome="{ row }">
-      <FilterValue v-if="filterable" :value="outKey(row)" :text="t('event.outcome')" :active="act('outcome', outKey(row))" @filter="(m) => emit('filter', 'outcome', outKey(row), m)"><OutcomeBadge :outcome="row.outcome" :decided-by="row.decided_by" :redirected="row.redirected" /></FilterValue>
+      <FilterValue v-if="filterable" :value="outKey(row)" :text="t('event.outcome')" :field="t('event.outcome')" :active="act('outcome', outKey(row))" @filter="(m) => emit('filter', 'outcome', outKey(row), m)"><OutcomeBadge :outcome="row.outcome" :decided-by="row.decided_by" :redirected="row.redirected" /></FilterValue>
       <OutcomeBadge v-else :outcome="row.outcome" :decided-by="row.decided_by" :redirected="row.redirected" />
     </template>
     <template #cell-host="{ row }">
-      <FilterValue v-if="filterable && row.host" :value="row.host" :active="act('host', row.host)" @filter="(m) => emit('filter', 'host', row.host, m)"><TruncText :text="row.host" :max="80" /></FilterValue>
+      <FilterValue v-if="filterable && row.host" :value="row.host" :head="row.host" :field="t('event.host')" :active="act('host', row.host)" @filter="(m) => emit('filter', 'host', row.host, m)"><TruncText :text="row.host" :max="80" /></FilterValue>
       <TruncText v-else :text="row.host" :max="80" />
     </template>
     <template #cell-request="{ row }">
@@ -23,19 +23,19 @@
       <div v-if="row.message" class="sub"><TruncText :text="row.message" :max="200" /></div>
     </template>
     <template #cell-src_ip="{ row }"><span class="srcline">
-      <FilterValue v-if="filterable" class="mono" :value="row.src_ip" :to="'/lookup/' + encodeURIComponent(row.src_ip)" :data-ip="row.src_ip"
+      <FilterValue v-if="filterable" class="mono" :value="row.src_ip" :field="t('field.src_ip')" :head="[row.src_ip, geoText(row.src_geo)].filter(Boolean).join(' · ')" :to="'/lookup/' + encodeURIComponent(row.src_ip)" :data-ip="row.src_ip"
                    :active="act('src_ip', row.src_ip)" @filter="(m) => emit('filter', 'src_ip', row.src_ip, m)">{{ safeText(row.src_ip, 45) }}</FilterValue>
       <RouterLink v-else :to="'/lookup/' + encodeURIComponent(row.src_ip)" class="mono" :data-ip="row.src_ip">{{ safeText(row.src_ip, 45) }}</RouterLink>
       <GeoTag :geo="row.src_geo" compact />
-      <FilterValue v-if="filterable" :value="row.origin || 'external'" :text="t('event.origin')" :active="act('origin', row.origin || 'external')" @filter="(m) => emit('filter', 'origin', row.origin || 'external', m)"><OriginBadge :origin="row.origin" /></FilterValue>
+      <FilterValue v-if="filterable" :value="row.origin || 'external'" :text="t('event.origin')" :field="t('event.origin')" :active="act('origin', row.origin || 'external')" @filter="(m) => emit('filter', 'origin', row.origin || 'external', m)"><OriginBadge :origin="row.origin" /></FilterValue>
       <OriginBadge v-else :origin="row.origin" />
     </span></template>
     <template #cell-status="{ row }"><span class="mono">{{ row.status ?? '—' }}</span></template>
     <template #cell-rules="{ row }">
       <template v-if="filterable">
-        <FilterValue v-for="f in row.families || []" :key="'f' + f" quiet class="chip fam" :value="f" :text="t('family.' + f)" :active="act('family', f)" @filter="(m) => emit('filter', 'family', f, m)">{{ t('family.' + f) }}</FilterValue>
-        <FilterValue v-for="r in (row.local_rule_ids || [])" :key="'l' + r" quiet class="chip local mono" :value="String(r)" :to="'/rules/' + r" :active="act('rule_id', String(r))" @filter="(m) => emit('filter', 'rule_id', String(r), m)">{{ r }}</FilterValue>
-        <span class="rules-ids mono"><FilterValue v-for="r in otherIds(row).shown" :key="'r' + r" quiet class="ruleid" :value="String(r)" :to="'/rules/' + r" :active="act('rule_id', String(r))" @filter="(m) => emit('filter', 'rule_id', String(r), m)">{{ r }}</FilterValue><template v-if="otherIds(row).more"> +{{ otherIds(row).more }}</template></span>
+        <FilterValue v-for="f in row.families || []" :key="'f' + f" quiet class="chip fam" :value="f" :text="t('family.' + f)" :field="t('event.family')" :active="act('family', f)" @filter="(m) => emit('filter', 'family', f, m)">{{ t('family.' + f) }}</FilterValue>
+        <FilterValue v-for="r in (row.local_rule_ids || [])" :key="'l' + r" quiet class="chip local mono" :value="String(r)" :field="t('filter.rule_id')" :to="'/rules/' + r" :active="act('rule_id', String(r))" @filter="(m) => emit('filter', 'rule_id', String(r), m)">{{ r }}</FilterValue>
+        <span class="rules-ids mono"><FilterValue v-for="r in otherIds(row).shown" :key="'r' + r" quiet class="ruleid" :value="String(r)" :field="t('filter.rule_id')" :to="'/rules/' + r" :active="act('rule_id', String(r))" @filter="(m) => emit('filter', 'rule_id', String(r), m)">{{ r }}</FilterValue><template v-if="otherIds(row).more"> +{{ otherIds(row).more }}</template></span>
       </template>
       <template v-else>
         <span v-for="f in row.families || []" :key="'f' + f" class="chip fam">{{ t('family.' + f) }}</span>
@@ -44,11 +44,11 @@
       </template>
     </template>
     <template #cell-decided_by="{ row }">
-      <FilterValue v-if="filterable && row.decided_by" :value="row.decided_by" :text="t('decided.' + row.decided_by)" :active="act('decided_by', row.decided_by)" @filter="(m) => emit('filter', 'decided_by', row.decided_by, m)">{{ t('decided.' + row.decided_by) }}</FilterValue>
+      <FilterValue v-if="filterable && row.decided_by" :value="row.decided_by" :text="t('decided.' + row.decided_by)" :field="t('event.decided_by')" :active="act('decided_by', row.decided_by)" @filter="(m) => emit('filter', 'decided_by', row.decided_by, m)">{{ t('decided.' + row.decided_by) }}</FilterValue>
       <template v-else>{{ row.decided_by ? t('decided.' + row.decided_by) : '—' }}</template>
     </template>
     <template #cell-origin="{ row }">
-      <FilterValue v-if="filterable" :value="row.origin || 'external'" :text="t('event.origin')" :active="act('origin', row.origin || 'external')" @filter="(m) => emit('filter', 'origin', row.origin || 'external', m)"><OriginBadge :origin="row.origin" /></FilterValue>
+      <FilterValue v-if="filterable" :value="row.origin || 'external'" :text="t('event.origin')" :field="t('event.origin')" :active="act('origin', row.origin || 'external')" @filter="(m) => emit('filter', 'origin', row.origin || 'external', m)"><OriginBadge :origin="row.origin" /></FilterValue>
       <OriginBadge v-else :origin="row.origin" />
     </template>
   </DataTable>

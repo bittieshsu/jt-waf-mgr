@@ -82,7 +82,8 @@ function menu(e, d) {
   e.preventDefault()
   hide()
   const a = d.item.active === 'out' ? 'out' : d.item.key === props.activeKey ? 'in' : null
-  openValueMenu(e, filterItems({ value: d.item.key, active: a, excludable: props.excludable, onFilter: (m) => pick(d, m), openTo: d.item.to || null }))
+  openValueMenu(e, filterItems({ value: d.item.key, active: a, excludable: props.excludable, onFilter: (m) => pick(d, m), openTo: d.item.to || null,
+    head: d.item.label && d.item.label !== d.key ? d.item.label + ' (' + d.key + ')' : d.key, field: t('evidence.col.country') }))
 }
 </script>
 

@@ -2,6 +2,7 @@
 """UI conventions the build enforces (run by tools/build_frontend.sh):
 
 - every button (and every link styled as a button) carries an <Icon>;
+- number tiles are "tile stat" (icon + label, value, a line under it) like the dashboard's;
 - no browser-native <select>: the site's SelectBox only; no native date / time inputs: DatePicker;
 - list tables go through DataTable (sort, filter, columns, pages); the few tables that are not lists
   are named in TABLE_EXEMPT with the reason;
@@ -82,6 +83,8 @@ def main():
     sink = re.compile(r'\bv-html\b|\.innerHTML\b|\.outerHTML\b|insertAdjacentHTML|document\.write\(')
     # the app's own dialog only: the browser's ignores the theme and the language (and may be suppressed)
     native = re.compile(r'\b(?:window|self|globalThis)\.(?:confirm|alert|prompt)\b|(?<![\w.$])(?:alert|prompt)\(')
+    # number tiles look like the dashboard's everywhere: icon + label, the value, a line under it (tile stat)
+    plain_tile = re.compile(r'class="tile(?:\s(?![^"]*\bstat\b)[^"]*)?"')
     for dirpath, _, files in os.walk(SRC):
         for name in files:
             if not name.endswith(('.vue', '.js')) or name == 'worldLand.js':
@@ -92,6 +95,13 @@ def main():
                 code = re.sub(r'//.*$', '', line)
                 if sink.search(code):
                     problems.append('%s:%d: HTML sink (v-html / innerHTML); render as text' % (os.path.relpath(path, ROOT), i))
+                # "loading..." always comes with the spinner (Loading.vue, or Spinner on the same line)
+                if name.endswith('.vue') and name != 'Loading.vue' and 'common.loading' in code and 'Spinner' not in code:
+                    problems.append('%s:%d: loading text without the spinner; use <Loading /> or put <Spinner /> next to '
+                                    'it' % (os.path.relpath(path, ROOT), i))
+                if name.endswith('.vue') and plain_tile.search(code):
+                    problems.append('%s:%d: a plain number tile; use class="tile stat" with an icon in .tl (like the '
+                                    'dashboard)' % (os.path.relpath(path, ROOT), i))
                 if native.search(code):
                     problems.append("%s:%d: the browser's own dialog (confirm / alert / prompt); use askConfirm "
                                     "(confirmDialog.js)" % (os.path.relpath(path, ROOT), i))

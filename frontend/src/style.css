@@ -194,9 +194,10 @@ a.navlink:hover, button.navlink:hover { background: var(--panel-2); color: var(-
   background: none; border: none; cursor: pointer; text-align: left; width: 100%; }
 .navitem .icon { color: var(--muted); width: 20px; height: 20px; }
 a.navitem:hover, button.navitem:hover { background: var(--panel-2); text-decoration: none; }
-.navitem.active { background: var(--panel-2); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); box-shadow: inset 3px 0 0 var(--accent); font-weight: 600; }
+.navitem.active { color: var(--accent); font-weight: 600; }
 .navitem.active .icon { color: var(--accent); }
 .navitem .badge.tiny { margin-left: 0; }
+.navitem .navext-i { margin-left: auto; width: 14px; height: 14px; }
 .np-me { display: none; }
 .np-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 6px; }
 .topright { display: flex; gap: 10px; align-items: center; flex: none; }
@@ -209,6 +210,9 @@ a.navitem:hover, button.navitem:hover { background: var(--panel-2); text-decorat
 .userlink { color: var(--text); white-space: nowrap; display: inline-flex; align-items: baseline; min-width: 0; }
 .username { max-width: 12em; overflow: hidden; text-overflow: ellipsis; }
 .role { font-size: 12px; color: var(--muted); margin-left: 4px; }
+.roleicon { display: inline-flex; align-items: center; color: var(--muted); align-self: center; }
+.roleicon .icon { width: 16px; height: 16px; }
+.roleicon.r-admin { color: var(--accent); }
 .bare-top { display: flex; justify-content: flex-end; gap: 10px; padding: 10px 16px; }
 .content { flex: 1; padding: 16px; width: 100%; max-width: 1600px; margin: 0 auto; }
 .footer { padding: 12px 16px; color: var(--muted); font-size: 13px; text-align: center; border-top: 1px solid var(--border); display: flex; gap: 6px; justify-content: center; }
@@ -265,12 +269,18 @@ table.grid th:hover .dt-resize::after, .dt-resize:focus-visible::after { backgro
 .dt-resize:focus-visible::after { background: var(--accent); }
 table.grid th { text-align: left; font-weight: 600; color: var(--muted); font-size: 13px; background: var(--panel-2); padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 table.grid td { padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+/* a badge alone in a cell sits on the cell's middle, not on the text baseline (it looked a few pixels low) */
+table.grid td .badge { vertical-align: middle; }
 table.grid tr:last-child td { border-bottom: none; }
 table.grid tbody tr:hover td { background: var(--panel-2); }
 table.grid .num { text-align: right; font-variant-numeric: tabular-nums; }
 table.grid td.empty, .empty { color: var(--muted); text-align: center; padding: 16px; }
 .empty.small { padding: 6px; text-align: left; }
 .events .c-req { max-width: 0; width: 45%; min-width: 240px; }
+/* the request and its message stay inside their column ("..." and the full text on hover), whatever its width */
+.events td.c-req { overflow: hidden; }
+.events td.c-req .sub .trunc, .events td.c-req .reqlink .trunc { display: block; max-width: 100%; }
+.events td.c-req .reqlink { min-width: 0; max-width: 100%; }
 .events .c-host { min-width: 120px; }
 .events .c-host { max-width: 220px; }
 .events .c-rules { max-width: 260px; }
@@ -292,6 +302,13 @@ table.grid td.empty, .empty { color: var(--muted); text-align: center; padding: 
 /* the one flexible text column of a list: takes the width the other columns leave and truncates inside it (no
    horizontal scrollbar just because a summary is long) */
 .tablewrap td.c-fill { width: 100%; max-width: 0; }
+/* the filling column keeps a readable width: a wide neighbour no longer squeezes it to one letter a line */
+.tablewrap td.c-fill > * { min-width: 220px; }
+/* site names and host patterns: at most about 280px, longer ones wrap */
+.tablewrap td.c-hosts { max-width: 280px; }
+/* a long nginx line (location pattern, if condition): wraps inside its column instead of running past it */
+.wrapline { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+.tablewrap td.c-hosts .chip.host, .tablewrap td.c-hosts .chip.host .trunc { white-space: normal; word-break: break-all; overflow-wrap: anywhere; }
 .tablewrap td.c-kind { min-width: 11em; }
 .tablewrap td.c-fill .trunc, .tablewrap td.c-fill .trunc:not([style*="max-width"]):not(.open) { max-width: 100%; display: block; }
 .tablewrap td.c-fill .breakall { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -723,6 +740,10 @@ td .pickval + .geotag { margin-top: 2px; }
 .vm-item .icon { width: 16px; height: 16px; color: var(--muted); flex: none; }
 a.vm-item:hover, button.vm-item:hover, .vm-item:focus-visible { background: var(--panel-2); text-decoration: none; outline: none; }
 .vm-item:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.vm-head { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 6px 10px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--border);
+  cursor: default; user-select: text; }
+.vm-field { font-size: 12px; color: var(--muted); }
+.vm-val { font-size: 14px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .openlink { display: inline-flex; align-items: center; padding: 2px; margin-left: 2px; color: var(--muted); border-radius: 3px; flex: none; }
 .openlink:hover { color: var(--accent); }
 .openlink .icon { width: .95em; height: .95em; }
@@ -1049,3 +1070,34 @@ a.tile.tilelink:hover { border-color: var(--accent); box-shadow: 0 2px 10px rgba
 .jt-ipcard .ic-note.ok { color: var(--ok); }
 .jt-ipcard .ic-note.warn { color: var(--warn); }
 .jt-ipcard .ic-foot { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+
+/* label / value facts, one per row, two columns that line up (event detail and the like) */
+.factgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; margin: 10px 0 12px; }
+@media (max-width: 900px) { .factgrid { grid-template-columns: minmax(0, 1fr); } }
+dl.facts { margin: 0; }
+dl.facts > div { display: grid; grid-template-columns: 8.5em minmax(0, 1fr); gap: 10px; align-items: center; min-height: 36px;
+  padding: 4px 0; border-bottom: 1px dashed var(--border); }
+dl.facts > div:last-child { border-bottom: 0; }
+dl.facts dt { color: var(--muted); font-size: 13.5px; }
+dl.facts dd { margin: 0; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+@media (max-width: 900px) { dl.facts:first-child > div:last-child { border-bottom: 1px dashed var(--border); } }
+
+/* the spinner (Spinner.vue, Loading.vue) */
+.spinner { display: inline-block; flex: none; width: 1em; height: 1em; border-radius: 50%; vertical-align: -.15em;
+  border: 2px solid color-mix(in srgb, var(--accent) 22%, transparent); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+.spinner.big { width: 1.6em; height: 1.6em; border-width: 3px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spinpulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: spinpulse 1.6s ease-in-out infinite; border-color: var(--accent); } }
+.loading { display: flex; align-items: center; gap: 8px; }
+/* the steps of a job that is running (event AI analysis): done, the current one with the spinner, still to come */
+.jobsteps { list-style: none; margin: 4px 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.jobsteps li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: start; }
+.jobsteps .js-mark { display: inline-flex; justify-content: center; padding-top: 2px; }
+.jobsteps .js-mark .icon { width: 16px; height: 16px; }
+.jobsteps li.done .js-mark { color: var(--ok); }
+.jobsteps li.todo { color: var(--muted); }
+.jobsteps li.now .js-label { font-weight: 600; }
+.jobsteps .js-sub { font-size: 12.5px; color: var(--muted); }
+.llmline { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); margin: 0 0 8px; }
+.llmline b { color: var(--text); font-weight: 600; }

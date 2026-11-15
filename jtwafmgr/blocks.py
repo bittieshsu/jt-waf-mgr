@@ -416,6 +416,10 @@ class Blocks:
                     if any(d.name in ('allow', 'deny') and d.file != path for d in s.children):
                         uncovered.append({'server': name, 'location': None, 'file': s.file, 'line': s.line})
                     for loc, d in _locations(s.children):
+                        # an `internal` location (jt-waf-mgr's blocked page, error pages) is never asked for directly:
+                        # its `allow all` lets the page show, it opens nothing
+                        if any(c.name == 'internal' for c in d.children):
+                            continue
                         if any(c.name in ('allow', 'deny') for c in d.children):
                             uncovered.append({'server': name, 'location': loc, 'file': d.file, 'line': d.line})
         except Exception as e:      # noqa: BLE001 -- a broken nginx configuration is reported, not fatal here

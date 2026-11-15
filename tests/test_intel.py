@@ -146,6 +146,37 @@ class TestRun(Base):
         self.assertEqual(al['severity'], 'critical')
         self.assertIn('may affect us', al['details'])
 
+    def _cisa_run(self, threat):
+        a = json.loads(json.dumps(ANSWER))
+        a['threats'] = [dict(a['threats'][0], **threat)]
+        Fake.script = [openai_reply(calls=[('fetch_url', {'url': 'https://www.cisa.gov/known-exploited-vulnerabilities-catalog'})]),
+                       openai_reply(content=json.dumps(a))]
+        old_public, old_get = intel._public, intel._get_pinned
+        intel._public = lambda h, p: '203.0.113.5'
+        intel._get_pinned = lambda u, ip, t: (200, {'content-type': 'text/html'}, b'<td>CVE-2026-11111</td>')
+        try:
+            intel.run(self.app, 'manual', log=lambda m: None)
+        finally:
+            intel._public, intel._get_pinned = old_public, old_get
+
+    def test_preconditions_the_host_does_not_meet(self):
+        """Exploited, the version matches, but it needs musl and sshd without PAM (an Alpine build): not us."""
+        self.app.cfg.data['intel']['patches'] = False
+        self._cisa_run({'preconditions': 'musl libc and sshd built without PAM', 'conditions_met': 'no'})
+        self.assertEqual(self.app.db.one('SELECT affected FROM intel_threats')['affected'], 'no')
+        self.assertIsNone(self.app.db.one("SELECT 1 FROM alerts WHERE kind='exploited_vulnerability'"))
+        # the host facts went with the list (operating system, C library); no site names
+        user = [b for p, h, b in Fake.seen if p == '/v1/chat/completions'][0]['messages'][1]['content']
+        self.assertIn('Host facts', user)
+        self.assertIn('architecture', user)
+
+    def test_preconditions_not_confirmed_give_a_warning_not_the_urgent_path(self):
+        self.app.cfg.data['intel']['patches'] = False
+        self._cisa_run({'preconditions': 'the mod_example module enabled', 'conditions_met': 'unknown'})
+        al = self.app.db.one("SELECT severity, details FROM alerts WHERE kind='exploited_vulnerability'")
+        self.assertEqual(al['severity'], 'warning')
+        self.assertIn('check whether it applies', al['details'])
+
     def test_openai_tool_loop_and_what_is_kept(self):
         self.app.cfg.data['intel']['patches'] = False        # virtual patches: TestPatches
         Fake.script = [openai_reply(calls=[('web_search', {'query': 'Example CMS CVE'}),
@@ -476,13 +507,29 @@ class TestSoftware(unittest.TestCase):
         self.assertEqual(software.scan_logs(self.app.cfg).get('Exchange (OWA)'), {'mail.example.com': 5})   # ActiveSync alone: no
         software.refresh(self.app, 'alice')
         r = self.app.db.one("SELECT id FROM software WHERE name='Exchange (OWA)'")
-        software.save(self.app.db, 'alice', 'Z-Push', '', ['mail.example.com'], sid=r['id'])
+        software.save(self.app.db, 'alice', 'Exchange 2019', '', ['mail.example.com'], sid=r['id'])
         software.refresh(self.app, 'alice')
         names = {x['name'] for x in software.listing(self.app.db)}
-        self.assertIn('Z-Push', names)
+        self.assertIn('Exchange 2019', names)
+        self.assertIn('Z-Push', names)                              # push.example.com: ActiveSync alone
         self.assertNotIn('Exchange (OWA)', names)                    # the person's rename stands
-        self.app.db.x("DELETE FROM software WHERE name='Z-Push'")
+        self.app.db.x("DELETE FROM software WHERE name IN ('Exchange 2019', 'Z-Push')")
         self.app.db.set_meta(software.DISMISSED_KEY, '[]')
+
+    def test_activesync_alone_is_zpush_unless_a_mail_server_answers_there(self):
+        d = os.path.join(self.env.dir, 'tr5')
+        os.makedirs(d, exist_ok=True)
+        lines = [json.dumps({'vhost': 'push.example.com', 'path': '/Microsoft-Server-ActiveSync?Cmd=Ping', 'http_status': 200})] * 5
+        lines += [json.dumps({'vhost': 'mail.example.com', 'path': p, 'http_status': 200})
+                  for p in ('/Microsoft-Server-ActiveSync?Cmd=Sync', '/service/soap/AuthRequest') * 4]
+        lines += [json.dumps({'vhost': 'mon.example.com', 'path': '/api/v0/devices', 'http_status': 200})] * 4
+        with open(os.path.join(d, 'access.log'), 'w') as fh:
+            fh.write('\n'.join(lines) + '\n')
+        self.app.cfg.data['traffic']['logs'] = [d + '/*access.log']
+        by = {g['name']: g['hosts'] for g in software.guess(self.app) if g['kind'] == 'site'}
+        self.assertEqual(by.get('Z-Push'), ['push.example.com'])         # mail.example.com is Zimbra's own ActiveSync
+        self.assertEqual(by.get('Zimbra'), ['mail.example.com'])
+        self.assertEqual(by.get('LibreNMS / Observium'), ['mon.example.com'])
 
     def test_validation(self):
         for name, ver in (('<script>', '1'), ('ok', 'a b'), ('', '1')):

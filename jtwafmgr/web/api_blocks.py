@@ -34,7 +34,29 @@ def block_list(app, req):
     from . import api
     for it in items:                      # the country of the address (of the first address of a range)
         it['geo'] = api.geo(it['ip'].split('/')[0])
+    _sites(app, items)
     return json_response(200, dict(app.blocks.status(), items=items))
+
+
+def _sites(app, items):
+    """Which sites a blocked address went for: its WAF events per site in the 7 days up to the block (the hourly
+    counts, so the hour of the block is included). A range gets none (too many addresses to name one site)."""
+    ids = [it['id'] for it in items if '/' not in it['ip']]
+    if not ids:
+        return
+    made = {r['id']: r['created_at'] for r in app.db.q('SELECT id, created_at FROM ip_blocks WHERE id IN (%s)'
+                                                       % ','.join('?' * len(ids)), tuple(ids))}
+    for it in items:
+        ts = made.get(it['id'])
+        if ts is None:
+            continue
+        h = int(ts // 3600)
+        try:
+            rows = app.db.q('SELECT host, SUM(n) n FROM ev_hour_src WHERE src_ip=? AND hour>=? AND hour<=? GROUP BY host '
+                            'ORDER BY n DESC, host LIMIT 4', (it['ip'], h - 7 * 24, h))
+        except Exception:        # noqa: BLE001 -- no hourly counts yet: the column stays empty
+            return
+        it['sites'] = [{'host': r['host'], 'events': r['n']} for r in rows if r['n'] > 0]
 
 
 def block_add(app, req):
