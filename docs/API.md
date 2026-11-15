@@ -544,6 +544,9 @@ source address, path, query or header; a site nginx serves only to internal netw
 - **`GET /warroom/events?after=<id>`**: the events after that id, oldest first, up to 500 (`more: true` when there are
   more: take a new snapshot); `high_water_id`, `now` and `collector` also when there is no event (a heartbeat).
 
+- **`GET /warroom/ops`**: the latest event analysis, the threat intelligence counts, open alerts and changes on their
+  way (`checking`, `pending`, `applied` in 24 hours): ids, kinds, states and times only.
+
 ## 5. Session-only endpoints
 
 These endpoints answer 403 to any token. They need a person, a session, and usually a role and a fresh one-time code.

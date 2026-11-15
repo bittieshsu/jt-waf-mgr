@@ -479,6 +479,11 @@ async function audit(page, where) {
   ok((await page.locator('.wr-sites li').count()) >= 1 && (await page.locator('.wr-cells').first().locator('i').count()) === 15, 'war room: sites in 2-minute cells');
   await page.locator('.wr-tabs button').nth(4).click(); await page.waitForTimeout(500);
   ok((await page.locator('.wr .wr-big').count()) === 1 && (await page.locator('.wr-clue').count()) === 2, 'war room: the review desk');
+  await page.locator('.wr-tabs button').nth(5).click(); await page.waitForTimeout(800);
+  ok((await page.locator('.wr-two .wr-card').count()) === 2, 'war room: AI and threat intelligence');
+  await page.locator('.wr-tabs button').nth(6).click(); await page.waitForTimeout(500);
+  ok((await page.locator('.wr-ops .wr-opcol').count()) === 4 && (await page.locator('.wr-opcard').count()) >= 1, 'war room: alerts and changes');
+  ok(!/\/(?:\.env|wp-login|etc\/passwd)/.test(await page.locator('.wr').innerText()), 'war room: no request path on the operations page');
   await page.locator('.wr-tabs button').nth(1).click(); await page.waitForTimeout(500);
   const firstRank = page.locator('.wr-ranklist button').first();
   if (await firstRank.count()) {

@@ -35,7 +35,53 @@
         </div>
       </section>
 
-      <div class="wr-grid">
+      <div v-if="PAGES[page] === 'intel'" class="wr-two">
+        <section class="wr-card">
+          <div class="wr-card-h"><h2><Icon name="timer" />{{ t('war.analysis_title') }}</h2><span class="wr-sub">{{ t('war.analysis_l1') }}</span></div>
+          <template v-if="ops && ops.analysis.latest">
+            <div class="wr-eyebrow">RUN #{{ ops.analysis.latest.id }} · {{ fmtTimeShort(ops.analysis.latest.started_at) }}</div>
+            <div class="wr-big">{{ fmtNum(ops.analysis.latest.events_scanned ?? ops.analysis.latest.candidates) }}<small>{{ ops.analysis.latest.events_scanned != null ? t('war.events_unit') : t('war.candidates_unit') }}</small></div>
+            <p class="wr-sub">{{ t('war.analysis_d', { n: fmtNum(ops.analysis.latest.candidates) }) }}</p>
+            <div class="wr-vbar" aria-hidden="true"><i v-for="v in verdictParts" :key="v.key" :class="'v-' + v.key" :style="{ flex: v.n }"></i></div>
+            <p class="wr-vlegend"><span v-for="v in verdictParts" :key="v.key">{{ tOr('analysis.verdict.' + v.key, v.key) }} {{ v.n }}</span></p>
+            <a class="wr-clue" href="/analysis" target="_blank" rel="noopener"><span class="wr-tag l">{{ t('war.run_facts', { s: Math.round(ops.analysis.latest.seconds || 0), p: ops.analysis.latest.proposals }) }}</span><b>{{ t('war.run_log') }}</b><Icon name="external" /></a>
+          </template>
+          <p v-else class="wr-empty">{{ ops && !ops.analysis.enabled ? t('war.analysis_off') : t('war.analysis_none') }}</p>
+          <p class="wr-foot">{{ t('war.analysis_day', { n: ops ? ops.analysis.runs_24h : 0, e: ops ? ops.analysis.errors_24h : 0 }) }}</p>
+        </section>
+        <section class="wr-card">
+          <div class="wr-card-h"><h2><Icon name="ai" />{{ t('war.intel_title') }}</h2><span class="wr-sub">{{ t('war.intel_l2') }}</span></div>
+          <template v-if="ops && ops.intel.enabled">
+            <div class="wr-note-card" :class="{ warn: ops.intel.exploited }"><b>{{ ops.intel.exploited ? t('war.intel_exploited', { n: ops.intel.exploited }) : t('war.intel_open', { n: ops.intel.open }) }}</b>
+              <p>{{ t('war.intel_counts', { a: ops.intel.affected, u: ops.intel.unknown, p: ops.intel.patched_by_rule }) }}</p></div>
+            <ul class="wr-revlist">
+              <li v-for="x in ops.intel.top" :key="x.id + x.product"><a href="/intel" target="_blank" rel="noopener">
+                <span class="wr-tag" :class="{ b: x.exploited }">{{ x.exploited ? t('war.exploited') : tOr('intel.affected.' + x.affected, x.affected) }}</span>
+                <span class="mono">{{ x.id }}</span><span>{{ x.product }}</span><Icon name="external" /></a></li>
+            </ul>
+            <a class="wr-clue" href="/intel" target="_blank" rel="noopener"><span class="wr-tag l">{{ t('war.sw_pending', { n: ops.intel.software_unconfirmed }) }}</span><b>{{ t('war.check_software') }}</b><Icon name="external" /></a>
+            <p class="wr-foot">{{ ops.intel.last_run_at ? t('war.intel_last', { time: fmtTimeShort(ops.intel.last_run_at) }) : t('war.analysis_none') }}</p>
+          </template>
+          <p v-else class="wr-empty">{{ t('war.intel_off') }}</p>
+        </section>
+      </div>
+
+      <div v-else-if="PAGES[page] === 'ops'" class="wr-ops">
+        <section v-for="col in opsCols" :key="col.key" class="wr-card wr-opcol" :class="'oc-' + col.key">
+          <div class="wr-card-h"><h2><Icon :name="col.icon" />{{ col.label }}</h2><span class="wr-sub mono">{{ col.items.length }}</span></div>
+          <i class="wr-opbar" aria-hidden="true"></i>
+          <a v-for="it in col.items.slice(0, 6)" :key="it.key" class="wr-opcard" :href="it.href" target="_blank" rel="noopener">
+            <span class="mono">{{ it.title }}</span><b>{{ it.what }}</b><small>{{ it.when }}</small></a>
+          <p v-if="col.items.length > 6" class="wr-sub">{{ t('war.more_n', { n: col.items.length - 6 }) }}</p>
+          <p v-if="!col.items.length" class="wr-empty">{{ t('war.none') }}</p>
+        </section>
+        <section class="wr-card wr-opsnote">
+          <div class="wr-card-h"><h2><Icon name="lock" />{{ t('war.ops_rights') }}</h2><span class="wr-sub">{{ t('war.read_only') }}</span></div>
+          <p class="wr-sub">{{ t('war.ops_rights_d') }}</p>
+        </section>
+      </div>
+
+      <div v-else class="wr-grid">
         <section v-if="PAGES[page] === 'flow'" class="wr-card wr-map">
           <div class="wr-card-h"><h2><Icon name="change" />{{ t('war.flow_title') }}</h2><span class="wr-sub">{{ t('war.flow_unit') }}</span></div>
           <div class="wr-mapbox"><WarFlow :flow="flow" :labels="flowLabels" :columns="[t('war.col.source'), t('war.col.decision'), t('war.col.outcome')]"
@@ -174,15 +220,16 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api } from '../api.js'
-import { t, lang } from '../i18n.js'
+import { t, tOr, lang } from '../i18n.js'
 import { countryName as cn, fmtNum } from '../util.js'
 import Icon from '../components/Icon.vue'
 import WarAtlas from '../components/warroom/WarAtlas.vue'
 import WarGlobe from '../components/warroom/WarGlobe.vue'
 import WarFlow from '../components/warroom/WarFlow.vue'
 
-const PAGES = ['atlas', 'globe', 'flow', 'sites', 'review']
-const EYEBROW = { atlas: 'GLOBAL EVENT ATLAS', globe: 'ORBITAL DEFENSE', flow: 'DECISION FLOW', sites: 'SITE ACTIVITY', review: 'REVIEW DESK' }
+const PAGES = ['atlas', 'globe', 'flow', 'sites', 'review', 'intel', 'ops']
+const EYEBROW = { atlas: 'GLOBAL EVENT ATLAS', globe: 'ORBITAL DEFENSE', flow: 'DECISION FLOW', sites: 'SITE ACTIVITY', review: 'REVIEW DESK',
+  intel: 'INTELLIGENCE BRIEF', ops: 'OPERATIONS QUEUE' }
 const POLL = 5000
 const RESYNC = 60000
 const DECIDED = { confident: 'war.d.confident', fallback: 'war.d.fallback', score: 'war.d.crs' }
@@ -299,10 +346,43 @@ const kpis = computed(() => {
   if (p === 'sites') return [{ key: 'a', label: t('war.k.sites_active'), value: fmtNum(siteRows.value.filter((r) => r.events).length) },
     { key: 'o', label: t('war.k.sites_watched'), value: fmtNum(siteRows.value.length) },
     { key: 'z', cls: 'k-logged', label: t('war.k.sites_quiet'), value: fmtNum(watchedQuiet.value.length) }]
+  if (p === 'intel') {
+    const r = ops.value && ops.value.analysis.latest
+    return [{ key: 'c', label: t('war.k.candidates'), value: r ? fmtNum(r.candidates) : '—' },
+      { key: 'i', cls: 'k-score', label: t('war.k.no_answer'), value: r ? fmtNum((r.verdicts || {}).invalid || 0) : '—' },
+      { key: 'p', cls: 'k-logged', label: t('war.k.proposals'), value: r ? fmtNum(r.proposals) : '—' }]
+  }
+  if (p === 'ops') {
+    const o = ops.value
+    return [{ key: 'a', cls: 'k-score', label: t('war.k.alerts_open'), value: o ? fmtNum(o.alerts.length) : '—' },
+      { key: 'c', label: t('war.k.changes_moving'), value: o ? fmtNum(o.changes.checking.length + o.changes.pending.length) : '—' },
+      { key: 'd', cls: 'k-logged', label: t('war.k.applied_24h'), value: o ? fmtNum(o.changes.applied.length) : '—' }]
+  }
   if (p === 'review') return [{ key: 's', cls: 'k-score', label: t('war.k.score_only'), value: fmtNum(scoreOnlyTotal.value) },
     { key: 'i', cls: 'k-logged', label: t('war.k.internal_logged'), value: fmtNum(flow.value.internal?.logged || 0) }]
   return [{ key: 'e', label: t('war.k.events'), value: fmtNum(T.events) }, { key: 'b', cls: 'k-blocked', label: t('war.k.blocked'), value: fmtNum(T.blocked) },
     { key: 'l', cls: 'k-logged', label: t('war.k.logged'), value: fmtNum(T.logged) }, { key: 'c', label: t('war.k.countries'), value: fmtNum(countries.value.length) }]
+})
+// the work around the WAF (intel / ops pages): every 30 seconds, never more often
+const ops = ref(null)
+let opsTimer = null
+async function loadOps() { if (!frozen.value && !document.hidden) { const r = await get('/warroom/ops'); if (r) ops.value = r } }
+const verdictParts = computed(() => Object.entries((ops.value && ops.value.analysis.latest && ops.value.analysis.latest.verdicts) || {})
+  .map(([key, n]) => ({ key, n })).filter((v) => v.n > 0))
+function ago(iso) { const m = Math.round((nowMs.value - Date.parse(iso)) / 60000); return m < 60 ? t('war.min_ago', { n: Math.max(0, m) }) : t('war.h_ago', { n: Math.round(m / 60) }) }
+function chgCard(c) {
+  return { key: 'c' + c.id, title: t('war.change_n', { id: c.id }), href: '/changes/' + c.id,
+           what: t('op.' + c.op) + (c.kind ? ' · ' + tOr('kind.' + c.kind, c.kind) : '') + ' · ' + tOr('direction.' + c.direction, c.direction), when: ago(c.updated_at) }
+}
+const opsCols = computed(() => {
+  const o = ops.value || { alerts: [], changes: { checking: [], pending: [], applied: [] } }
+  return [
+    { key: 'alerts', icon: 'bell', label: t('war.col.alerts'), items: o.alerts.map((a) => ({ key: 'a' + a.id, title: t('war.alert_n', { id: a.id }), href: '/alerts',
+      what: tOr('alerts.kind.' + a.kind, a.kind), when: ago(a.created_at) })) },
+    { key: 'checking', icon: 'test', label: t('war.col.checking'), items: o.changes.checking.map(chgCard) },
+    { key: 'pending', icon: 'approve', label: t('war.col.pending'), items: o.changes.pending.map(chgCard) },
+    { key: 'applied', icon: 'check', label: t('war.col.applied'), items: o.changes.applied.map(chgCard) },
+  ]
 })
 // drill-down: the event list with the same window, in a new tab (internal-only sites have an alias here: no host filter)
 function eventsQuery(q) {
@@ -386,11 +466,12 @@ async function poll() {
   batches.value = Object.values(groups)
   if (r.more) { syncing.value = true; await loadSnapshot() }   // too far behind: the snapshot catches up
 }
-function stopAll() { clearInterval(timer); clearInterval(resyncTimer); clearInterval(rotateTimer) }
+function stopAll() { clearInterval(timer); clearInterval(resyncTimer); clearInterval(rotateTimer); clearInterval(opsTimer) }
 function startAll() {
   stopAll()
   timer = setInterval(poll, POLL)
   resyncTimer = setInterval(loadSnapshot, RESYNC)
+  opsTimer = setInterval(loadOps, 30000)
   setRotation()
 }
 function setRotation() {
@@ -430,6 +511,7 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', onVisible)
   clockTimer = setInterval(() => { nowMs.value = Date.now() }, 1000)
   await loadSnapshot()
+  loadOps()
   startAll()
 })
 onBeforeUnmount(() => {
@@ -568,5 +650,30 @@ onBeforeUnmount(() => {
 .wr-note-card.warn { border-left-color: #f3c778; }
 .wr-note-card b { display: block; margin-bottom: 4px; color: #f6efe1; }
 .wr-note-card p { margin: 0; color: #d6e4df; }
+.wr-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 1000px) { .wr-two { grid-template-columns: minmax(0, 1fr); } }
+.wr-big small { font-size: 15px; color: var(--muted); margin-left: 12px; font-family: inherit; }
+.wr-vbar { display: flex; gap: 3px; height: 8px; border-radius: 4px; overflow: hidden; }
+.wr-vbar i { display: block; background: #8aa29d; }
+.wr-vbar .v-attack, .wr-vbar .v-attack_probe { background: var(--b); }
+.wr-vbar .v-unsure { background: #f3c778; }
+.wr-vbar .v-false_positive, .wr-vbar .v-legitimate { background: var(--l); }
+.wr-vlegend { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: 13px; margin: 0; }
+.wr-tag.b { border-color: var(--b); color: var(--b); }
+.wr-ops { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 1100px) { .wr-ops { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .wr-ops { grid-template-columns: minmax(0, 1fr); } }
+.wr-opsnote { grid-column: 1 / -1; }
+.wr-opbar { display: block; height: 6px; border-radius: 3px; background: #f3c778; }
+.oc-checking .wr-opbar { background: #8fb3ff; }
+.oc-pending .wr-opbar { background: var(--b); }
+.oc-applied .wr-opbar { background: var(--l); }
+.wr-opcard { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid var(--line); border-left: 3px solid #f3c778;
+  border-radius: 0 6px 6px 0; background: rgba(20, 60, 60, .3); color: #e8f1ec; text-decoration: none; }
+.oc-checking .wr-opcard { border-left-color: #8fb3ff; }
+.oc-pending .wr-opcard { border-left-color: var(--b); }
+.oc-applied .wr-opcard { border-left-color: var(--l); }
+.wr-opcard small { color: var(--muted); }
+.wr-opcard:hover b { text-decoration: underline; }
 .wr-msg { margin: 15vh auto; text-align: center; display: flex; flex-direction: column; gap: 14px; align-items: center; font-size: 18px; }
 </style>

@@ -82,6 +82,18 @@ class TestWarRoom(unittest.TestCase):
         self.assertNotIn('203.0.113.7', json.dumps(r))
         self.assertEqual(c.req('GET', '/api/v1/warroom/events?after=x')[0], 400)
 
+    def test_ops_ids_kinds_and_states_only(self):
+        from jtwafmgr import alerts
+        alerts.raise_alert(self.app.db, self.app.audit, 'test', 'attack_in_progress', 'warning', 'wr-ops',
+                           {'reason': 'probe of /secret-path.env', 'paths': ['/secret-path.env']}, notify=False)
+        st, o, _ = self.viewer().req('GET', '/api/v1/warroom/ops')
+        self.assertEqual(st, 200)
+        self.assertEqual(o['alerts'][0]['kind'], 'attack_in_progress')
+        self.assertNotIn('secret-path', json.dumps(o))               # what an outsider sent stays off the wall
+        self.assertEqual(set(o['changes']), {'checking', 'pending', 'applied'})
+        self.assertIn('open', o['intel'])
+        self.assertIsNone(o['analysis']['latest'])
+
     def test_destination(self):
         self.app.cfg.data['warroom'].update(dest_label='TW / EDGE', dest_lat='25.03', dest_lon='121.56')
         try:

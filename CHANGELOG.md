@@ -2,6 +2,16 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.59 (2026-11-16)
+
+- War room, third stage: the last two pages. AI and threat intelligence: the latest event analysis (events looked at,
+  candidates, the model's answers by kind, proposals, how long) and the threat intelligence (open threats, exploited
+  ones, what affects us, what a virtual patch covers, software waiting for a person). Alerts and changes: open alerts,
+  changes being checked, waiting for approval and applied in the last 24 hours, as cards that open in a new tab.
+  Ids, kinds, states and times only: no path, reason or summary text on the wall. Nothing on the board starts an
+  analysis or writes anything. All seven pages of the design are in.
+- API: `GET /warroom/ops` (viewer).
+
 ## 0.4.58 (2026-11-16)
 
 - War room, second stage: three more pages. Decision flow: bands from source (outside / inside) through what decided

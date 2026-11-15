@@ -422,3 +422,6 @@ Editing comes in a later phase (config file for now).
 - `GET /warroom/snapshot` also: `flow` (`{external|internal: {confident, fallback, score, other, logged}}`), `sites`
   (`[{host, events, blocked, logged, buckets[15]}]`, 2-minute cells, up to 40), `watched` (focus sites without events),
   `score_only` (`[{host, events}]`). War room pages flow / sites / review; components/warroom/WarFlow.vue.
+
+## 0.4.59
+- `GET /warroom/ops` (viewer): analysis, intel, alerts, changes. War room pages intel / ops (seven in all).

@@ -193,7 +193,61 @@ def events(app, req):
                                'collector': _collector(app), 'events': [_event(api, alias, r) for r in rows]})
 
 
+def ops(app, req):
+    """The work around the WAF, for the last two pages of the board: the latest event analysis, the threat intelligence,
+    open alerts and changes on their way. Ids, kinds, states and times only (no path, reason or summary text: those
+    can carry what an outsider sent)."""
+    from .. import analyst, intel
+    now = util.now()
+    r = app.db.one('SELECT * FROM analyst_runs ORDER BY id DESC LIMIT 1')
+    run = None
+    if r:
+        sm = analyst.run_summary(r)
+        run = {k: sm.get(k) for k in ('id', 'started_at', 'finished_at', 'seconds', 'candidates', 'proposals', 'verdicts',
+                                       'events_scanned', 'error', 'window_hours')}
+        run['error'] = bool(run['error'])
+    day = app.db.one('SELECT COUNT(*) n, SUM(error IS NOT NULL) e FROM analyst_runs WHERE started_at>=?', (now - 86400,))
+    try:
+        threats = intel.threats(app.db, limit=500)
+    except Exception:          # noqa: BLE001 -- intel tables missing on an old database: the card stays empty
+        threats = []
+    open_t = [t for t in threats if t.get('status') == 'open']
+    lr = app.db.one('SELECT * FROM intel_runs ORDER BY id DESC LIMIT 1') if threats is not None else None
+    sw = app.db.one('SELECT SUM(confirmed=1) c, SUM(confirmed=0) u FROM software')
+    alerts_open = [{'id': a['id'], 'kind': a['kind'], 'severity': a['severity'], 'created_at': util.iso(a['created_at'])}
+                   for a in app.db.q("SELECT id, kind, severity, created_at FROM alerts WHERE state='open' ORDER BY id DESC LIMIT 20")]
+
+    def chg(state, since=None):
+        q = 'SELECT id, op, kind, direction, state, updated_at, proposed_by FROM changes WHERE state' + (
+            ' IN (%s)' % ','.join('?' * len(state)) if isinstance(state, tuple) else '=?')
+        args = state if isinstance(state, tuple) else (state,)
+        if since:
+            q += ' AND updated_at>=?'
+            args = args + (since,)
+        return [{'id': c['id'], 'op': c['op'], 'kind': c['kind'], 'direction': c['direction'], 'state': c['state'],
+                 'updated_at': util.iso(c['updated_at']), 'by': 'analyst' if c['proposed_by'] == 'analyst' else
+                 'intel' if c['proposed_by'] == 'intel' else 'person'}
+                for c in app.db.q(q + ' ORDER BY id DESC LIMIT 12', args)]
+    return json_response(200, {
+        'now': util.iso(now),
+        'analysis': {'latest': run, 'runs_24h': day['n'] or 0, 'errors_24h': day['e'] or 0,
+                     'enabled': bool(app.cfg['analyst'].get('enabled'))},
+        'intel': {'enabled': bool(app.cfg['intel'].get('enabled')),
+                  'last_run_at': util.iso(lr['finished_at'] or lr['started_at']) if lr else None,
+                  'open': len(open_t), 'affected': sum(1 for t in open_t if t.get('affected') == 'yes'),
+                  'unknown': sum(1 for t in open_t if t.get('affected') == 'unknown'),
+                  'exploited': sum(1 for t in open_t if t.get('exploited')),
+                  'patched_by_rule': sum(1 for t in open_t if t.get('patch_change_id')),
+                  'software_confirmed': (sw['c'] or 0) if sw else 0, 'software_unconfirmed': (sw['u'] or 0) if sw else 0,
+                  'top': [{'id': t['id'], 'product': t['product'], 'severity': t.get('severity'), 'affected': t.get('affected'),
+                           'exploited': bool(t.get('exploited'))} for t in open_t[:5]]},
+        'alerts': alerts_open,
+        'changes': {'checking': chg(('checking', 'approved', 'applying')), 'pending': chg('pending_approval'),
+                    'applied': chg('applied', now - 86400)}})
+
+
 def register(router):
     R = router.add
     R('GET', V + '/warroom/snapshot', snapshot, ('role', 'viewer', 'events:read'))
     R('GET', V + '/warroom/events', events, ('role', 'viewer', 'events:read'))
+    R('GET', V + '/warroom/ops', ops, ('role', 'viewer', 'events:read'))

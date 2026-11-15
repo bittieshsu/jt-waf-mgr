@@ -531,6 +531,8 @@ curl -sS -X DELETE -H "Authorization: Bearer $TOKEN" \
 - **`GET /warroom/snapshot`**：直近 30 分。`window_start`、`window_end`、`node_id`、`high_water_id` (枠内で最新のイベント ID)、`collector` (`running`、`lag_seconds`、`last_event_at`、`stopped`)、`totals` (`events`、`blocked`、`logged`、`external`、`internal`、`unlocated`、`countries`)、`countries` (`[{cc, events, blocked, logged, sources}]`)、`minutes` (1 分ごと 31 区間)、`latest` (最大 30 件：`{id, ts, cc, origin, host, outcome, decided_by}`)、`destination` (`{label, lat, lon}` または null)、`rotate_seconds`。数秒間はすべての画面で同じ応答を共有します。
 - **`GET /warroom/events?after=<id>`**：その ID より後のイベントを古い順に最大 500 件 (さらにあれば `more: true`：スナップショットを取り直す)。イベントがなくても `high_water_id`、`now`、`collector` を返します (ハートビート)。
 
+- **`GET /warroom/ops`**：直近のイベント分析、脅威インテリジェンスの集計、未処理のアラート、進行中の変更 (`checking`、`pending`、24 時間以内の `applied`)：ID・種類・状態・時刻のみ。
+
 ## 5. Web 画面専用のエンドポイント
 
 次のエンドポイントはどのトークンにも 403 を返します。人とセッション、多くの場合は特定のロールとその場のワンタイムコードが
