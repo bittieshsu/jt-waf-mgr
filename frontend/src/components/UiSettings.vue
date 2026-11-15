@@ -49,10 +49,23 @@
                   <div class="teststate ok"><Icon name="check" />
                     {{ t('uiset.llm.ok2', { model: intelResult.model || '—', n: (intelResult.models || []).length, seconds: intelResult.seconds, at: fmtMinute(intelResult.finished_at) }) }}</div>
                   <div v-if="intelResult.search" class="teststate" :class="intelResult.search.ok ? 'ok' : 'bad'">
-                    <Icon :name="intelResult.search.ok ? 'check' : 'alert'" />{{ intelResult.search.ok ? t('uiset.intel.search_ok') : t('uiset.intel.search_bad', { error: intelResult.search.error || (intelResult.search.tools || []).join(', ') || '—' }) }}</div>
+                    <Icon :name="intelResult.search.ok ? 'check' : 'alert'" />{{ intelResult.search.ok ? t(intelResult.search.provider ? 'uiset.intel.provider_search_ok' : 'uiset.intel.search_ok')
+                      : t('uiset.intel.search_bad', { error: intelResult.search.error === 'provider_search_unsupported' ? t('intel.not_ready.provider_search_unsupported') : intelResult.search.error || (intelResult.search.tools || []).join(', ') || '—' }) }}</div>
                 </template>
                 <div v-else-if="intelError" class="teststate bad"><Icon name="alert" />{{ errText(intelError) }}</div>
                 <div v-else-if="!intelModels.length" class="teststate muted">{{ t('uiset.intel.no_list') }}</div>
+              </div>
+              <!-- the MCP search server on its own (no LLM needed) -->
+              <div v-else-if="k === 'intel.mcp_url'" class="modelrow">
+                <div class="modelpick">
+                  <input :id="'uiset-in-' + k" v-model="form[k]" type="text" spellcheck="false" class="w-lg mono" :placeholder="PLACEHOLDER[k] || ''">
+                  <button type="button" class="btn small" :disabled="busy.mcp || !form[k]" @click="saveAndTestMcp(g)">
+                    <Icon name="test" />{{ dirty(g).length ? t('uiset.llm.save_and_test') : t('uiset.llm.test') }}</button>
+                </div>
+                <div v-if="mcpWaiting" class="teststate info"><Icon name="timer" />{{ t('uiset.intel.waiting') }}</div>
+                <div v-else-if="mcpResult" class="teststate" :class="mcpResult.ok ? 'ok' : 'bad'">
+                  <Icon :name="mcpResult.ok ? 'check' : 'alert'" />{{ mcpResult.ok ? t('uiset.intel.mcp_ok', { tools: (mcpResult.search.tools || []).join(', '), seconds: mcpResult.seconds })
+                    : t('uiset.intel.search_bad', { error: (mcpResult.error || '') + (mcpResult.detail ? ' ' + mcpResult.detail : '') }) }}</div>
               </div>
               <SelectBox v-else-if="s[k].type === 'choice'" :id="'uiset-in-' + k" v-model="form[k]" :options="choiceOptions(k)" class="w-md" />
               <div v-else-if="s[k].type === 'list' && s[k].choices" class="chips" role="group" :aria-label="t('uiset.' + k)">
@@ -123,7 +136,7 @@ const emit = defineEmits(['saved'])
 const GROUPS = [
   { key: 'geoip', icon: 'globe', keys: ['geoip.enabled', 'geoip.account_id', 'geoip.license_key', 'geoip.editions', 'geoip.update_days'] },
   { key: 'llm', icon: 'server', keys: ['llm.url', 'llm.api_key', 'llm.model', 'llm.timeout_seconds', 'llm.enabled'] },
-  { key: 'intel', icon: 'ai', keys: ['intel.enabled', 'intel.provider', 'intel.url', 'intel.model', 'intel.api_key', 'intel.timeout_seconds', 'intel.search', 'intel.mcp_url', 'intel.fetch_domains', 'intel.interval_hours', 'intel.days', 'intel.max_rounds', 'intel.patches', 'intel.daily_tokens', 'intel.monthly_tokens'] },
+  { key: 'intel', icon: 'ai', keys: ['intel.enabled', 'intel.provider', 'intel.url', 'intel.api_key', 'intel.model', 'intel.timeout_seconds', 'intel.search', 'intel.mcp_url', 'intel.fetch_domains', 'intel.interval_hours', 'intel.days', 'intel.max_rounds', 'intel.patches', 'intel.daily_tokens', 'intel.monthly_tokens'] },
   { key: 'analyst', icon: 'timer', keys: ['analyst.enabled', 'analyst.rules', 'analyst.interval_minutes', 'analyst.window_hours', 'analyst.max_proposals', 'analyst.min_events', 'analyst.min_sources'] },
   { key: 'review', icon: 'report', keys: ['review.enabled', 'review.interval_hours', 'review.keep_days'] },
   { key: 'notify', icon: 'notify', keys: ['notify.enabled', 'notify.language', 'notify.base_url', 'notify.max_per_hour', 'notify.remind_hours', 'notify.report_hour'] },
@@ -293,6 +306,27 @@ async function testLlm() {
     }
     llmError.value = { code: 'llm_no_answer', details: { unit: 'jt-waf-mgr-analyst.path' } }
   } catch (e) { llmError.value = e } finally { busy.llm = false; llmWaiting.value = false }
+}
+const mcpResult = ref(null)
+const mcpWaiting = ref(false)
+async function saveAndTestMcp(g) {
+  if (dirty(g).length) {
+    await save(g)
+    if (saveError[g.key]) return
+  }
+  busy.mcp = true
+  mcpResult.value = null
+  mcpWaiting.value = true
+  try {
+    const { requested_at: at } = await post('/intel/test', { what: 'mcp' })
+    const limit = Date.now() + 150 * 1000
+    while (Date.now() < limit) {
+      await sleep(2000)
+      const r = await get('/intel/test')
+      if (r.result && r.result.requested_at === at) { mcpResult.value = r.result; return }
+    }
+    mcpResult.value = { ok: false, error: t('error.llm_no_answer', { unit: 'jt-waf-mgr-intel.path' }) }
+  } catch (e) { mcpResult.value = { ok: false, error: errText(e) } } finally { busy.mcp = false; mcpWaiting.value = false }
 }
 async function saveAndTestIntel(g) {
   if (dirty(g).length) {

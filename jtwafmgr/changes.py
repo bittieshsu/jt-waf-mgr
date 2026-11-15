@@ -954,7 +954,7 @@ class Workflow:
     def _intel_urgent(self, cid):
         """A virtual patch for a vulnerability exploited in the wild that affects a confirmed version."""
         r = self.db.one("SELECT exploited, affected, status FROM intel_threats WHERE patch_change_id=?", (cid,))
-        if not (r and r['exploited'] and r['affected'] == 'yes' and r['status'] == 'open'):
+        if not (r and r['exploited'] and r['affected'] in ('yes', 'unknown') and r['status'] == 'open'):
             return False
         from .intel import URGENT_PER_DAY
         day = datetime.date.today().isoformat()

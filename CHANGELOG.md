@@ -2,6 +2,18 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.50 (2026-11-15)
+
+- Second-tier LLM settings: the API key comes before the model (the model list needs the key), as on the first tier.
+- The provider's own web search also works with OpenAI's own API (Responses API web search, plus the program's own
+  page reader so "exploited" still needs a CISA page read in that run). Other OpenAI-compatible servers: use MCP.
+- MCP search server: its own "Test connection" button (no LLM needed): it answers and offers web_search.
+- Software list: "Confirm all"; the guess counts 2xx answers only (a redirect is no sign of an application) and
+  skips jt-waf-mgr's own site; guesses no longer made and never confirmed are removed. A name is enough (version
+  optional).
+- A product confirmed by name only: an exploited vulnerability in it counts as possibly affecting you (critical alert,
+  urgent virtual patch -- still checked like every change).
+
 ## 0.4.49 (2026-11-15)
 
 - Settings: the two LLM cards are named the same way and sit next to each other: "First-tier LLM (event analysis)",

@@ -35,7 +35,11 @@ import urllib.request
 from . import __version__, alerts, llm, software, util
 
 REQUEST = 'intel.request'
+# "may affect us": our version is inside the range, or not known (a product confirmed by name only) -- an exploited
+# vulnerability then gets the urgent path; the virtual patch only tightens and still passes every check
+MAY_AFFECT = ('yes', 'unknown')
 ANTHROPIC_URL = 'https://api.anthropic.com'
+OPENAI_URL = 'https://api.openai.com/v1'       # its Responses API has its own web search (provider search)
 ANTHROPIC_VERSION = '2026-10-21'
 ANTHROPIC_MODEL = 'claude-opus-5-5'
 FALLBACK_BETA = 'server-side-fallback-2026-07-01'
@@ -82,6 +86,7 @@ Rules:
 - "affected": "yes" only if the listed version is inside the affected range; "no" if it is outside; "unknown" if
   the version is unknown or the range unclear.
 - "exploited": true only with a source saying it is exploited in the wild (put the source in exploited_evidence).
+  Confirm it by reading the CISA KEV catalog with the fetch tool in this run (https://www.cisa.gov/...).
 - "attack_vector" and "request_pattern": how a malicious HTTP request to the vulnerable service looks, as publicly
   documented (method, path, header or parameter), so a WAF rule could match it. Describe it in words; no exploit
   code. Use "unknown" and an empty pattern when it is not documented or not reachable over HTTP.
@@ -389,6 +394,14 @@ class Session:
                 'parameters': {'type': 'object', 'properties': props, 'required': list(props), 'additionalProperties': False}}})
         return out
 
+    def responses_tools(self):
+        """OpenAI's Responses API: its own web_search, and our fetch_url (what makes "exploited" count is a CISA
+        page this program read itself)."""
+        desc, props = TOOLS_DOC['fetch_url']
+        return [{'type': 'web_search'},
+                {'type': 'function', 'name': 'fetch_url', 'description': desc.format(domains=', '.join(self.cfg['fetch_domains'][:30])),
+                 'strict': True, 'parameters': {'type': 'object', 'properties': props, 'required': list(props), 'additionalProperties': False}}]
+
     def anthropic_tools(self):
         if self.cfg['search'] == 'provider':
             return [{'type': 'web_search_20260209', 'name': 'web_search', 'max_uses': 10},
@@ -467,6 +480,82 @@ def ask_openai(cfg, session, system, user):
     session.spend(u.get('prompt_tokens'), u.get('completion_tokens'))
     ch = ((d.get('choices') or [{}])[0] or {}).get('message') or {}
     return _parse_answer(ch.get('content') or ''), session.tokens_in, session.tokens_out
+
+
+def openai_search_ok(cfg):
+    """The provider's own search needs OpenAI's API itself (other OpenAI-compatible servers have no web_search)."""
+    return openai_target(cfg)[0].startswith(OPENAI_URL)
+
+
+def _responses_text(session, d):
+    """(text, function calls) of one Responses API answer; records what its search looked for and read."""
+    text, calls = '', []
+    for it in d.get('output') or []:
+        if not isinstance(it, dict):
+            continue
+        ty = it.get('type')
+        if ty == 'web_search_call':
+            a = it.get('action') if isinstance(it.get('action'), dict) else {}
+            if a.get('query'):
+                session.searches.append(util.clip(str(a['query']), 300))
+            for src in a.get('sources') or []:
+                if isinstance(src, dict) and src.get('url'):
+                    session.fetched.append(util.clip(str(src['url']), 500))
+        elif ty == 'message':
+            for part in it.get('content') or []:
+                if not isinstance(part, dict):
+                    continue
+                if part.get('type') == 'refusal':
+                    raise IntelError('refused', util.clip(str(part.get('refusal') or ''), 200))
+                if part.get('type') == 'output_text':
+                    text += part.get('text') or ''
+        elif ty == 'function_call':
+            calls.append(it)
+    return text, calls
+
+
+def ask_openai_responses(cfg, session, system, user):
+    """OpenAI's Responses API with its own web search plus our fetch_url. Returns (answer dict, tokens in, out)."""
+    c = cfg['intel']
+    base, model, key = openai_target(cfg)
+    if not openai_search_ok(cfg):
+        raise IntelError('provider_search_unsupported', 'the provider search needs %s' % OPENAI_URL)
+    headers = {'Authorization': 'Bearer ' + key} if key else {}
+    tools = session.responses_tools()
+    body = {'model': model, 'instructions': system, 'input': user, 'tools': tools, 'tool_choice': 'auto',
+            'include': ['web_search_call.action.sources']}
+    for _ in range(c['max_rounds'] + 5):
+        d = _json_call(base + '/responses', body, headers, c['timeout_seconds'])
+        if not isinstance(d, dict):
+            raise IntelError('bad_response')
+        u = d.get('usage') or {}
+        session.spend(u.get('input_tokens'), u.get('output_tokens'))
+        text, calls = _responses_text(session, d)
+        if calls:
+            outputs = []
+            for i, call in enumerate(calls):
+                try:
+                    args = json.loads(call.get('arguments') or '{}')
+                except ValueError:
+                    args = {}
+                out = session.run_tool(call.get('name'), args) if i < 6 else 'skipped: at most 6 tool calls at a time'
+                outputs.append({'type': 'function_call_output', 'call_id': call.get('call_id') or '', 'output': out})
+            body = {'model': model, 'instructions': system, 'previous_response_id': d.get('id'), 'input': outputs,
+                    'tools': tools, 'include': ['web_search_call.action.sources']}
+            continue
+        try:
+            return _parse_answer(text), session.tokens_in, session.tokens_out
+        except IntelError:
+            # once more, the findings as the JSON object only (structured output, no tools)
+            d = _json_call(base + '/responses', {
+                'model': model, 'instructions': system, 'previous_response_id': d.get('id'),
+                'input': 'Now answer with the JSON object only, from what you found.',
+                'text': {'format': {'type': 'json_schema', 'name': 'threats', 'strict': True, 'schema': SCHEMA}}},
+                headers, c['timeout_seconds'])
+            u = d.get('usage') or {}
+            session.spend(u.get('input_tokens'), u.get('output_tokens'))
+            return _parse_answer(_responses_text(session, d)[0]), session.tokens_in, session.tokens_out
+    raise IntelError('too_many_rounds')
 
 
 def ask_anthropic(cfg, session, system, user):
@@ -698,7 +787,7 @@ def propose_patches(app, run_id, ask=None, log=print, session=None):
             log('intel: run %d: virtual patch for %s proposed as change #%d' % (run_id, r['cve'], cid))
         else:
             log('intel: run %d: no virtual patch for %s (%s)' % (run_id, r['cve'], note))
-            if r['exploited'] and r['affected'] == 'yes':
+            if r['exploited'] and r['affected'] in MAY_AFFECT:
                 _patch_alert(app, r, 'no rule could be written (%s)' % note)
     return proposed, tin, tout
 
@@ -726,15 +815,19 @@ def remind_removal(app):
 def _patch_alert(app, r, why):
     """Exploited in the wild, affects us, and no virtual patch in force: a person decides now."""
     alerts.raise_alert(app.db, app.audit, 'intel', 'exploited_vulnerability', 'critical', 'intel-patch:%s:%s' % (r['cve'], r['product']),
-                       {'reason': '%s in %s is exploited in the wild and affects us, but the virtual patch is not in force: %s. '
-                                  'Update the software or decide on a rule.' % (r['cve'], r['product'], why),
+                       {'reason': '%s in %s is exploited in the wild and %s, but the virtual patch is not in force: %s. '
+                                  'Update the software or decide on a rule.' % (r['cve'], r['product'], _affects(r['affected']), why),
                         'cve': r['cve'], 'product': r['product']}, link='/intel')
+
+
+def _affects(affected):
+    return 'affects us' if affected == 'yes' else 'may affect us (our version is not known: check whether it is patched)'
 
 
 def patch_failed(app, cid, error):
     """Called by the workflow when a change's checks fail: for an urgent virtual patch, a critical alert."""
     r = app.db.one('SELECT * FROM intel_threats WHERE patch_change_id=?', (cid,))
-    if r and r['exploited'] and r['affected'] == 'yes' and r['status'] == 'open':
+    if r and r['exploited'] and r['affected'] in MAY_AFFECT and r['status'] == 'open':
         _patch_alert(app, r, 'change #%d did not pass its checks (%s)' % (cid, util.clip(str(error or ''), 120)))
 
 
@@ -835,6 +928,8 @@ def readiness(cfg):
         return 'llm_not_configured'
     if c['search'] == 'mcp' and not c['mcp_url']:
         return 'search_not_configured'
+    if c['search'] == 'provider' and c['provider'] == 'openai' and not openai_search_ok(cfg):
+        return 'provider_search_unsupported'
     return None
 
 
@@ -880,7 +975,7 @@ def _store(app, run_id, threats, now):
             new.append(dict(t, threat_id=tid))
             became = t['exploited']
         st = db.one('SELECT status FROM intel_threats WHERE id=?', (tid,))['status']
-        if became and t['affected'] == 'yes' and st == 'open':
+        if became and t['affected'] in MAY_AFFECT and st == 'open':
             urgent.append(dict(t, threat_id=tid))
     return new, urgent
 
@@ -923,7 +1018,8 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
     user = ('Software to check (product and version; "unknown" when not known):\n' +
             '\n'.join('- %s %s' % (p['name'], p['version']) for p in products) +
             '\n\nToday is %s.' % time.strftime('%Y-%m-%d', time.localtime(now)))
-    ask = ask or (ask_anthropic if provider == 'anthropic' else ask_openai)
+    ask = ask or (ask_anthropic if provider == 'anthropic' else
+                  ask_openai_responses if c['search'] == 'provider' else ask_openai)
     try:
         answer, _, _ = ask(cfg, session, system, user)
         threats = clean(answer, products)
@@ -958,14 +1054,14 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
     for t in urgent:
         # exploited in the wild (read on a CISA page) and our version is affected: a person acts now
         alerts.raise_alert(db, app.audit, 'intel', 'exploited_vulnerability', 'critical', 'intel:%s:%s' % (t['id'], t['product']),
-                           {'reason': '%s in %s %s is exploited in the wild: %s' % (t['id'], t['product'], t['our_version'],
-                                                                                  util.clip(t['summary'], 200)),
+                           {'reason': '%s in %s %s is exploited in the wild and %s: %s' % (
+                               t['id'], t['product'], t['our_version'] or '', _affects(t['affected']), util.clip(t['summary'], 200)),
                             'cve': t['id'], 'product': t['product'], 'run_id': rid}, link='/intel')
     if new:
         notify.enqueue(db, cfg, 'intel.new_threats', {'run_id': rid, 'threats': [
             {'id': t['id'], 'product': t['product'], 'severity': t['severity'], 'affected': t['affected'],
              'exploited': t['exploited']} for t in new[:10]], 'count': len(new)},
-            severity='critical' if any(t['exploited'] and t['affected'] == 'yes' for t in new) else 'warning')
+            severity='critical' if any(t['exploited'] and t['affected'] in MAY_AFFECT for t in new) else 'warning')
     log('intel: run %d: %d threats (%d new, %d urgent), %d tokens' % (rid, len(threats), len(new), len(urgent), tokens))
     return rid
 
@@ -979,11 +1075,12 @@ def _state(cfg, name):
     return os.path.join(os.path.dirname(os.path.abspath(cfg['paths']['db'])), name)
 
 
-def request_test(cfg):
+def request_test(cfg, what='all'):
+    """what: 'all' (the LLM and the search) or 'mcp' (the MCP search server only)."""
     at = util.iso(time.time())
     fd = os.open(_state(cfg, TEST_REQUEST), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
-        os.write(fd, at.encode())
+        os.write(fd, ('%s %s' % (at, 'mcp' if what == 'mcp' else 'all')).encode())
     finally:
         os.close(fd)
     return at
@@ -1015,6 +1112,20 @@ def _get_json(url, headers, timeout):
         return json.loads(raw.decode('utf-8', 'replace'))
     except ValueError:
         raise IntelError('bad_response', raw[:200])
+
+
+def mcp_test(cfg):
+    """The MCP search server alone: it answers, and offers web_search."""
+    t = time.time()
+    try:
+        tools = Mcp(cfg['intel']['mcp_url'], timeout=30).tools()
+        out = {'ok': 'web_search' in tools, 'what': 'mcp', 'search': {'ok': 'web_search' in tools, 'tools': tools[:20]}}
+        if not out['ok']:
+            out.update(error='no_web_search', detail='tools: ' + ', '.join(tools[:20]))
+    except IntelError as e:
+        out = {'ok': False, 'what': 'mcp', 'error': e.code, 'detail': util.clip(str(e.detail or ''), 300)}
+    out['seconds'] = round(time.time() - t, 1)
+    return out
 
 
 def connection_test(cfg):
@@ -1050,6 +1161,10 @@ def connection_test(cfg):
         text = (((r.get('choices') or [{}])[0] or {}).get('message') or {}).get('content') or ''
         out['first_tier'] = not c['url']
     out.update(models=models[:100], model=model, reply=re.sub(r'(?s)<think>.*?</think>', '', text).strip()[:40])
+    if c['search'] == 'provider':
+        ok = c['provider'] == 'anthropic' or openai_search_ok(cfg)
+        out['search'] = {'ok': ok, 'provider': True, 'tools': ['web_search (provider)'] if ok else [],
+                         'error': None if ok else 'provider_search_unsupported'}
     if c['search'] == 'mcp':
         try:
             tools = Mcp(c['mcp_url'], timeout=30).tools()
@@ -1060,15 +1175,29 @@ def connection_test(cfg):
     return out
 
 
+def _write_result(cfg, out):
+    tmp = _state(cfg, '.' + TEST_RESULT + '.tmp')
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640)
+    with os.fdopen(fd, 'w') as fh:
+        json.dump(out, fh)
+    os.replace(tmp, _state(cfg, TEST_RESULT))
+
+
 def run_test(app, log=print):
     """Answer a pending connection test (if any), result to a file the web service reads."""
     cfg = app.cfg
     try:
         with open(_state(cfg, TEST_REQUEST), encoding='utf-8') as fh:
-            asked = fh.read(64).strip()
+            asked, _, what = fh.read(80).strip().partition(' ')
         os.unlink(_state(cfg, TEST_REQUEST))
     except OSError:
         return None
+    if what == 'mcp':
+        out = dict(mcp_test(cfg), requested_at=asked, finished_at=util.iso(time.time()))
+        app.audit.log('intel.tested', 'intel', 'system', None, 'ok' if out['ok'] else 'failed', what='mcp', error=out.get('error'))
+        _write_result(cfg, out)
+        log('intel: MCP test: %s' % ('ok' if out['ok'] else out.get('error')))
+        return out
     key = cfg['intel']['api_key'] or (cfg['llm'].get('api_key') if not cfg['intel']['url'] else '') or ''
     try:
         out = connection_test(cfg)
@@ -1080,11 +1209,7 @@ def run_test(app, log=print):
         out = {'ok': False, 'error': e.code, 'detail': util.clip(detail, 300)}
         app.audit.log('intel.tested', 'intel', 'system', None, 'failed', error=e.code)
     out.update(requested_at=asked, finished_at=util.iso(time.time()))
-    tmp = _state(cfg, '.' + TEST_RESULT + '.tmp')
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640)
-    with os.fdopen(fd, 'w') as fh:
-        json.dump(out, fh)
-    os.replace(tmp, _state(cfg, TEST_RESULT))
+    _write_result(cfg, out)
     log('intel: connection test: %s' % ('ok' if out.get('ok') else out.get('error')))
     return out
 

@@ -82,7 +82,10 @@
       <section class="card">
         <div class="cardhead">
           <h2><Icon name="server" /> {{ t('intel.software') }}</h2>
-          <button v-if="isApprover" class="btn small" type="button" :disabled="busy" @click="guess"><Icon name="refresh" />{{ t('intel.guess') }}</button>
+          <span v-if="isApprover" class="rowbtns">
+            <button v-if="waiting > 0" class="btn small primary" type="button" :disabled="busy" @click="confirmAll"><Icon name="check" />{{ t('intel.confirm_all', { n: waiting }) }}</button>
+            <button class="btn small" type="button" :disabled="busy" @click="guess"><Icon name="refresh" />{{ t('intel.guess') }}</button>
+          </span>
         </div>
         <p class="muted small">{{ t('intel.software_hint') }}</p>
         <p v-if="guessMsg" class="muted small" role="status">{{ guessMsg }}</p>
@@ -103,7 +106,7 @@
           <h3><Icon :name="edit.id ? 'edit' : 'add'" /> {{ edit.id ? t('intel.edit_title', { name: edit.orig }) : t('intel.add_title') }}</h3>
           <div class="filters">
             <label class="field"><span>{{ t('intel.name') }}</span><input v-model.trim="edit.name" maxlength="120" placeholder="Keycloak"></label>
-            <label class="field"><span>{{ t('intel.version') }}</span><input v-model.trim="edit.version" class="mono" maxlength="60" placeholder="26.0.5"></label>
+            <label class="field"><span>{{ t('intel.version_optional') }}</span><input v-model.trim="edit.version" class="mono" maxlength="60" placeholder="26.0.5"></label>
             <label class="field grow"><span>{{ t('intel.hosts') }}</span><input v-model.trim="edit.hosts" class="mono" maxlength="2000" placeholder="sso.example.com"></label>
           </div>
           <div class="actions">
@@ -205,9 +208,16 @@ const runNow = () => act(async () => { data.value.status = await post('/intel/ru
 const guess = () => act(async () => {
   const r = await post('/intel/software/guess', {})
   data.value.software = r.software
-  guessMsg.value = t('intel.guessed', { a: r.added, u: r.updated })
+  guessMsg.value = t('intel.guessed', { added: r.added, updated: r.updated, removed: r.removed || 0 })
 })
 const confirm = (r) => act(async () => { data.value.software = (await patch('/intel/software/' + r.id, { confirmed: true })).software })
+const waiting = computed(() => ((data.value && data.value.software) || []).filter((r) => !r.confirmed).length)
+const confirmAll = () => act(async () => {
+  if (!window.confirm(t('intel.confirm_all_ask', { n: waiting.value }))) return
+  const r = await post('/intel/software/confirm-all', {})
+  data.value.software = r.software
+  guessMsg.value = t('intel.confirmed_n', { n: r.confirmed })
+})
 const remove = (r) => act(async () => {
   if (!window.confirm(t('intel.delete_confirm', { name: r.name }))) return
   data.value.software = (await del('/intel/software/' + r.id)).software

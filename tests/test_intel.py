@@ -127,6 +127,25 @@ class Base(unittest.TestCase):
 
 
 class TestRun(Base):
+    def test_name_only_exploited_is_urgent(self):
+        """Confirmed by name only (version unknown) and exploited (read on CISA): may affect us -> critical alert."""
+        self.app.cfg.data['intel']['patches'] = False
+        a = json.loads(json.dumps(ANSWER))
+        a['threats'] = a['threats'][:1]
+        a['threats'][0].update(affected='unknown', our_version='unknown')
+        Fake.script = [openai_reply(calls=[('fetch_url', {'url': 'https://www.cisa.gov/known-exploited-vulnerabilities-catalog'})]),
+                       openai_reply(content=json.dumps(a))]
+        old_public, old_get = intel._public, intel._get_pinned
+        intel._public = lambda h, p: '203.0.113.5'
+        intel._get_pinned = lambda u, ip, t: (200, {'content-type': 'text/html'}, b'<td>CVE-2026-11111</td>')
+        try:
+            intel.run(self.app, 'manual', log=lambda m: None)
+        finally:
+            intel._public, intel._get_pinned = old_public, old_get
+        al = self.app.db.one("SELECT severity, details FROM alerts WHERE kind='exploited_vulnerability'")
+        self.assertEqual(al['severity'], 'critical')
+        self.assertIn('may affect us', al['details'])
+
     def test_openai_tool_loop_and_what_is_kept(self):
         self.app.cfg.data['intel']['patches'] = False        # virtual patches: TestPatches
         Fake.script = [openai_reply(calls=[('web_search', {'query': 'Example CMS CVE'}),
@@ -401,6 +420,29 @@ class TestSoftware(unittest.TestCase):
         software.refresh(self.app, 'alice')                               # a person's entry stays
         self.assertEqual(software.confirmed(self.app.db), [{'name': 'Keycloak', 'version': '26.0.5'}])
 
+    def test_redirects_own_site_stale_and_confirm_all(self):
+        d = os.path.join(self.env.dir, 'tr2')
+        os.makedirs(d, exist_ok=True)
+        lines = [json.dumps({'vhost': 'example.com', 'path': '/guacamole/api/tokens', 'http_status': 301})] * 9     # redirected probes
+        lines += [json.dumps({'vhost': 'waf.example.com', 'path': '/api/v1/login', 'http_status': 200})] * 9       # our own UI
+        lines += [json.dumps({'vhost': 'sso.example.com', 'path': '/realms/x/protocol/openid-connect/token', 'http_status': 200})] * 4
+        with open(os.path.join(d, 'access.log'), 'w') as fh:
+            fh.write('\n'.join(lines) + '\n')
+        self.app.cfg.data['traffic']['logs'] = [d + '/*access.log']
+        found = software.scan_logs(self.app.cfg, exclude={'waf.example.com'})
+        self.assertEqual(set(found), {'Keycloak'})
+        self.assertIn('Rocket.Chat', software.scan_logs(self.app.cfg))          # without the exclusion it would count
+        self.app.db.x("INSERT INTO software(name, version, hosts, kind, source, confirmed, evidence, notes, updated_at, updated_by) "
+                      "VALUES ('Apache Guacamole', '', '[\"example.com\"]', 'site', 'guess', 0, '', '', 0, 'x')")
+        out = software.refresh(self.app, 'alice')
+        names = {r['name'] for r in software.listing(self.app.db)}
+        self.assertNotIn('Apache Guacamole', names)                            # no longer guessed, nobody confirmed it
+        self.assertGreaterEqual(out['removed'], 1)
+        n = software.confirm_all(self.app.db, 'alice')
+        self.assertGreaterEqual(n, 1)
+        self.assertTrue(all(r['confirmed'] for r in software.listing(self.app.db)))
+        self.assertIn({'name': 'Keycloak', 'version': 'unknown'}, software.confirmed(self.app.db))   # a name is enough
+
     def test_validation(self):
         for name, ver in (('<script>', '1'), ('ok', 'a b'), ('', '1')):
             with self.assertRaises(software.SoftwareError):
@@ -454,13 +496,75 @@ class TestIntelApi(unittest.TestCase):
         st, obj, _ = c.req('POST', '/api/v1/intel/software/guess', {})
         self.assertEqual(st, 200)
         self.assertIn('added', obj)
+        st, obj, _ = c.req('POST', '/api/v1/intel/software/confirm-all', {})
+        self.assertEqual(st, 200)
+        self.assertGreaterEqual(obj['confirmed'], 1)                                # the edited entry, plus any guesses
+        self.assertTrue(all(x['confirmed'] for x in obj['software']))
         self.assertEqual(c.req('POST', '/api/v1/intel/run', {})[0], 409)          # not switched on
         self.assertEqual(c.req('DELETE', '/api/v1/intel/software/%d' % sid)[0], 200)
         self.assertEqual(c.req('DELETE', '/api/v1/intel/software/%d' % sid)[0], 404)
         self.assertEqual(c.req('POST', '/api/v1/intel/threats/999', {'status': 'handled'})[0], 404)
-        for action in ('software.added', 'software.changed', 'software.guessed', 'software.removed'):
+        for action in ('software.added', 'software.changed', 'software.guessed', 'software.removed', 'software.confirmed_all'):
             self.assertTrue(self.app.db.one('SELECT 1 FROM audit WHERE action=?', (action,)), action)
 
+
+
+def responses_reply(text=None, calls=None, searches=(), rid='resp_1'):
+    out = [{'type': 'web_search_call', 'id': 'ws_%d' % i, 'status': 'completed',
+            'action': {'type': 'search', 'query': q, 'sources': [{'type': 'url', 'url': 'https://nvd.nist.gov/vuln/x%d' % i}]}}
+           for i, q in enumerate(searches)]
+    for i, (n, a) in enumerate(calls or []):
+        out.append({'type': 'function_call', 'id': 'fc_%d' % i, 'call_id': 'call_%d' % i, 'name': n, 'arguments': json.dumps(a)})
+    if text is not None:
+        out.append({'type': 'message', 'id': 'msg_1', 'status': 'completed', 'role': 'assistant',
+                    'content': [{'type': 'output_text', 'text': text, 'annotations': []}]})
+    return {'id': rid, 'object': 'response', 'status': 'completed', 'output': out, 'usage': {'input_tokens': 900, 'output_tokens': 100}}
+
+
+class TestOpenAIProviderSearch(Base):
+    """OpenAI's own web search (Responses API) plus our fetch_url: "exploited" still needs a CISA page read here."""
+    def setUp(self):
+        super().setUp()
+        self.old = intel.OPENAI_URL
+        intel.OPENAI_URL = self.url + '/v1'           # the fake stands in for api.openai.com
+        self.app.cfg.data['intel'].update(search='provider', patches=False)
+
+    def tearDown(self):
+        intel.OPENAI_URL = self.old
+        super().tearDown()
+
+    def test_search_fetch_and_answer(self):
+        Fake.script = [responses_reply(searches=['Example CMS CVE 2026'],
+                                       calls=[('fetch_url', {'url': 'https://www.cisa.gov/known-exploited-vulnerabilities-catalog'})], rid='r1'),
+                       responses_reply(text=json.dumps(ANSWER), rid='r2')]
+        old_public, old_get = intel._public, intel._get_pinned
+        intel._public = lambda h, p: '203.0.113.5'
+        intel._get_pinned = lambda u, ip, t: (200, {'content-type': 'text/html'}, b'<td>CVE-2026-11111</td>')
+        try:
+            rid = intel.run(self.app, 'manual', log=lambda m: None)
+        finally:
+            intel._public, intel._get_pinned = old_public, old_get
+        r = self.app.db.one('SELECT * FROM intel_runs WHERE id=?', (rid,))
+        self.assertIsNone(r['error'])
+        self.assertEqual((r['tokens_in'], r['tokens_out']), (1800, 200))
+        self.assertEqual(json.loads(r['searches']), ['Example CMS CVE 2026'])
+        first, second = [b for p, h, b in Fake.seen if p == '/v1/responses']
+        self.assertEqual([t['type'] for t in first['tools']], ['web_search', 'function'])
+        self.assertEqual((second['previous_response_id'], second['input'][0]['type'], second['input'][0]['call_id']),
+                         ('r1', 'function_call_output', 'call_0'))
+        t = self.app.db.one("SELECT exploited FROM intel_threats WHERE cve='CVE-2026-11111'")
+        self.assertEqual(t['exploited'], 1)                       # read on the CISA page in this run
+
+    def test_json_asked_again_when_the_text_is_not_json(self):
+        Fake.script = [responses_reply(text='Here is what I found: nothing new.'), responses_reply(text=json.dumps({'notes': '', 'threats': []}))]
+        rid = intel.run(self.app, 'manual', log=lambda m: None)
+        self.assertIsNone(self.app.db.one('SELECT error FROM intel_runs WHERE id=?', (rid,))['error'])
+        last = [b for p, h, b in Fake.seen if p == '/v1/responses'][-1]
+        self.assertEqual(last['text']['format']['type'], 'json_schema')
+
+    def test_needs_openai_itself(self):
+        intel.OPENAI_URL = 'https://api.openai.com/v1'
+        self.assertEqual(intel.readiness(self.app.cfg), 'provider_search_unsupported')
 
 
 class TestConnectionTest(Base):
@@ -485,6 +589,18 @@ class TestConnectionTest(Base):
         r = intel.test_result(self.app.cfg)
         self.assertEqual((r['ok'], r['error']), (False, 'model_not_found'))
         self.assertNotIn('secret-key-123', json.dumps(r))
+
+    def test_mcp_only(self):
+        self.app.cfg.data['intel'].update(enabled=False, url='', api_key='')     # no LLM needed
+        intel.request_test(self.app.cfg, 'mcp')
+        intel.run_job(self.app, log=lambda m: None)
+        r = intel.test_result(self.app.cfg)
+        self.assertEqual((r['ok'], r['what'], r['search']['tools']), (True, 'mcp', ['web_search', 'code_search']))
+        self.assertFalse([p for p, h, b in Fake.seen if p.startswith('/v1/')])           # the LLM was not asked
+        self.app.cfg.data['intel']['mcp_url'] = 'http://127.0.0.1:9/mcp'
+        intel.request_test(self.app.cfg, 'mcp')
+        intel.run_job(self.app, log=lambda m: None)
+        self.assertEqual(intel.test_result(self.app.cfg)['error'], 'mcp_unreachable')
 
     def test_anthropic(self):
         self.app.cfg.data['intel'].update(provider='anthropic', url=self.url, model='')

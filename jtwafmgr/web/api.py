@@ -1183,6 +1183,13 @@ def software_delete(app, req):
     return json_response(200, {'software': software.listing(app.db)})
 
 
+def software_confirm_all(app, req):
+    from .. import software
+    n = software.confirm_all(app.db, req.user['username'])
+    app.audit.log('software.confirmed_all', req.user['username'], src_ip=req.client_ip, count=n)
+    return json_response(200, {'confirmed': n, 'software': software.listing(app.db)})
+
+
 def software_guess(app, req):
     """Look again: this host's packages, the CRS version, the applications the access logs show."""
     from .. import software
@@ -1483,6 +1490,7 @@ def register(router):
     R('POST', V + '/intel/threats/{id}', intel_threat, ('role', 'approver', None))
     R('POST', V + '/intel/software', software_add, ('role', 'approver', None))
     R('POST', V + '/intel/software/guess', software_guess, ('role', 'approver', None))
+    R('POST', V + '/intel/software/confirm-all', software_confirm_all, ('role', 'approver', None))
     R('PATCH', V + '/intel/software/{id}', software_edit, ('role', 'approver', None))
     R('DELETE', V + '/intel/software/{id}', software_delete, ('role', 'approver', None))
     R('GET', V + '/reviews/{id}', review_get, viewer('events:read'))
@@ -2217,11 +2225,12 @@ def intel_test(app, req):
     """Admin: ask the threat intelligence unit (it may reach the second-tier LLM; the web service may not) for a
     connection test: the models offered, a one-word answer, the search tool. Read with GET /intel/test."""
     from .. import intel
+    what = 'mcp' if req.body().get('what') == 'mcp' else 'all'
     try:
-        at = intel.request_test(app.cfg)
+        at = intel.request_test(app.cfg, what)
     except OSError as e:
         raise ApiError(500, 'request_failed', 'request_failed', detail=str(e)[:200])
-    app.audit.log('intel.test_requested', req.user['username'], src_ip=req.client_ip)
+    app.audit.log('intel.test_requested', req.user['username'], src_ip=req.client_ip, what=what)
     return json_response(202, {'requested_at': at})
 
 

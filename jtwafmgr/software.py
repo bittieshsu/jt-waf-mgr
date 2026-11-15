@@ -120,8 +120,10 @@ def _path_of(line):
     return None, m.group(1), int(m.group(2))
 
 
-def scan_logs(cfg, tail=TAIL):
-    """{application: {host: hits}} from the 2xx / 3xx answers in the access logs."""
+def scan_logs(cfg, tail=TAIL, exclude=()):
+    """{application: {host: hits}} from the 2xx answers in the access logs. A redirect (a site that sends everything
+    to https or elsewhere) is no sign the application is there; `exclude`: hosts never counted (jt-waf-mgr's own,
+    whose web page answers 200 for any path)."""
     hits = collections.defaultdict(collections.Counter)
     for f in traffic.files(cfg):
         site = traffic.site_of(f)
@@ -137,9 +139,11 @@ def scan_logs(cfg, tail=TAIL):
             lines = lines[1:]               # the first one is cut
         for line in lines:
             r = _path_of(line)
-            if not r or not 200 <= r[2] < 400:
+            if not r or not 200 <= r[2] < 300:
                 continue
             host = site or r[0] or '(default)'
+            if host.lower() in exclude:
+                continue
             if not traffic.HOST_RE.fullmatch(host) or len(host) > 253:
                 continue                    # a Host header a client made up is not a site
             for name, rx in _SIGS:
@@ -147,6 +151,22 @@ def scan_logs(cfg, tail=TAIL):
                     hits[name][host] += 1
                     break
     return {name: dict(c) for name, c in hits.items()}
+
+
+def own_hosts(app):
+    """The site names nginx sends to this program's own web service (its listen address): not an application."""
+    port = str(app.cfg['server'].get('listen') or '').rpartition(':')[2]
+    out = set()
+    if not port.isdigit():
+        return out
+    try:
+        n, _ = app.site.load()
+        for s in n.servers():
+            if any(re.search(r'(?:127\.0\.0\.1|localhost|\[::1\]):%s(?:\D|$)' % port, u) for u in s.get('upstreams') or []):
+                out.update(x.lower() for x in s.get('server_names') or [])
+    except Exception:          # noqa: BLE001 -- no nginx configuration here
+        pass
+    return out
 
 
 def guess(app):
@@ -175,7 +195,7 @@ def guess(app):
         crs = None
     if crs:
         out.append({'name': 'OWASP CRS', 'version': crs, 'hosts': [], 'kind': 'host', 'evidence': 'ModSecurity configuration'})
-    for name, by_host in sorted(scan_logs(app.cfg).items()):
+    for name, by_host in sorted(scan_logs(app.cfg, exclude=own_hosts(app)).items()):
         hosts = sorted(h for h, n in by_host.items() if n >= MIN_HITS)
         if hosts:
             out.append({'name': name, 'version': '', 'hosts': hosts, 'kind': 'site',
@@ -205,9 +225,16 @@ def refresh(app, actor):
     """Store the guesses: new names are added unconfirmed; a guessed version that changed updates an unconfirmed
     entry (a person's version is never overwritten); hosts and evidence are refreshed. Returns {added, updated}."""
     db = app.db
-    added = updated = 0
+    added = updated = removed = 0
     now = util.now()
-    for g in guess(app):
+    found = guess(app)
+    # a guess the program no longer makes (and nobody confirmed or edited) goes away
+    names = {g['name'] for g in found}
+    for r in db.q("SELECT id, name FROM software WHERE source='guess' AND confirmed=0"):
+        if r['name'] not in names:
+            db.x('DELETE FROM software WHERE id=?', (r['id'],))
+            removed += 1
+    for g in found:
         r = db.one('SELECT * FROM software WHERE name=?', (g['name'],))
         if not r:
             db.x('INSERT INTO software(name, version, hosts, kind, source, confirmed, evidence, notes, updated_at, updated_by) '
@@ -224,7 +251,12 @@ def refresh(app, actor):
             db.x('UPDATE software SET version=?, hosts=?, evidence=?, confirmed=?, updated_at=? WHERE id=?',
                  (version, hosts, g['evidence'], confirmed_flag, now, r['id']))
             updated += 1
-    return {'added': added, 'updated': updated}
+    return {'added': added, 'updated': updated, 'removed': removed}
+
+
+def confirm_all(db, actor):
+    """Confirm every entry still waiting (a version is not needed: without one the search goes by the name)."""
+    return db.x('UPDATE software SET confirmed=1, updated_at=?, updated_by=? WHERE confirmed=0', (util.now(), actor)).rowcount
 
 
 class SoftwareError(Exception):
