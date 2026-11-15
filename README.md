@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.61
+# jt-waf-mgr v0.4.62
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -108,7 +108,8 @@ nginx and ModSecurity keep working with the last rules.
   Only product names and versions leave the host, with a few facts for the vulnerabilities' preconditions
   (operating system, architecture, C library, sshd's UsePAM). Local models search through an MCP server (for example SearXNG);
   Anthropic and OpenAI's own API can use the provider's web search instead. The program reads only https pages on an
-  allow-list, and "exploited" counts only when it read the CISA catalog itself in that run. A product can be confirmed
+  allow-list, and "exploited" counts only when it read the CISA catalog itself in that run, or -- with the KEV catalog
+  switched on (downloaded daily, about 1.5 MB) -- when the catalog lists it. A product can be confirmed
   by name alone; an exploited vulnerability that affects (or, without a version, may affect) you raises a critical
   alert.
   For one seen in the URL or a header it writes a virtual patch (a narrow confident block, checked like any change:

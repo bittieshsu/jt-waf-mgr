@@ -2,6 +2,14 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.62 (2026-11-16)
+
+- Threat intelligence: the CISA Known Exploited Vulnerabilities catalog as a structured source (Settings > threat
+  intelligence, off until switched on). Once a day the intelligence job downloads it from cisa.gov (about 1.5 MB),
+  checks it is the catalog and replaces its copy only then. A vulnerability in it counts as exploited in the wild
+  (noted as the evidence), and its entries for the confirmed software are given to the model to check against our
+  versions. The intelligence page shows the catalog's size and date.
+
 ## 0.4.61 (2026-11-16)
 
 - War room: on a narrow screen the page tabs stay on one line and scroll sideways (seven tabs no longer take half the

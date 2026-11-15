@@ -1019,6 +1019,7 @@ def status(app):
             'tokens': tokens_used(db), 'daily_tokens': c['daily_tokens'], 'monthly_tokens': c['monthly_tokens'],
             'over_budget': over_budget(cfg, db), 'requested': os.path.exists(request_file(cfg)),
             'confirmed_software': len(software.confirmed(db)),
+            'kev': __import__('jtwafmgr.kev', fromlist=['status']).status(cfg),
             'last_run': run_summary(last) if last else None}
 
 
@@ -1091,8 +1092,14 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
         return rid
     system = SYSTEM.format(days=c['days'], max_threats=MAX_THREATS)
     facts = host_facts(cfg)
+    from . import kev
+    kev.update(cfg, log=log)
+    known = kev.matching(cfg, products)
+    kev_ids = kev.ids(cfg)
     user = ('Software to check (product and version; "unknown" when not known):\n' +
             '\n'.join('- %s %s' % (p['name'], p['version']) for p in products) +
+            (('\n\nIn the CISA Known Exploited Vulnerabilities catalog for these products (check each against our version):\n' +
+              '\n'.join('- %s %s %s (added %s)' % (k['cve'], k['vendor'], k['product'], k['added']) for k in known)) if known else '') +
             '\n\nHost facts (for the preconditions):\n' + '\n'.join('- %s: %s' % kv for kv in facts.items()) +
             '\n\nToday is %s.' % time.strftime('%Y-%m-%d', time.localtime(now)))
     ask = ask or (ask_anthropic if provider == 'anthropic' else
@@ -1104,7 +1111,9 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
             # "exploited in the wild" counts only when this run read it on a CISA page (the Known Exploited
             # Vulnerabilities catalog, an advisory): a web page's or the model's word alone is not enough
             t['exploited_claimed'] = t['exploited']
-            t['exploited'] = t['exploited'] and t['id'] in session.cisa_ids
+            t['exploited'] = (t['exploited'] and t['id'] in session.cisa_ids) or t['id'] in kev_ids
+            if t['id'] in kev_ids:
+                t['exploited_evidence'] = 'CISA Known Exploited Vulnerabilities catalog'
         note = util.clip(str(answer.get('notes') or ''), 1000) if isinstance(answer, dict) else ''
     except Exception as e:      # noqa: BLE001 -- recorded, notified; the next run starts afresh
         code = e.code if isinstance(e, IntelError) else 'internal_%s' % type(e).__name__

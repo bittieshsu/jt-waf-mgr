@@ -159,6 +159,24 @@ class TestRun(Base):
         finally:
             intel._public, intel._get_pinned = old_public, old_get
 
+    def test_kev_marks_exploited_without_reading_a_page(self):
+        """With the KEV catalog on, a threat it lists is exploited even when the model read no CISA page; its entries
+        for the confirmed software go to the model."""
+        from jtwafmgr import kev
+        from tests.test_kev import catalog
+        self.app.cfg.data['intel'].update(kev=True, patches=False)
+        kev.update(self.app.cfg, get=lambda u, t: catalog(extra=[{'cveID': 'CVE-2026-11111', 'vendorProject': 'Example',
+                                                                   'product': 'Example CMS', 'dateAdded': '2026-11-10'}]), log=lambda m: None)
+        a = json.loads(json.dumps(ANSWER))
+        a['threats'] = [dict(a['threats'][0], exploited=False)]
+        Fake.script = [openai_reply(content=json.dumps(a))]
+        intel.run(self.app, 'manual', log=lambda m: None)
+        t = intel.threats(self.app.db)[0]
+        self.assertTrue(t['exploited'])
+        self.assertIn('Known Exploited', t['exploited_evidence'])
+        user = [b for p, h, b in Fake.seen if p == '/v1/chat/completions'][0]['messages'][1]['content']
+        self.assertIn('CVE-2026-11111', user)
+
     def test_preconditions_the_host_does_not_meet(self):
         """Exploited, the version matches, but it needs musl and sshd without PAM (an Alpine build): not us."""
         self.app.cfg.data['intel']['patches'] = False

@@ -23,6 +23,10 @@
           <dt>{{ t('intel.provider') }}</dt><dd>{{ t('intel.provider_v.' + st.provider) }}<span v-if="st.model" class="mono small gapl">{{ st.model }}</span>
             <div v-if="st.uses_first_tier" class="muted small">{{ t('intel.first_tier') }}</div></dd>
           <dt>{{ t('intel.search') }}</dt><dd>{{ t('intel.search_v.' + st.search) }}</dd>
+          <dt>{{ t('intel.kev') }}</dt><dd><template v-if="st.kev && st.kev.enabled">
+            <template v-if="st.kev.fetched_at">{{ t('intel.kev_v', { n: fmtNum(st.kev.entries), at: fmtMinute(st.kev.fetched_at) }) }}</template>
+            <template v-else>{{ t('intel.kev_pending') }}</template></template>
+            <span v-else class="muted">{{ t('intel.kev_off') }}</span></dd>
           <dt>{{ t('intel.schedule') }}</dt><dd>{{ t('intel.schedule_v', { h: st.interval_hours, d: st.days }) }}
             <span v-if="st.requested" class="badge b-warn gapl">{{ t('countries.queued') }}</span></dd>
           <dt>{{ t('intel.tokens') }}</dt><dd>{{ t('intel.tokens_v', { d: fmtNum(st.tokens.day), dl: st.daily_tokens ? fmtNum(st.daily_tokens) : '∞', m: fmtNum(st.tokens.month), ml: st.monthly_tokens ? fmtNum(st.monthly_tokens) : '∞' }) }}</dd>

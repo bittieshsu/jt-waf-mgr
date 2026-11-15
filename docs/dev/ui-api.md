@@ -429,3 +429,6 @@ Editing comes in a later phase (config file for now).
 ## 0.4.60
 - Events.vue folds runs of the same request (60 s) into one row (`repeat`, `first_ts`); EventTable shows ×n.
 - intel.provider `gemini` (OpenAI-compatible endpoint, `intel.GEMINI_URL` when the URL is empty; MCP search only).
+
+## 0.4.62
+- kev.py (setting `intel.kev`, default off): `<data>/intel/kev.json`; `GET /intel` has `kev` {enabled, fetched_at, catalog_version, entries}.
