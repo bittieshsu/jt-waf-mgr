@@ -27,6 +27,8 @@
             <template v-if="st.kev.fetched_at">{{ t('intel.kev_v', { n: fmtNum(st.kev.entries), at: fmtMinute(st.kev.fetched_at) }) }}</template>
             <template v-else>{{ t('intel.kev_pending') }}</template></template>
             <span v-else class="muted">{{ t('intel.kev_off') }}</span></dd>
+          <dt>{{ t('intel.osv') }}</dt><dd><template v-if="st.osv && st.osv.enabled">{{ st.osv.ecosystem ? t('intel.osv_on', { eco: st.osv.ecosystem }) : t('intel.osv_no_eco') }}</template>
+            <span v-else class="muted">{{ t('intel.kev_off') }}</span></dd>
           <dt>{{ t('intel.schedule') }}</dt><dd>{{ t('intel.schedule_v', { h: st.interval_hours, d: st.days }) }}
             <span v-if="st.requested" class="badge b-warn gapl">{{ t('countries.queued') }}</span></dd>
           <dt>{{ t('intel.tokens') }}</dt><dd>{{ t('intel.tokens_v', { d: fmtNum(st.tokens.day), dl: st.daily_tokens ? fmtNum(st.daily_tokens) : '∞', m: fmtNum(st.tokens.month), ml: st.monthly_tokens ? fmtNum(st.monthly_tokens) : '∞' }) }}</dd>

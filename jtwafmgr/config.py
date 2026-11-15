@@ -182,6 +182,7 @@ DEFAULTS = {
         'max_rounds': 12,
         'patches': True,               # write a virtual patch (a narrow confident block) for URL / header attacks
         'kev': False,                  # download CISA's Known Exploited Vulnerabilities catalog daily (kev.py, ~1.5 MB)
+        'osv': False,                  # ask osv.dev about the installed Debian / Ubuntu package versions (osv.py)
         'days': 30,                    # look for vulnerabilities published or updated in this many days
         'daily_tokens': 400000,        # 0: no limit
         'monthly_tokens': 6000000,

@@ -2,6 +2,14 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.63 (2026-11-16)
+
+- Threat intelligence: OSV queries (Settings > threat intelligence, off until switched on). Once a day the
+  intelligence job asks osv.dev's query API which known vulnerabilities affect the exact Debian / Ubuntu package
+  versions of the confirmed software (source package, installed version and release are sent; no bulk download;
+  answers kept a day). They are given to the model as a hint, with a reminder that a distribution may patch without
+  changing the upstream version.
+
 ## 0.4.62 (2026-11-16)
 
 - Threat intelligence: the CISA Known Exploited Vulnerabilities catalog as a structured source (Settings > threat

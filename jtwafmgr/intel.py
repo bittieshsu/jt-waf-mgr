@@ -1020,6 +1020,7 @@ def status(app):
             'over_budget': over_budget(cfg, db), 'requested': os.path.exists(request_file(cfg)),
             'confirmed_software': len(software.confirmed(db)),
             'kev': __import__('jtwafmgr.kev', fromlist=['status']).status(cfg),
+            'osv': {'enabled': bool(c.get('osv')), 'ecosystem': __import__('jtwafmgr.osv', fromlist=['ecosystem']).ecosystem()},
             'last_run': run_summary(last) if last else None}
 
 
@@ -1096,10 +1097,19 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
     kev.update(cfg, log=log)
     known = kev.matching(cfg, products)
     kev_ids = kev.ids(cfg)
+    from . import osv
+    pkgs = osv.lookup(cfg, db, log=log)
+    osv_lines = []
+    for name, o in sorted(pkgs.items()):
+        for v in o['vulns'][:15]:
+            osv_lines.append('- %s (%s %s, %s): %s %s %s' % (name, o['package'], o['version'], o['ecosystem'], v['id'],
+                                                            ' '.join(v['cves']), v['summary']))
     user = ('Software to check (product and version; "unknown" when not known):\n' +
             '\n'.join('- %s %s' % (p['name'], p['version']) for p in products) +
             (('\n\nIn the CISA Known Exploited Vulnerabilities catalog for these products (check each against our version):\n' +
               '\n'.join('- %s %s %s (added %s)' % (k['cve'], k['vendor'], k['product'], k['added']) for k in known)) if known else '') +
+            (('\n\nOSV (osv.dev) lists these for the exact package versions installed (a distribution may have patched '
+              'without changing the upstream version; check its tracker):\n' + '\n'.join(osv_lines[:120])) if osv_lines else '') +
             '\n\nHost facts (for the preconditions):\n' + '\n'.join('- %s: %s' % kv for kv in facts.items()) +
             '\n\nToday is %s.' % time.strftime('%Y-%m-%d', time.localtime(now)))
     ask = ask or (ask_anthropic if provider == 'anthropic' else

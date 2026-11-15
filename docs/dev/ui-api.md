@@ -432,3 +432,6 @@ Editing comes in a later phase (config file for now).
 
 ## 0.4.62
 - kev.py (setting `intel.kev`, default off): `<data>/intel/kev.json`; `GET /intel` has `kev` {enabled, fetched_at, catalog_version, entries}.
+
+## 0.4.63
+- osv.py (setting `intel.osv`, default off): POST api.osv.dev/v1/query per confirmed dpkg product; cache `<data>/intel/osv-cache.json`; `GET /intel` has `osv` {enabled, ecosystem}.
