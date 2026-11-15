@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.60
+# jt-waf-mgr v0.4.61
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -129,6 +129,8 @@ ModSecurity は最後のルールのまま動作し続けます。
 | ![アラート](docs/shots/ja/alerts.png) | ![システムチェック](docs/shots/ja/system-check.png) |
 | ![サイトごとの国別制限](docs/shots/ja/countries.png) | ![リクエスト量](docs/shots/ja/traffic.png) |
 | ![脅威インテリジェンス](docs/shots/ja/intel.png) | ![WAF 定期レビュー](docs/shots/ja/reviews.png) |
+
+![作戦室](docs/shots/ja/warroom.png)
 
 ## 要件
 

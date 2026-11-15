@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.60
+# jt-waf-mgr v0.4.61
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -146,6 +146,8 @@ nginx and ModSecurity keep working with the last rules.
 | ![Alerts](docs/shots/en/alerts.png) | ![System check](docs/shots/en/system-check.png) |
 | ![Country limits by site](docs/shots/en/countries.png) | ![Request volume](docs/shots/en/traffic.png) |
 | ![Threat intelligence](docs/shots/en/intel.png) | ![Periodic WAF review](docs/shots/en/reviews.png) |
+
+![War room](docs/shots/en/warroom.png)
 
 ## Requirements
 

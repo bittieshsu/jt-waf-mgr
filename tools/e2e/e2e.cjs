@@ -494,6 +494,14 @@ async function audit(page, where) {
   ok((await page.locator('.wr-ops .wr-opcol').count()) === 4 && (await page.locator('.wr-opcard').count()) >= 1, 'war room: alerts and changes');
   ok(!/\/(?:\.env|wp-login|etc\/passwd)/.test(await page.locator('.wr').innerText()), 'war room: no request path on the operations page');
   await page.locator('.wr-tabs button').nth(1).click(); await page.waitForTimeout(500);
+  // the war room for README and Pages, in each language (the board is dark whatever the theme)
+  for (const [L, pre] of [['en', 'en'], ['ja', 'ja'], ['zh-TW', 'light']]) {
+    await page.goto(base + '/', { waitUntil: 'networkidle' });
+    await setLang(page, L);
+    await page.goto(base + '/warroom', { waitUntil: 'networkidle' });
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: SHOTS + '/' + pre + '_warroom.png' });
+  }
   const firstRank = page.locator('.wr-ranklist button').first();
   if (await firstRank.count()) {
     await firstRank.click();
@@ -639,7 +647,7 @@ async function audit(page, where) {
   // Thumbnails for the project site (docs/index.html): one screen of each page, rendered at twice the resolution
   // so they stay sharp when shown small (tools/make_thumbs.py scales them down). Same session, its own window size.
   const THUMBS = { overview: '/', events: '/events', 'waf-model': '/waf', analysis: '/analysis', notifications: '/admin/notify',
-    alerts: '/alerts', 'system-check': '/admin/system', changes: '/changes', rules: '/rules', lookup: '/lookup/203.0.113.9', traffic: '/traffic', countries: '/countries', intel: '/intel', reviews: '/reviews/8' };
+    alerts: '/alerts', 'system-check': '/admin/system', changes: '/changes', rules: '/rules', lookup: '/lookup/203.0.113.9', traffic: '/traffic', countries: '/countries', intel: '/intel', reviews: '/reviews/8', warroom: '/warroom' };
   const state = await ctx.storageState();
   for (const scheme of ['light', 'dark']) {
     const tc = await browser.newContext({ storageState: state, viewport: { width: 1200, height: 900 }, deviceScaleFactor: 2, colorScheme: scheme });
@@ -651,7 +659,7 @@ async function audit(page, where) {
       await setLang(tp, lang);
       for (const [name, p] of Object.entries(scheme === 'light' ? THUMBS : { overview: '/' })) {
         await tp.goto(base + p, { waitUntil: 'networkidle' });
-        await tp.waitForTimeout(400);
+        await tp.waitForTimeout(p === '/warroom' ? 2000 : 400);
         await tp.screenshot({ path: SHOTS + '/thumb-' + lang + '-' + name + (scheme === 'dark' ? '-dark' : '') + '.png' });
       }
     }

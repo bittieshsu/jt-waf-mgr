@@ -2,6 +2,12 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.61 (2026-11-16)
+
+- War room: on a narrow screen the page tabs stay on one line and scroll sideways (seven tabs no longer take half the
+  phone screen).
+- README and the project site show the war room.
+
 ## 0.4.60 (2026-11-16)
 
 - Event list: an attack flood is one row. The same request (source, site, method, path, rules, outcome) again within

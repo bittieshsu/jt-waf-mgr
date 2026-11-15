@@ -550,7 +550,8 @@ onBeforeUnmount(() => {
 .st-stopped, .st-offline { border-color: #c98a4a; color: #ffd39a; }
 .st-stopped .wr-dot, .st-offline .wr-dot, .wr-dot.st-stopped, .wr-dot.st-offline { background: #ff9d4d; }
 .st-syncing .wr-dot, .wr-dot.st-syncing { background: #f3c778; }
-.wr-tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.wr-tabs { display: flex; flex: none; gap: 22px; border-bottom: 1px solid var(--line); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.wr-tabs button { white-space: nowrap; flex: none; }
 .wr-tabs button { background: none; border: none; color: #b9cfc9; font: inherit; font-size: 16px; font-weight: 600; padding: 4px 0 10px; cursor: pointer; border-bottom: 2px solid transparent; }
 .wr-tabs button.on { color: var(--l); border-bottom-color: var(--l); }
 .wr-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; }

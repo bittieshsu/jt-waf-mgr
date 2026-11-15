@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.60
+# jt-waf-mgr v0.4.61
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -116,6 +116,8 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
 | ![待處理警示](docs/shots/zh-TW/alerts.png) | ![系統檢查](docs/shots/zh-TW/system-check.png) |
 | ![各站台的國家限制](docs/shots/zh-TW/countries.png) | ![請求量](docs/shots/zh-TW/traffic.png) |
 | ![威脅情報](docs/shots/zh-TW/intel.png) | ![WAF 定期檢討](docs/shots/zh-TW/reviews.png) |
+
+![戰情室](docs/shots/zh-TW/warroom.png)
 
 ## 需求
 
