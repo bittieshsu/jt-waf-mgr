@@ -90,10 +90,32 @@ def main():
                 code = re.sub(r'//.*$', '', line)
                 if sink.search(code):
                     problems.append('%s:%d: HTML sink (v-html / innerHTML); render as text' % (os.path.relpath(path, ROOT), i))
+    problems += settings_groups_shown()
     for p in problems:
         print(p)
     print('ui check: %s (%d problems)' % ('OK' if not problems else 'FAILED', len(problems)))
     return 1 if problems else 0
+
+
+def settings_groups_shown():
+    """Every settings card defined in UiSettings.vue must be placed on some page (0.4.36 added 'intel' and
+    'review' but no page showed them), and every #uiset-<key> link must point at one of them."""
+    comp = open(os.path.join(SRC, 'components', 'UiSettings.vue'), encoding='utf-8').read()
+    block = comp[comp.index('const GROUPS = ['):]
+    block = block[:block.index('\n]')]
+    defined = set(re.findall(r"\{ key: '([a-z_]+)', icon:", block))
+    shown, links = set(), set()
+    for dirpath, _, files in os.walk(SRC):
+        for name in files:
+            if name.endswith(('.vue', '.js')):
+                text = open(os.path.join(dirpath, name), encoding='utf-8').read()
+                for lst in re.findall(r':groups="\[([^\]]*)\]"', text) + re.findall(r'const GROUPS = \[([^\]]*)\]', text):
+                    shown.update(re.findall(r"'([a-z_]+)'", lst))
+                shown.update(re.findall(r'id="uiset-([a-z_]+)"', text))       # a card of its own (syslog)
+                links.update(k for k in re.findall(r'#uiset-([a-z_]+)', text) if not k.endswith('_'))
+    out = ['settings card "%s" is defined in UiSettings.vue but no page shows it' % k for k in sorted(defined - shown)]
+    out += ['link to #uiset-%s, but no page shows that settings card' % k for k in sorted(links - shown)]
+    return out
 
 
 if __name__ == '__main__':

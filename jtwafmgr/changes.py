@@ -609,35 +609,44 @@ class Workflow:
         return cid
 
     # --- ModSecurity on / off for one site (sitewaf.py) -------------------------------------------------------------
-    def propose_site_waf(self, mode, host, reason, actor, role=None):
+    def propose_site_waf(self, mode, host, reason, actor, role=None, kind='waf'):
         """Switch ModSecurity on (tightening) or off (loosening) for one site: one marked include line in each of its
         server blocks. Checked (the plan, and for "on" the site's recent requests in the sandbox), approved by a
-        person (never automatic), written by the root program."""
+        person (never automatic), written by the root program.
+        kind 'page': the page blocked visitors see, for one site or all ('*') -- neither tighter nor looser."""
         from . import sitewaf
         if role not in ('approver', 'admin'):
             raise ChangeError('forbidden', 403)
+        if kind not in sitewaf.KINDS:
+            raise ChangeError('invalid_request')
         reason = (reason or '').strip()
         if not reason or len(reason) > 2000:
             raise ChangeError('reason_required')
         try:
-            p = sitewaf.plan(self.cfg, host, mode)
+            p = sitewaf.plan(self.cfg, host, mode, kind=kind)
         except sitewaf.PlanError as e:
             raise ChangeError(e.code, 422, **(e.details or {}))
-        open_ = self.db.one("SELECT id FROM changes WHERE op='site_waf' AND state NOT IN (%s) AND json_extract(spec, '$.host')=?"
-                            % ','.join('?' * len(FINAL)), FINAL + (p['host'],))
+        # one open change per site and kind; a change for every site waits for all of them
+        open_ = self.db.one("SELECT id FROM changes WHERE op='site_waf' AND state NOT IN (%s) AND "
+                            "COALESCE(json_extract(spec, '$.kind'), 'waf')=? AND (json_extract(spec, '$.host')=? OR ? IN (?, json_extract(spec, '$.host')))"
+                            % ','.join('?' * len(FINAL)), FINAL + (kind, p['host'], sitewaf.ALL, p['host']))
         if open_:
             raise ChangeError('site_change_pending', 409, change_id=open_[0])
-        spec = {'mode': mode, 'host': p['host'], 'blocks': p['blocks'], 'snippet': p['snippet'],
+        spec = {'mode': mode, 'host': p['host'], 'kind': kind, 'blocks': p['blocks'], 'snippet': p['snippet'],
                 'snippet_text': p['snippet_text']}
-        return self._insert('site_waf', 'site_waf', None, None, spec, 'tighten' if mode == 'enable' else 'loosen',
+        if kind == 'page':
+            spec['skipped'] = p.get('skipped') or []
+        direction = 'neutral' if kind == 'page' else 'tighten' if mode == 'enable' else 'loosen'
+        return self._insert('site_waf', 'site_page' if kind == 'page' else 'site_waf', None, None, spec, direction,
                             reason, actor, 'user', sitewaf.preview(p), [], actor)
 
     def _site_checks(self, cid, r):
         from . import sitewaf
         spec = json.loads(r['spec'])
         checks = {'started_at': util.iso(util.now())}
+        kind = spec.get('kind') or 'waf'
         try:
-            p = sitewaf.plan(self.cfg, spec['host'], spec['mode'])
+            p = sitewaf.plan(self.cfg, spec['host'], spec['mode'], kind=kind)
         except sitewaf.PlanError as e:
             checks['static'] = {'ok': False, 'error': e.code}
             self._finish_checks(cid, checks, 'failed', 'site %s: %s' % (spec['host'], e.code))
@@ -649,7 +658,7 @@ class Workflow:
             self._finish_checks(cid, checks, 'failed', 'the server blocks changed since the proposal; propose again')
             return
         checks['static'] = {'ok': True, 'blocks': len(p['blocks'])}
-        if spec['mode'] == 'enable':
+        if spec['mode'] == 'enable' and kind == 'waf':      # the page changes no decision: nginx -t at apply is its test
             reqs = self.evidence.site_requests(spec['host']) if self.evidence else []
             if self.sandbox is not None and self.sandbox.available():
                 try:
@@ -671,12 +680,14 @@ class Workflow:
 
     def _send_site(self, cid, r):
         spec = json.loads(r['spec'])
-        req = {'request_id': 'site-c%d' % cid, 'action': 'site_waf', 'change_id': cid, 'mode': spec['mode'],
+        kind = spec.get('kind') or 'waf'
+        req = {'request_id': 'site-c%d' % cid, 'action': 'site_waf', 'change_id': cid, 'mode': spec['mode'], 'kind': kind,
                'host': spec['host'], 'blocks': spec['blocks'], 'snippet': spec['snippet'], 'snippet_text': spec.get('snippet_text'),
                'health_urls': self.setting('health.urls'), 'wait_old_workers': self.setting('apply.wait_old_workers_seconds')}
         self._write_request(req)
         self._state(cid, 'applying')
-        self.log(cid, 'system', 'apply_requested', 'ModSecurity %s for %s' % ('on' if spec['mode'] == 'enable' else 'off', spec['host']))
+        self.log(cid, 'system', 'apply_requested', '%s %s for %s' % ('ModSecurity' if kind == 'waf' else 'Blocked page',
+                                                                    'on' if spec['mode'] == 'enable' else 'off', spec['host']))
 
     def _handle_site_result(self, res, r):
         cid = r['id']
@@ -685,7 +696,7 @@ class Workflow:
         if ok:
             # what the root program wrote, file by file: the outside-change check counts a file as ours only while it
             # still has exactly these contents
-            files = {str(k)[:500]: str(v)[:64] for k, v in list((res.get('files') or {}).items())[:20]
+            files = {str(k)[:500]: str(v)[:64] for k, v in list((res.get('files') or {}).items())[:400]
                      if isinstance(v, str) and re.fullmatch(r'[0-9a-f]{64}', v)}
             checks = json.loads(r['checks'] or '{}')
             checks['applied_files'] = files

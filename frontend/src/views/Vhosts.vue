@@ -25,9 +25,25 @@
         </div>
       </div>
     </section>
+    <!-- the page blocked visitors see: every site at once here, one site at a time in the table -->
+    <section v-if="items.length" id="blocked-page" class="card">
+      <h2><Icon name="page" /> {{ t('blockpage.title') }}</h2>
+      <p class="muted small">{{ t('blockpage.hint') }}</p>
+      <p class="small">{{ t('blockpage.status', { ours: pageCount('ours'), can: pagePlan, own: pageCount('own') }) }}</p>
+      <p v-if="pageInfo && pageInfo.refresh && pageCount('ours') > 0" class="alert info">{{ t('blockpage.refresh_hint') }}</p>
+      <p v-if="pageInfo && !pageInfo.ok && pageInfo.error !== 'nothing_to_do'" class="alert warn">{{ t('blockpage.plan_error', { error: pageInfo.error }) }}</p>
+      <div v-if="isApprover" class="actions">
+        <RouterLink v-if="pageChanges['*']" :to="'/changes/' + pageChanges['*']">{{ t('sitewaf.pending', { id: pageChanges['*'] }) }}</RouterLink>
+        <template v-else>
+          <button v-if="pagePlan > 0" type="button" class="btn small primary" @click="startSite(null, 'enable', 'page')"><Icon name="page" />{{ t('blockpage.apply_all') }}</button>
+          <button v-else-if="pageInfo && pageInfo.refresh" type="button" class="btn small primary" @click="startSite(null, 'enable', 'page')"><Icon name="refresh" />{{ t('blockpage.refresh') }}</button>
+          <button v-if="pageCount('ours') > 0" type="button" class="btn small danger" @click="startSite(null, 'disable', 'page')"><Icon name="cancel" />{{ t('blockpage.remove_all') }}</button>
+        </template>
+      </div>
+    </section>
     <section v-if="site.host" ref="siteForm" class="card">
-      <h2><Icon :name="site.mode === 'enable' ? 'shield' : 'unlock'" /> {{ t(site.mode === 'enable' ? 'sitewaf.enable_title' : 'sitewaf.disable_title', { host: site.host }) }}</h2>
-      <p class="muted small">{{ t(site.mode === 'enable' ? 'sitewaf.enable_hint' : 'sitewaf.disable_hint') }}</p>
+      <h2><Icon :name="formIcon" /> {{ formTitle }}</h2>
+      <p class="muted small">{{ formHint }}</p>
       <label class="field"><span>{{ t('sitewaf.reason') }}</span>
         <textarea v-model="site.reason" rows="2" maxlength="2000" class="w-lg"></textarea></label>
       <ErrorBox :error="site.error" />
@@ -54,6 +70,15 @@
         <div v-if="row.inline_rule_ids && row.inline_rule_ids.length" class="sub mono">
           {{ t('vhosts.inline_rules') }}: <RouterLink v-for="id in row.inline_rule_ids" :key="id" :to="'/rules/' + id" class="idlink">{{ id }}</RouterLink>
         </div>
+      </template>
+      <template #cell-page="{ row }">
+        <span v-if="row.redirect_only && pageState(row) === 'none'" class="muted">—</span>
+        <span v-else class="badge" :class="PAGE_CLS[pageState(row)]">{{ t('blockpage.state.' + pageState(row)) }}</span>
+        <div v-if="pagePending(row)" class="sub"><RouterLink :to="'/changes/' + pagePending(row)">{{ t('sitewaf.pending', { id: pagePending(row) }) }}</RouterLink></div>
+        <div v-else-if="isApprover && siteOf(row) && pageState(row) === 'none' && !row.redirect_only" class="sub">
+          <button type="button" class="btn tiny" @click="startSite(row, 'enable', 'page')"><Icon name="page" />{{ t('blockpage.apply') }}</button></div>
+        <div v-else-if="isApprover && siteOf(row) && pageState(row) === 'ours'" class="sub">
+          <button type="button" class="btn tiny danger" @click="startSite(row, 'disable', 'page')"><Icon name="cancel" />{{ t('blockpage.remove') }}</button></div>
       </template>
       <!-- one line: what the country rules of this site allow or block; the details and the actions are on the
            country-limits page (this table is about the nginx configuration) -->
@@ -111,14 +136,29 @@ import HBars from '../components/charts/HBars.vue'
 const router = useRouter()
 const isApprover = computed(() => hasRole('approver'))
 const siteChanges = ref({})
-const site = reactive({ host: '', mode: 'enable', reason: '', busy: false, error: null })
+const pageChanges = ref({})
+const pageInfo = ref(null)        // can the blocked page go on every site: {ok, plan: n} or {ok: false, error}
+const site = reactive({ host: '', mode: 'enable', kind: 'waf', reason: '', busy: false, error: null })
+const PAGE_CLS = { ours: 'b-ok', own: 'b-int', none: 'b-logged' }
+const pagePlan = computed(() => (pageInfo.value && pageInfo.value.ok ? pageInfo.value.plan : 0))
+function pageState(v) { return v.blocked_page || 'none' }
+function pageCount(w) { return items.value.filter((v) => pageState(v) === w).length }
+function pagePending(v) { return pageChanges.value[siteOf(v).toLowerCase()] || pageChanges.value['*'] || 0 }
+const formIcon = computed(() => (site.kind === 'page' ? (site.mode === 'enable' ? 'page' : 'cancel') : site.mode === 'enable' ? 'shield' : 'unlock'))
+const formTitle = computed(() => {
+  if (site.kind !== 'page') return t(site.mode === 'enable' ? 'sitewaf.enable_title' : 'sitewaf.disable_title', { host: site.host })
+  if (site.host === '*') return t(site.mode === 'enable' ? 'blockpage.enable_all_title' : 'blockpage.disable_all_title')
+  return t(site.mode === 'enable' ? 'blockpage.enable_title' : 'blockpage.disable_title', { host: site.host })
+})
+const formHint = computed(() => t((site.kind === 'page' ? 'blockpage.' : 'sitewaf.') + (site.mode === 'enable' ? 'enable_hint' : 'disable_hint')))
 const siteForm = ref(null)
 // the site a switch is for: the first plain name of the server block
 function siteOf(v) {
   return (v.server_names || []).find((n) => n && n !== '_' && !n.startsWith('~') && /^[a-z0-9.-]+$/i.test(n)) || ''
 }
-async function startSite(row, mode) {
-  Object.assign(site, { host: siteOf(row).toLowerCase(), mode, reason: '', error: null })
+async function startSite(row, mode, kind = 'waf') {
+  Object.assign(site, { host: row ? siteOf(row).toLowerCase() : '*', mode, kind, error: null,
+    reason: kind === 'page' && mode === 'enable' ? t('blockpage.default_reason') : '' })
   await nextTick()
   if (siteForm.value) siteForm.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
@@ -126,7 +166,7 @@ async function submitSite() {
   site.busy = true
   site.error = null
   try {
-    const r = await post('/vhosts/waf', { host: site.host, mode: site.mode, reason: site.reason.trim() })
+    const r = await post(site.kind === 'page' ? '/vhosts/blocked-page' : '/vhosts/waf', { host: site.host, mode: site.mode, reason: site.reason.trim() })
     router.push('/changes/' + r.change_id)
   } catch (e) { site.error = e } finally { site.busy = false }
 }
@@ -141,6 +181,7 @@ const cols = computed(() => [
     text: (v) => (v.server_names || []).join(' ') + ' ' + (v.file || '') + ' ' + (v.listen || []).join(' ') },
   { key: 'waf', label: t('vhosts.waf'), nowrap: true, value: (v) => (v.waf === 'off' && v.redirect_only ? t('waf.redirect') : t('waf.' + (v.waf || 'unknown'))),
     text: (v) => (v.waf === 'off' && v.redirect_only ? t('waf.redirect') : t('waf.' + (v.waf || 'unknown'))) + ' ' + (v.inline_rule_ids || []).join(' ') },
+  { key: 'page', label: t('vhosts.page'), nowrap: true, value: (v) => t('blockpage.state.' + pageState(v)) },
   { key: 'dns', label: t('dns.col.dns'), nowrap: true, value: (v) => (v.dns ? t('dns.class.' + v.dns.class) : '') },
   { key: 'reach', label: t('vhosts.reach'), nowrap: true, value: (v) => t('vhosts.reach.' + (v.reach || 'open')),
     text: (v) => t('vhosts.reach.' + (v.reach || 'open')) + ' ' + (v.reach_by || '') },
@@ -196,6 +237,8 @@ onMounted(async () => {
     items.value = data.items || []
     warnings.value = data.warnings || []
     siteChanges.value = data.site_changes || {}
+    pageChanges.value = data.page_changes || {}
+    pageInfo.value = data.blocked_page || null
   } catch (e) { error.value = e } finally { loading.value = false }
   try { byHost.value = (await get('/overview', { range: '7d' })).by_host || [] } catch { byHost.value = [] }
 })

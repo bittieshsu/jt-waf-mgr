@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.44
+# jt-waf-mgr v0.4.46
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -207,13 +207,18 @@ other); a WAF switched on any other way, or a block with `modsecurity off;` writ
 writing, the root program computes the plan itself and goes ahead only when it matches the approved one and the
 files still have the checked contents.
 
-### A page for people the WAF blocked (optional)
+### A page for people the WAF blocked
 
-Without one, a blocked visitor sees nginx's plain "403 Forbidden". `deploy/blocked-page/` in the release has a page in
-three languages that shows the request id (nginx's `$request_id`, written with server-side includes) and a snippet to
-include in each server block that runs ModSecurity. With `modsecurity_transaction_id "$host-$request_id";` the id is
-also in the event: paste it into "Someone was blocked?" on the Events page. jt-waf-mgr does not write this for you:
-it is an nginx change you make (nginx -t, reload) when you want it.
+Without one, a blocked visitor sees nginx's plain "403 Forbidden". On the **Sites** page, "Blocked page" puts a page in
+three languages with the request id (nginx's `$request_id`, written with server-side includes) on every site at once,
+or one site at a time from the table. It is a change a person approves: each server block that serves content gets one
+marked include line (blocks that only redirect, or that have their own 403 page, are left alone), and the root program
+writes the page and the snippet next to the managed rule files, runs nginx -t, reloads and checks the health URLs,
+putting everything back if a step fails. With `modsecurity_transaction_id "$host-$request_id";` the id is also in the
+event: paste it into "Someone was blocked?" on the Events page. It shows for the WAF (country rules included) and
+the IP block list; not where a site's own nginx `if` answers 403 first, and not for the 403 pages of the applications
+behind nginx. The snippet and the page are jt-waf-mgr's own: when a release brings newer ones, "Update the page"
+writes them (as a change). "Remove" takes the lines out again.
 
 ### The OWASP CRS
 

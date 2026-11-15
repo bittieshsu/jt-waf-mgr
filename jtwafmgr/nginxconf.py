@@ -219,7 +219,8 @@ class NginxConfig:
             out.append({'server_names': names, 'listen': listen, 'file': s.file, 'line': s.line, 'waf': state,
                         'inline_rule_ids': inline_ids, 'bypass': bypass, 'body_limit': body,
                         'restrictions': _dedupe(restrictions), 'realip': realip, 'upstreams': _dedupe(upstreams),
-                        'reach': scope, 'reach_by': scope_by, 'redirect_only': _redirect_only(s.children)})
+                        'reach': scope, 'reach_by': scope_by, 'redirect_only': _redirect_only(s.children),
+                        'own_403': any(d.name == 'error_page' and '403' in d.args[:-1] for d in s.children)})
         return out
 
     def inline_rules(self):

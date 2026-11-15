@@ -822,11 +822,23 @@ def vhosts(app, req):
             except OSError:
                 lines[s['file']] = []
         ls = lines[s['file']]
-        s['waf_by_us'] = 0 < s['line'] < len(ls) and bool(sitewaf.MARK_LINE.match(ls[s['line']].rstrip('\n')))
-    open_ = {}
+        ok = 0 < s['line'] <= len(ls)
+        s['waf_by_us'] = ok and sitewaf.marked_at(ls, s['line'] - 1, 'waf') is not None
+        # the blocked page: 'ours' (the marked line), 'own' (the block has its own 403 page), else None
+        s['blocked_page'] = 'ours' if ok and sitewaf.marked_at(ls, s['line'] - 1, 'page') is not None else \
+            'own' if s.get('own_403') else None
+    open_, page_open = {}, {}
     for r in app.db.q("SELECT id, spec FROM changes WHERE op='site_waf' AND state NOT IN (%s)" % ','.join('?' * len(FINAL)), FINAL):
-        open_[json.loads(r['spec']).get('host')] = r['id']
-    return json_response(200, {'items': items, 'warnings': m.warnings + n.errors + m.errors, 'site_changes': open_})
+        sp = json.loads(r['spec'])
+        (page_open if sp.get('kind') == 'page' else open_)[sp.get('host')] = r['id']
+    page = None
+    try:
+        pp = sitewaf.plan(app.cfg, sitewaf.ALL, 'enable', kind='page')
+        page = {'ok': True, 'plan': len(pp['blocks']), 'refresh': bool(pp.get('refresh'))}
+    except sitewaf.PlanError as e:
+        page = {'ok': False, 'error': e.code}
+    return json_response(200, {'items': items, 'warnings': m.warnings + n.errors + m.errors, 'site_changes': open_,
+                               'page_changes': page_open, 'blocked_page': page})
 
 
 def site_waf_propose(app, req):
@@ -836,6 +848,19 @@ def site_waf_propose(app, req):
         raise ApiError(400, 'bad_request', 'an object')
     try:
         cid = _wf(app).propose_site_waf(b.get('mode'), b.get('host'), b.get('reason'), req.user['username'], role=req.user['role'])
+    except ChangeError as e:
+        raise _change_error(e)
+    return json_response(202, {'change_id': cid})
+
+
+def blocked_page_propose(app, req):
+    """Approver: the page blocked visitors see, on (or off again) for one site or every site ('*'), as a change."""
+    b = req.body()
+    if not isinstance(b, dict):
+        raise ApiError(400, 'bad_request', 'an object')
+    try:
+        cid = _wf(app).propose_site_waf(b.get('mode'), b.get('host'), b.get('reason'), req.user['username'],
+                                        role=req.user['role'], kind='page')
     except ChangeError as e:
         raise _change_error(e)
     return json_response(202, {'change_id': cid})
@@ -1427,6 +1452,7 @@ def register(router):
     R('GET', V + '/dns', dns_status, viewer('rules:read'))
     R('GET', V + '/reviews', reviews, viewer('events:read'))
     R('POST', V + '/vhosts/waf', site_waf_propose, ('role', 'approver', None))
+    R('POST', V + '/vhosts/blocked-page', blocked_page_propose, ('role', 'approver', None))
     R('GET', V + '/events/{id}/analysis', event_analysis, viewer('events:read'))
     R('POST', V + '/events/{id}/analysis', event_analyze, ('role', 'operator', None))
     R('GET', V + '/intel', intel_status, viewer('events:read'))

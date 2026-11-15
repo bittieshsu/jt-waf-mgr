@@ -4,7 +4,7 @@
     <WorkflowSettings />
     <RegressionSamples />
     <GeoipSettings @saved="load" />
-    <UiSettings :groups="['llm', 'analyst', 'traffic', 'blocks', 'network']" @saved="load" />
+    <UiSettings :groups="['llm', 'analyst', 'intel', 'review', 'traffic', 'blocks', 'network']" @saved="load" />
     <CountrySettings @saved="load" />
     <DnsSettings @saved="load" />
     <SyslogDestinations />

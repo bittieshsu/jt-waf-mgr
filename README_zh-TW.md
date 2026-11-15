@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.44
+# jt-waf-mgr v0.4.46
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -172,12 +172,15 @@ jt-waf-mgr 只寫 ModSecurity 的檔案，永遠不寫 nginx 設定。它會讀 
 照一般規則核准);用其他方式開啟的 WAF,或手寫 `modsecurity off;` 的區塊都不會動。寫入前 root 程式會自己重新計算一次,
 跟核准的內容一致、檔案內容也和檢查時相同才會寫。
 
-### 被封鎖時看到的頁面(選用)
+### 被封鎖時看到的頁面
 
-沒有設定時,被封鎖的人只會看到 nginx 預設的「403 Forbidden」。發行檔的 `deploy/blocked-page/` 有一個三語頁面,會顯示請求編號
-(nginx 的 `$request_id`,用 SSI 寫入),以及一段放進每個開啟 ModSecurity 的 server 區塊的設定。設定了
-`modsecurity_transaction_id "$host-$request_id";` 時,事件裡也有同一個編號:貼到事件頁的「有人被封鎖?」就能直接開啟那筆事件。
-jt-waf-mgr 不會替你寫入這份設定:這是 nginx 的修改,需要時自己加(nginx -t、reload)。
+沒有設定時,被封鎖的人只會看到 nginx 預設的「403 Forbidden」。在**站台**頁的「封鎖頁」可以一次替全部站台套用一個三語頁面,
+上面有請求編號(nginx 的 `$request_id`,用 SSI 寫入);也可以在表格裡一站一站套用。這是一筆由人核准的變更:每個有提供內容的
+server 區塊加一行帶標記的 include(只轉址、或已有自己 403 頁面的區塊不動),root 程式把頁面與片段寫在受管理規則檔旁邊,
+再 `nginx -t`、reload、檢查健康檢查網址,任何一步失敗就全部還原。設定了 `modsecurity_transaction_id "$host-$request_id";`
+時,事件裡也有同一個編號:貼到事件頁的「有人被封鎖?」就能直接開啟那筆事件。WAF(含國家規則)與 IP 封鎖清單的 403
+會顯示這一頁;站台自己 nginx `if` 先回的 403、後端應用程式自己的 403 頁面不受影響。片段與頁面屬於 jt-waf-mgr:新版本
+帶來較新的內容時,按「更新封鎖頁」寫入(以變更進行)。「移除」會把那幾行再拿掉。
 
 ### OWASP CRS
 

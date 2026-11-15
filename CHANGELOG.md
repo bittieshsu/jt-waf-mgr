@@ -2,6 +2,26 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.46 (2026-11-15)
+
+- Blocked page: also shown to addresses on the IP block list (the page's internal location allows everyone; before,
+  nginx refused the page too and showed its own 403). Checked with real nginx and ModSecurity.
+- Blocked page: the snippet and the page are jt-waf-mgr's own files: a release with newer ones offers "Update the
+  page" on the Sites page (a change), instead of refusing them as edited by hand.
+
+## 0.4.45 (2026-11-15)
+
+- Sites: "Blocked page" -- the page blocked visitors see (three languages, with the request id to paste into "Someone
+  was blocked?"), on every site at once or one site at a time, as a change a person approves: one marked include line
+  per server block that serves content (blocks that only redirect or have their own 403 page are left alone); the root
+  program writes the page and the snippet next to the managed rule files, nginx -t, reload, health checks, and puts
+  everything back if a step fails. Replaces the sample in `deploy/blocked-page/`.
+- Settings: the "Threat intelligence (second-tier LLM)" and "Periodic WAF review" cards were missing from the settings
+  page (the "Settings" button on the threat intelligence page led nowhere). The build check now fails when a settings
+  card is not shown on any page.
+- Menu on narrow screens: the page behind is dimmed, each group is its own card with a coloured heading, and the
+  current page is marked with a bar.
+
 ## 0.4.44 (2026-11-15)
 
 - Overview: one line with the latest periodic WAF review (its verdict, blocked / logged) and a link to it.

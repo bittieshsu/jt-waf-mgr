@@ -41,7 +41,7 @@
       </div>
       <div v-if="openMenu === 'all'" id="navpanel" ref="panelEl" class="navpanel" @keydown.esc="closeMenu(true)">
         <section v-for="g in navGroups.filter((x) => x.items)" :key="g.key" class="np-group">
-          <h2 class="np-head">{{ g.label }}</h2>
+          <h2 class="np-head"><Icon :name="g.icon" />{{ g.label }}</h2>
           <div class="np-links">
             <RouterLink v-for="l in g.items" :key="l.to" :to="l.to" class="navitem" v-bind="activeProps(l)"><Icon :name="l.icon" />{{ l.label }}<span v-if="l.badge" class="badge tiny b-warn" :title="l.badgeTitle">{{ l.badge }}</span></RouterLink>
           </div>
@@ -52,7 +52,7 @@
           </div>
         </section>
         <section class="np-group np-me">
-          <h2 class="np-head">{{ t('nav.group_me') }}</h2>
+          <h2 class="np-head"><Icon name="user" />{{ t('nav.group_me') }}</h2>
           <div class="np-controls">
             <ThemeSwitch />
             <LangSwitch />
@@ -65,7 +65,9 @@
         </section>
       </div>
     </header>
-    <div v-else class="bare-top"><ThemeSwitch /><LangSwitch /></div>
+    <!-- dims the page under the open menu panel, so the panel stands apart (a click on it closes the menu) -->
+    <div v-if="!bare && openMenu === 'all'" class="navscrim" aria-hidden="true"></div>
+    <div v-if="bare" class="bare-top"><ThemeSwitch /><LangSwitch /></div>
 
     <main class="content">
       <!-- the server was upgraded while this tab was open: the page still runs the old program until it reloads -->

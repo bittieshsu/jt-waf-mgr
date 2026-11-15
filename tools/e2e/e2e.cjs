@@ -224,6 +224,14 @@ async function audit(page, where) {
     await swBtn.click();
     ok(await page.locator('textarea').count() >= 1, 'sites: the WAF switch asks why');
   }
+  // the blocked page: a card for every site at once, a column for one site at a time
+  await page.goto(base + '/vhosts', { waitUntil: 'networkidle' });
+  ok(await page.locator('#blocked-page').count() === 1, 'sites: blocked page card');
+  const allBtn = page.locator('#blocked-page button.primary');
+  if (await allBtn.count()) {
+    await allBtn.click();
+    ok((await page.locator('textarea').inputValue()).length > 5, 'sites: blocked page for every site opens the form with a reason');
+  } else problems.push('FAIL sites: no "apply to every site" button for the blocked page');
   // "someone was blocked": an address goes to the address lookup
   await page.goto(base + '/events', { waitUntil: 'networkidle' });
   await page.fill('.findvisit input', '203.0.113.9');

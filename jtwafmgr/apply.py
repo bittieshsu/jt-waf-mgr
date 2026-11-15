@@ -665,10 +665,12 @@ class Applier:
         """The request only names the site, the mode and what the web service saw; root computes the plan itself and
         goes ahead only when both agree and every file still has the contents that were checked and approved."""
         from . import sitewaf
-        if not isinstance(req.get('change_id'), int) or req.get('mode') not in sitewaf.MODES:
+        kind = req.get('kind') or 'waf'
+        if not isinstance(req.get('change_id'), int) or req.get('mode') not in sitewaf.MODES or kind not in sitewaf.KINDS:
             raise Fail('request', 'bad site_waf request')
+        req['kind'] = kind
         try:
-            p = sitewaf.plan(self.cfg, str(req.get('host') or ''), req['mode'])
+            p = sitewaf.plan(self.cfg, str(req.get('host') or ''), req['mode'], kind=kind)
         except sitewaf.PlanError as e:
             raise Fail('validate', 'site %s: %s %s' % (clean(str(req.get('host')), 100), e.code, e.details or ''))
         want = sorted((b['file'], b['line'], b['sha256']) for b in req.get('blocks') or [] if isinstance(b, dict))
@@ -676,7 +678,7 @@ class Applier:
         if want != got:
             raise Fail('drift', 'the server blocks of %s changed since the checks (files, lines or contents)' % p['host'])
         if req['mode'] == 'enable' and (req.get('snippet') != p['snippet'] or req.get('snippet_text') != p['snippet_text']):
-            raise Fail('drift', 'the ModSecurity snippet changed since the checks')
+            raise Fail('drift', 'the snippet changed since the checks')
         urls = req.get('health_urls') or []
         if not isinstance(urls, list) or len(urls) > 100 or not all(
                 isinstance(u, str) and re.fullmatch(r'https?://[a-z0-9.-]+(?::\d{1,5})?/\S{0,500}', u) for u in urls):
@@ -692,6 +694,8 @@ class Applier:
                 raise Fail('validate', '%s is not a file inside the nginx configuration directory' % f)
         if p['snippet'] and not os.path.realpath(p['snippet']).startswith(top):
             raise Fail('validate', 'the snippet is outside the nginx configuration directory')
+        if kind == 'page' and not os.path.realpath(sitewaf.page_paths(self.cfg)[1]).startswith(top):
+            raise Fail('validate', 'the blocked page is outside the nginx configuration directory')
         req['plan'] = p
         return req
 
@@ -716,8 +720,10 @@ class Applier:
                 raise Fail('drift', '%s changed since the checks' % f)
             saved[f] = (data, st.st_mode & 0o7777, st.st_uid, st.st_gid)
         self.check_binary()
+        kind = req.get('kind') or 'waf'
         before, _ = sitewaf.waf_states(self.cfg)
-        snip, made_snip = p['snippet'], False
+        snip, made_snip, snip_old = p['snippet'], False, None
+        page, page_old, made_dir = None, None, False
         log = []
         try:
             if req['mode'] == 'enable' and p['snippet_text'] is not None and not os.path.lexists(snip):
@@ -725,18 +731,50 @@ class Applier:
                 write_atomic(snip, p['snippet_text'].encode('utf-8'), 0o644)
                 made_snip = True
                 log.append('wrote %s' % snip)
+            elif kind == 'page' and req['mode'] == 'enable':
+                # the blocked-page snippet is ours: a newer release's text replaces the old one
+                if os.path.islink(snip):
+                    raise Fail('validate', 'the blocked-page snippet is a symbolic link')
+                with open(snip, 'rb') as fh:
+                    cur = fh.read()
+                if cur != p['snippet_text'].encode('utf-8'):
+                    snip_old = cur
+                    write_atomic(snip, p['snippet_text'].encode('utf-8'), 0o644)
+                    log.append('updated %s' % snip)
+            if kind == 'page' and req['mode'] == 'enable':
+                # the page itself, from this installed package: written when missing or different (a newer release)
+                _, pdir, page = sitewaf.page_paths(self.cfg)
+                want = sitewaf.page_html().encode('utf-8')
+                if os.path.islink(pdir) or os.path.islink(page):
+                    raise Fail('validate', 'the blocked page or its directory is a symbolic link')
+                if not os.path.isdir(pdir):
+                    os.makedirs(pdir, mode=0o755)
+                    made_dir = True
+                if os.path.lexists(page):
+                    with open(page, 'rb') as fh:
+                        page_old = fh.read()
+                if page_old != want:
+                    write_atomic(page, want, 0o644)
+                    log.append('wrote %s' % page)
             for f, lines in by_file.items():
                 text, mode, uid, gid = saved[f]
-                new = sitewaf.edit(text.decode('utf-8'), lines, req['mode'], snip, cid)
+                new = sitewaf.edit(text.decode('utf-8'), lines, req['mode'], snip, cid, kind=kind)
                 write_atomic(f, new.encode('utf-8'), mode)
                 os.chown(f, uid, gid)
-            log.append('%s: %d server block(s) %s' % (p['host'], len(p['blocks']), 'on' if req['mode'] == 'enable' else 'off'))
-            # only the planned blocks changed: every other server block keeps its ModSecurity state
+            log.append('%s: %d server block(s) %s %s' % (p['host'], len(p['blocks']), 'WAF' if kind == 'waf' else 'blocked page',
+                                                       'on' if req['mode'] == 'enable' else 'off'))
+            # only the planned blocks changed, and only in what this change is about
             after, errs = sitewaf.waf_states(self.cfg)
             planned = {(os.path.realpath(b['file']), b['nth']) for b in p['blocks']}
             on = req['mode'] == 'enable'
+            pos = 1 if kind == 'waf' else 2
+
+            def expect(k):
+                v = list(before[k])
+                v[pos] = on
+                return tuple(v)
             if errs or set(after) != set(before) or any(after[k] != before[k] for k in after if k not in planned) or \
-                    any(after[k] != (before[k][0], on) for k in planned):
+                    any(after[k] != expect(k) for k in planned):
                 raise Fail('verify', 'the written files do not change exactly the planned server blocks')
             self.test_config()
             log.append('nginx -t ok')
@@ -756,6 +794,21 @@ class Applier:
                     os.unlink(snip)
                 except OSError:
                     pass
+            if snip_old is not None:
+                try:
+                    write_atomic(snip, snip_old, 0o644)
+                except OSError:
+                    pass
+            if page is not None:
+                try:
+                    if page_old is not None:
+                        write_atomic(page, page_old, 0o644)
+                    elif os.path.lexists(page):
+                        os.unlink(page)
+                    if made_dir:
+                        os.rmdir(os.path.dirname(page))
+                except OSError:
+                    pass
             try:
                 self.reload(int(req.get('wait_old_workers') or 120))
             except Fail:
@@ -763,11 +816,11 @@ class Applier:
             e.summary += ' -- the files were put back, nginx reloaded'
             raise e
         files = {}
-        for f in list(by_file) + ([snip] if made_snip else []):
+        for f in list(by_file) + ([snip] if made_snip or snip_old is not None else []):
             with open(f, 'rb') as fh:
                 files[os.path.realpath(f)] = hashlib.sha256(fh.read()).hexdigest()
         return {'result': 'ok', 'summary': '; '.join(log), 'files': files, 'snippet_created': made_snip,
-                'site': {'host': p['host'], 'mode': req['mode'], 'blocks': [[b['file'], b['line']] for b in p['blocks']]}}
+                'site': {'host': p['host'], 'mode': req['mode'], 'kind': kind, 'blocks': [[b['file'], b['line']] for b in p['blocks']]}}
 
     def crs_switch(self, req):
         from . import crsupdate

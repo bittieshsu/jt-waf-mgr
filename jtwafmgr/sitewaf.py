@@ -7,6 +7,13 @@ root program). The only edit ever made to a server block is one marked line righ
 The snippet is the one the other sites already include to switch ModSecurity on; when there is none, a managed one
 (modsecurity on, plus the rules file when the http block does not load one) next to the managed rule files.
 
+The page blocked visitors see (kind "page") works the same way, for one site or all of them at once:
+
+    include /etc/nginx/modsec/jt-waf-mgr/blocked-page.conf;  # jt-waf-mgr: blocked page (change #13)
+
+The snippet (error_page 403 plus an internal location with server-side includes for the request id) and the page
+itself are managed files next to the rule files, written by the root program from this package.
+
 The same plan is computed twice: by the web service when the change is proposed, and again by the root program
 before it writes, which applies only when both agree and the files still have the checked contents.
 """
@@ -26,6 +33,18 @@ SNIPPET_LINE = re.compile(r'^\s*(?:#.*|modsecurity\s+on\s*;|modsecurity_rules_fi
 MAX_BLOCKS = 10
 SNIPPET_PATH = re.compile(r'^/[A-Za-z0-9._/-]{1,300}$')
 MARK_LINE = re.compile(r'^\s*include\s+(/[A-Za-z0-9._/-]{1,300});\s+' + re.escape(MARK) + r' \(change #\d+\)\s*$')
+
+KINDS = ('waf', 'page')
+ALL = '*'                                   # every site (the blocked page only)
+PAGE_MARK = '# jt-waf-mgr: blocked page'
+PAGE_MARK_LINE = re.compile(r'^\s*include\s+(/[A-Za-z0-9._/-]{1,300});\s+' + re.escape(PAGE_MARK) + r' \(change #\d+\)\s*$')
+PAGE_SNIPPET = 'blocked-page.conf'
+PAGE_DIR = 'blocked-page'
+PAGE_FILE = 'jt-blocked.html'
+PAGE_URI = '/' + PAGE_FILE
+MAX_PAGE_BLOCKS = 300
+MARKS = {'waf': MARK, 'page': PAGE_MARK}
+MARK_LINES = {'waf': MARK_LINE, 'page': PAGE_MARK_LINE}
 
 
 class PlanError(Exception):
@@ -47,6 +66,20 @@ def split_lines(text):
     if parts[-1]:
         out.append(parts[-1])
     return out
+
+
+def marked_at(lines, idx, kind='waf'):
+    """Index of this kind's marked line among the marked lines right after the `server {` line at idx, else None."""
+    j = idx + 1
+    while j < len(lines):
+        line = lines[j].rstrip('\n')
+        k = next((k for k, rx in MARK_LINES.items() if rx.match(line)), None)
+        if k is None:
+            return None
+        if k == kind:
+            return j
+        j += 1
+    return None
 
 
 def _lines(path):
@@ -118,14 +151,17 @@ def snippet(cfg, conf):
     return os.path.join(cfg['managed']['dir'], MANAGED_SNIPPET), text
 
 
-def plan(cfg, host, mode, conf=None):
-    """{'host', 'mode', 'blocks': [{file, line, names, sha256}], 'snippet': path, 'snippet_text': text or None}."""
+def plan(cfg, host, mode, conf=None, kind='waf'):
+    """{'host', 'mode', 'kind', 'blocks': [{file, line, names, nth, sha256}], 'snippet': path, 'snippet_text': text or
+    None} (and for the page: 'skipped', the blocks that keep their own 403 page)."""
     host = (host or '').lower().strip()
-    if mode not in MODES or not HOST_RE.match(host):
+    if mode not in MODES or kind not in KINDS or not (HOST_RE.match(host) or (kind == 'page' and host == ALL)):
         raise PlanError('invalid_request')
     conf = conf or NginxConfig(cfg['paths']['nginx_conf'])
     if conf.errors:
         raise PlanError('nginx_config_unreadable', errors=conf.errors[:3])
+    if kind == 'page':
+        return _page_plan(cfg, host, mode, conf)
     path, text = snippet(cfg, conf) if mode == 'enable' else (None, None)
     if path is not None and not SNIPPET_PATH.match(path):
         raise PlanError('snippet_path', path=path)
@@ -150,7 +186,8 @@ def plan(cfg, host, mode, conf=None):
         idx = s.line - 1
         if not 0 <= idx < len(lines) or not SERVER_LINE.match(lines[idx].rstrip('\n')):
             raise PlanError('server_line_shape', file=s.file, line=s.line)
-        mm = MARK_LINE.match(lines[idx + 1].rstrip('\n')) if idx + 1 < len(lines) else None
+        j = marked_at(lines, idx, 'waf')
+        mm = MARK_LINE.match(lines[j].rstrip('\n')) if j is not None else None
         marked = bool(mm)
         if marked and mode == 'disable' and not _snippet_ok(mm.group(1)):
             # whatever it includes (the managed snippet too) must only switch ModSecurity on: anything else is not ours
@@ -170,11 +207,122 @@ def plan(cfg, host, mode, conf=None):
         raise PlanError('nothing_to_do')
     if len(blocks) > MAX_BLOCKS:
         raise PlanError('too_many_blocks')
-    return {'host': host, 'mode': mode, 'blocks': blocks, 'snippet': path, 'snippet_text': text}
+    return {'host': host, 'mode': mode, 'kind': 'waf', 'blocks': blocks, 'snippet': path, 'snippet_text': text}
 
 
-def edit(text, lines_1based, mode, snippet_path, change_id):
-    """The file's new text: the marked include after each `server {` line (enable), or those lines removed."""
+# --- the page blocked visitors see -------------------------------------------------------------------------------
+def page_html():
+    """The page, from this package (the root program writes it from its own installed copy)."""
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'blocked-page.html'), encoding='utf-8') as fh:
+        return fh.read()
+
+
+def page_paths(cfg):
+    """(snippet path, directory of the page, page path): managed files next to the rule files."""
+    d = cfg['managed']['dir']
+    return os.path.join(d, PAGE_SNIPPET), os.path.join(d, PAGE_DIR), os.path.join(d, PAGE_DIR, PAGE_FILE)
+
+
+def page_snippet_text(cfg):
+    _, pdir, _ = page_paths(cfg)
+    # allow all: an address on the IP block list (deny in the http block) would be refused the page too and see nginx's
+    # own 403; the location is internal, so it is reached only through error_page.
+    return ('# Generated by jt-waf-mgr (rewritten by it): the page a visitor sees when nginx answers 403, with the request\n'
+            '# id to give the administrator. Switched on and off from the Sites page.\n'
+            'error_page 403 %s;\n'
+            'location = %s {\n'
+            '    internal;\n'
+            '    allow all;\n'
+            '    root %s;\n'
+            '    ssi on;\n'
+            '    modsecurity off;\n'
+            '    add_header Cache-Control "no-store" always;\n'
+            '}\n') % (PAGE_URI, PAGE_URI, pdir)
+
+
+def _includes(children, path):
+    return any(d.name == 'include' and d.args and os.path.realpath(d.args[0]) == os.path.realpath(path) for d in children)
+
+
+def _own_403(children):
+    """The server block already has a 403 page (or our location): ours would clash or change what people see."""
+    return any(d.name == 'error_page' and '403' in d.args[:-1] for d in children) or \
+        any(d.name == 'location' and d.args[-1:] == [PAGE_URI] for d in children)
+
+
+def _page_plan(cfg, host, mode, conf):
+    path, pdir, _ = page_paths(cfg)
+    text = page_snippet_text(cfg) if mode == 'enable' else None
+    for x in (path, pdir):
+        if not SNIPPET_PATH.match(x):
+            raise PlanError('snippet_path', path=x)
+    # both files are jt-waf-mgr's own: a newer release brings a newer snippet or page, written by the next "enable"
+    # (with nothing else to do, "every site" only refreshes them)
+    refresh = mode == 'enable' and page_stale(cfg)
+    blocks, skipped = [], []
+    nth = collections.Counter()
+    for s in _servers(conf):
+        k = os.path.realpath(s.file)
+        nth[k] += 1
+        names = _names(s)
+        if host == ALL:
+            if not any(HOST_RE.match(n) for n in names):
+                continue                          # the catch-all `_` and other non-site blocks
+        elif host not in names:
+            continue
+        try:
+            lines = _lines(s.file)
+        except (OSError, UnicodeDecodeError):
+            raise PlanError('file_unreadable', file=s.file)
+        idx = s.line - 1
+        if not 0 <= idx < len(lines) or not SERVER_LINE.match(lines[idx].rstrip('\n')):
+            raise PlanError('server_line_shape', file=s.file, line=s.line)
+        j = marked_at(lines, idx, 'page')
+        b = {'file': s.file, 'line': s.line, 'names': names[:50], 'nth': nth[k], 'sha256': _sha(s.file)}
+        if mode == 'enable':
+            if j is not None or _includes(s.children, path) or _redirect_only(s.children):
+                continue                          # has it already, or only redirects
+            if _own_403(s.children):
+                skipped.append(dict(b, why='own_error_page'))
+                continue
+            blocks.append(b)
+        else:
+            if j is None:
+                if _includes(s.children, path) and host != ALL:
+                    raise PlanError('page_included_by_hand', file=s.file, line=s.line)
+                continue
+            mm = PAGE_MARK_LINE.match(lines[j].rstrip('\n'))
+            if os.path.realpath(mm.group(1)) != os.path.realpath(path):
+                raise PlanError('marked_line_not_the_page', file=s.file, line=s.line)
+            blocks.append(b)
+    if not blocks and not (refresh and host == ALL and _in_use(conf, path)):
+        raise PlanError('nothing_to_do', skipped=len(skipped))
+    if len(blocks) > MAX_PAGE_BLOCKS:
+        raise PlanError('too_many_blocks')
+    return {'host': host, 'mode': mode, 'kind': 'page', 'blocks': blocks, 'skipped': skipped[:100], 'refresh': refresh,
+            'snippet': path if mode == 'enable' else None, 'snippet_text': text}
+
+
+def _read(path):
+    try:
+        with open(path, 'rb') as fh:
+            return fh.read()
+    except OSError:
+        return None
+
+
+def page_stale(cfg):
+    """The snippet or the page on disk is not this release's (or is missing)."""
+    snip, _, page = page_paths(cfg)
+    return _read(snip) != page_snippet_text(cfg).encode('utf-8') or _read(page) != page_html().encode('utf-8')
+
+
+def _in_use(conf, path):
+    return any(_includes(s.children, path) for s in _servers(conf))
+
+
+def edit(text, lines_1based, mode, snippet_path, change_id, kind='waf'):
+    """The file's new text: the marked include right after each `server {` line (enable), or that line removed."""
     lines = split_lines(text)
     if mode == 'enable' and not SNIPPET_PATH.match(snippet_path or ''):
         raise PlanError('snippet_path')
@@ -183,40 +331,45 @@ def edit(text, lines_1based, mode, snippet_path, change_id):
         m = SERVER_LINE.match(lines[idx].rstrip('\n'))
         if not m:
             raise PlanError('server_line_shape', line=ln)
+        j = marked_at(lines, idx, kind)
         if mode == 'enable':
-            if idx + 1 < len(lines) and MARK in lines[idx + 1]:
+            if j is not None:
                 raise PlanError('already_marked', line=ln)
             if not lines[idx].endswith('\n'):
                 lines[idx] += '\n'
-            lines.insert(idx + 1, '%s  include %s;  %s (change #%d)\n' % (m.group(1), snippet_path, MARK, change_id))
+            lines.insert(idx + 1, '%s  include %s;  %s (change #%d)\n' % (m.group(1), snippet_path, MARKS[kind], change_id))
         else:
-            if not (idx + 1 < len(lines) and MARK_LINE.match(lines[idx + 1].rstrip('\n'))):
+            if j is None:
                 raise PlanError('mark_missing', line=ln)
-            del lines[idx + 1]
+            del lines[j]
     return ''.join(lines)
 
 
 def preview(p, change_id=0):
     """What the change does, as text for the change page."""
     out = []
+    mark = MARKS[p.get('kind') or 'waf']
     for b in p['blocks']:
         if p['mode'] == 'enable':
             out.append('%s:%d (%s)\n  + include %s;  %s (change #%d)' % (b['file'], b['line'], ' '.join(b['names'][:5]),
-                                                                       p['snippet'], MARK, change_id))
+                                                                       p['snippet'], mark, change_id))
         else:
-            out.append('%s:%d (%s)\n  - include ...;  %s' % (b['file'], b['line'], ' '.join(b['names'][:5]), MARK))
+            out.append('%s:%d (%s)\n  - include ...;  %s' % (b['file'], b['line'], ' '.join(b['names'][:5]), mark))
+    for b in p.get('skipped') or []:
+        out.append('%s:%d (%s)\n  = has its own 403 page: left as it is' % (b['file'], b['line'], ' '.join(b['names'][:5])))
     if p.get('snippet_text'):
-        out.append('%s (new):\n%s' % (p['snippet'], p['snippet_text']))
+        out.append('%s:\n%s' % (p['snippet'], p['snippet_text']))
     return '\n\n'.join(out)
 
 
 def waf_states(cfg):
-    """{(file, n-th server block in it): (names, ModSecurity on?)} for every server block, to compare before and after
-    a write (the n-th block of a file stays the n-th one when a line is added or removed)."""
+    """{(file, n-th server block in it): (names, ModSecurity on?, includes the blocked page?)} for every server block,
+    to compare before and after a write (the n-th block of a file stays the n-th one when a line is added or removed)."""
     conf = NginxConfig(cfg['paths']['nginx_conf'])
+    page = page_paths(cfg)[0]
     nth, out = collections.Counter(), {}
     for x in _servers(conf):
         k = os.path.realpath(x.file)
         nth[k] += 1
-        out[(k, nth[k])] = (tuple(_names(x)), bool(_flag(x.children)))
+        out[(k, nth[k])] = (tuple(_names(x)), bool(_flag(x.children)), _includes(x.children, page))
     return out, conf.errors

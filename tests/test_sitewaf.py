@@ -224,6 +224,134 @@ class TestRoot(unittest.TestCase):
         self.assertEqual(res['result'], 'failed')
 
 
+D = """server {
+    listen 443 ssl;
+    server_name d.example.com;
+    error_page 403 /own-403.html;
+    location / { proxy_pass http://127.0.0.1:9003; }
+}
+"""
+
+
+class TestBlockedPage(unittest.TestCase):
+    """The page blocked visitors see: one marked include per server block, one site or every site."""
+    def setUp(self):
+        self.d = tempfile.mkdtemp(prefix='jtwaf-site-')
+        tree(self.d)
+        with open(os.path.join(self.d, 'vhost/d.conf'), 'w') as fh:
+            fh.write(D)
+        self.cfg = config.load(None, {'paths': {'nginx_conf': os.path.join(self.d, 'nginx.conf'), 'nginx_bin': '/bin/true'},
+                                      'managed': {'dir': os.path.join(self.d, 'managed'), 'spool': os.path.join(self.d, 'spool'),
+                                                  'apply_state': os.path.join(self.d, 'state')}})
+        self.ap = Applier(self.cfg)
+        self.ap.check_binary = lambda: None
+        self.ap.reload = lambda wait: 'reloaded (test)'
+        self.ap.test_config = lambda: 'ok'
+        self.ap.health = lambda urls: {u: 200 for u in urls}
+        self.ap.program_refusal = lambda: None
+
+    def tearDown(self):
+        shutil.rmtree(self.d, ignore_errors=True)
+
+    def read(self, name):
+        with open(os.path.join(self.d, name)) as fh:
+            return fh.read()
+
+    def run_req(self, host, mode, cid):
+        p = sitewaf.plan(self.cfg, host, mode, kind='page')
+        req = {'action': 'site_waf', 'kind': 'page', 'change_id': cid, 'mode': mode, 'host': host, 'blocks': p['blocks'],
+               'snippet': p['snippet'], 'snippet_text': p['snippet_text'], 'health_urls': []}
+        os.makedirs(self.cfg['managed']['spool'], exist_ok=True)
+        with open(os.path.join(self.cfg['managed']['spool'], 'site-c%d.req' % cid), 'w') as fh:
+            json.dump(req, fh)
+        self.ap.process()
+        with open(os.path.join(self.cfg['managed']['spool'], 'site-c%d.result' % cid)) as fh:
+            return json.load(fh)
+
+    def test_plan_every_site(self):
+        p = sitewaf.plan(self.cfg, '*', 'enable', kind='page')
+        got = sorted((os.path.basename(b['file']), b['line']) for b in p['blocks'])
+        self.assertEqual(got, [('a.conf', 6), ('b.conf', 1), ('c.conf', 1)])       # not the redirect, with or without WAF
+        self.assertEqual([os.path.basename(b['file']) for b in p['skipped']], ['d.conf'])   # has its own 403 page
+        snip, pdir, page = sitewaf.page_paths(self.cfg)
+        self.assertEqual(p['snippet'], snip)
+        self.assertIn('error_page 403 /jt-blocked.html;', p['snippet_text'])
+        self.assertIn('root %s;' % pdir, p['snippet_text'])
+        self.assertIn('modsecurity off;', p['snippet_text'])
+        self.assertEqual(len(sitewaf.plan(self.cfg, 'b.example.com', 'enable', kind='page')['blocks']), 1)
+        for host, mode, code in (('*', 'disable', 'nothing_to_do'), ('d.example.com', 'enable', 'nothing_to_do')):
+            with self.assertRaises(sitewaf.PlanError) as cm:
+                sitewaf.plan(self.cfg, host, mode, kind='page')
+            self.assertEqual(cm.exception.code, code)
+        with self.assertRaises(sitewaf.PlanError):
+            sitewaf.plan(self.cfg, '*', 'enable')                                 # every site: only for the page
+
+    def test_root_writes_page_and_back(self):
+        res = self.run_req('*', 'enable', 7)
+        self.assertEqual(res['result'], 'ok', res)
+        snip, pdir, page = sitewaf.page_paths(self.cfg)
+        with open(page, encoding='utf-8') as fh:
+            self.assertEqual(fh.read(), sitewaf.page_html())
+        self.assertIn('<!--# echo var="request_id"', sitewaf.page_html())
+        self.assertIn(sitewaf.PAGE_MARK + ' (change #7)', self.read('vhost/b.conf'))
+        self.assertNotIn(sitewaf.PAGE_MARK, self.read('vhost/d.conf'))
+        self.assertTrue(sitewaf.waf_states(self.cfg)[0][(os.path.realpath(os.path.join(self.d, 'vhost/c.conf')), 1)][2])
+        res = self.run_req('*', 'disable', 8)
+        self.assertEqual(res['result'], 'ok', res)
+        self.assertEqual((self.read('vhost/a.conf'), self.read('vhost/b.conf')), (A, B % {'d': self.d}))
+
+    def test_refresh_after_a_newer_release(self):
+        self.assertEqual(self.run_req('*', 'enable', 10)['result'], 'ok')
+        snip, _, page = sitewaf.page_paths(self.cfg)
+        self.assertIn('allow all;', self.read(os.path.relpath(snip, self.d)))
+        with self.assertRaises(sitewaf.PlanError):
+            sitewaf.plan(self.cfg, '*', 'enable', kind='page')                    # up to date: nothing to do
+        with open(snip, 'w') as fh:
+            fh.write('# an older release\nerror_page 403 /jt-blocked.html;\n')
+        with open(page, 'w') as fh:
+            fh.write('old page')
+        p = sitewaf.plan(self.cfg, '*', 'enable', kind='page')
+        self.assertEqual((p['blocks'], p['refresh']), ([], True))
+        with self.assertRaises(sitewaf.PlanError):
+            sitewaf.plan(self.cfg, 'b.example.com', 'enable', kind='page')        # one site: has it already
+        res = self.run_req('*', 'enable', 11)
+        self.assertEqual(res['result'], 'ok', res)
+        self.assertEqual(self.read(os.path.relpath(snip, self.d)), sitewaf.page_snippet_text(self.cfg))
+        self.assertEqual(self.read(os.path.relpath(page, self.d)), sitewaf.page_html())
+        self.assertFalse(sitewaf.page_stale(self.cfg))
+
+    def test_failed_refresh_puts_the_old_snippet_back(self):
+        self.assertEqual(self.run_req('*', 'enable', 12)['result'], 'ok')
+        snip = sitewaf.page_paths(self.cfg)[0]
+        with open(snip, 'w') as fh:
+            fh.write('# old\nerror_page 403 /jt-blocked.html;\n')
+
+        def bad():
+            raise Fail('nginx -t', 'broken')
+        self.ap.test_config = bad
+        self.assertEqual(self.run_req('*', 'enable', 13)['result'], 'failed')
+        self.assertEqual(self.read(os.path.relpath(snip, self.d)), '# old\nerror_page 403 /jt-blocked.html;\n')
+
+    def test_failure_puts_page_back(self):
+        def bad():
+            raise Fail('nginx -t', 'broken')
+        self.ap.test_config = bad
+        res = self.run_req('b.example.com', 'enable', 9)
+        self.assertEqual(res['result'], 'failed')
+        self.assertFalse(os.path.exists(sitewaf.page_paths(self.cfg)[2]))
+        self.assertEqual(self.read('vhost/b.conf'), B % {'d': self.d})
+
+    def test_with_the_waf_line(self):
+        """Both marked lines after `server {`: each is found and removed on its own."""
+        w = sitewaf.plan(self.cfg, 'a.example.com', 'enable')
+        text = sitewaf.edit(A, [6], 'enable', w['snippet'], 3)
+        text = sitewaf.edit(text, [6], 'enable', '/x/blocked-page.conf', 4, kind='page')
+        self.assertEqual([sitewaf.marked_at(sitewaf.split_lines(text), 5, k) for k in ('waf', 'page')], [7, 6])
+        self.assertEqual(sitewaf.edit(sitewaf.edit(text, [6], 'disable', None, 5), [6], 'disable', None, 6, kind='page'), A)
+        with self.assertRaises(sitewaf.PlanError):
+            sitewaf.edit(text, [6], 'enable', '/x/blocked-page.conf', 7, kind='page')
+
+
 class TestWorkflow(unittest.TestCase):
     def setUp(self):
         self.env = TempEnv()
@@ -263,6 +391,21 @@ class TestWorkflow(unittest.TestCase):
         self.wf.run_checks(cid)
         self.assertEqual(self.wf.get(cid)['state'], 'failed')
         self.assertTrue(self.app.db.one("SELECT 1 FROM audit WHERE action='change.proposed'"))
+
+    def test_blocked_page_change(self):
+        cid = self.wf.propose_site_waf('enable', '*', 'blocked page for every site', 'appr', role='approver', kind='page')
+        r = self.wf.get(cid)
+        self.assertEqual((r['op'], r['kind'], r['direction']), ('site_waf', 'site_page', 'neutral'))
+        self.assertIn(sitewaf.PAGE_MARK, r['rule_text'])
+        with self.assertRaises(ChangeError) as cm:          # one site while the change for every site is open
+            self.wf.propose_site_waf('enable', 'b.example.com', 'b only', 'appr', role='approver', kind='page')
+        self.assertEqual(cm.exception.code, 'site_change_pending')
+        # the WAF switch of a site is a separate thing
+        self.wf.propose_site_waf('enable', 'a.example.com', 'protect a', 'appr', role='approver')
+        self.wf.run_checks(cid)
+        r = self.wf.get(cid)
+        self.assertEqual(r['state'], 'pending_approval', r['checks'])
+        self.assertNotIn('sandbox', json.loads(r['checks']))
 
     def test_attribution_only_while_unchanged(self):
         import hashlib
