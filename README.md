@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.48
+# jt-waf-mgr v0.4.49
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -67,7 +67,7 @@ something you can read, and every change into a workflow you can trust:
 - **Change workflow**: single changes or one bundle (one approval, one version, one reload), upload of rule files,
   evidence, sandbox, health URLs, approval rules (the proposer cannot approve; single-admin mode with a fresh one-time
   code for loosening), automatic tightening within strict limits, rollback.
-- **Event analysis (self-hosted LLM)**: candidates grouped by the path a rule sees; one schema-constrained request per
+- **First-tier LLM (event analysis, self-hosted)**: candidates grouped by the path a rule sees; one schema-constrained request per
   batch; the program, not the model, decides what is proposed (narrow anchored regex, never matching common paths,
   regression samples or paths the organisation itself uses; exclusions are one exact path, specific rules and
   request parts only, and need a one-time code to approve); outside sources probing for secret, backup or configuration
@@ -83,7 +83,7 @@ something you can read, and every change into a workflow you can trust:
 - **Periodic WAF review**: every 3 hours (stored, and sent to your notification channels): requests blocked by the
   CRS score alone with possible false blocks first, new internal hits, outside attacks that got through, what was done
   automatically, one line per focus site.
-- **Threat intelligence (second-tier LLM)**: a stronger LLM, local (OpenAI-compatible) or cloud (OpenAI-compatible or
+- **Second-tier LLM (threat intelligence)**: a stronger LLM, local (OpenAI-compatible) or cloud (OpenAI-compatible or
   Anthropic), searches the web every few hours for new vulnerabilities in the software list the program guesses and a
   person confirms (this host's packages, the CRS, the applications the sites run), above all those exploited in the wild.
   Only product names and versions leave the host. Local models search through an MCP server (for example SearXNG) and

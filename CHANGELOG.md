@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.49 (2026-11-15)
+
+- Settings: the two LLM cards are named the same way and sit next to each other: "First-tier LLM (event analysis)",
+  then "Second-tier LLM (threat intelligence)", then the scheduled event analysis.
+
 ## 0.4.48 (2026-11-15)
 
 Fixes from GitHub code scanning (CodeQL):
