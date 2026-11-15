@@ -31,6 +31,11 @@ class TestSettingsIo(unittest.TestCase):
         d2 = settings_io.export(self.app, secrets=True)
         self.assertEqual(d2['settings']['llm.api_key'], 'sk-test-1234567890')
         self.assertTrue(d2['with_secrets'])
+        # the preview never compares a secret with the file: a right guess and a wrong one look the same
+        for guess in ('sk-test-1234567890', 'sk-wrong-000000000'):
+            d2['settings']['llm.api_key'] = guess
+            it = next(i for i in settings_io.preview(self.app, d2)['items'] if i['key'] == 'llm.api_key')
+            self.assertEqual((it['same'], it['current'], it['incoming']), (False, '(set)', '(set)'))
 
     def test_preview_and_partial_import(self):
         d = settings_io.export(self.app)

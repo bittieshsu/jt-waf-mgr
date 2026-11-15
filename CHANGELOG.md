@@ -2,6 +2,25 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.65 (2026-11-16)
+
+Fixes from a review of the last versions:
+
+- Settings: switching the second-tier provider could bring back a saved API key together with a new server address
+  typed in the same save, sending the key to that server. A stored or brought-back key now always needs entering
+  again for a different server, also through the import and the command line.
+- War room: only names a site serves are shown (internal-only sites keep their alias); any other Host (a trailing
+  dot, an address, a wildcard match, a name an outsider sent) shows as "other". One snapshot is computed at a time
+  for all screens. After a database restore the wall starts over instead of waiting for higher event ids.
+- Carried approvals: only when the change's own added and removed lines are exactly those approved, by a person who
+  may still approve, never for one's own change.
+- Threat intelligence: KEV, OSV and NVD trouble (a cut download, an odd answer, a full disk) leaves that source out
+  of the run instead of failing it. A threat that becomes urgent later (its preconditions confirmed) raises the
+  alert then.
+- Settings import: the preview never compares a key or password with the file.
+- Command line: `settings export -o` only creates a new file (mode 600); `settings set` keeps text as typed (digits in
+  an id or a password stay text) and says when the web service needs a restart; a missing id is a clear error.
+
 ## 0.4.64 (2026-11-16)
 
 - Threat intelligence: NVD scores (Settings > threat intelligence, off until switched on). After each search the

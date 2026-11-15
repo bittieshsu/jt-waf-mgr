@@ -195,6 +195,13 @@ class TestRun(Base):
         self.assertEqual(al['severity'], 'warning')
         self.assertIn('check whether it applies', al['details'])
 
+    def test_a_threat_that_becomes_urgent_later_raises_the_alert_then(self):
+        self.app.cfg.data['intel']['patches'] = False
+        self._cisa_run({'preconditions': 'the mod_example module enabled', 'conditions_met': 'unknown'})
+        self.assertIsNone(self.app.db.one("SELECT 1 FROM alerts WHERE kind='exploited_vulnerability' AND severity='critical'"))
+        self._cisa_run({'preconditions': 'the mod_example module enabled', 'conditions_met': 'yes'})   # confirmed next time
+        self.assertTrue(self.app.db.one("SELECT 1 FROM alerts WHERE kind='exploited_vulnerability' AND severity='critical'"))
+
     def test_openai_tool_loop_and_what_is_kept(self):
         self.app.cfg.data['intel']['patches'] = False        # virtual patches: TestPatches
         Fake.script = [openai_reply(calls=[('web_search', {'query': 'Example CMS CVE'}),

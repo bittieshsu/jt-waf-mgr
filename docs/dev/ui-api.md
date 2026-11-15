@@ -438,3 +438,8 @@ Editing comes in a later phase (config file for now).
 
 ## 0.4.64
 - nvd.py (setting `intel.nvd`, default off): threat `nvd` {score, severity, vector, cwe, published, status}; `severity_model` keeps the model's.
+
+## 0.4.65
+- `GET /warroom/snapshot`: `sites` keys are a served name, `internal-N`, or `other` (any Host not served); `watched` never lists `other`. The front end restarts its high-water id when the snapshot's is lower (database restore).
+- `PUT /settings`: a stored or provider-restored secret bound to a URL needs typing again whenever the final host differs (`key_required_for_new_host`).
+- `POST /settings/import/preview`: secrets are never compared (`same` is true only when the file leaves the secret empty).

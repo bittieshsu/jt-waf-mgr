@@ -1043,7 +1043,12 @@ def _store(app, run_id, threats, now):
             db.x('UPDATE intel_threats SET last_seen=?, last_run=?, affected=?, exploited=?, severity=?, details=? WHERE id=?',
                  (now, run_id, t['affected'], 1 if (t['exploited'] or r['exploited']) else 0, t['severity'],
                   json.dumps(t, ensure_ascii=False), r['id']))
-            became = t['exploited'] and not r['exploited']
+            try:
+                before = dict(json.loads(r['details'] or '{}'), exploited=bool(r['exploited']), affected=r['affected'])
+            except ValueError:
+                before = {'exploited': bool(r['exploited']), 'affected': r['affected']}
+            # a person is told when the threat reaches a level it was not at: newly urgent, or newly worth a check
+            became = _level(t) is not None and _level(t) != _level(before)
             tid = r['id']
         else:
             tid = db.x('INSERT INTO intel_threats(cve, product, first_seen, last_seen, last_run, affected, exploited, severity, details) '
@@ -1051,11 +1056,19 @@ def _store(app, run_id, threats, now):
                                                       1 if t['exploited'] else 0, t['severity'],
                                                       json.dumps(t, ensure_ascii=False))).lastrowid
             new.append(dict(t, threat_id=tid))
-            became = t['exploited']
+            became = _level(t) is not None
         st = db.one('SELECT status FROM intel_threats WHERE id=?', (tid,))['status']
-        if became and t['affected'] in MAY_AFFECT and st == 'open':
-            (urgent if is_urgent(t) else check).append(dict(t, threat_id=tid))
+        if became and st == 'open':
+            (urgent if _level(t) == 'urgent' else check).append(dict(t, threat_id=tid))
     return new, urgent, check
+
+
+def _level(t):
+    """'urgent' (exploited, may affect us, nothing left to verify), 'check' (exploited, may affect us, preconditions not
+    confirmed) or None."""
+    if not t.get('exploited') or t.get('affected') not in MAY_AFFECT:
+        return None
+    return 'urgent' if is_urgent(t) else 'check'
 
 
 def _budget_left(cfg, db):
@@ -1094,12 +1107,23 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
         return rid
     system = SYSTEM.format(days=c['days'], max_threats=MAX_THREATS)
     facts = host_facts(cfg)
-    from . import kev
-    kev.update(cfg, log=log)
-    known = kev.matching(cfg, products)
-    kev_ids = kev.ids(cfg)
-    from . import osv
-    pkgs = osv.lookup(cfg, db, log=log)
+    # the structured sources are hints: any trouble with one of them (a cut download, an odd answer, a full disk)
+    # leaves it out of this run, never the run itself
+    from . import kev, osv
+    try:
+        kev.update(cfg, log=log)
+    except Exception as e:      # noqa: BLE001
+        log('kev: update failed: %s' % type(e).__name__)
+    try:
+        known, kev_ids = kev.matching(cfg, products), kev.ids(cfg)
+    except Exception as e:      # noqa: BLE001
+        log('kev: unreadable: %s' % type(e).__name__)
+        known, kev_ids = [], set()
+    try:
+        pkgs = osv.lookup(cfg, db, log=log)
+    except Exception as e:      # noqa: BLE001
+        log('osv: failed: %s' % type(e).__name__)
+        pkgs = {}
     osv_lines = []
     for name, o in sorted(pkgs.items()):
         for v in o['vulns'][:15]:
@@ -1126,7 +1150,10 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
             if t['id'] in kev_ids:
                 t['exploited_evidence'] = 'CISA Known Exploited Vulnerabilities catalog'
         from . import nvd
-        nvd.enrich(cfg, threats, log=log)
+        try:
+            nvd.enrich(cfg, threats, log=log)
+        except Exception as e:      # noqa: BLE001 -- the threats stand without the official scores
+            log('nvd: failed: %s' % type(e).__name__)
         note = util.clip(str(answer.get('notes') or ''), 1000) if isinstance(answer, dict) else ''
     except Exception as e:      # noqa: BLE001 -- recorded, notified; the next run starts afresh
         code = e.code if isinstance(e, IntelError) else 'internal_%s' % type(e).__name__

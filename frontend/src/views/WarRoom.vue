@@ -390,8 +390,8 @@ function eventsQuery(q) {
   const p = new URLSearchParams(Object.assign({}, q, since ? { since } : {}))
   return '/events?' + p.toString()
 }
-function siteLink(h) { return /^internal-\d+$/.test(h) || h === 'site' ? eventsQuery({ origin: 'internal' }) : eventsQuery({ host: h }) }
-function scoreLink(h) { return /^internal-\d+$/.test(h) || h === 'site' ? eventsQuery({ decided_by: 'score' }) : eventsQuery({ host: h, decided_by: 'score' }) }
+function siteLink(h) { return h === 'other' ? eventsQuery({}) : /^internal-\d+$/.test(h) ? eventsQuery({ origin: 'internal' }) : eventsQuery({ host: h }) }
+function scoreLink(h) { return /^internal-\d+$/.test(h) || h === 'other' ? eventsQuery({ decided_by: 'score' }) : eventsQuery({ host: h, decided_by: 'score' }) }
 function decisionLink(d) { return d === 'logged' ? eventsQuery({ outcome: 'logged' }) : eventsQuery(d === 'other' ? { outcome: 'blocked' } : { decided_by: d }) }
 function pickFlow(p) {
   const q = {}
@@ -442,6 +442,11 @@ async function loadSnapshot() {
   syncing.value = false
   if (!s) return
   snap.value = s
+  if (s.high_water_id < hw) {
+    // the event ids went back (a database restored from a backup): start over from this snapshot
+    hw = s.high_water_id
+    extra.value = []
+  }
   extra.value = extra.value.filter((e) => e.id > s.high_water_id)
   hw = Math.max(hw, s.high_water_id)
   asOfMs.value = Date.now()

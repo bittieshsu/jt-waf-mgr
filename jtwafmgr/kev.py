@@ -77,7 +77,9 @@ def parse(raw):
         raise KevError('not_the_catalog', 'entries: %s' % (len(vulns) if isinstance(vulns, list) else 'none'))
     out = {}
     for v in vulns:
-        cid = str((v or {}).get('cveID') or '').strip().upper()
+        if not isinstance(v, dict):
+            continue
+        cid = str(v.get('cveID') or '').strip().upper()
         if not CVE_RE.match(cid):
             continue
         out[cid] = {'vendor': util.clip(str(v.get('vendorProject') or ''), 80), 'product': util.clip(str(v.get('product') or ''), 80),
@@ -105,7 +107,7 @@ def update(cfg, get=None, now=None, log=print):
     except KevError as e:
         log('kev: download failed: %s %s' % (e.code, e.detail))
         return 'failed:' + e.code
-    except OSError as e:
+    except Exception as e:      # noqa: BLE001 -- a cut connection, a protocol error: the copy there is stays
         log('kev: download failed: %s' % type(e).__name__)
         return 'failed:network'
     os.makedirs(os.path.dirname(p), mode=0o700, exist_ok=True)

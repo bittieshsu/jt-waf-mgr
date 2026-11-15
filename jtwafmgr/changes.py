@@ -933,6 +933,18 @@ class Workflow:
                (x['action'] == 'stale' and x['note'].startswith('the rules to apply differ')) for x in after):
             return False
         who = rows[last]['actor']
+        # the same rules the person approved (a setting such as the known scanners may have changed what the change
+        # writes since), and a person who may still approve, not the proposer
+        approved = next((x['note'] for x in rows[last + 1:] if x['action'] == 'approved_text' and x['actor'] == who), None)
+        if approved is None and rows[last]['action'] == 'approval_carried':
+            approved = next((x['note'] for x in reversed(rows[:last]) if x['action'] == 'approved_text' and x['actor'] == who), None)
+        if approved != _own_lines_hash(r):
+            return False
+        u = self.app.auth.user_row(who)
+        if not u or u['disabled'] or u['role'] not in ('approver', 'admin'):
+            return False
+        if (r['proposed_by'] == who and r['proposed_via'] == 'user') or (r['proposed_via'] == 'api' and r['proposed_owner'] == who):
+            return False
         self.log(cid, who, 'approval_carried', 'approved before another change was applied; checked again, unchanged')
         self.app.audit.log('change.approved', who, 'system', None, 'ok', change_id=cid, carried=True)
         self._queue_apply(cid, who)
@@ -1052,6 +1064,8 @@ class Workflow:
             if len((note or '').strip()) < 10:
                 raise ChangeError('note_required')
         self.log(cid, user['username'], 'approved', note or '')
+        # what was approved: the change's own rules (a carried approval needs exactly these again)
+        self.log(cid, user['username'], 'approved_text', _own_lines_hash(r))
         self.app.audit.log('change.approved', user['username'], 'user', None, 'ok', change_id=cid,
                            direction=r['direction'], own=own)
         self._queue_apply(cid, user['username'])
@@ -1383,6 +1397,18 @@ def _comment(r):
     reason = ' '.join(r['reason'].replace('\\', '/').split())[:300]
     when = datetime.date.today().isoformat()
     return '# %s jt-waf-mgr change %d (%s): %s' % (when, r['id'], r['proposed_by'], reason.replace('\n', ' '))
+
+
+def _own_lines_hash(r):
+    """What a change itself adds to and removes from the rule files, as its last checks rendered it (the diff's +/-
+    lines, not the surrounding context): the same rules give the same hash on any base version."""
+    d = (json.loads(r['checks'] or '{}') if r['checks'] else {}).get('diff') or {}
+    lines = []
+    for p in sorted(d):
+        for line in d[p].splitlines():
+            if line[:1] in '+-' and not line.startswith(('+++', '---')):
+                lines.append(p + line)
+    return sha256('\n'.join(lines) + '|' + (r['rule_text'] or ''))
 
 
 def _diff(old, new):

@@ -339,6 +339,21 @@ class TestWorkflow(unittest.TestCase):
         self.assertIn('approval_carried', log)
         self.assertIn(self.wf.get(c2)['state'], ('approved', 'applying'))
         self.assertTrue(self.app.db.q("SELECT 1 FROM audit WHERE action='change.approved' AND details LIKE '%carried%'"))
+        # a third one whose rules change while it waits (here: its spec, as a setting would) is approved again by a person
+        c3 = mk(r'^/x3$', '3')
+        self.wf.run_checks(c3)
+        self.wf.approve(c3, self.user('appr'))
+        if self.wf.get(c3)['state'] in ('approved', 'applying'):
+            self.fake_apply()
+        c4 = mk(r'^/x4$', '4')
+        self.wf.run_checks(c4)
+        self.wf.approve(c4, self.user('appr'))
+        self.app.db.x("UPDATE changes SET spec=? WHERE id=?", (json.dumps({'target': 'path', 'regex': r'^/x4-other$', 'msg': '4'}), c4))
+        self.wf._state(c4, 'checking')
+        self.wf.log(c4, 'system', 'stale', 'checking again against the new version')
+        self.wf.run_checks(c4)
+        self.assertEqual(self.wf.get(c4)['state'], 'pending_approval')
+        self.assertNotIn('approval_carried', [x['action'] for x in self.wf.public(self.wf.get(c4), True)['log']])
 
     def private_before(self):
         """A private copy of the fixture's local before-CRS file (tests must never edit the shared fixture)."""

@@ -65,19 +65,20 @@ def _get(url, timeout):
 def summary(d):
     """{score, severity, vector, cwe, published} of one CVE from the API's answer, or None."""
     vulns = d.get('vulnerabilities') if isinstance(d, dict) else None
-    if not vulns:
+    if not vulns or not isinstance(vulns, list) or not isinstance(vulns[0], dict) or not isinstance(vulns[0].get('cve'), dict):
         return None
-    c = (vulns[0] or {}).get('cve') or {}
+    c = vulns[0]['cve']
     m = c.get('metrics') or {}
     best = None
     for key in ('cvssMetricV40', 'cvssMetricV31', 'cvssMetricV30'):
-        for x in m.get(key) or []:
-            data = x.get('cvssData') or {}
-            if data.get('baseScore') is not None:
-                best = best or {'score': float(data['baseScore']), 'severity': str(data.get('baseSeverity') or '').lower(),
-                                'vector': util.clip(str(data.get('vectorString') or ''), 120), 'version': key[10:]}
-    cwes = sorted({str(dd.get('value')) for w in c.get('weaknesses') or [] for dd in w.get('description') or []
-                   if re.match(r'^CWE-\d+$', str(dd.get('value')))})
+        for x in (m.get(key) or []) if isinstance(m, dict) else []:
+            data = (x.get('cvssData') if isinstance(x, dict) else None) or {}
+            if not isinstance(data, dict) or not isinstance(data.get('baseScore'), (int, float)):
+                continue
+            best = best or {'score': float(data['baseScore']), 'severity': str(data.get('baseSeverity') or '').lower(),
+                            'vector': util.clip(str(data.get('vectorString') or ''), 120), 'version': key[10:]}
+    cwes = sorted({str(dd.get('value')) for w in (c.get('weaknesses') or []) if isinstance(w, dict)
+                   for dd in (w.get('description') or []) if isinstance(dd, dict) and re.match(r'^CWE-\d+$', str(dd.get('value')))})
     out = {'cwe': cwes[:4], 'published': util.clip(str(c.get('published') or ''), 25),
            'status': util.clip(str(c.get('vulnStatus') or ''), 40)}
     if best:
@@ -110,7 +111,7 @@ def enrich(cfg, threats, get=None, now=None, sleep=time.sleep, log=print):
                 sleep(SPACING)
             try:
                 info = summary((get or _get)(URL + '?' + urllib.parse.urlencode({'cveId': cid}), 30))
-            except (NvdError, OSError) as e:
+            except Exception as e:      # noqa: BLE001 -- one CVE's question failed; the others go on
                 log('nvd: %s: %s' % (cid, getattr(e, 'code', type(e).__name__)))
                 asked += 1
                 continue

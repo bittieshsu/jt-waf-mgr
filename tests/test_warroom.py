@@ -25,6 +25,7 @@ class TestWarRoom(unittest.TestCase):
             record(host='app.example.com', uri='/search?q=1', ip='192.168.77.50', status=200, ts=now - 30),
             record(host='app.example.com', uri='/old', ip='203.0.113.8', status=403, engine='Enabled', rules=[10205],
                    ts=now - 3 * 3600),
+            record(host='made-up-by-an-outsider.example.org', uri='/x', ip='203.0.113.9', status=200, ts=now - 20),
         ])
         cls.app.tailer = Tailer(cls.env.cfg, cls.app.db)
         cls.app.tailer.poll()
@@ -52,19 +53,20 @@ class TestWarRoom(unittest.TestCase):
     def test_snapshot_window_and_what_is_left_out(self):
         st, s, _ = self.viewer().req('GET', '/api/v1/warroom/snapshot')
         self.assertEqual(st, 200)
-        self.assertEqual(s['totals']['events'], 3)                 # the event 3 hours ago is outside the 30 minutes
+        self.assertEqual(s['totals']['events'], 4)                 # the event 3 hours ago is outside the 30 minutes
         self.assertEqual((s['totals']['blocked'], s['totals']['internal']), (1, 1))
         self.assertEqual(len(s['minutes']), 31)
-        self.assertEqual(sum(m['blocked'] + m['logged'] for m in s['minutes']), 3)
+        self.assertEqual(sum(m['blocked'] + m['logged'] for m in s['minutes']), 4)
         text = json.dumps(s)
-        for private in ('203.0.113.7', '192.168.77.50', '/.env', 'secret1', '/search', 'intranet.example.com'):
+        for private in ('203.0.113.7', '192.168.77.50', '/.env', 'secret1', '/search', 'intranet.example.com', 'made-up-by'):
             self.assertNotIn(private, text)                          # no address, path, query or internal site name
         hosts = {e['host'] for e in s['latest']}
         self.assertIn('app.example.com', hosts)
         self.assertTrue(any(h.startswith('internal-') for h in hosts))
         self.assertIsNone(s['destination'])                          # not set: the maps draw no destination
         # the decision flow counts each event once; the sites by alias, in 2-minute cells
-        self.assertEqual(sum(sum(d.values()) for d in s['flow'].values()), 3)
+        self.assertEqual(sum(sum(d.values()) for d in s['flow'].values()), 4)
+        self.assertIn('other', {x['host'] for x in s['sites']})        # a Host no site serves is "other"
         self.assertEqual(s['flow']['external'].get('confident'), 1)
         app_site = next(x for x in s['sites'] if x['host'] == 'app.example.com')
         self.assertEqual((app_site['events'], len(app_site['buckets']), sum(app_site['buckets'])), (2, 15, 2))

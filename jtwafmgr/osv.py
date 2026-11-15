@@ -131,9 +131,11 @@ def lookup(cfg, db, post=None, now=None, log=print, os_release='/etc/os-release'
         if not hit or now - hit.get('at', 0) > TTL:
             try:
                 d = (post or _post)(URL, {'package': {'name': pkg, 'ecosystem': eco}, 'version': ver}, 30)
-            except (OsvError, OSError) as e:
+            except Exception as e:      # noqa: BLE001 -- one package's question failed; the others go on
                 log('osv: %s %s: %s' % (pkg, ver, getattr(e, 'code', type(e).__name__)))
                 continue
+            if not isinstance(d, dict):
+                d = {}
             asked += 1
             hit = {'at': now, 'vulns': [_summary(v) for v in (d.get('vulns') or [])[:50] if isinstance(v, dict)]}
             cache[key] = hit

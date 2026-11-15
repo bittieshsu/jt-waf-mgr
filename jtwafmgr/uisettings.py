@@ -358,6 +358,8 @@ def set_many(app, changes, actor, src_ip=None):
         clean[k] = _validate(k, v)
     # switching provider: put away the old provider's settings, bring back the new one's (what the person typed in
     # the same save wins); a provider never used before starts empty
+    typed = set(clean)                       # what the person entered (or the import / CLI named) in this save
+    home = {}                                # a secret brought back from a provider's stash -> the URL it was saved with
     stash_writes, switched = [], []
     for pk, keys in PROVIDER_SETS.items():
         ps, pn = pk.split('.', 1)
@@ -382,6 +384,10 @@ def set_many(app, changes, actor, src_ip=None):
                 clean[k] = ''
             if clean[k]:
                 restored.append(k)
+        for uk, sks in BOUND.items():
+            for sk in sks:
+                if sk in keys and sk not in typed:
+                    home[sk] = saved.get(uk) if isinstance(saved, dict) and isinstance(saved.get(uk), str) else ''
         switched.append((pk, old_p, clean[pk], restored))
     trial = copy.deepcopy(cfg.data)
     for k, v in clean.items():
@@ -410,14 +416,21 @@ def set_many(app, changes, actor, src_ip=None):
         except ValueError:
             port = None
         return ((s.hostname or '').lower(), s.scheme.lower(), port or {'https': 443, 'http': 80}.get(s.scheme.lower()))
+    # a stored (or brought back) secret only ever goes to the server it was entered for: a different server needs
+    # the secret entered again in the same save (also when switching provider restores one)
     for uk, sks in BOUND.items():
         us, un = uk.split('.', 1)
         old_url = cfg.data.get(us, {}).get(un)
-        if uk not in clean or host(clean[uk]) == host(old_url) or not host(old_url)[0]:
-            continue
+        final_url = clean.get(uk, old_url)
         for sk in sks:
+            if sk in typed:
+                continue
             ss, sn = sk.split('.', 1)
-            if cfg.data.get(ss, {}).get(sn) and sk not in clean:
+            secret = clean[sk] if sk in clean else cfg.data.get(ss, {}).get(sn)
+            home_url = home.get(sk, old_url)
+            if not secret or not host(home_url)[0]:
+                continue
+            if host(final_url) != host(home_url):
                 raise SettingError('key_required_for_new_host', key=sk)
     for key, values in stash_writes:
         db.x('INSERT OR REPLACE INTO settings(key, value, updated_by, updated_at) VALUES (?,?,?,?)',

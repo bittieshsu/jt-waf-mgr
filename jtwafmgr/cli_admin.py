@@ -45,6 +45,13 @@ def _person(app, args, role):
     return {'username': u['username'], 'role': u['role'], 'display_name': u['display_name'] if 'display_name' in u.keys() else ''}
 
 
+def _num(v, what='an id'):
+    try:
+        return int(str(v))
+    except (TypeError, ValueError):
+        raise CliError('%s is needed (a number): %s' % (what, v if v is not None else 'missing'))
+
+
 def duration(s):
     m = DUR_RE.match(str(s or '').strip().lower())
     if not m:
@@ -74,6 +81,8 @@ def cmd_blocks(app, args):
                 _table(items, ['id', 'ip', 'state', 'source', 'created_at', 'expires_at', 'reason'])
             return 0
         if args.action == 'add':
+            if not args.target:
+                raise CliError('the address to block is needed')
             p = _person(app, args, 'approver')
             ttl = 'permanent' if args.permanent else duration(args.ttl or app.cfg['blocks']['default_ttl'])
             item = b.add(args.target, ttl, 'cli', args.reason, p['username'], via='user', role=p['role'], src_ip='cli')
@@ -82,17 +91,15 @@ def cmd_blocks(app, args):
         if args.action == 'extend':
             p = _person(app, args, 'approver')
             ttl = 'permanent' if args.permanent else duration(args.ttl)
-            _out(b.extend(int(args.target), ttl, args.reason, p['username'], p['role'], src_ip='cli'), True)
+            _out(b.extend(_num(args.target, 'the block id'), ttl, args.reason, p['username'], p['role'], src_ip='cli'), True)
             return 0
         if args.action == 'remove':
             p = _person(app, args, 'approver')
-            n = b.remove(p['username'], via='user', block_id=int(args.target), note=args.note, src_ip='cli')
+            n = b.remove(p['username'], via='user', block_id=_num(args.target, 'the block id'), note=args.note, src_ip='cli')
             print('removed %d' % n)
             return 0
     except BlockError as e:
         raise CliError('%s %s' % (e.code, getattr(e, 'extra', '') or ''))
-    except ValueError:
-        raise CliError('an id: %r' % args.target)
     return 2
 
 
@@ -108,7 +115,7 @@ def cmd_alerts(app, args):
     if args.action == 'handle':
         p = _person(app, args, 'approver')
         try:
-            _out(alerts.handle(app.db, app.audit, int(args.id), p['username'], args.note or '', src_ip='cli'), True)
+            _out(alerts.handle(app.db, app.audit, _num(args.id), p['username'], args.note or '', src_ip='cli'), True)
         except alerts.AlertError as e:
             raise CliError(e.code)
         return 0
@@ -129,37 +136,43 @@ def cmd_changes(app, args):
                 _table(items, ['id', 'state', 'op', 'kind', 'direction', 'proposed_by', 'reason'])
             return 0
         if args.action == 'show':
-            r = wf.get(int(args.id))
+            r = wf.get(_num(args.id))
             _out({k: r[k] for k in r.keys()}, True)
             return 0
         if args.action == 'approve':
             p = _person(app, args, 'approver')
-            wf.approve(int(args.id), p, totp=args.totp, note=args.note or '')
+            wf.approve(_num(args.id), p, totp=args.totp, note=args.note or '')
             print('approved #%s; the apply program takes it from here' % args.id)
             return 0
         if args.action == 'reject':
             p = _person(app, args, 'approver')
-            wf.reject(int(args.id), p, args.note)
+            wf.reject(_num(args.id), p, args.note)
             print('rejected #%s' % args.id)
             return 0
         if args.action == 'recheck':
             p = _person(app, args, 'operator')
-            wf.recheck(int(args.id), p)
+            wf.recheck(_num(args.id), p)
             print('#%s is being checked again' % args.id)
             return 0
     except ChangeError as e:
         raise CliError('%s %s' % (e.code, e.details or ''))
-    except (KeyError, ValueError):
+    except KeyError:
         raise CliError('no such change: %s' % getattr(args, 'id', ''))
     return 2
 
 
 # --- settings ---------------------------------------------------------------------------------------------------------
-def _value(text):
-    try:
-        return json.loads(text)
-    except ValueError:
-        return text
+def _value(text, key=''):
+    """KEY=VALUE as the setting's type: true/false, a number, a JSON list; anything else (a string, a secret, an id
+    made of digits) stays the text as typed."""
+    from . import uisettings
+    kind = uisettings.EDITABLE.get(key, ('',))[0]
+    if key.startswith('workflow.') or kind in ('bool', 'int', 'list'):
+        try:
+            return json.loads(text)
+        except ValueError:
+            return text
+    return text
 
 
 def cmd_settings(app, args):
@@ -181,7 +194,7 @@ def cmd_settings(app, args):
             if '=' not in kv:
                 raise CliError('KEY=VALUE: %r' % kv)
             k, v = kv.split('=', 1)
-            (wfv if k.startswith('workflow.') else ui)[k[9:] if k.startswith('workflow.') else k] = _value(v)
+            (wfv if k.startswith('workflow.') else ui)[k[9:] if k.startswith('workflow.') else k] = _value(v, k)
         data = {'format': settings_io.FORMAT, 'settings': ui, 'workflow': wfv}
         keys = ['settings:' + k for k in ui] + ['workflow:' + k for k in wfv]
         try:
@@ -189,6 +202,8 @@ def cmd_settings(app, args):
         except settings_io.ImportError_ as e:
             raise CliError('%s %s' % (e.code, e.details))
         print('changed: %s' % (', '.join(done['settings'] + ['workflow.' + k for k in done['workflow']]) or 'nothing'))
+        if done['settings']:
+            print('the web service reads its settings when it starts: sudo systemctl restart jt-waf-mgr')
         return 0
     if args.action == 'export':
         if args.secrets:
@@ -199,7 +214,10 @@ def cmd_settings(app, args):
         text = json.dumps(d, ensure_ascii=False, indent=1)
         if args.output:
             import os
-            fd = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            try:
+                fd = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+            except FileExistsError:
+                raise CliError('%s exists: give a new file name (it is created with mode 600)' % args.output)
             with os.fdopen(fd, 'w', encoding='utf-8') as fh:
                 fh.write(text + '\n')
             print('written to %s%s' % (args.output, ' (keys and passwords included: keep it safe)' if args.secrets else ''))
@@ -237,6 +255,8 @@ def cmd_settings(app, args):
         except settings_io.ImportError_ as e:
             raise CliError('%s %s' % (e.code, e.details))
         print('changed %d setting(s)' % (len(done['settings']) + len(done['workflow'])))
+        if done['settings']:
+            print('the web service reads its settings when it starts: sudo systemctl restart jt-waf-mgr')
         return 0
     return 2
 
@@ -276,7 +296,7 @@ def cmd_intel(app, args):
     if args.action == 'status':
         p = _person(app, args, 'approver')
         try:
-            intel.set_status(app.db, app.audit, int(args.id), args.status, p['username'], src_ip='cli')
+            intel.set_status(app.db, app.audit, _num(args.id), args.status, p['username'], src_ip='cli')
         except intel.IntelError as e:
             raise CliError(e.code)
         print('threat %s: %s' % (args.id, args.status))

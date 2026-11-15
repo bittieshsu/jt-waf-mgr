@@ -80,7 +80,10 @@ def preview(app, data):
             cur = cfg.data.get(sec, {}).get(name)
         it = {'key': k, 'area': 'settings', 'group': k.split('.', 1)[0], 'known': known, 'secret': secret,
               'current': ('(set)' if cur else '') if secret else cur, 'incoming': '(set)' if secret and v else v,
-              'same': known and _same(cur, v), 'valid': known, 'error': None if known else 'unknown_setting'}
+              # a secret is never compared with the file (that would tell whether a guessed key is right): it
+              # "differs" whenever the file carries one
+              'same': known and (not v if secret else _same(cur, v)), 'valid': known,
+              'error': None if known else 'unknown_setting'}
         if known:
             try:
                 uisettings._validate(k, v)

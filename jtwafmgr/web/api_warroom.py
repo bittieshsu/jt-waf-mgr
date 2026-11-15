@@ -23,6 +23,7 @@ BATCH = 500
 CACHE_SECONDS = 4
 _cache = {}
 _lock = threading.Lock()
+_compute = threading.Lock()          # one snapshot computation at a time: the screens that arrive meanwhile wait for it
 
 
 _alias = {'at': 0.0, 'map': None}
@@ -39,26 +40,35 @@ def _hosts_alias(app):
 
 
 def _hosts_alias_now(app):
-    out, n = {}, 0
+    """{'alias': {name: internal-<n>}, 'shown': {names a site serves to the outside}} -- the only names the wall
+    shows; any other Host (a typo, an address, a name an outsider made up, a wildcard match) is "other"."""
+    alias, shown, n = {}, set(), 0
     try:
         n_conf, _ = app.site.load()
-        for s in n_conf.servers():
-            if s.get('reach') != 'internal':
-                continue
-            for name in s['server_names']:
-                if name and name != '_' and name.lower() not in out:
-                    n += 1
-                    out[name.lower()] = 'internal-%d' % n
-    except Exception:          # noqa: BLE001 -- unreadable nginx configuration: every name an alias, to be safe
+        servers = n_conf.servers()
+    except Exception:          # noqa: BLE001 -- unreadable nginx configuration: no name on the wall at all
         return None
-    return out
+    for s in servers:
+        for name in s['server_names']:
+            name = (name or '').lower().rstrip('.')
+            if not name or name == '_' or name.startswith(('~', '*.')) or '*' in name:
+                continue
+            if s.get('reach') == 'internal':
+                if name not in alias:
+                    n += 1
+                    alias[name] = 'internal-%d' % n
+            else:
+                shown.add(name)
+    return {'alias': alias, 'shown': shown - set(alias)}
 
 
 def _host(alias, host):
-    h = (host or '').lower()
+    h = (host or '').lower().rstrip('.')
     if alias is None:
-        return 'site'
-    return alias.get(h, h)
+        return 'other'
+    if h in alias['alias']:
+        return alias['alias'][h]
+    return h if h in alias['shown'] else 'other'
 
 
 def _cc(api, ip, origin):
@@ -158,7 +168,7 @@ def _snapshot(app):
         'latest': latest, 'destination': destination(app.cfg),
         'flow': flow, 'score_only': sorted(({'host': h, 'events': n} for h, n in score_only.items()), key=lambda x: -x['events']),
         'sites': sorted(sites.values(), key=lambda x: (-x['events'], x['host']))[:40],
-        'watched': sorted({_host(alias, h) for h in app.cfg['waf'].get('focus_sites') or []} - set(sites)),
+        'watched': sorted({_host(alias, h) for h in app.cfg['waf'].get('focus_sites') or []} - set(sites) - {'other'}),
         'rotate_seconds': int((app.cfg.data.get('warroom') or {}).get('rotate_seconds') or 25)}
 
 
@@ -169,9 +179,14 @@ def snapshot(app, req):
         hit = _cache.get(key)
         if hit and time.monotonic() - hit[0] < CACHE_SECONDS:
             return json_response(200, hit[1])
-    out = _snapshot(app)
-    with _lock:
-        _cache[key] = (time.monotonic(), out)
+    with _compute:
+        with _lock:
+            hit = _cache.get(key)
+            if hit and time.monotonic() - hit[0] < CACHE_SECONDS:
+                return json_response(200, hit[1])
+        out = _snapshot(app)
+        with _lock:
+            _cache[key] = (time.monotonic(), out)
     return json_response(200, out)
 
 

@@ -67,6 +67,14 @@ class TestUiSettings(unittest.TestCase):
         self.assertIn('settings.provider_switched', audit)
         self.assertNotIn('sk-local', audit)
         self.assertNotIn('sk-ant', audit)
+        # switching back with a new server address in the same save: the stashed key is not sent there
+        with self.assertRaises(uisettings.SettingError) as e:
+            uisettings.set_many(self.app, {'intel.provider': 'openai', 'intel.url': 'https://other.example.net/v1'}, 'admin1')
+        self.assertEqual(e.exception.code, 'key_required_for_new_host')
+        self.assertEqual(g('provider'), 'anthropic')                    # nothing was written
+        uisettings.set_many(self.app, {'intel.provider': 'openai', 'intel.url': 'https://other.example.net/v1',
+                                       'intel.api_key': 'sk-other-0123456789'}, 'admin1')
+        self.assertEqual((g('url'), g('api_key')), ('https://other.example.net/v1', 'sk-other-0123456789'))
 
     def test_invalid_values_refused(self):
         for k, v in (('auth.lockout_threshold', 1), ('geoip.account_id', 'abc'), ('network.known_scanners', ['not-an-ip']),
