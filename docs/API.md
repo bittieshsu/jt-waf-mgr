@@ -531,6 +531,19 @@ curl -sS -X DELETE -H "Authorization: Bearer $TOKEN" \
   'https://waf.example.com/api/v1/blocks/203.0.113.7?source=mail2/zimbra-webmail'
 ```
 
+### 4.10 War room
+
+Read only, for the war room board (`/warroom`); a viewer session or a token with `events:read`. The answers carry no
+source address, path, query or header; a site nginx serves only to internal networks appears as `internal-<n>`.
+
+- **`GET /warroom/snapshot`**: the last 30 minutes. `window_start`, `window_end`, `node_id`, `high_water_id` (the newest
+  event id in it), `collector` (`running`, `lag_seconds`, `last_event_at`, `stopped`), `totals` (`events`, `blocked`,
+  `logged`, `external`, `internal`, `unlocated`, `countries`), `countries` (`[{cc, events, blocked, logged, sources}]`),
+  `minutes` (31 one-minute buckets), `latest` (up to 30: `{id, ts, cc, origin, host, outcome, decided_by}`),
+  `destination` (`{label, lat, lon}` or null), `rotate_seconds`. The same answer for every screen for a few seconds.
+- **`GET /warroom/events?after=<id>`**: the events after that id, oldest first, up to 500 (`more: true` when there are
+  more: take a new snapshot); `high_water_id`, `now` and `collector` also when there is no event (a heartbeat).
+
 ## 5. Session-only endpoints
 
 These endpoints answer 403 to any token. They need a person, a session, and usually a role and a fresh one-time code.

@@ -29,6 +29,12 @@ for i in range(260):
     rules = random.choice([[930110, 949110], [942100, 949110], [941100], [920350], [913100, 949110]])
     lines.append(record(host=random.choice(hosts), uri=random.choice(['/wp-login.php', '/index.php?id=1%27', '/../etc/passwd', '/search?q=<script>', '/']),
                         ip=ip, status=403 if blocked else 200, engine='Enabled', rules=rules, ts=now - random.randint(60, 6 * 86400)))
+# the last half hour (the war room's window): a separate random stream, the events above stay the same
+wr = random.Random(11)
+for i in range(40):
+    ip = wr.choice(['203.0.113.%d' % wr.randint(1, 120), '198.51.100.%d' % wr.randint(1, 50), '192.0.2.%d' % wr.randint(1, 20)])
+    lines.append(record(host=wr.choice(hosts), uri=wr.choice(['/wp-login.php', '/.env', '/']), ip=ip, status=403 if wr.random() < .55 else 200,
+                        engine='Enabled', rules=wr.choice([[930110, 949110], [913100, 949110], [920350]]), ts=now - wr.randint(30, 25 * 60)))
 open(R + '/modsec_audit.log', 'w').write('\n'.join(lines) + '\n')
 cfg = config.load(R + '/config.toml')
 app = App(cfg)

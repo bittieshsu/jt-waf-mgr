@@ -1712,10 +1712,11 @@ def register(router):
     R('GET', V + '/settings', settings, admin)
     register_p2(router)
     register_compliance(router)
-    from . import api_analyst, api_notify, api_blocks
+    from . import api_analyst, api_notify, api_blocks, api_warroom
     api_analyst.register(router)
     api_notify.register(router)
     api_blocks.register(router)
+    api_warroom.register(router)
 
 
 # --- P2: managed files, changes, versions -----------------------------------------------------

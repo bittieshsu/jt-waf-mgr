@@ -524,6 +524,13 @@ curl -sS -X DELETE -H "Authorization: Bearer $TOKEN" \
   'https://waf.example.com/api/v1/blocks/203.0.113.7?source=mail2/zimbra-webmail'
 ```
 
+### 4.10 作戦室
+
+読み取り専用。作戦室ページ (`/warroom`) 用。viewer のセッションか `events:read` のトークン。応答に送信元アドレス、パス、クエリ、ヘッダーは含みません。nginx が内部ネットワークだけに提供するサイトは `internal-<n>` と表示します。
+
+- **`GET /warroom/snapshot`**：直近 30 分。`window_start`、`window_end`、`node_id`、`high_water_id` (枠内で最新のイベント ID)、`collector` (`running`、`lag_seconds`、`last_event_at`、`stopped`)、`totals` (`events`、`blocked`、`logged`、`external`、`internal`、`unlocated`、`countries`)、`countries` (`[{cc, events, blocked, logged, sources}]`)、`minutes` (1 分ごと 31 区間)、`latest` (最大 30 件：`{id, ts, cc, origin, host, outcome, decided_by}`)、`destination` (`{label, lat, lon}` または null)、`rotate_seconds`。数秒間はすべての画面で同じ応答を共有します。
+- **`GET /warroom/events?after=<id>`**：その ID より後のイベントを古い順に最大 500 件 (さらにあれば `more: true`：スナップショットを取り直す)。イベントがなくても `high_water_id`、`now`、`collector` を返します (ハートビート)。
+
 ## 5. Web 画面専用のエンドポイント
 
 次のエンドポイントはどのトークンにも 403 を返します。人とセッション、多くの場合は特定のロールとその場のワンタイムコードが

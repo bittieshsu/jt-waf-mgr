@@ -401,3 +401,11 @@ Editing comes in a later phase (config file for now).
   (while retrying); a queued one `ahead`. A finished one has `server` and `seconds`.
 - Intel threats: `preconditions` and `conditions_met` (`yes` / `no` / `unknown`); `no` makes `affected` `no`.
 - nginx: a location with `internal` is not a WAF bypass and not an IP-block gap.
+
+## 0.4.56
+- `/warroom` (route meta `bare` + `board`: no menu, no footer): views/WarRoom.vue with components/warroom/ (WarAtlas,
+  WarGlobe). Opened from the Overview menu in a new tab.
+- `GET /warroom/snapshot` (30 minutes; cached a few seconds for every screen) and `GET /warroom/events?after=<id>`
+  (up to 500, `more`): see docs/API.md 4.10. No address, path, query or header; internal-only sites as `internal-<n>`.
+- Settings `warroom.dest_label`, `warroom.dest_lat`, `warroom.dest_lon` (strings; empty: no destination),
+  `warroom.rotate_seconds` (10-600).

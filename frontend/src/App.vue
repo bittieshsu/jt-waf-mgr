@@ -74,7 +74,7 @@
     </header>
     <!-- dims the page under the open menu panel, so the panel stands apart (a click on it closes the menu) -->
     <div v-if="!bare && openMenu === 'all'" class="navscrim" aria-hidden="true"></div>
-    <div v-if="bare" class="bare-top"><ThemeSwitch /><LangSwitch /></div>
+    <div v-if="bare && !board" class="bare-top"><ThemeSwitch /><LangSwitch /></div>
 
     <main class="content">
       <!-- the server was upgraded while this tab was open: the page still runs the old program until it reloads -->
@@ -91,7 +91,7 @@
       <RouterView />
     </main>
 
-    <footer class="footer">
+    <footer v-if="!board" class="footer">
       <span>jt-waf-mgr<template v-if="state.meta.version"> v{{ safeText(state.meta.version) }}</template></span>
       <span class="dot" aria-hidden="true">·</span>
       <a v-if="sourceUrl" :href="sourceUrl" target="_blank" rel="noopener noreferrer">{{ t('footer.source') }}</a>
@@ -121,6 +121,7 @@ const route = useRoute()
 const ROLE_ICON = { viewer: 'show', operator: 'tool', approver: 'approve', admin: 'settings' }
 const router = useRouter()
 const bare = computed(() => !!route.meta.bare || !state.user)
+const board = computed(() => !!route.meta.board && !!state.user)      // the war room: the whole window is the page
 const isAdmin = computed(() => hasRole('admin'))
 const isApprover = computed(() => hasRole('approver'))
 const sourceUrl = computed(() => {
@@ -130,9 +131,10 @@ const sourceUrl = computed(() => {
 
 // navigation: groups (each a drop-down) and a few direct links, drawn inline when they fit, else in the menu panel
 const navGroups = computed(() => [
-  // the war room (a live board) joins this group when its design is ready
+  // the war room (a wall board) is in this group; it opens a tab of its own
   { key: 'overview', label: t('nav.overview'), icon: 'chart', items: [
     { to: '/', label: t('nav.dashboard'), icon: 'chart', exact: true },
+    { href: '/warroom', label: t('nav.warroom'), icon: 'globe' },        // opens a tab of its own (a wall screen)
   ] },
   { key: 'events', label: t('nav.g_events'), icon: 'list', badge: alertCount.open || 0, badgeTitle: t('nav.open_alerts'), items: [
     { to: '/events', label: t('nav.events_list'), icon: 'list' },

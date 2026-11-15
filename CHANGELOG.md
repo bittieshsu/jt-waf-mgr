@@ -2,6 +2,17 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.56 (2026-11-16)
+
+- War room, first stage: Overview > War room opens a board of its own in a new tab, for a wall screen (dark, no admin
+  menu). Two pages: a flat world map and a 3D globe you can turn, with the same numbers: the last 30 minutes per source
+  country (events, blocked / logged, different sources), events a minute, the latest events; a tracer for each new
+  batch, from the country to your WAF's location (Settings > War room; without it only the sources are drawn).
+  Rotate, pause the animation, freeze the data, full screen; arrow keys switch pages, Space pauses, Esc closes a
+  country's details. It tells live, quiet, not collecting, disconnected and catching up apart. Read only.
+- The board's API (`GET /warroom/snapshot`, `GET /warroom/events?after=`) leaves out the source address, the path, the
+  query and the headers; a site nginx serves only to internal networks gets an alias. Spec: docs/spec/WARROOM.md.
+
 ## 0.4.55 (2026-11-16)
 
 - Filter and exclude everywhere: a right-click on a value in any table opens the value menu (filter by / exclude this

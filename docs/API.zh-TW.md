@@ -493,6 +493,13 @@ curl -sS -X DELETE -H "Authorization: Bearer $TOKEN" \
   'https://waf.example.com/api/v1/blocks/203.0.113.7?source=mail2/zimbra-webmail'
 ```
 
+### 4.10 戰情室
+
+唯讀，供戰情室頁 (`/warroom`) 使用；viewer 登入或有 `events:read` 的權杖。回應裡沒有來源位址、路徑、查詢字串或標頭；nginx 只開給內部網路的站台顯示為 `internal-<n>`。
+
+- **`GET /warroom/snapshot`**：最近 30 分鐘。`window_start`、`window_end`、`node_id`、`high_water_id` (視窗內最新的事件編號)、`collector` (`running`、`lag_seconds`、`last_event_at`、`stopped`)、`totals` (`events`、`blocked`、`logged`、`external`、`internal`、`unlocated`、`countries`)、`countries` (`[{cc, events, blocked, logged, sources}]`)、`minutes` (31 個一分鐘區間)、`latest` (最多 30 筆：`{id, ts, cc, origin, host, outcome, decided_by}`)、`destination` (`{label, lat, lon}` 或 null)、`rotate_seconds`。幾秒內所有螢幕共用同一份答案。
+- **`GET /warroom/events?after=<id>`**：該編號之後的事件，由舊到新，最多 500 筆 (還有更多時 `more: true`，應重取快照)；沒有事件時也會回 `high_water_id`、`now` 與 `collector` (心跳)。
+
 ## 5. 只能在網頁介面使用的端點
 
 下列端點對任何權杖都回 403。它們需要人、session，通常還要特定角色與當下的一次性密碼。

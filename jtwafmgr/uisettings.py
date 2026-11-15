@@ -116,6 +116,10 @@ EDITABLE = {
     'intel.days': ('int', {'min': 1, 'max': 365}),
     'intel.daily_tokens': ('int', {'min': 0, 'max': 100000000}),
     'intel.monthly_tokens': ('int', {'min': 0, 'max': 2000000000}),
+    'warroom.dest_label': ('str', {'re': r'[^\x00-\x1f\x7f<>]{0,40}', 'max': 40}),
+    'warroom.dest_lat': ('str', {'re': r'(-?(?:90(?:\.0{1,6})?|[1-8]?\d(?:\.\d{1,6})?))?', 'max': 10}),
+    'warroom.dest_lon': ('str', {'re': r'(-?(?:180(?:\.0{1,6})?|(?:1[0-7]\d|[1-9]?\d)(?:\.\d{1,6})?))?', 'max': 11}),
+    'warroom.rotate_seconds': ('int', {'min': 10, 'max': 600}),
     'review.enabled': ('bool', {}),
     'review.interval_hours': ('int', {'min': 1, 'max': 24}),        # 1, 2, 3, 4, 6, 8, 12 or 24 (config check)
     'review.keep_days': ('int', {'min': 1, 'max': 3650}),

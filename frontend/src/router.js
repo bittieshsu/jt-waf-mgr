@@ -7,6 +7,8 @@ import ChangePassword from './views/ChangePassword.vue'
 import TotpRequired from './views/TotpRequired.vue'
 import Account from './views/Account.vue'
 import Overview from './views/Overview.vue'
+// the war room is a page of its own (a wall screen): loaded only when opened
+const WarRoom = () => import('./views/WarRoom.vue')
 import Events from './views/Events.vue'
 import EventDetail from './views/EventDetail.vue'
 import IpLookup from './views/IpLookup.vue'
@@ -43,6 +45,7 @@ const routes = [
   { path: '/change-password', name: 'change-password', component: ChangePassword, meta: { bare: true, allowMustChange: true } },
   { path: '/setup-totp', name: 'setup-totp', component: TotpRequired, meta: { bare: true, allowTotpSetup: true } },
   { path: '/', name: 'overview', component: Overview },
+  { path: '/warroom', name: 'warroom', component: WarRoom, meta: { bare: true, board: true } },
   { path: '/events', name: 'events', component: Events },
   { path: '/events/:id', name: 'event', component: EventDetail, props: true },
   { path: '/lookup', name: 'lookup', component: IpLookup },

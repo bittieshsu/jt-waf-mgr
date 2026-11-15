@@ -433,6 +433,30 @@ async function audit(page, where) {
   // the event's AI card names the LLM server and model
   await page.goto(base + '/events/1', { waitUntil: 'networkidle' });
   ok((await page.locator('.factgrid dl.facts > div').count()) >= 8, 'event detail: facts in aligned rows');
+  // 0.4.56: the war room opens in a tab of its own from the Overview menu; both maps draw the same window
+  await page.goto(base + '/', { waitUntil: 'networkidle' });
+  await page.locator('.mainnav button.navmorebtn').first().click();
+  const wrLink = page.locator('.navdrop a[href="/warroom"]');
+  ok((await wrLink.count()) === 1 && (await wrLink.getAttribute('target')) === '_blank', 'overview menu: war room opens a new tab');
+  await page.keyboard.press('Escape');
+  await page.goto(base + '/warroom', { waitUntil: 'networkidle' });
+  await page.waitForSelector('.wr .war-atlas svg', { timeout: 8000 }).catch(() => {});
+  ok((await page.locator('.wr .war-atlas svg').count()) === 1 && (await page.locator('.topbar').count()) === 0, 'war room: the atlas, no admin menu');
+  const wrText = await page.locator('.wr').innerText();
+  ok(!/\b(?:192\.168|203\.0\.113|198\.51\.100)\.\d+\b/.test(wrText), 'war room: no source address on the wall');
+  ok(/\d/.test(await page.locator('.wr-kpis b').first().innerText()), 'war room: numbers shown');
+  await page.screenshot({ path: path.join(SHOTS, 'warroom-atlas.png') });
+  await page.locator('.wr-tabs button').nth(1).click();
+  await page.waitForSelector('.wr .war-globe canvas', { timeout: 5000 }).catch(() => {});
+  ok((await page.locator('.wr .war-globe canvas').count()) === 1, 'war room: the globe');
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: path.join(SHOTS, 'warroom-globe.png') });
+  const firstRank = page.locator('.wr-ranklist button').first();
+  if (await firstRank.count()) {
+    await firstRank.click();
+    ok((await page.locator('.wr-drawer').count()) === 1, 'war room: a country opens its details');
+    await page.keyboard.press('Escape');
+  }
   // the DNS check card in Settings: what each server answered
   await page.goto(base + '/admin/settings', { waitUntil: 'networkidle' });
   await page.waitForSelector('#dns-names tbody tr, .dnstable tbody tr', { timeout: 5000 }).catch(() => {});

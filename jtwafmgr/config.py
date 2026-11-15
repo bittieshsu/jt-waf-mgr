@@ -184,6 +184,14 @@ DEFAULTS = {
         'daily_tokens': 400000,        # 0: no limit
         'monthly_tokens': 6000000,
     },
+    'warroom': {
+        # the war room board (/warroom): where the events arrive on the maps (the WAF's public location, shown as
+        # dest_label; empty: no destination drawn) and how long a page stays when rotating
+        'dest_label': '',
+        'dest_lat': '',
+        'dest_lon': '',
+        'rotate_seconds': 25,
+    },
     'review': {
         # the periodic WAF review (review.py): every interval_hours (1, 2, 3, 4, 6, 8, 12 or 24; slots start at
         # midnight, local time), stored and sent through the notification channels (event report.review)

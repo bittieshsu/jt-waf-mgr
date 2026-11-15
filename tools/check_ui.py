@@ -27,6 +27,8 @@ NEGATIVE = ('managed.disable', 'managed.delete', 'users.disable', 'blocks.end', 
 # button classes whose content is the label itself -> why no icon
 BUTTON_EXEMPT_CLASSES = {
     'dp-day': 'calendar day cells: the date number is the content',
+    'wr-tab': 'war room page tabs: the page name is the content (a wall board, as in the design)',
+    'wr-rankrow': 'war room ranking rows: the country code, name and numbers are the content',
 }
 
 
