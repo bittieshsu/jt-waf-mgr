@@ -22,7 +22,8 @@
     <section v-if="sel" ref="handleEl" class="card">
       <h2><Icon name="check" /> {{ t('alerts.handle_title', { id: sel.id }) }}</h2>
       <p><b>{{ kindText(sel) }}</b> <span class="mono small">{{ safeText(sel.summary, 160) }}</span></p>
-      <p v-if="sel.details.reason" class="reason">{{ safeText(sel.details.reason, 400) }}</p>
+      <p v-if="reasonText(sel)" class="reason">{{ safeText(reasonText(sel), 400) }}</p>
+      <p v-if="sel.details.msg === 'intel_check' && sel.details.conditions" class="reason small">{{ t('alerts.conditions_line', { text: safeText(sel.details.conditions, 300) }) }}</p>
       <label class="field"><span>{{ t('alerts.note') }}</span>
         <textarea v-model="note" rows="3" maxlength="1000" class="w-lg" :placeholder="t('alerts.note_ph')"></textarea></label>
       <ErrorBox :error="handleError" />
@@ -43,7 +44,7 @@
         <template #cell-severity="{ row }"><span class="badge" :class="row.severity === 'critical' ? 'b-blocked' : 'b-warn'">{{ t('alerts.sev.' + row.severity) }}</span></template>
         <template #cell-kind="{ row }"><b>{{ kindText(row) }}</b><div class="sub">{{ t('alerts.src.' + row.source) }}</div></template>
         <template #cell-summary="{ row }"><span class="mono small breakall">{{ safeText(row.summary, 160) }}</span>
-          <div v-if="row.details.reason" class="sub reason">{{ safeText(row.details.reason, 240) }}</div></template>
+          <div v-if="reasonText(row)" class="sub reason">{{ safeText(reasonText(row), 240) }}</div></template>
         <template #cell-state="{ row }"><span class="badge" :class="row.state === 'open' ? 'b-warn' : 'b-ok'">{{ t('alerts.state.' + row.state) }}</span>
           <div v-if="row.handled_by" class="sub">{{ t('alerts.handled_by', { by: safeText(row.handled_by, 40), at: fmtShortTime(row.handled_at) }) }}</div>
           <div v-if="row.note" class="sub">{{ safeText(row.note, 200) }}</div></template>
@@ -96,11 +97,26 @@ const cols = computed(() => [
   { key: 'created_at', label: t('alerts.col.time'), required: true, text: (r) => fmtShortTime(r.created_at) },
   { key: 'severity', label: t('alerts.col.severity'), value: (r) => (r.severity === 'critical' ? 0 : 1), text: (r) => t('alerts.sev.' + r.severity) },
   { key: 'kind', label: t('alerts.col.kind'), class: 'c-kind', value: (r) => kindText(r) },
-  { key: 'summary', label: t('alerts.col.what'), class: 'c-fill', value: (r) => r.summary + ' ' + (r.details.reason || '') },
+  { key: 'summary', label: t('alerts.col.what'), class: 'c-fill', value: (r) => r.summary + ' ' + reasonText(r) },
   { key: 'state', label: t('alerts.col.state'), value: (r) => t('alerts.state.' + r.state) },
   { key: 'actions', label: t('alerts.col.actions'), sortable: false, filterable: false },
 ])
 function kindText(r) { return tOr('alerts.kind.' + r.kind, r.kind) }
+// threat intelligence alerts carry a message key and its values: worded in the interface language (the stored
+// reason is the English one, kept for the audit trail)
+const MSGS = ['intel_urgent', 'intel_check', 'intel_patch', 'intel_remove']
+function reasonText(r) {
+  const d = r.details || {}
+  if (!MSGS.includes(d.msg)) return d.reason || ''
+  const ver = String(d.sw_version || '').trim()
+  const product = String(d.product || '')
+  return t('alerts.' + d.msg, {
+    cve: String(d.cve || ''), product, sw: ver ? product + ' ' + ver : product,
+    vu: ver || d.msg === 'intel_remove' ? '' : t('alerts.ver_unknown'),
+    affects: t(d.affected === 'yes' ? 'alerts.aff_yes' : 'alerts.aff_maybe'),
+    now: ver, was: String(d.sw_was || ''), rule_id: String(d.rule_id || ''),
+  })
+}
 // an alert becomes a change: find a recent event of that site and path (paths in alerts are decoded and lower case,
 // as a rule sees them) and open the change form filled from it
 const DRAFT = { false_positive: 'exclusion', attack_passed: 'block', attack_in_progress: 'block' }

@@ -8,7 +8,7 @@ import threading
 import time
 import unittest
 
-from jtwafmgr import auth, intel, software
+from jtwafmgr import auth, intel, notify, software
 from jtwafmgr.app import App
 from jtwafmgr.web.server import start_background
 from tests.helpers import TempEnv
@@ -194,6 +194,26 @@ class TestRun(Base):
         al = self.app.db.one("SELECT severity, details FROM alerts WHERE kind='exploited_vulnerability'")
         self.assertEqual(al['severity'], 'warning')
         self.assertIn('check whether it applies', al['details'])
+
+    def test_unknown_version_is_no_version_and_the_alert_is_worded_per_language(self):
+        """The model writes "unknown" for a version it does not know: the alert says so instead of "Example CMS unknown",
+        and the notification and the interface word it from the structured values, in their own language."""
+        self.app.cfg.data['intel']['patches'] = False
+        self.app.db.x("UPDATE software SET version='' WHERE name='Example CMS'")     # the version here is not known
+        self._cisa_run({'preconditions': 'the mod_example module enabled', 'conditions_met': 'unknown', 'our_version': 'unknown'})
+        d = json.loads(self.app.db.one("SELECT details FROM alerts WHERE kind='exploited_vulnerability'")['details'])
+        self.assertEqual((d['msg'], d['sw_version']), ('intel_check', ''))
+        self.assertNotIn(' unknown ', d['reason'])
+        zh = notify.alert_text('zh-TW', d)
+        self.assertIn('本站版本未知', zh)
+        self.assertNotIn('unknown', zh)
+        self.assertNotIn('exploited', zh)
+        self.assertIn('version here is not known', notify.alert_text('en', d))
+        self.assertIn('バージョン不明', notify.alert_text('ja', d))
+        self.assertEqual(intel.known_version(' Unknown '), '')
+        self.assertEqual(intel.known_version('10.1.9'), '10.1.9')
+        # an alert without a message key keeps its own sentence
+        self.assertEqual(notify.alert_text('zh-TW', {'reason': 'probe answered 200'}), 'probe answered 200')
 
     def test_a_threat_that_becomes_urgent_later_raises_the_alert_then(self):
         self.app.cfg.data['intel']['patches'] = False

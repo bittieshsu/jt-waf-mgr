@@ -102,7 +102,7 @@
           <h2><Icon name="server" /> {{ t('intel.software') }}</h2>
           <span v-if="isApprover" class="rowbtns">
             <button v-if="waiting > 0" class="btn small primary" type="button" :disabled="busy" @click="confirmAll"><Icon name="check" />{{ t('intel.confirm_all', { n: waiting }) }}</button>
-            <button class="btn small" type="button" :disabled="busy" @click="guess"><Icon name="refresh" />{{ t('intel.guess') }}</button>
+            <button class="btn small" type="button" :disabled="busy" :aria-busy="guessing ? 'true' : 'false'" @click="guess"><Spinner v-if="guessing" /><Icon v-else name="refresh" />{{ t('intel.guess') }}</button>
           </span>
         </div>
         <p class="muted small">{{ t('intel.software_hint') }}</p>
@@ -182,6 +182,7 @@ import { askConfirm } from '../confirmDialog.js'
 import { hasRole } from '../store.js'
 import { fmtMinute, fmtNum, safeText } from '../util.js'
 import Icon from '../components/Icon.vue'
+import Spinner from '../components/Spinner.vue'
 import ErrorBox from '../components/ErrorBox.vue'
 import Loading from '../components/Loading.vue'
 import DataTable from '../components/DataTable.vue'
@@ -270,8 +271,12 @@ async function act(fn) {
   try { await fn() } catch (e) { error.value = e } finally { busy.value = false }
 }
 const runNow = () => act(async () => { data.value.status = await post('/intel/run', {}) })
+// the guess reads the logs and asks the applications for their versions: a few seconds, a spinner meanwhile
+const guessing = ref(false)
 const guess = () => act(async () => {
-  const r = await post('/intel/software/guess', {})
+  guessing.value = true
+  let r
+  try { r = await post('/intel/software/guess', {}) } finally { guessing.value = false }
   data.value.software = r.software
   guessMsg.value = t('intel.guessed', { added: r.added, updated: r.updated, removed: r.removed || 0 })
 })

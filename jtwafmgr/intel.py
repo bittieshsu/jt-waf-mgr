@@ -817,7 +817,7 @@ def propose_patches(app, run_id, ask=None, log=print, session=None):
                 session.spend(a, b)             # the same budget as the search (raises when it is used up)
             spec, tests = _patch_spec(p, dict(t, id=r['cve'], product=r['product']), samples, hosts, test_host)
             reason = util.clip('Virtual patch for %s in %s %s (%s%s), until the software is updated. %s Attack: %s. Rule: %s. '
-                               'References: %s' % (r['cve'], r['product'], t.get('our_version') or '', r['severity'],
+                               'References: %s' % (r['cve'], r['product'], known_version(t.get('our_version')) or '(version not known)', r['severity'],
                                                    ', exploited in the wild' if r['exploited'] else '', t.get('summary') or '',
                                                    t.get('request_pattern') or '', util.clip(str(p.get('explanation') or ''), 300),
                                                    ' '.join(t.get('references') or [])), 2000)
@@ -848,13 +848,14 @@ def remind_removal(app):
                   "WHERE c.state='applied'"):
         t = json.loads(r['details'] or '{}')
         sw = db.one('SELECT version FROM software WHERE name=? AND confirmed=1', (r['product'],))
-        if not sw or not t.get('our_version') or sw['version'] == t['our_version']:
+        if not sw or not known_version(t.get('our_version')) or sw['version'] == t['our_version']:
             continue
         alerts.raise_alert(db, app.audit, 'intel', 'other', 'warning', 'intel-remove:%s:%s' % (r['cve'], r['product']),
                            {'reason': '%s is now %s (was %s when the virtual patch for %s was written): check that the update '
                                       'fixes it, then remove rule %s.' % (r['product'], sw['version'], t['our_version'], r['cve'],
                                                                           r['rule_id']),
-                            'cve': r['cve'], 'product': r['product'], 'rule_id': r['rule_id']}, link='/rules/%s' % r['rule_id'])
+                            'msg': 'intel_remove', 'cve': r['cve'], 'product': r['product'], 'rule_id': r['rule_id'],
+                            'sw_version': sw['version'], 'sw_was': t['our_version']}, link='/rules/%s' % r['rule_id'])
         out += 1
     return out
 
@@ -864,11 +865,21 @@ def _patch_alert(app, r, why):
     alerts.raise_alert(app.db, app.audit, 'intel', 'exploited_vulnerability', 'critical', 'intel-patch:%s:%s' % (r['cve'], r['product']),
                        {'reason': '%s in %s is exploited in the wild and %s, but the virtual patch is not in force: %s. '
                                   'Update the software or decide on a rule.' % (r['cve'], r['product'], _affects(r['affected']), why),
-                        'cve': r['cve'], 'product': r['product']}, link='/intel')
+                        'msg': 'intel_patch', 'cve': r['cve'], 'product': r['product'], 'affected': r['affected'],
+                        'error': util.clip(str(why), 300)}, link='/intel')
 
 
 def _affects(affected):
     return 'affects us' if affected == 'yes' else 'may affect us (our version is not known: check whether it is patched)'
+
+
+UNKNOWN_VERSIONS = ('', 'unknown', 'not known', 'not reported', 'n/a', 'na', 'none', '?', '-')
+
+
+def known_version(v):
+    """The model writes "unknown" (or the like) when it does not know our version: that is no version."""
+    v = str(v or '').strip()
+    return '' if v.lower() in UNKNOWN_VERSIONS else v
 
 
 def patch_failed(app, cid, error):
@@ -1192,17 +1203,21 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
                   urgent=len(urgent), tokens=tokens)
     for t in urgent:
         # exploited in the wild (read on a CISA page) and our version is affected: a person acts now
+        ver = known_version(t['our_version'])
         alerts.raise_alert(db, app.audit, 'intel', 'exploited_vulnerability', 'critical', 'intel:%s:%s' % (t['id'], t['product']),
                            {'reason': '%s in %s %s is exploited in the wild and %s: %s' % (
-                               t['id'], t['product'], t['our_version'] or '', _affects(t['affected']), util.clip(t['summary'], 200)),
-                            'cve': t['id'], 'product': t['product'], 'run_id': rid}, link='/intel')
+                               t['id'], t['product'], ver or '(version not known)', _affects(t['affected']), util.clip(t['summary'], 200)),
+                            'msg': 'intel_urgent', 'cve': t['id'], 'product': t['product'], 'sw_version': ver,
+                            'affected': t['affected'], 'run_id': rid}, link='/intel')
     for t in check:
         # exploited, but only under conditions this host may not meet: a person checks, nothing is rushed
+        ver = known_version(t['our_version'])
         alerts.raise_alert(db, app.audit, 'intel', 'exploited_vulnerability', 'warning', 'intel-check:%s:%s' % (t['id'], t['product']),
                            {'reason': '%s in %s %s is exploited in the wild, but only where %s; this could not be confirmed '
                                       'for this host: check whether it applies.' % (
-                                          t['id'], t['product'], t['our_version'] or '', util.clip(t['preconditions'], 200)),
-                            'cve': t['id'], 'product': t['product'], 'run_id': rid}, link='/intel')
+                                          t['id'], t['product'], ver or '(version not known)', util.clip(t['preconditions'], 200)),
+                            'msg': 'intel_check', 'cve': t['id'], 'product': t['product'], 'sw_version': ver,
+                            'conditions': util.clip(t['preconditions'], 300), 'run_id': rid}, link='/intel')
     if new:
         notify.enqueue(db, cfg, 'intel.new_threats', {'run_id': rid, 'threats': [
             {'id': t['id'], 'product': t['product'], 'severity': t['severity'], 'affected': t['affected'],

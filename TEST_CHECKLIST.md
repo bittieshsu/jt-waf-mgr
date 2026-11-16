@@ -32,7 +32,9 @@ What each gate covers and how it passes: `TEST_PLAN.md`.
       -signature dist/jt-waf-mgr-X.Y.Z.tar.gz.sig dist/jt-waf-mgr-X.Y.Z.tar.gz` says Verified OK.
 - [ ] `tools/test_upgrade.sh dist/<previous>.tar.gz dist/<new>.tar.gz` — install of the previous release with
       data, refusals, `--check`, automatic rollback on a failed start, upgrade (data, accounts, audit
-      trail, integrity), manual rollback, upgrade again.
+      trail, integrity), manual rollback, upgrade again; then a fresh install of the new release (key pinned,
+      every unit installed, serving, integrity), uninstall keeping the data (every unit disabled and removed,
+      program gone, data kept), reinstall over the kept data, and uninstall --purge leaving nothing behind.
 - [ ] On the production Python version (the server's own python3), in a temporary directory: the unit tests and
       `tools/test_upgrade.sh`. Nothing outside the temporary directory is touched.
 - [ ] The database migration on a copy of the production database (`jt-waf-mgr migrate` with a

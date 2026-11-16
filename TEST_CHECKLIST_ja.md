@@ -32,7 +32,9 @@
       -signature dist/jt-waf-mgr-X.Y.Z.tar.gz.sig dist/jt-waf-mgr-X.Y.Z.tar.gz` が Verified OK を返すこと。
 - [ ] `tools/test_upgrade.sh dist/<previous>.tar.gz dist/<new>.tar.gz` — データ付きで前のリリースをインストール、
       拒否、`--check`、起動失敗時の自動ロールバック、アップグレード（データ、アカウント、監査記録、完全性）、
-      手動ロールバック、再アップグレード。
+      手動ロールバック、再アップグレード。続いて新リリースの新規インストール（鍵の固定、全ユニットの配置、応答、
+      完全性）、データを残したアンインストール（全ユニットの無効化と削除、プログラム削除、データ保持）、残したデータ上
+      への再インストール、uninstall --purge 後に何も残らないこと。
 - [ ] 本番の Python バージョン（サーバー自身の python3）で、一時ディレクトリ内で：単体テストと `tools/test_upgrade.sh`。
       一時ディレクトリの外には一切触れません。
 - [ ] 本番データベースのコピーでデータベース移行（コピーを指す設定で `jt-waf-mgr migrate`）、続いてコピーに対して

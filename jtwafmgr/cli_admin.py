@@ -207,12 +207,14 @@ def cmd_settings(app, args):
         return 0
     if args.action == 'export':
         if args.secrets:
+            # keys and passwords never go to the terminal (scrollback, a captured log): only to a new mode-600 file
+            if not args.output:
+                raise CliError('--secrets needs -o FILE: keys and passwords are written only to a new file (mode 600)')
             _person(app, args, 'admin')
-        d = settings_io.export(app, secrets=args.secrets)
         app.audit.log('settings.exported', getattr(args, 'as_user', None) or 'cli', src_ip='cli', secrets=args.secrets,
                       severity='warning' if args.secrets else 'info')
-        text = json.dumps(d, ensure_ascii=False, indent=1)
         if args.output:
+            text = json.dumps(settings_io.export(app, secrets=bool(args.secrets)), ensure_ascii=False, indent=1)
             import os
             try:
                 fd = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_NOFOLLOW', 0), 0o600)
@@ -222,7 +224,7 @@ def cmd_settings(app, args):
                 fh.write(text + '\n')
             print('written to %s%s' % (args.output, ' (keys and passwords included: keep it safe)' if args.secrets else ''))
         else:
-            print(text)
+            print(json.dumps(settings_io.export(app, secrets=False), ensure_ascii=False, indent=1))
         return 0
     if args.action == 'import':
         with open(args.file, 'rb') as fh:
@@ -343,7 +345,7 @@ def register(sub):
     s.add_argument('action', choices=('show', 'set', 'export', 'import'))
     s.add_argument('items', nargs='*', help='show: a key prefix; set: KEY=VALUE ...; import: the file')
     s.add_argument('-o', '--output', help='export: write to this file (mode 600)')
-    s.add_argument('--secrets', action='store_true', help='export: keys and passwords too (needs --as an admin)')
+    s.add_argument('--secrets', action='store_true', help='export: keys and passwords too (needs -o FILE and --as an admin)')
     s.add_argument('--only', help='import: a comma list of groups (llm, notify, workflow...) or keys; default: all that differ')
     s.add_argument('--dry-run', action='store_true', help='import: only show what would change')
     s.add_argument('-v', '--verbose', action='store_true', help='import: list every setting of the file')

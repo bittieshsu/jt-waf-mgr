@@ -113,14 +113,22 @@ TEXT = {
         'report.review': 'WAF 定期檢討（{window}）',
         'rv.ok': '沒有誤封鎖的跡象。',
         'rv.attention': '有 {n} 項要看一下。',
-        'intel.new_threats': '威脅情報:找到 {n} 個新的漏洞',
+        'intel.new_threats': '威脅情報：找到 {n} 個新的漏洞',
         'intel.failed': '威脅情報搜尋失敗',
         'f.threat': '漏洞',
         'f.threats_total': '新漏洞數',
         'k.exploited_vulnerability': '已被利用的漏洞',
         'th.exploited': '已被利用',
-        'th.affects': '影響我們的版本',
+        'th.affects': '影響本站的版本',
         'th.maybe': '不確定是否影響',
+        'r.aff_yes': '影響本站的版本',
+        'r.aff_maybe': '可能影響本站',
+        'r.ver_unknown': ' (本站版本未知)',
+        'r.intel_urgent': '{sw} 的 {cve} 已被利用，{affects}{vu}：請盡快更新軟體，或決定是否加上預防規則。',
+        'r.intel_check': '{sw} 的 {cve} 已被利用，但只在特定條件下才會受影響{vu}；無法確認本站是否符合，請確認是否適用。',
+        'r.intel_patch': '{sw} 的 {cve} 已被利用，{affects}{vu}，但預先防護規則沒有生效：請更新軟體，或決定要不要用規則。',
+        'r.intel_remove': '{product} 已更新為 {now} (寫 {cve} 的預先防護規則時是 {was})：確認新版已修補後，移除規則 {rule_id}。',
+        'f.conditions': '前提條件',
         'f.rv_events': '事件',
         'f.rv_counts': '{events}（封鎖 {blocked}、只記錄 {logged}）',
         'f.rv_suspects': '可能誤封鎖',
@@ -199,8 +207,16 @@ TEXT = {
         'f.threats_total': 'New vulnerabilities',
         'k.exploited_vulnerability': 'exploited vulnerability',
         'th.exploited': 'exploited',
-        'th.affects': 'affects our version',
-        'th.maybe': 'may affect us',
+        'th.affects': 'affects the version here',
+        'th.maybe': 'may affect this site',
+        'r.aff_yes': 'affects the version here',
+        'r.aff_maybe': 'may affect this site',
+        'r.ver_unknown': ' (the version here is not known)',
+        'r.intel_urgent': '{cve} in {sw} is exploited in the wild and {affects}{vu}: update the software soon, or decide on a precaution rule.',
+        'r.intel_check': '{cve} in {sw} is exploited in the wild, but only under certain conditions{vu}; whether this site meets them could not be confirmed: check whether it applies.',
+        'r.intel_patch': '{cve} in {sw} is exploited in the wild and {affects}{vu}, but the precaution rule is not in force: update the software, or decide on a rule.',
+        'r.intel_remove': '{product} is now {now} (it was {was} when the precaution rule for {cve} was written): check that the update fixes it, then remove rule {rule_id}.',
+        'f.conditions': 'Conditions',
         'f.rv_events': 'Events',
         'f.rv_counts': '{events} (blocked {blocked}, logged {logged})',
         'f.rv_suspects': 'Possibly blocked by mistake',
@@ -274,14 +290,22 @@ TEXT = {
         'report.review': 'WAF 定期レビュー（{window}）',
         'rv.ok': '誤ブロックの兆候はありません。',
         'rv.attention': '確認が必要な項目が {n} 件あります。',
-        'intel.new_threats': '脅威インテリジェンス:新しい脆弱性 {n} 件',
+        'intel.new_threats': '脅威インテリジェンス：新しい脆弱性 {n} 件',
         'intel.failed': '脅威インテリジェンスの検索に失敗',
         'f.threat': '脆弱性',
         'f.threats_total': '新しい脆弱性',
         'k.exploited_vulnerability': '悪用されている脆弱性',
         'th.exploited': '悪用あり',
-        'th.affects': '当方のバージョンに影響',
+        'th.affects': '当サイトのバージョンに影響',
         'th.maybe': '影響の可能性',
+        'r.aff_yes': '当サイトのバージョンに影響します',
+        'r.aff_maybe': '当サイトに影響する可能性があります',
+        'r.ver_unknown': ' (当サイトのバージョン不明)',
+        'r.intel_urgent': '{sw} の {cve} は悪用されており、{affects}{vu}：早めにソフトウェアを更新するか、予防ルールを決めてください。',
+        'r.intel_check': '{sw} の {cve} は悪用されていますが、特定の条件でのみ影響します{vu}。当サイトが該当するかは確認できませんでした：該当するか確認してください。',
+        'r.intel_patch': '{sw} の {cve} は悪用されており、{affects}{vu}が、予防ルールが有効になっていません：ソフトウェアを更新するか、ルールを決めてください。',
+        'r.intel_remove': '{product} は {now} に更新されました ({cve} の予防ルール作成時は {was})：更新で修正されたことを確認してから、ルール {rule_id} を削除してください。',
+        'f.conditions': '前提条件',
         'f.rv_events': 'イベント',
         'f.rv_counts': '{events}（ブロック {blocked}、記録のみ {logged}）',
         'f.rv_suspects': '誤ブロックの可能性',
@@ -526,6 +550,26 @@ def _link(cfg, path):
     return base + path if base and path else None
 
 
+ALERT_MSGS = ('intel_urgent', 'intel_check', 'intel_patch', 'intel_remove')
+
+
+def alert_text(lang, d):
+    """An alert's sentence in the notification language: alerts that carry a message key and its values are worded
+    here (the stored "reason" is the English one, for the audit trail and the log servers)."""
+    msg = d.get('msg')
+    if msg not in ALERT_MSGS:
+        return d.get('reason') or ''
+    ver = str(d.get('sw_version') or '').strip()
+    product = _v(d.get('product'), 80)
+    kw = {'cve': _v(d.get('cve'), 40), 'product': product, 'sw': (product + ' ' + _v(ver, 40)) if ver else product,
+          'vu': '' if ver else _t(lang, 'r.ver_unknown'),
+          'affects': _t(lang, 'r.aff_yes' if d.get('affected') == 'yes' else 'r.aff_maybe'),
+          'now': _v(d.get('sw_version'), 40), 'was': _v(d.get('sw_was'), 40), 'rule_id': _v(d.get('rule_id'), 20)}
+    if msg == 'intel_remove':
+        kw['vu'] = ''
+    return _t(lang, 'r.' + msg, **kw)
+
+
 def render(db, cfg, event, d):
     lang = cfg['notify']['language']
     L = lambda k: _t(lang, k)       # noqa: E731
@@ -596,7 +640,11 @@ def render(db, cfg, event, d):
         for k, label in (('host', 'f.host'), ('path', 'f.path'), ('count', 'f.count')):
             if d.get(k):
                 facts.append((L(label), d[k]))
-        text = d.get('reason') or ''
+        text = alert_text(lang, d)
+        if d.get('msg') == 'intel_check' and d.get('conditions'):
+            facts.append((L('f.conditions'), d['conditions']))
+        elif d.get('msg') == 'intel_patch' and d.get('error'):
+            facts.append((L('f.problem'), d['error']))
         path = d.get('link') or '/alerts'
     elif event == 'report.daily':
         kw['day'] = _v(d.get('day'), 20)
@@ -695,8 +743,11 @@ _SAMPLE_CHANGE = {'kind': 'confident_block', 'op': 'add', 'direction': 'tighten'
 SAMPLES = {
     'alert.created': {'kind': 'attack_passed', 'alert_severity': 'critical', 'host': 'app.example.com', 'path': '/.env',
                       'count': 3, 'reason': 'probe answered 200', 'link': '/alerts'},
-    'alert.reminder': {'open': 2, 'items': [{'id': 7, 'kind': 'attack_passed', 'summary': 'app.example.com /.env'},
-                                            {'id': 8, 'kind': 'false_positive', 'summary': 'shop.example.com /api/notes'}]},
+    'alert.reminder': {'open': 4, 'items': [{'id': 7, 'kind': 'attack_passed', 'summary': 'app.example.com /.env'},
+                                            {'id': 8, 'kind': 'false_positive', 'summary': 'shop.example.com /api/notes'},
+                                            {'id': 9, 'kind': 'attack_in_progress',
+                                             'summary': '/config.php, /.git/config, /.aws/credentials, /backup.sql'},
+                                            {'id': 10, 'kind': 'exploited_vulnerability', 'summary': 'CVE-2026-0001 Example CMS 4.2'}]},
     'integrity.audit_chain_failed': {'reason': 'row 812: hash does not match'},
     'integrity.audit_chain_failed_recovered': {},
     'integrity.program_failed': {'reason': 'files differ from the signed manifest', 'changed': ['jtwafmgr/web/api.py']},
@@ -749,7 +800,8 @@ def preview(cfg, event, lang=None):
     c = {'node': cfg['node'], 'notify': dict(cfg['notify'], language=lang if lang in TEXT else cfg['notify']['language'])}
     m = render(_SampleDB(), c, event, dict(SAMPLES.get(event, {})))
     return {'event': event, 'severity': m.severity, 'title': m.title, 'text': m.text,
-            'facts': [{'label': a, 'value': b} for a, b in m.facts], 'link': m.link, 'plain': fmt_text(m),
+            'facts': [{'label': a, 'value': b} for a, b in m.facts], 'link': m.link, 'open_label': m.open_label,
+            'emoji': EMOJI.get(m.severity, ''), 'plain': fmt_text(m),
             'language': c['notify']['language']}
 
 

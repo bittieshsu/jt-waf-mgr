@@ -2,6 +2,23 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.74 (2026-11-16)
+
+- Threat intelligence alerts are worded in the notification and interface language: an alert keeps the CVE, the
+  software, its version and whether it affects this site, and the message and the Alerts page build the sentence from
+  them (the English sentence stays in the audit trail and the log records). A version the model gave as "unknown" is
+  no version: the alert says the version here is not known instead of "Zimbra unknown", and no "remove the rule"
+  reminder comes from it.
+- Threat intelligence: the "Guess again" button shows a spinner while it works; the page speaks of web applications
+  rather than software.
+- Notifications: clearer wording for "affects the version here"; full-width colon in the Japanese threat title.
+- uninstall.sh removes every jt-waf-mgr unit that is installed (before, the CRS updater's units were left behind);
+  `--purge` also removes the apply program's state and the upgrade backups.
+- Release checks: a fresh install, uninstall keeping the data, reinstall and `--purge` leaving nothing behind are now
+  part of every release test.
+- `settings export --secrets` writes keys and passwords only to a new mode-600 file (`-o FILE`), never to the
+  terminal. The site version check uses TLS 1.2 or newer, like every other TLS client of the program (code scanning).
+
 ## 0.4.73 (2026-11-16)
 
 - War room: no demo banner taking a row; in demo mode the top bar's button is the sign (amber, filled, "Demo on" with

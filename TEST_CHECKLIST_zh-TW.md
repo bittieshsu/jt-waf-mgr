@@ -30,7 +30,9 @@
 - [ ] `tools/make_release.sh` — 已簽章的發行檔；`openssl dgst -sha256 -verify deploy/release-key.pem
       -signature dist/jt-waf-mgr-X.Y.Z.tar.gz.sig dist/jt-waf-mgr-X.Y.Z.tar.gz` 顯示 Verified OK。
 - [ ] `tools/test_upgrade.sh dist/<previous>.tar.gz dist/<new>.tar.gz` — 含資料安裝上一版、拒絕情況、`--check`、
-      啟動失敗時自動還原、升級（資料、帳號、稽核記錄、完整性）、手動還原、再次升級。
+      啟動失敗時自動還原、升級（資料、帳號、稽核記錄、完整性）、手動還原、再次升級；接著全新安裝新版（釘選金鑰、
+      每個 unit 都裝上、能服務、完整性）、移除但保留資料（每個 unit 都停用並刪除、程式移除、資料保留）、在保留的資料上
+      重新安裝，以及 uninstall --purge 後沒有任何殘留。
 - [ ] 在正式機的 Python 版本（伺服器本身的 python3）上、於臨時目錄中執行：單元測試與 `tools/test_upgrade.sh`。
       不動到臨時目錄以外的任何東西。
 - [ ] 對正式資料庫的複本做資料庫遷移（`jt-waf-mgr migrate`，設定指向複本），然後對複本執行 `integrity`。

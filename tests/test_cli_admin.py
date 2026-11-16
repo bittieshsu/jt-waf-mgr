@@ -81,6 +81,13 @@ class TestCliAdmin(unittest.TestCase):
         self.assertEqual(self.run_cli('settings', 'set', 'review.keep_days=45', '--as', 'alice')[0], 1)   # admin only
         rc, out, err = self.run_cli('settings', 'set', 'review.keep_days=45', 'workflow.apply.auto_tighten_daily_limit=4', '--as', 'root1')
         self.assertEqual(rc, 0, err)
+        # keys and passwords never go to the terminal: --secrets needs a file
+        rc, out, err = self.run_cli('settings', 'export', '--secrets', '--as', 'root1')
+        self.assertEqual(rc, 1)
+        self.assertIn('-o FILE', err + out)
+        rc, out, _ = self.run_cli('settings', 'export')
+        self.assertEqual(rc, 0)
+        self.assertIn('review.keep_days', out)
         f = os.path.join(self.env.dir, 'settings.json')
         rc, out, _ = self.run_cli('settings', 'export', '-o', f)
         self.assertEqual(oct(os.stat(f).st_mode & 0o777), '0o600')

@@ -7,6 +7,7 @@ mkdir -p "$S"
 [ "${1:-}" = "--quiet" ] && shift
 cmd=${1:-}; [ "$cmd" = "is-active" ] || [ "$cmd" = "is-enabled" ] && [ "${2:-}" = "--quiet" ] && set -- "$1" "$3"
 unit=${2:-}
+NOW=0; if [ "$cmd" = disable ] && [ "$unit" = "--now" ]; then NOW=1; unit=${3:-}; fi
 pidf="$S/$unit.pid"
 alive() { [ -f "$pidf" ] && kill -0 "$(cat "$pidf")" 2>/dev/null; }
 case "$cmd" in
@@ -27,6 +28,12 @@ case "$cmd" in
     is-active) alive || [ -f "$S/$unit.active" ] ;;
     is-enabled) [ -f "$S/$unit.enabled" ] ;;
     enable) touch "$S/$unit.enabled" ;;
+    disable)
+        rm -f "$S/$unit.enabled"
+        if [ "$NOW" = 1 ]; then
+            if alive; then kill "$(cat "$pidf")"; sleep 1; fi
+            rm -f "$pidf" "$S/$unit.active"
+        fi ;;
     daemon-reload) : ;;
     *) echo "fake systemctl: $*" >&2 ;;
 esac

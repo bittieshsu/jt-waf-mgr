@@ -255,9 +255,10 @@ def fetch_local(host, probe, timeout=6, token=None):
     import http.client
     import socket
     import ssl
+    from . import util
     body = probe.get('body')
     data = json.dumps(body).encode() if isinstance(body, (dict, list)) else None
-    ctx = ssl.create_default_context()
+    ctx = util.tls_context()            # the system's verification, TLS 1.2 or newer (as every TLS client here)
     try:
         raw = socket.create_connection(('127.0.0.1', 443), timeout=timeout)
         sock = ctx.wrap_socket(raw, server_hostname=host)

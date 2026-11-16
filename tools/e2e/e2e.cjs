@@ -713,6 +713,60 @@ async function audit(page, where) {
     await tc.close();
   }
   ok(fs.existsSync(SHOTS + '/thumb-ja-lookup.png') && fs.existsSync(SHOTS + '/thumb-en-overview-dark.png') && fs.existsSync(SHOTS + '/thumb-en-warroom-globe.png'), 'site thumbnails at 2x');
+  // Notifications as they look on a phone (a chat app's channel, dark), for the project site: the messages come from
+  // the notification preview (made-up example data, never real records), drawn the way a chat app shows the Markdown
+  // format (bold title, values in code). Two phones per picture; each language its own picture.
+  // a chat shows the newest at the bottom: what does not fit scrolls away at the top
+  const PHONES = { 'notify-alerts': [['account.locked', 'alert.created', 'alert.reminder'], ['report.review', 'report.daily']],
+    'notify-intel': [['system.version_changed', 'analyst.proposals', 'intel.new_threats'], ['settings.changed', 'change.awaiting_approval', 'change.applied']] };
+  const TIMES = [['07:41', '08:12', '09:00'], ['11:58', '12:00', '12:05']];
+  const LOGO = 'data:image/svg+xml;base64,' + fs.readFileSync(path.join(__dirname, '..', '..', 'frontend', 'public', 'favicon.svg')).toString('base64');
+  const PL = { 'zh-TW': { topic: '通知', today: '今天', say: '訊息' }, en: { topic: 'notifications', today: 'Today', say: 'Message' }, ja: { topic: '通知', today: '今日', say: 'メッセージ' } };
+  const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const message = (m, time) => '<div class="msg"><div class="who"><img src="' + LOGO + '" alt=""><b>jt-waf-mgr</b><i>BOT</i><span>' + time + '</span></div>' +
+    '<div class="head">' + esc(m.emoji) + ' ' + esc(m.title) + '</div>' + (m.text ? '<p><code>' + esc(m.text) + '</code></p>' : '') +
+    '<ul>' + m.facts.map((f) => '<li>' + esc(f.label) + ': <code>' + esc(f.value) + '</code></li>').join('') + '</ul>' +
+    '<a>' + esc(m.open_label) + '</a></div>';
+  const phone = (ms, l, times) => '<div class="ph"><div class="notch"></div><div class="bar"><span>' + times[times.length - 1] + '</span><span>&#9679;&#9679;&#9679;</span></div>' +
+    '<div class="top"><b># jt-waf-mgr</b><small>' + esc(l.topic) + '</small></div><div class="day"><b>' + esc(l.topic) + '</b><span>' + esc(l.today) + '</span></div>' +
+    '<div class="feed">' + ms.map((m, i) => message(m, times[i])).join('') + '</div>' +
+    '<div class="say">' + esc(l.say) + ' #jt-waf-mgr &gt; ' + esc(l.topic) + '</div></div>';
+  const PHONE_CSS = 'html,body{margin:0}body{width:1200px;height:900px;display:flex;align-items:center;justify-content:center;gap:70px;' +
+    'background:radial-gradient(800px 500px at 30% 20%,#dfe8f7,transparent 70%),radial-gradient(700px 500px at 80% 90%,#e9e4f7,transparent 70%),#eef2f8;' +
+    'font-family:"Noto Sans CJK TC","Noto Sans TC","Noto Sans CJK JP",system-ui,sans-serif}' +
+    '.ph{position:relative;width:390px;height:820px;border-radius:52px;background:#16161d;border:12px solid #0b0b0f;box-shadow:0 30px 70px rgba(30,40,80,.35);overflow:hidden;color:#e6e6ea}' +
+    '.notch{position:absolute;left:50%;top:10px;width:120px;height:32px;margin-left:-60px;border-radius:20px;background:#000;z-index:2}' +
+    '.bar{display:flex;justify-content:space-between;padding:16px 30px 6px;font-size:15px;font-weight:600;background:#3a2f5c}.bar span:last-child{letter-spacing:-2px;font-size:10px;padding-top:4px}' +
+    '.top{background:#3a2f5c;padding:8px 22px 12px}.top b{display:block;font-size:24px;color:#fff}.top small{color:#cfc8e8;font-size:14px}' +
+    '.day{display:flex;justify-content:space-between;align-items:center;background:#2e2649;padding:9px 18px;font-size:16px}.day span{color:#b8b0d6;font-size:14px}' +
+    '.msg{padding:14px 16px;font-size:14.5px;line-height:1.5}.who{display:flex;align-items:center;gap:8px;margin-bottom:6px}.who img{width:30px;height:30px;border-radius:7px;background:#fff}' +
+    '.who b{font-size:16px}.who i{font-style:normal;font-size:10px;padding:1px 5px;border-radius:4px;background:#4b4470;color:#ddd}.who span{margin-left:auto;color:#9a9aa8;font-size:13px}' +
+    '.head{font-weight:700;font-size:17px;margin:2px 0 6px}p{margin:0 0 6px}ul{margin:0;padding-left:18px}li{margin:3px 0}' +
+    'code{font-family:"Noto Sans Mono CJK TC","DejaVu Sans Mono",monospace;font-size:12.5px;background:#2b2b36;border-radius:4px;padding:1px 4px;word-break:break-all}' +
+    'a{display:inline-block;margin-top:6px;color:#8fb4ff;text-decoration:underline}.feed{position:absolute;top:196px;bottom:74px;left:0;right:0;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;-webkit-mask-image:linear-gradient(transparent,#000 56px);mask-image:linear-gradient(transparent,#000 56px)}' +
+    '.msg+.msg{border-top:1px solid #26262f}.say{position:absolute;left:0;right:0;bottom:0;height:74px;box-sizing:border-box;padding:14px 18px;background:#1d1d26;border-top:1px solid #2c2c38;color:#8a8a98;font-size:16px}';
+  const pc = await browser.newContext({ viewport: { width: 1200, height: 900 }, deviceScaleFactor: 2 });
+  const pp = await pc.newPage();
+  for (const lang of ['zh-TW', 'en', 'ja']) {
+    for (const [name, evs] of Object.entries(PHONES)) {
+      const phones = [];
+      for (const group of evs) {
+        const msgs = [];
+        for (const ev of group) {
+          const r = await ctx.request.get(base + '/api/v1/notify/preview?event=' + encodeURIComponent(ev) + '&lang=' + lang);
+          msgs.push(await r.json());
+        }
+        ok(msgs.every((m) => m.title && Array.isArray(m.facts)), 'notification preview for the phone pictures (' + lang + ', ' + name + ')');
+        phones.push(msgs);
+      }
+      await pp.setContent('<!doctype html><meta charset="utf-8"><style>' + PHONE_CSS + '</style>' + phones.map((ms, i) => phone(ms, PL[lang], TIMES[i].slice(-ms.length))).join(''), { waitUntil: 'load' });
+      await pp.waitForTimeout(200);
+      const pre = { 'zh-TW': 'light', en: 'en', ja: 'ja' }[lang];
+      await pp.screenshot({ path: SHOTS + '/thumb-' + lang + '-' + name + '.png' });
+      fs.copyFileSync(SHOTS + '/thumb-' + lang + '-' + name + '.png', SHOTS + '/' + pre + '_' + name + '.png');
+    }
+  }
+  await pc.close();
   await ctx.close();
   // viewer: guide and events, no admin links
   const v = await login(browser, 'viewer', 'dark');
