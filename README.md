@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.65
+# jt-waf-mgr v0.4.66
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -62,7 +62,7 @@ nginx and ModSecurity keep working with the last rules.
 - **Overview and events**: drag across the timeline to zoom in, or pick any range up to 31 days; filters stay in the
   URL; event detail with every matched rule; one click to draft an exclusion or a block.
 - **War room** (new in 0.4.56): Overview > War room opens a board for a wall screen in a new tab: a flat map and a
-  3D globe of the last 30 minutes (source countries, blocked / logged, a tracer per new batch towards your WAF),
+  3D globe of the last 30 minutes, or a longer range up to 7 days, or a demo with made-up attacks (source countries, blocked / logged, a tracer per new batch towards your WAF),
   the decision flow, site activity in 2-minute cells, a false-positive review desk, the AI and threat intelligence,
   and alerts and changes, rotating; no address, path or query on the wall.
 - **Temporary IP blocks** (new in 0.4.24, optional): fail2ban on a mail server, a SOAR playbook or an approver blocks

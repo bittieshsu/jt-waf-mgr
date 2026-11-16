@@ -5,7 +5,7 @@ What leaves here is what a wall may show: the country of the source (GeoIP or th
 alias for a site nginx serves only to internal networks), the outcome and how it was decided, the time. Never the
 address, the path, the query or a header -- the fields are not in the answer at all.
 
-- GET /warroom/snapshot          the window, its totals, per country and minute, the latest events, the collector's
+- GET /warroom/snapshot?range=   the window (live = the last 30 minutes, or 15m 1h 3h 6h 12h 24h 7d), its totals, per country and minute, the latest events, the collector's
                                  state, the destination; the same answer for every screen for a few seconds
 - GET /warroom/events?after=<id> the events after an id (up to 500, oldest first, `more` when there are more), with the
                                  server time (a heartbeat when there is none)
@@ -18,6 +18,11 @@ from .server import ApiError, json_response
 
 V = '/api/v1'
 WINDOW = 30 * 60
+# the windows a screen may ask for: live is the rolling 30 minutes; the others the same board over a longer stretch
+RANGES = {'live': WINDOW, '15m': 900, '1h': 3600, '3h': 3 * 3600, '6h': 6 * 3600, '12h': 12 * 3600, '24h': 86400,
+          '7d': 7 * 86400}
+COLUMNS = 30                          # the timeline: 30 steps (31 columns) whatever the window
+CELLS = 15                            # the site density cells
 LATEST = 30
 BATCH = 500
 CACHE_SECONDS = 4
@@ -93,9 +98,10 @@ def destination(cfg):
         lat, lon = float(w.get('dest_lat')), float(w.get('dest_lon'))
     except (TypeError, ValueError):
         return None
-    if not (-90 <= lat <= 90 and -180 <= lon <= 180) or not (w.get('dest_label') or '').strip():
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
         return None
-    return {'label': w['dest_label'].strip()[:40], 'lat': lat, 'lon': lon}
+    # the maps call it "Us"; the name, when there is one, goes after it
+    return {'label': (w.get('dest_label') or '').strip()[:40], 'lat': lat, 'lon': lon}
 
 
 def _collector(app):
@@ -111,10 +117,13 @@ def _collector(app):
             'stopped': (not running) or (lag is not None and lag > 120)}
 
 
-def _snapshot(app):
+def _snapshot(app, rng='live'):
     from . import api
+    window = RANGES[rng]
+    step = window // COLUMNS
+    cell = window // CELLS
     now = util.now()
-    since = now - WINDOW
+    since = now - window
     alias = _hosts_alias(app)
     hw = app.db.one('SELECT MAX(id) FROM events')[0] or 0
     rows = app.db.q('SELECT id, ts, host, src_ip, origin, outcome, decided_by FROM events WHERE ts>=? AND id<=? ORDER BY id',
@@ -125,7 +134,14 @@ def _snapshot(app):
     score_only = {}                            # site -> events blocked by the CRS score alone (where users get caught)
     totals = {'events': 0, 'blocked': 0, 'logged': 0, 'external': 0, 'internal': 0, 'unlocated': 0}
     decided = {}
-    first_min = int(since // 60)
+    first_col = int(since // step)
+    geo = {}                                   # one lookup per address (a long window has many events per source)
+
+    def cc_of(r):
+        k = (r['src_ip'], r['origin'])
+        if k not in geo:
+            geo[k] = _cc(api, r['src_ip'], r['origin'])
+        return geo[k]
     for r in rows:
         totals['events'] += 1
         oc = 'blocked' if r['outcome'] == 'blocked' else 'logged'
@@ -136,16 +152,16 @@ def _snapshot(app):
         org = 'internal' if r['origin'] == 'internal' else 'external'
         flow.setdefault(org, {})[dec] = flow.setdefault(org, {}).get(dec, 0) + 1
         host = _host(alias, r['host'])
-        st = sites.setdefault(host, {'host': host, 'events': 0, 'blocked': 0, 'logged': 0, 'buckets': [0] * 15})
+        st = sites.setdefault(host, {'host': host, 'events': 0, 'blocked': 0, 'logged': 0, 'buckets': [0] * CELLS})
         st['events'] += 1
         st[oc] += 1
-        st['buckets'][min(14, max(0, int((r['ts'] - since) // 120)))] += 1
+        st['buckets'][min(CELLS - 1, max(0, int((r['ts'] - since) // cell)))] += 1
         if dec == 'score':
             score_only[host] = score_only.get(host, 0) + 1
-        m = int(r['ts'] // 60) - first_min
+        m = int(r['ts'] // step) - first_col
         b = minutes.setdefault(m, {'blocked': 0, 'logged': 0})
         b[oc] += 1
-        cc = _cc(api, r['src_ip'], r['origin'])
+        cc = cc_of(r)
         if cc == 'LAN':
             continue
         if cc == '?':
@@ -160,11 +176,12 @@ def _snapshot(app):
     # the newest by event time (ids follow the order the collector read them in)
     latest = [_event(api, alias, r) for r in sorted(rows, key=lambda r: (r['ts'], r['id']))[-LATEST:]][::-1]
     return {
-        'now': util.iso(now), 'window_start': util.iso(since), 'window_end': util.iso(now), 'window_seconds': WINDOW,
+        'now': util.iso(now), 'window_start': util.iso(since), 'window_end': util.iso(now), 'window_seconds': window,
+        'range': rng, 'ranges': list(RANGES), 'step_seconds': step, 'cell_seconds': cell,
         'node_id': app.cfg['node']['id'], 'high_water_id': hw, 'collector': _collector(app),
         'totals': dict(totals, countries=len(countries)), 'decided_by': decided,
         'countries': sorted(countries.values(), key=lambda c: (-c['events'], c['cc'])),
-        'minutes': [{'t': util.iso((first_min + i) * 60), **minutes.get(i, {'blocked': 0, 'logged': 0})} for i in range(31)],
+        'minutes': [{'t': util.iso((first_col + i) * step), **minutes.get(i, {'blocked': 0, 'logged': 0})} for i in range(COLUMNS + 1)],
         'latest': latest, 'destination': destination(app.cfg),
         'flow': flow, 'score_only': sorted(({'host': h, 'events': n} for h, n in score_only.items()), key=lambda x: -x['events']),
         'sites': sorted(sites.values(), key=lambda x: (-x['events'], x['host']))[:40],
@@ -173,18 +190,23 @@ def _snapshot(app):
 
 
 def snapshot(app, req):
-    """One answer for every screen within CACHE_SECONDS (a wall of TVs does not multiply the work)."""
-    key = app.cfg['node']['id']
+    """One answer for every screen within a few seconds (a wall of TVs does not multiply the work); a longer window
+    is kept a little longer (up to a minute for a day or a week: one step of its timeline is far longer than that)."""
+    rng = req.query.get('range') or 'live'
+    if rng not in RANGES:
+        raise ApiError(400, 'bad_request', 'range: one of ' + ', '.join(RANGES))
+    keep = max(CACHE_SECONDS, min(60, RANGES[rng] // 900))
+    key = (app.cfg['node']['id'], rng)
     with _lock:
         hit = _cache.get(key)
-        if hit and time.monotonic() - hit[0] < CACHE_SECONDS:
+        if hit and time.monotonic() - hit[0] < keep:
             return json_response(200, hit[1])
     with _compute:
         with _lock:
             hit = _cache.get(key)
-            if hit and time.monotonic() - hit[0] < CACHE_SECONDS:
+            if hit and time.monotonic() - hit[0] < keep:
                 return json_response(200, hit[1])
-        out = _snapshot(app)
+        out = _snapshot(app, rng)
         with _lock:
             _cache[key] = (time.monotonic(), out)
     return json_response(200, out)

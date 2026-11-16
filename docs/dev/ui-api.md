@@ -443,3 +443,8 @@ Editing comes in a later phase (config file for now).
 - `GET /warroom/snapshot`: `sites` keys are a served name, `internal-N`, or `other` (any Host not served); `watched` never lists `other`. The front end restarts its high-water id when the snapshot's is lower (database restore).
 - `PUT /settings`: a stored or provider-restored secret bound to a URL needs typing again whenever the final host differs (`key_required_for_new_host`).
 - `POST /settings/import/preview`: secrets are never compared (`same` is true only when the file leaves the secret empty).
+
+## 0.4.66
+- `GET /warroom/snapshot?range=live|15m|1h|3h|6h|12h|24h|7d` (default live = 30 minutes; anything else 400): answer adds `range`, `ranges`, `step_seconds` (timeline step, window/30) and `cell_seconds` (site cell, window/15); `minutes` stays 31 entries, `sites[].buckets` 15. Cached per range (4 s for live, up to 60 s for long windows).
+- `destination.label` may be empty (the maps call it "Us"); latitude and longitude alone are enough.
+- War room demo mode is front-end only (`components/warroom/warDemo.js`, `?demo=1`): no API call while it is on; the made-up answers have the shapes of `snapshot`, `events` and `ops` plus `demo: true`.

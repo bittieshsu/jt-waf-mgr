@@ -477,6 +477,7 @@ async function audit(page, where) {
   ok(!/\b(?:192\.168|203\.0\.113|198\.51\.100)\.\d+\b/.test(wrText), 'war room: no source address on the wall');
   ok(/\d/.test(await page.locator('.wr-kpis b').first().innerText()), 'war room: numbers shown');
   await page.screenshot({ path: path.join(SHOTS, 'warroom-atlas.png') });
+  ok(/ · /.test(await page.locator('.wr .wa-destlabel').first().textContent()), 'war room: the map marks where we are ("Us")');
   await page.locator('.wr-tabs button').nth(1).click();
   await page.waitForSelector('.wr .war-globe canvas', { timeout: 5000 }).catch(() => {});
   ok((await page.locator('.wr .war-globe canvas').count()) === 1, 'war room: the globe');
@@ -493,6 +494,31 @@ async function audit(page, where) {
   await page.locator('.wr-tabs button').nth(6).click(); await page.waitForTimeout(500);
   ok((await page.locator('.wr-ops .wr-opcol').count()) === 4 && (await page.locator('.wr-opcard').count()) >= 1, 'war room: alerts and changes');
   ok(!/\/(?:\.env|wp-login|etc\/passwd)/.test(await page.locator('.wr').innerText()), 'war room: no request path on the operations page');
+  // 0.4.66: a longer window from the top bar (kept in the address for a wall screen); the big numbers roll
+  await page.locator('.wr-range .sb-btn').click();
+  await page.locator('.wr-range .sb-pop li').nth(6).click();
+  await page.waitForTimeout(1000);
+  ok(/[?&]range=24h\b/.test(page.url()) && /24/.test(await page.locator('.wr-bottom').innerText()), 'war room: a 24-hour window, kept in the address');
+  ok((await page.locator('.wr-kpis .rn').count()) >= 1, 'war room: rolling numbers');
+  await page.locator('.wr-tabs button').nth(3).click(); await page.waitForTimeout(500);
+  ok((await page.locator('.wr-cells').first().locator('i').count()) === 15, 'war room: 15 cells over 24 hours too');
+  await page.screenshot({ path: path.join(SHOTS, 'warroom-24h.png') });
+  await page.locator('.wr-range .sb-btn').click();
+  await page.locator('.wr-range .sb-pop li').first().click();
+  await page.waitForTimeout(800);
+  ok(!/[?&]range=/.test(page.url()), 'war room: back to live');
+  // 0.4.66: demo mode: made-up attacks in the browser, a banner all the time, links do not open
+  await page.locator('.wr-demobtn').click();
+  await page.waitForTimeout(6000);
+  ok(/[?&]demo=1\b/.test(page.url()) && (await page.locator('.wr-demo').count()) === 1, 'war room: demo mode, with its banner');
+  await page.locator('.wr-tabs button').nth(0).click(); await page.waitForTimeout(800);
+  ok(Number((await page.locator('.wr-kpis .rn .sr-only').first().textContent()).replace(/\D/g, '')) > 100, 'war room: demo numbers');
+  await page.screenshot({ path: path.join(SHOTS, 'warroom-demo.png') });
+  const pagesBefore = page.context().pages().length;
+  await page.locator('.wr-events a').first().click(); await page.waitForTimeout(500);
+  ok(page.context().pages().length === pagesBefore && (await page.locator('.wr-demonote').count()) === 1, 'war room: demo links do not open');
+  await page.locator('.wr-demo .wr-btn').click(); await page.waitForTimeout(1000);
+  ok(!/[?&]demo=/.test(page.url()) && (await page.locator('.wr-demo').count()) === 0, 'war room: out of the demo');
   await page.locator('.wr-tabs button').nth(1).click(); await page.waitForTimeout(500);
   // the war room for README and Pages, in each language (the board is dark whatever the theme)
   for (const [L, pre] of [['en', 'en'], ['ja', 'ja'], ['zh-TW', 'light']]) {

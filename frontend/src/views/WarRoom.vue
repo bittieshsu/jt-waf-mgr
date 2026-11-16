@@ -1,23 +1,32 @@
 <!-- The war room (/warroom, opened in a tab of its own from the Overview menu): a dark board for a wall screen.
-     A snapshot of the last 30 minutes, then the new events every 5 seconds (the snapshot again every minute).
+     A snapshot of the window (live: the last 30 minutes; or a longer stretch picked at the top, kept in the address as
+     ?range=), then the new events every 5 seconds (the snapshot again every minute). The big numbers roll when they
+     change (down when they grew, up when they shrank); the maps mark where we are ("Us") once a location is set.
+     Demo mode (?demo=1, a button at the top): made-up traffic of a site under steady attack, made in the browser
+     (components/warroom/warDemo.js); nothing goes to the server, a banner says so all the time and no link opens.
      Read only: nothing here asks for an analysis or writes anything. No address, path or query reaches this page
      (the API leaves them out); a site served only to internal networks has an alias. -->
 <template>
-  <div class="wr" :class="{ reduced }" @keydown="onKey">
+  <div class="wr" :class="{ reduced, demo }" @keydown="onKey" @click.capture="onDemoClick">
     <header class="wr-top">
       <div class="wr-brand"><img src="/logo-mark.svg" alt="" width="26" height="26"><b>jt-waf-mgr</b><span class="wr-sep" aria-hidden="true"></span><span>{{ t('war.title') }}</span></div>
       <div class="wr-ctl">
         <span class="wr-state" :class="'st-' + state" role="status" :title="stateHint"><span class="wr-dot" aria-hidden="true"></span>{{ t('war.state.' + state) }}</span>
+        <SelectBox v-model="range" class="wr-range" small :options="rangeOptions" :aria-label="t('war.range')" />
         <span class="wr-clock mono">{{ clock }}</span><span class="wr-tz mono">{{ tz }}</span>
         <button type="button" class="wr-btn" :class="{ on: rotating }" :aria-pressed="rotating ? 'true' : 'false'" @click="rotating = !rotating"><Icon name="refresh" />{{ t('war.rotate') }}</button>
         <button type="button" class="wr-btn" :class="{ on: paused }" :aria-pressed="paused ? 'true' : 'false'" @click="paused = !paused"><Icon :name="paused ? 'run' : 'timer'" />{{ t(paused ? 'war.resume' : 'war.pause') }}</button>
         <button type="button" class="wr-btn" :class="{ on: frozen }" :aria-pressed="frozen ? 'true' : 'false'" @click="toggleFreeze"><Icon :name="frozen ? 'unlock' : 'lock'" />{{ t(frozen ? 'war.unfreeze' : 'war.freeze') }}</button>
+        <button type="button" class="wr-btn wr-demobtn" :class="{ on: demo }" :aria-pressed="demo ? 'true' : 'false'" @click="demo = !demo"><Icon name="test" />{{ t('war.demo') }}</button>
         <button type="button" class="wr-btn" @click="fullscreen"><Icon name="expand" />{{ t('war.fullscreen') }}</button>
       </div>
     </header>
     <nav class="wr-tabs" role="tablist" :aria-label="t('war.title')">
       <button v-for="(p, i) in PAGES" :key="p" type="button" class="wr-tab" role="tab" :aria-selected="page === i ? 'true' : 'false'" :class="{ on: page === i }" @click="go(i)">{{ t('war.page.' + p) }}</button>
     </nav>
+    <div v-if="demo" class="wr-demo" role="status"><Icon name="test" /><b>{{ t('war.demo_banner') }}</b>
+      <span v-if="demoNote" class="wr-demonote">{{ t('war.demo_no_link') }}</span>
+      <button type="button" class="wr-btn small" @click="demo = false"><Icon name="close" />{{ t('war.demo_exit') }}</button></div>
 
     <div v-if="expired" class="wr-msg" role="alert">
       <p>{{ t('war.expired') }}</p>
@@ -31,7 +40,7 @@
           <div v-if="frozen || state === 'offline'" class="wr-asof">{{ t('war.as_of', { time: asOf }) }}</div>
         </div>
         <div class="wr-kpis">
-          <div v-for="k in kpis" :key="k.key" :class="k.cls"><span>{{ k.label }}</span><b>{{ k.value }}</b></div>
+          <div v-for="k in kpis" :key="PAGES[page] + k.key" :class="k.cls"><span>{{ k.label }}</span><b><RollNum :value="k.value" :still="reduced" /></b></div>
         </div>
       </section>
 
@@ -88,25 +97,25 @@
                                           :label="t('war.flow_title')" @pick="pickFlow" /></div>
         </section>
         <section v-else-if="PAGES[page] === 'sites'" class="wr-card wr-map">
-          <div class="wr-card-h"><h2><Icon name="server" />{{ t('war.sites_title') }}</h2><span class="wr-sub">{{ t('war.sites_unit') }}</span></div>
-          <div class="wr-sitehead"><span>{{ t('war.col.site') }}</span><span>{{ t('war.col.density') }}</span><span>{{ t('war.k.events') }}</span><span>{{ t('war.k.blocked') }}</span><span>{{ t('war.k.logged') }}</span></div>
+          <div class="wr-card-h"><h2><Icon name="server" />{{ t('war.sites_title') }}</h2><span class="wr-sub">{{ t('war.sites_unit', { w: winLabel, b: span(cellSec) }) }}</span></div>
+          <div class="wr-sitehead"><span>{{ t('war.col.site') }}</span><span>{{ t('war.col.density') }}</span><span>{{ t('war.k.events', { w: winLabel }) }}</span><span>{{ t('war.k.blocked') }}</span><span>{{ t('war.k.logged') }}</span></div>
           <ul class="wr-sites">
             <li v-for="st in siteRows" :key="st.host"><a :href="siteLink(st.host)" target="_blank" rel="noopener">
               <span class="mono wr-host">{{ st.host }}</span>
               <span class="wr-cells" aria-hidden="true"><i v-for="(n, i) in st.buckets" :key="i" :style="{ opacity: cell(n) }"></i></span>
               <span class="mono">{{ fmtNum(st.events) }}</span><span class="mono b">{{ fmtNum(st.blocked) }}</span><span class="mono l">{{ fmtNum(st.logged) }}</span></a></li>
           </ul>
-          <p v-if="!siteRows.length" class="wr-empty">{{ t('war.quiet') }}</p>
+          <p v-if="!siteRows.length" class="wr-empty">{{ t('war.quiet', { w: winLabel }) }}</p>
         </section>
         <section v-else-if="PAGES[page] === 'review'" class="wr-card wr-map">
           <div class="wr-card-h"><h2><Icon name="block" />{{ t('war.review_title') }}</h2><span class="wr-sub">{{ t('war.by_site') }}</span></div>
-          <p class="wr-sub">{{ t('war.review_unit') }}</p>
-          <div class="wr-big score">{{ fmtNum(scoreOnlyTotal) }}</div>
+          <p class="wr-sub">{{ t('war.review_unit', { w: winLabel }) }}</p>
+          <div class="wr-big score"><RollNum :value="fmtNum(scoreOnlyTotal)" :still="reduced" /></div>
           <ul class="wr-revlist">
             <li v-for="g in scoreOnly.slice(0, 6)" :key="g.host"><a :href="scoreLink(g.host)" target="_blank" rel="noopener">
               <span class="wr-tag">{{ t('war.d.crs') }} · {{ fmtNum(g.events) }}</span><span class="mono wr-host">{{ g.host }}</span><Icon name="external" /></a></li>
           </ul>
-          <p v-if="!scoreOnly.length" class="wr-empty">{{ t('war.no_score_only') }}</p>
+          <p v-if="!scoreOnly.length" class="wr-empty">{{ t('war.no_score_only', { w: winLabel }) }}</p>
         </section>
         <section v-else class="wr-card wr-map">
           <div class="wr-card-h"><h2><Icon name="globe" />{{ t(PAGES[page] === 'atlas' ? 'war.map_title' : 'war.globe_title') }}</h2>
@@ -135,7 +144,7 @@
         </section>
         <section v-else-if="PAGES[page] === 'sites'" class="wr-card wr-rank">
           <div class="wr-card-h"><h2><Icon name="info" />{{ t('war.site_notes') }}</h2></div>
-          <div class="wr-note-card"><b>{{ t('war.note.concentrated') }}</b><p>{{ topSite ? t('war.note.concentrated_d', { site: topSite.host, p: topShare }) : t('war.quiet') }}</p></div>
+          <div class="wr-note-card"><b>{{ t('war.note.concentrated') }}</b><p>{{ topSite ? t('war.note.concentrated_d', { site: topSite.host, p: topShare }) : t('war.quiet', { w: winLabel }) }}</p></div>
           <div class="wr-note-card warn"><b>{{ t('war.note.no_events') }}</b><p>{{ watchedQuiet.length ? t('war.note.no_events_d', { sites: watchedQuiet.join(', ') }) : t('war.note.all_have') }}</p></div>
           <p class="wr-foot">{{ t('war.note.requests') }}</p>
         </section>
@@ -149,7 +158,7 @@
           <p class="wr-foot">{{ t('war.clue.note') }}</p>
         </section>
         <section v-else class="wr-card wr-rank">
-          <div class="wr-card-h"><h2><Icon name="chart" />{{ t('war.rank') }}</h2><span class="wr-sub">{{ t('war.window') }}</span></div>
+          <div class="wr-card-h"><h2><Icon name="chart" />{{ t('war.rank') }}</h2><span class="wr-sub">{{ t('war.window', { w: winLabel }) }}</span></div>
           <ol v-if="countries.length" class="wr-ranklist">
             <li v-for="c in countries.slice(0, 8)" :key="c.cc">
               <button type="button" class="wr-rankrow" :class="{ on: picked === c.cc }" @click="pick(c.cc)">
@@ -160,18 +169,18 @@
               </button>
             </li>
           </ol>
-          <p v-else class="wr-empty">{{ t('war.no_outside') }}</p>
+          <p v-else class="wr-empty">{{ t('war.no_outside', { w: winLabel }) }}</p>
           <p class="wr-foot">{{ t('war.internal_n', { n: fmtNum(totals.internal) }) }} · {{ t('war.unlocated_n', { n: fmtNum(totals.unlocated) }) }}</p>
         </section>
 
         <section class="wr-card wr-pulse">
-          <div class="wr-card-h"><h2><Icon name="timer" />{{ t('war.intensity') }}</h2><span class="wr-sub">{{ t('war.per_minute', { n: fmtNum(peak) }) }}</span></div>
+          <div class="wr-card-h"><h2><Icon name="timer" />{{ t('war.intensity') }}</h2><span class="wr-sub">{{ stepSec === 60 ? t('war.per_minute', { n: fmtNum(peak) }) : t('war.per_bucket', { b: span(stepSec), n: fmtNum(peak) }) }}</span></div>
           <div class="wr-bars" role="img" :aria-label="t('war.intensity')">
-            <div v-for="m in minutes" :key="m.t" class="wr-col" :title="fmtTimeShort(m.t) + ' · ' + fmtNum(m.blocked + m.logged)">
+            <div v-for="m in minutes" :key="m.t" class="wr-col" :title="fmtAxis(m.t) + ' · ' + fmtNum(m.blocked + m.logged)">
               <i class="l" :style="{ height: h(m.logged) }"></i><i class="b" :style="{ height: h(m.blocked) }"></i>
             </div>
           </div>
-          <div class="wr-axis mono"><span>{{ minutes.length ? fmtTimeShort(minutes[0].t) : '' }}</span><span>{{ minutes.length ? fmtTimeShort(minutes[minutes.length - 1].t) : '' }}</span></div>
+          <div class="wr-axis mono"><span>{{ minutes.length ? fmtAxis(minutes[0].t) : '' }}</span><span>{{ minutes.length ? fmtAxis(minutes[minutes.length - 1].t) : '' }}</span></div>
         </section>
 
         <section class="wr-card wr-latest">
@@ -185,12 +194,12 @@
               </a>
             </li>
           </ul>
-          <p v-else class="wr-empty">{{ t('war.quiet') }}</p>
+          <p v-else class="wr-empty">{{ t('war.quiet', { w: winLabel }) }}</p>
         </section>
       </div>
 
       <footer class="wr-bottom">
-        <span><span class="wr-dot" :class="'st-' + state" aria-hidden="true"></span>{{ t('war.footer', { s: POLL / 1000 }) }}</span>
+        <span><span class="wr-dot" :class="'st-' + state" aria-hidden="true"></span>{{ t('war.footer', { s: POLL / 1000, w: winLabel }) }}</span>
         <span class="mono">jt-waf-mgr · {{ nodeId }}</span>
       </footer>
 
@@ -199,7 +208,7 @@
         <div class="wr-card-h"><h2><Icon name="globe" /><span class="wr-cc mono">{{ picked }}</span> {{ countryName(picked) || picked }}</h2>
           <button type="button" class="wr-btn small" @click="picked = null"><Icon name="close" />{{ t('war.close') }}</button></div>
         <dl class="wr-dl">
-          <div><dt>{{ t('war.k.events') }}</dt><dd>{{ fmtNum(pickedRow.events) }}</dd></div>
+          <div><dt>{{ t('war.k.events', { w: winLabel }) }}</dt><dd>{{ fmtNum(pickedRow.events) }}</dd></div>
           <div><dt>{{ t('war.k.blocked') }}</dt><dd class="b">{{ fmtNum(pickedRow.blocked) }}</dd></div>
           <div><dt>{{ t('war.k.logged') }}</dt><dd class="l">{{ fmtNum(pickedRow.logged) }}</dd></div>
           <div><dt>{{ t('war.k.sources') }}</dt><dd>{{ fmtNum(pickedRow.sources) }}</dd></div>
@@ -223,6 +232,9 @@ import { api } from '../api.js'
 import { t, tOr, lang } from '../i18n.js'
 import { countryName as cn, fmtNum } from '../util.js'
 import Icon from '../components/Icon.vue'
+import SelectBox from '../components/SelectBox.vue'
+import RollNum from '../components/warroom/RollNum.vue'
+import { createDemo } from '../components/warroom/warDemo.js'
 import WarAtlas from '../components/warroom/WarAtlas.vue'
 import WarGlobe from '../components/warroom/WarGlobe.vue'
 import WarFlow from '../components/warroom/WarFlow.vue'
@@ -232,9 +244,18 @@ const EYEBROW = { atlas: 'GLOBAL EVENT ATLAS', globe: 'ORBITAL DEFENSE', flow: '
   intel: 'INTELLIGENCE BRIEF', ops: 'OPERATIONS QUEUE' }
 const POLL = 5000
 const RESYNC = 60000
+const CELLS = 15
+// the windows the board can show (the server keeps the same list): live = the rolling 30 minutes
+const RANGES = ['live', '15m', '1h', '3h', '6h', '12h', '24h', '7d']
+const RANGE_SECONDS = { live: 1800, '15m': 900, '1h': 3600, '3h': 10800, '6h': 21600, '12h': 43200, '24h': 86400, '7d': 604800 }
 const DECIDED = { confident: 'war.d.confident', fallback: 'war.d.fallback', score: 'war.d.crs' }
 
 const page = ref(0)
+const demo = ref(new URLSearchParams(location.search).get('demo') === '1')
+const demoNote = ref(false)
+let lastDest = null                // the real destination, for the demo's "Us" (a made-up one when none is set)
+const sim = createDemo(() => lastDest)
+const range = ref((() => { const r = new URLSearchParams(location.search).get('range'); return RANGES.includes(r) ? r : 'live' })())
 const rotating = ref(false)
 const paused = ref(false)
 const frozen = ref(false)
@@ -253,7 +274,24 @@ let hw = 0
 let timer = null, resyncTimer = null, clockTimer = null, rotateTimer = null
 
 const countryName = (cc) => (cc && cc.length === 2 ? cn(cc, lang.value) : '')
-const dest = computed(() => (snap.value && snap.value.destination) || null)
+// where we are: the destination set in Settings -> War room, always called "Us" on the maps (its own name after it)
+const dest = computed(() => {
+  const d = snap.value && snap.value.destination
+  return d ? { ...d, label: d.label ? t('war.us') + ' · ' + d.label : t('war.us') } : null
+})
+// a stretch of time in words: 30 s, 6 min, 1 hour, 1.6 hours, 7 days
+function span(sec) {
+  if (sec < 60) return t('war.span.sec', { n: sec })
+  if (sec < 3600) return t('war.span.min', { n: Math.round(sec / 6) / 10 })
+  if (sec === 3600) return t('war.span.hour1')
+  if (sec <= 86400) return t('war.span.hour', { n: Math.round(sec / 360) / 10 })
+  return t('war.span.day', { n: Math.round(sec / 8640) / 10 })
+}
+const winSec = computed(() => (snap.value && snap.value.window_seconds) || RANGE_SECONDS[range.value])
+const winLabel = computed(() => span(winSec.value))
+const stepSec = computed(() => (snap.value && snap.value.step_seconds) || 60)
+const cellSec = computed(() => (snap.value && snap.value.cell_seconds) || 120)
+const rangeOptions = computed(() => RANGES.map((r) => ({ value: r, label: r === 'live' ? t('war.range_live') : t('war.window', { w: span(RANGE_SECONDS[r]) }) })))
 const nodeId = computed(() => (snap.value && snap.value.node_id) || '')
 
 // the snapshot's numbers plus the events that arrived since (the next snapshot replaces both)
@@ -283,7 +321,7 @@ const minutes = computed(() => {
   if (!ms.length) return ms
   const t0 = Date.parse(ms[0].t)
   for (const e of extra.value) {
-    const i = Math.floor((Date.parse(e.ts) - t0) / 60000)
+    const i = Math.floor((Date.parse(e.ts) - t0) / (stepSec.value * 1000))
     if (i >= 0 && i < ms.length) ms[i][e.outcome === 'blocked' ? 'blocked' : 'logged']++
   }
   return ms
@@ -316,14 +354,14 @@ const siteRows = computed(() => {
   for (const x of (snap.value && snap.value.sites) || []) by[x.host] = { ...x, buckets: x.buckets.slice() }
   const since = snap.value ? Date.parse(snap.value.window_start) : 0
   for (const e of extra.value) {
-    const x = by[e.host] || (by[e.host] = { host: e.host, events: 0, blocked: 0, logged: 0, buckets: new Array(15).fill(0) })
+    const x = by[e.host] || (by[e.host] = { host: e.host, events: 0, blocked: 0, logged: 0, buckets: new Array(CELLS).fill(0) })
     x.events++
     x[e.outcome === 'blocked' ? 'blocked' : 'logged']++
-    const i = Math.min(14, Math.max(0, Math.floor((Date.parse(e.ts) - since) / 120000)))
+    const i = Math.min(CELLS - 1, Math.max(0, Math.floor((Date.parse(e.ts) - since) / (cellSec.value * 1000))))
     x.buckets[i]++
   }
   const rows = Object.values(by).sort((a, b) => b.events - a.events || a.host.localeCompare(b.host)).slice(0, 12)
-  for (const h of (snap.value && snap.value.watched) || []) if (!by[h]) rows.push({ host: h, events: 0, blocked: 0, logged: 0, buckets: new Array(15).fill(0) })
+  for (const h of (snap.value && snap.value.watched) || []) if (!by[h]) rows.push({ host: h, events: 0, blocked: 0, logged: 0, buckets: new Array(CELLS).fill(0) })
   return rows
 })
 const cellMax = computed(() => Math.max(1, ...siteRows.value.flatMap((r) => r.buckets)))
@@ -360,7 +398,7 @@ const kpis = computed(() => {
   }
   if (p === 'review') return [{ key: 's', cls: 'k-score', label: t('war.k.score_only'), value: fmtNum(scoreOnlyTotal.value) },
     { key: 'i', cls: 'k-logged', label: t('war.k.internal_logged'), value: fmtNum(flow.value.internal?.logged || 0) }]
-  return [{ key: 'e', label: t('war.k.events'), value: fmtNum(T.events) }, { key: 'b', cls: 'k-blocked', label: t('war.k.blocked'), value: fmtNum(T.blocked) },
+  return [{ key: 'e', label: t('war.k.events', { w: winLabel.value }), value: fmtNum(T.events) }, { key: 'b', cls: 'k-blocked', label: t('war.k.blocked'), value: fmtNum(T.blocked) },
     { key: 'l', cls: 'k-logged', label: t('war.k.logged'), value: fmtNum(T.logged) }, { key: 'c', label: t('war.k.countries'), value: fmtNum(countries.value.length) }]
 })
 // the work around the WAF (intel / ops pages): every 30 seconds, never more often
@@ -406,6 +444,7 @@ function h(n) { return (100 * n / Math.max(1, peak.value)).toFixed(1) + '%' }
 
 // the four states the wall must tell apart, plus "live"
 const state = computed(() => {
+  if (demo.value) return 'demo'
   if (offline.value) return 'offline'
   if (syncing.value) return 'syncing'
   const c = snap.value && snap.value.collector
@@ -418,6 +457,11 @@ const clock = computed(() => new Date(nowMs.value).toLocaleTimeString(lang.value
 const tz = computed(() => { const o = -new Date().getTimezoneOffset() / 60; return 'UTC' + (o >= 0 ? '+' : '') + o })
 const asOf = computed(() => new Date(asOfMs.value).toLocaleTimeString(lang.value, { hour12: false }))
 function fmtClock(iso) { return new Date(iso).toLocaleTimeString(lang.value, { hour12: false }) }
+// the timeline's ends: a date as well once the window is a day or longer
+function fmtAxis(iso) {
+  const d = new Date(iso)
+  return winSec.value >= 86400 ? d.toLocaleString(lang.value, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : fmtTimeShort(iso)
+}
 function fmtTimeShort(iso) { return new Date(iso).toLocaleTimeString(lang.value, { hour: '2-digit', minute: '2-digit', hour12: false }) }
 function describe(s) { return (countryName(s.cc) || s.cc) + ': ' + t('war.describe', { n: fmtNum(s.events), b: fmtNum(s.blocked), l: fmtNum(s.logged), s: fmtNum(s.sources) }) }
 function eventsLink(cc) {
@@ -426,6 +470,12 @@ function eventsLink(cc) {
 }
 
 async function get(path, params) {
+  if (demo.value) {                // demo: the answers are made here, nothing is asked of the server
+    offline.value = false
+    if (path === '/warroom/snapshot') return sim.snapshot(params.range, RANGE_SECONDS[params.range] || 1800)
+    if (path === '/warroom/events') return sim.events()
+    return sim.ops()
+  }
   try {
     const r = await api('GET', path, { params, quiet401: true })
     offline.value = false
@@ -438,9 +488,11 @@ async function get(path, params) {
 }
 async function loadSnapshot() {
   syncing.value = !!snap.value || offline.value
-  const s = await get('/warroom/snapshot')
+  const want = range.value
+  const s = await get('/warroom/snapshot', { range: want })
   syncing.value = false
-  if (!s) return
+  if (!s || want !== range.value || !!s.demo !== demo.value) return   // the range or the mode changed meanwhile
+  if (!s.demo) lastDest = s.destination || null
   snap.value = s
   if (s.high_water_id < hw) {
     // the event ids went back (a database restored from a backup): start over from this snapshot
@@ -484,6 +536,43 @@ function setRotation() {
   if (rotating.value) rotateTimer = setInterval(() => go((page.value + 1) % PAGES.length), ((snap.value && snap.value.rotate_seconds) || 25) * 1000)
 }
 watch(rotating, setRotation)
+// into or out of the demo: start over (another id sequence), and keep it in the address
+watch(demo, () => {
+  setParam('demo', demo.value ? '1' : null)
+  hw = 0
+  extra.value = []
+  batches.value = []
+  snap.value = null
+  demoNote.value = false
+  loadSnapshot()
+  ops.value = null
+  loadOps()
+})
+// demo data has nothing behind it: its links (events, changes, alerts) do not open
+let demoNoteTimer = null
+function onDemoClick(e) {
+  if (!demo.value || !(e.target && e.target.closest && e.target.closest('a'))) return
+  e.preventDefault()
+  e.stopPropagation()
+  demoNote.value = true
+  clearTimeout(demoNoteTimer)
+  demoNoteTimer = setTimeout(() => { demoNote.value = false }, 3000)
+}
+function setParam(k, v) {
+  try {
+    const u = new URL(location.href)
+    if (v == null) u.searchParams.delete(k)
+    else u.searchParams.set(k, v)
+    history.replaceState(history.state, '', u.pathname + u.search + u.hash)
+  } catch (e) { /* an address the browser will not rewrite: the board still changes */ }
+}
+// another window: start over from its snapshot (no burst of tracers), and keep it in the address for a wall screen
+watch(range, () => {
+  setParam('range', range.value === 'live' ? null : range.value)
+  extra.value = []
+  batches.value = []
+  loadSnapshot()
+})
 async function toggleFreeze() {
   frozen.value = !frozen.value
   if (!frozen.value) {
@@ -544,6 +633,19 @@ onBeforeUnmount(() => {
   color: #e8f1ec; font: inherit; font-size: 14px; cursor: pointer; text-decoration: none; }
 .wr-btn:hover { border-color: var(--l); }
 .wr-btn.on { border-color: var(--l); color: var(--l); }
+.wr-demobtn.on { border-color: #f5b13d; color: #f5b13d; }
+.wr-demo { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 10px; padding: 8px 14px; border: 1px solid #f5b13d;
+  border-radius: 8px; color: #ffe2a8; background: repeating-linear-gradient(135deg, rgba(245, 177, 61, .16) 0 14px, rgba(245, 177, 61, .06) 14px 28px); }
+.wr-demo b { font-weight: 600; }
+.wr-demo .wr-btn { margin-left: auto; }
+.wr-demonote { color: #fff; }
+.st-demo { border-color: #f5b13d; color: #ffe2a8; }
+.st-demo .wr-dot, .wr-dot.st-demo { background: #f5b13d; box-shadow: 0 0 8px #f5b13d; }
+.wr-range :deep(.sb-btn) { padding: 6px 10px; border: 1px solid #3a6463; border-radius: 6px; background: rgba(12, 40, 42, .8); color: #e8f1ec; font-size: 14px; }
+.wr-range :deep(.sb-btn:hover) { border-color: var(--l); }
+.wr-range :deep(.sb-pop) { background: #0c2a2c; border-color: #3a6463; color: #e8f1ec; }
+.wr-range :deep(.sb-pop li.active) { background: #15403f; }
+.wr-range :deep(.sb-pop li.selected) { color: var(--l); }
 .wr-btn.small { padding: 3px 9px; font-size: 13px; }
 .wr-btn .icon { width: 16px; height: 16px; }
 .wr-card-h h2 .icon { width: 18px; height: 18px; color: var(--l); }
@@ -565,7 +667,7 @@ onBeforeUnmount(() => {
 .wr-asof { color: #ffd39a; font-size: 13px; margin-top: 4px; }
 .wr-kpis { display: flex; gap: clamp(18px, 4vw, 60px); }
 .wr-kpis div { display: flex; flex-direction: column; }
-.wr-kpis span { color: var(--muted); font-size: 13px; }
+.wr-kpis > div > span { color: var(--muted); font-size: 13px; }
 .wr-kpis b { font-family: var(--mono, monospace); font-weight: 500; font-size: clamp(28px, 3.4vw, 44px); line-height: 1.1; color: #f6f1e6; }
 .wr-kpis .k-blocked b { color: var(--b); }
 .wr-kpis .k-logged b { color: var(--l); }

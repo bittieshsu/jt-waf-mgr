@@ -73,6 +73,20 @@ class TestWarRoom(unittest.TestCase):
         self.assertEqual(s['score_only'], [])
         self.assertIn('stopped', s['collector'])
 
+    def test_a_longer_range(self):
+        c = self.viewer()
+        st, s, _ = c.req('GET', '/api/v1/warroom/snapshot?range=6h')
+        self.assertEqual(st, 200)
+        self.assertEqual((s['range'], s['window_seconds'], s['step_seconds'], s['cell_seconds']), ('6h', 21600, 720, 1440))
+        self.assertEqual(s['totals']['events'], 5)                 # the event 3 hours ago is inside 6 hours
+        self.assertEqual(len(s['minutes']), 31)
+        self.assertEqual(sum(m['blocked'] + m['logged'] for m in s['minutes']), 5)
+        self.assertEqual(sum(sum(x['buckets']) for x in s['sites']), 5)
+        self.assertNotIn('203.0.113.7', json.dumps(s))
+        st, live, _ = c.req('GET', '/api/v1/warroom/snapshot')
+        self.assertEqual((live['range'], live['totals']['events']), ('live', 4))   # cached apart from the 6 hours
+        self.assertEqual(c.req('GET', '/api/v1/warroom/snapshot?range=99d')[0], 400)
+
     def test_events_after_an_id(self):
         c = self.viewer()
         st, s, _ = c.req('GET', '/api/v1/warroom/snapshot')
@@ -100,6 +114,8 @@ class TestWarRoom(unittest.TestCase):
         self.app.cfg.data['warroom'].update(dest_label='TW / EDGE', dest_lat='25.03', dest_lon='121.56')
         try:
             self.assertEqual(api_warroom.destination(self.app.cfg), {'label': 'TW / EDGE', 'lat': 25.03, 'lon': 121.56})
+            self.app.cfg.data['warroom']['dest_label'] = ''                 # the name is optional: the maps say "Us"
+            self.assertEqual(api_warroom.destination(self.app.cfg), {'label': '', 'lat': 25.03, 'lon': 121.56})
             self.app.cfg.data['warroom']['dest_lat'] = '95'
             self.assertIsNone(api_warroom.destination(self.app.cfg))
         finally:

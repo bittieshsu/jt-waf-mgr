@@ -2,6 +2,20 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.66 (2026-11-16)
+
+- War room: a time range in the top bar: live (the last 30 minutes, as before) or the last 15 minutes, 1, 3, 6, 12 or
+  24 hours, 7 days. Kept in the address (`?range=24h`) so a wall screen can open it directly; new events keep coming in
+  every 5 seconds. The timeline and the site cells keep their number of steps, each covering more time.
+- War room: the big numbers roll when they change: down when they grew, up when they shrank (only the digits that
+  changed; no motion for viewers who asked for less).
+- War room: the maps and the globe mark where we are as "Us" (Settings > War room: latitude and longitude; the name is
+  now optional and shows as "Us · name").
+- War room: demo mode (a button at the top, or `?demo=1`): made-up traffic of sites under steady attack, with waves from
+  one country now and then, on every page (maps, flow, sites, review, AI and threat intelligence, alerts and changes).
+  It is made in the browser: nothing is read from or written to the server, a striped banner says "demo" the whole
+  time, the state shows "Demo", and links do not open. For showing the board without real data.
+
 ## 0.4.65 (2026-11-16)
 
 Fixes from a review of the last versions:
