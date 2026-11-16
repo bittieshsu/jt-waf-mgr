@@ -86,6 +86,11 @@ img.shot { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; 
 .car-dots button[aria-current="true"] { background: var(--blue); width: 26px; border-radius: 6px; }
 @media (max-width: 860px) { .car-btn.prev { left: 6px; } .car-btn.next { right: 6px; } }
 @media (prefers-reduced-motion: reduce) { .car-slide, .car-slide.on { transition: none; } }
+/* which LLM tier a section is about */
+.tier-tag { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 4px 12px; border-radius: 999px; font-size: 13.5px; font-weight: 700;
+  color: var(--c); background: color-mix(in srgb, var(--c) 10%, #fff); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); }
+.tier-tag.l1 { --c: #2563c4; } .tier-tag.l2 { --c: #6d4fd8; }
+a.guess-link { font-weight: 600; }
 /* the two-tier flow: two lanes left to right, both into one checked path */
 section#layers { border-top: 1px solid var(--border); }
 .pf { display: grid; align-items: stretch; row-gap: 8px;
@@ -363,7 +368,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
 
 <section id="ai" class="alt"><div class="wrap">
   <div class="two top">
-    <div><h2 data-t="ai_h"></h2><p class="sub" data-t="ai_sub"></p>
+    <div><div class="tier-tag l1" data-t="ai_tier"></div><h2 data-t="ai_h"></h2><p class="sub" data-t="ai_sub"></p>
       <ul class="ticks"><li data-t="ai1"></li><li data-t="ai2"></li><li data-t="ai3"></li><li data-t="ai4"></li><li data-t="ai5"></li></ul></div>
     <a class="shotlink" href="shots/en/analysis.png" data-shot="analysis"><img class="shot" src="shots/en/thumb/analysis.webp" alt="" loading="lazy"></a>
   </div>
@@ -377,8 +382,8 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
 <section id="intel"><div class="wrap">
   <div class="two top">
     <a class="shotlink" href="shots/en/intel.png" data-shot="intel"><img class="shot" src="shots/en/thumb/intel.webp" alt="" loading="lazy"></a>
-    <div><h2 data-t="intel_h"></h2><p class="sub" data-t="intel_sub"></p>
-      <ul class="ticks"><li data-t="intel1"></li><li data-t="intel2"></li><li data-t="intel3"></li><li data-t="intel4"></li><li data-t="intel5"></li><li data-t="intel6"></li></ul></div>
+    <div><div class="tier-tag l2" data-t="intel_tier"></div><h2 data-t="intel_h"></h2><p class="sub" data-t="intel_sub"></p>
+      <ul class="ticks"><li><span data-t="intel1a"></span><a class="guess-link" href="how.html#guess" data-t="intel1_link"></a><span data-t="intel1b"></span></li><li data-t="intel2"></li><li data-t="intel3"></li><li data-t="intel4"></li><li data-t="intel5"></li><li data-t="intel6"></li></ul></div>
   </div>
   <div class="reccard">
     <h3 data-t="intel_rec_h"></h3>
@@ -611,7 +616,7 @@ const T = {
   fl3: "Each one shows its evidence, sandbox result and rule text before anyone approves it.",
   fl4: "Applied changes become numbered versions you can roll back to.",
   nav_features: 'Features', nav_videos: 'Videos', nav_flow: 'Workflow', nav_ai: 'AI analysis', nav_intel: 'Threat intel', nav_notify: 'Notify', nav_security: 'Security', nav_screens: 'Screens', nav_install: 'Install',
-  lead: 'A self-hosted web manager for nginx + libmodsecurity v3 + OWASP CRS 4. Read what the WAF did, tune it through an evidence-checked, sandbox-tested and approved workflow, let your own LLM review the events, and get told what needs a person.',
+  lead: 'A self-hosted web manager for an all open-source WAF stack, nginx + libmodsecurity v3 + OWASP CRS 4, and open source itself (AGPL-3.0). Read what the WAF did, tune it through an evidence-checked, sandbox-tested and approved workflow, let your own LLM review the events, and get told what needs a person.',
   releases: 'Releases', changelog: 'Changelog', get_started: 'Get started',
   features_h: 'A management interface for ModSecurity', features_sub: 'libmodsecurity v3 has no management interface. jt-waf-mgr adds one. It writes nothing until you adopt your rule files, and even then only ModSecurity files and, if you switch it on, one IP block list you include yourself; never the rest of the nginx configuration.',
   f1_h: 'Events you can read', f1: 'Blocked and logged requests by site, attack type, source country and network (with a world map drawn in the page, no map service), rule and time. "Blocked only by the CRS score" first: the likely false positives.',
@@ -628,7 +633,7 @@ const T = {
   s1: 'Propose', s1d: 'From a template, an event, an uploaded rule file or the analysis', s2: 'Static checks', s2d: 'Allowed directives, regex sanity, ReDoS shape and runtime',
   s3: 'Evidence', s3d: 'Access logs: would it block anything external that succeeded, or anyone internal?', s4: 'Sandbox', s4d: 'A throwaway nginx with production configuration, test cases and regression samples',
   s5: 'Approve', s5d: 'Never by the proposer; loosening always by a person, with a fresh one-time code when needed', s6: 'Apply', s6d: 'Root program: nginx -t, reload, health check, automatic restore; one-click rollback',
-  ai_h: 'Let a model help, never decide alone', ai_sub: 'A scheduled analysis with your own LLM server. Request data is attacker-controlled: the model only judges, the program validates everything.',
+  ai_h: 'Let a model help, never decide alone', ai_sub: 'The first tier: a scheduled analysis of what happened, on your own LLM server. Request data is attacker-controlled: the model only judges, the program validates everything.',
   ai1: 'Candidates grouped by the path a rule sees; schema-constrained answers in batches', ai2: 'Blocks only as narrow anchored regexes, never matching common paths, regression samples or paths your own people use',
   ai3: 'False positives get the narrowest exclusion: one exact path, specific rules and request parts; approving it needs a one-time code', ai4: 'Alerts when an attack may have been answered or users are being blocked',
   ai5: 'A summary of every run: events analysed, time taken, verdicts, proposals and alerts',
@@ -699,8 +704,9 @@ const T = {
   f14_h: 'Temporary IP blocks',
   f14: 'fail2ban on a mail host, a SOAR playbook or an approver blocks one address for a while (24 hours by default, never for ever); one nginx deny list covers every site. Optionally, sources that guess secret files are blocked automatically.',
   f12: 'A SIEM, a SOAR playbook or a script uses API tokens with scopes and allowed source addresses: read events and alerts, propose changes. Tokens can never approve. See the API manual.',
-  intel_h: 'New vulnerabilities, guarded before you patch', intel_sub: 'A second, stronger LLM regularly searches the web for new vulnerabilities in the web applications your sites run; for those a URL or header gives away, it writes a narrow precaution rule by itself and blocks them before you have had time to patch.',
-  intel1: 'The program guesses the web applications the sites run (about 300 known) and the web services from the access logs, and asks each application for the version it reports itself; only entries a person confirmed are searched',
+  intel_h: 'Guarded before you patch', intel_sub: 'A second, stronger LLM regularly searches the web for new vulnerabilities in the web applications your sites run; for those a URL or header gives away, it writes a narrow precaution rule by itself and blocks them before you have had time to patch.',
+  intel1a: 'The program guesses the web applications the sites run (', intel1_link: 'over 300 recognised', intel1b: ') and the web services from the access logs, and asks each application for the version it reports itself; only entries a person confirmed are searched',
+  ai_tier: 'First-tier LLM · on-premises model', intel_tier: 'Second-tier LLM · on-premises or cloud model',
   intel2: 'An on-premises model searches through an MCP search server (SearXNG, for example); a cloud model (Anthropic, OpenAI, Google Gemini) can use its own search. Pages are read only from allowed domains, and what they say is never trusted',
   intel3: 'Only product names, versions and a few host facts (operating system, architecture, C library) leave the host, never requests, addresses or site names; daily and monthly token limits',
   intel4: 'The rules look only at the URL or headers and take the usual change path: static checks, evidence from every access log (no normal traffic blocked), sandbox regression, with 403/200 tests and source links',
@@ -713,7 +719,7 @@ const T = {
   intel_rec4: 'Optional structured sources (off by default): the CISA KEV catalog of exploited vulnerabilities, OSV package queries, NVD for the official CVSS and CWE; nothing is downloaded or asked until switched on',
   intel_disclaimer: 'AI can miss a vulnerability or judge wrong, and it does not replace patching. Its rules can only tighten, never loosen; automatic application still needs every check to pass, and can be switched off in Settings so each rule waits for a person.',
   pf_h: 'Two LLM tiers: from a request to a rule in force', pf_sub: 'The first tier looks at what already happened; the second at newly disclosed vulnerabilities nobody has tried yet. The rules both write go through the same checks, approval and application.',
-  pf_lane1: 'First-tier LLM · on premises · events that happened', pf_lane2: 'Second-tier LLM · on premises or cloud · newly disclosed vulnerabilities', pf_lane3: 'One path for both',
+  pf_lane1: 'First-tier LLM · on-premises model · events that happened', pf_lane2: 'Second-tier LLM · on-premises or cloud model · newly disclosed vulnerabilities', pf_lane3: 'One path for both',
   pf_a1_h: 'A request comes in', pf_a1: 'nginx + ModSecurity + CRS block or pass it and write the audit log',
   pf_a2_h: 'Events', pf_a2: 'jt-waf-mgr reads them as events, grouped by path, source and rule',
   pf_a3_h: 'First-tier LLM', pf_a3: 'Attack, probe or false positive? Request data never leaves the host',
@@ -814,7 +820,7 @@ const T = {
   fl3: "核准前每筆都附上證據、沙箱結果與規則內容。",
   fl4: "套用後成為有編號的版本，可以退回。",
   nav_features: '功能', nav_videos: '影片', nav_flow: '變更流程', nav_ai: '事件分析', nav_intel: '威脅情報', nav_notify: '通知', nav_security: '安全', nav_screens: '截圖', nav_install: '安裝',
-  lead: '自架的 nginx + libmodsecurity v3 + OWASP CRS 4 網頁管理工具。看懂 WAF 做了什麼，透過證據檢查、沙箱測試、人員核准的流程調整規則，由你自己的 LLM 檢視事件，需要有人處理的事情會通知你。',
+  lead: '全開源架構的 WAF 網頁管理工具：自架 nginx + libmodsecurity v3 + OWASP CRS 4，本身也以 AGPL-3.0 開源。看懂 WAF 做了什麼，透過證據檢查、沙箱測試、人員核准的流程調整規則，由你自己的 LLM 檢視事件，需要有人處理的事情會通知你。',
   releases: '下載發行版', changelog: '變更記錄', get_started: '開始使用',
   features_h: '補強 ModSecurity 管理介面', features_sub: 'libmodsecurity v3 沒有管理介面。jt-waf-mgr 補上它：在你納管規則檔之前什麼都不寫入，之後也只寫 ModSecurity 的檔案，以及你啟用時的一個 IP 封鎖清單檔（由你自己 include）；其他 nginx 設定一律不碰。',
   f1_h: '看得懂的事件', f1: '封鎖與只記錄的請求，依站台、攻擊類型、來源國家與網路（頁面內繪製的世界地圖，不使用地圖服務）、規則與時間呈現。「只因 CRS 分數被封鎖」排最前面：最可能是誤判。',
@@ -831,7 +837,7 @@ const T = {
   s1: '提出', s1d: '從範本、事件、上傳的規則檔或分析結果', s2: '靜態檢查', s2d: '允許的指令、正規表示式、ReDoS 形狀與實測',
   s3: '證據', s3d: '存取記錄：會不會封鎖外部成功的請求，或任何內部使用者？', s4: '沙箱', s4d: '用正式設定、測試案例與回歸樣本的拋棄式 nginx',
   s5: '核准', s5d: '提出者不能核准；放寬一律由人核准，必要時要重新輸入一次性驗證碼', s6: '套用', s6d: 'root 程式：nginx -t、reload、健康檢查、失敗自動還原；一鍵退回',
-  ai_h: '讓模型幫忙，但不讓它自己決定', ai_sub: '用你自己的 LLM 伺服器排程分析。請求內容是攻擊者可控的：模型只負責判斷，一切由程式驗證。',
+  ai_h: '讓模型幫忙，但不讓它自己決定', ai_sub: '第一層：用你自己的 LLM 伺服器，排程分析已經發生的事件。請求內容是攻擊者可控的：模型只負責判斷，一切由程式驗證。',
   ai1: '依規則看到的路徑分組候選；分批送出、以 schema 限制回答格式', ai2: '封鎖只用錨定且很窄的正規表示式，不可符合常見路徑、回歸樣本或組織自己在用的路徑',
   ai3: '誤判只提出範圍最小的排除：單一精確路徑、特定規則與欄位；核准要一次性驗證碼', ai4: '攻擊可能沒被封鎖、使用者被誤判封鎖時發出警示',
   ai5: '每次執行都有摘要：分析事件數、耗時、判斷、提案與警示',
@@ -902,8 +908,9 @@ const T = {
   f14_h: '暫時封鎖 IP',
   f14: '郵件主機的 fail2ban、SOAR 劇本或核准者可以暫時封鎖單一位址（預設 24 小時，沒有永久封鎖）；一個 nginx deny 清單涵蓋所有站台。也可以選擇自動封鎖猜機密檔的來源。',
   f12: 'SIEM、SOAR 劇本或指令稿使用有範圍、限制來源位址的 API 權杖：讀取事件與警示、提出變更。權杖永遠不能核准。詳見 API 介接手冊。',
-  intel_h: '自動追蹤新揭露的漏洞，先寫好防護規則', intel_sub: '第二層、較強的 LLM 定期上網找你站台用的 Web 應用套件有沒有新漏洞；能從網址或標頭辨識的，自己寫出很窄的預先防護規則，在你來得及修補之前先封鎖。',
-  intel1: '程式從存取記錄推測站台跑的 Web 應用套件 (約 300 種) 與網站服務，並向應用程式讀取它自己回報的版本；人確認過的才搜尋',
+  intel_h: '自動追蹤新漏洞，先寫好防護規則', intel_sub: '第二層、較強的 LLM 定期上網找你站台用的 Web 應用套件有沒有新漏洞；能從網址或標頭辨識的，自己寫出很窄的預先防護規則，在你來得及修補之前先封鎖。',
+  intel1a: '程式從存取記錄推測站台跑的 Web 應用套件 (', intel1_link: '可辨識 300 多種', intel1b: ') 與網站服務，並向應用程式讀取它自己回報的版本；人確認過的才搜尋',
+  ai_tier: '第一層 LLM · 地端模型', intel_tier: '第二層 LLM · 地端或雲端模型',
   intel2: '地端模型透過 MCP 搜尋伺服器 (例如 SearXNG) 上網，雲端模型 (Anthropic、OpenAI、Google Gemini) 可用自己的搜尋；只讀允許清單上的網域，網頁內容一律視為不可信',
   intel3: '只送產品名稱、版本與少數主機資訊 (作業系統、架構、C 函式庫)，不送請求、位址或站名；每天、每月有 token 上限',
   intel4: '規則只看網址或標頭，照一般變更流程：靜態檢查、全部存取記錄的證據 (不可封鎖到正常流量)、沙箱回歸測試，附 403/200 測試與來源連結',
@@ -916,7 +923,7 @@ const T = {
   intel_rec4: '選用的結構化來源 (預設關閉)：CISA KEV 已被利用漏洞清單、OSV 套件漏洞查詢、NVD 官方 CVSS 與 CWE；打開之前不會下載或查詢',
   intel_disclaimer: 'AI 可能漏掉漏洞或判斷錯誤，不能取代修補。它的規則只能加強、不能放寬；自動套用一樣要通過所有檢查，也可以在設定關閉，改成每筆等人核准。',
   pf_h: '兩層 LLM：從請求進來到規則上線', pf_sub: '第一層看已經發生的事件，第二層看剛揭露、還沒被打的新漏洞；兩邊寫出的規則走同一條檢查、核准、套用的流程。',
-  pf_lane1: '第一層 LLM · 地端 · 已經發生的事件', pf_lane2: '第二層 LLM · 地端或雲端 · 新揭露的漏洞', pf_lane3: '兩邊共用的流程',
+  pf_lane1: '第一層 LLM · 地端模型 · 已經發生的事件', pf_lane2: '第二層 LLM · 地端或雲端模型 · 新揭露的漏洞', pf_lane3: '兩邊共用的流程',
   pf_a1_h: '請求進來', pf_a1: 'nginx + ModSecurity + CRS 判斷封鎖或放行，寫入稽核記錄',
   pf_a2_h: '事件', pf_a2: 'jt-waf-mgr 讀成事件，依路徑、來源、規則分組',
   pf_a3_h: '第一層 LLM', pf_a3: '判斷是攻擊、探測還是誤判；請求資料不離開本機',
@@ -1017,7 +1024,7 @@ const T = {
   fl3: "承認の前に、証拠、サンドボックスの結果、ルールの内容を確認できます。",
   fl4: "適用した変更は番号付きのバージョンになり、戻すことができます。",
   nav_features: '機能', nav_videos: '動画', nav_flow: '変更フロー', nav_ai: 'イベント分析', nav_intel: '脅威情報', nav_notify: '通知', nav_security: 'セキュリティ', nav_screens: '画面', nav_install: 'インストール',
-  lead: 'nginx + libmodsecurity v3 + OWASP CRS 4 のためのセルフホスト型 Web 管理ツール。WAF が何をしたかを読み取り、証拠確認・サンドボックス試験・承認を経るフローで調整し、自前の LLM にイベントを確認させ、人の対応が必要なことを知らせます。',
+  lead: 'オールオープンソースの WAF 構成 (nginx + libmodsecurity v3 + OWASP CRS 4) のためのセルフホスト型 Web 管理ツールで、本体も AGPL-3.0 のオープンソースです。WAF が何をしたかを読み取り、証拠確認・サンドボックス試験・承認を経るフローで調整し、自前の LLM にイベントを確認させ、人の対応が必要なことを知らせます。',
   releases: 'リリース', changelog: '変更履歴', get_started: 'はじめる',
   features_h: 'ModSecurity の管理インターフェースを補う', features_sub: 'libmodsecurity v3 には管理画面がありません。jt-waf-mgr はそれを補います。ルールファイルを取り込むまで何も書き込まず、その後も書き込むのは ModSecurity のファイルと、オンにした場合の IP ブロックリスト 1 つ（include はお客様が行います）だけで、それ以外の nginx の設定には書き込みません。',
   f1_h: '読めるイベント', f1: 'ブロック・記録のみのリクエストを、サイト、攻撃の種類、送信元の国とネットワーク（ページ内で描画する世界地図、地図サービスは不使用）、ルール、時間ごとに表示。「CRS スコアだけでブロック」を先頭に：誤検知の可能性が高いものです。',
@@ -1034,7 +1041,7 @@ const T = {
   s1: '提案', s1d: 'テンプレート、イベント、アップロードしたルールファイル、分析結果から', s2: '静的検査', s2d: '許可されたディレクティブ、正規表現、ReDoS の形と実測',
   s3: '証拠', s3d: 'アクセスログ：成功した外部リクエストや内部の利用者をブロックしないか', s4: 'サンドボックス', s4d: '本番設定・テストケース・回帰サンプルによる使い捨ての nginx',
   s5: '承認', s5d: '提案者は承認不可。緩和は必ず人が承認し、必要に応じてワンタイムコードを再入力', s6: '適用', s6d: 'root プログラム：nginx -t、reload、ヘルスチェック、失敗時は自動復元。ワンクリックでロールバック',
-  ai_h: 'モデルは手伝うが、単独では決めない', ai_sub: '自前の LLM サーバーによる定期分析。リクエストデータは攻撃者が制御できるもの：モデルは判定するだけで、すべてプログラムが検証します。',
+  ai_h: 'モデルは手伝うが、単独では決めない', ai_sub: '1 層目：自前の LLM サーバーで、起きたイベントを定期的に分析します。リクエストデータは攻撃者が制御できるもの：モデルは判定するだけで、すべてプログラムが検証します。',
   ai1: 'ルールが見るパスで候補をまとめ、スキーマで形式を制約した回答をバッチで取得', ai2: 'ブロックはアンカー付きの狭い正規表現のみ。一般的なパス、回帰サンプル、組織自身が使うパスには一致しない',
   ai3: '誤検知には最小の除外：一つの完全一致パスと特定のルール・項目のみ。承認にはワンタイムコードが必要', ai4: '攻撃が防がれていない可能性や利用者がブロックされているときにアラート',
   ai5: '実行ごとの要約：分析したイベント数、所要時間、判定、提案、アラート',
@@ -1105,8 +1112,9 @@ const T = {
   f14_h: '一時的な IP ブロック',
   f14: 'メールサーバーの fail2ban、SOAR プレイブック、承認者が単一アドレスを一時的にブロック（既定 24 時間、永久なし）。1 つの nginx deny リストですべてのサイトに効きます。機密ファイルを探す送信元の自動ブロックも選べます。',
   f12: 'SIEM、SOAR のプレイブック、スクリプトは、スコープと許可する送信元アドレス付きの API トークンで、イベントやアラートの取得、変更の提案ができます。トークンは承認できません。API 連携マニュアルを参照してください。',
-  intel_h: '新しく公開された脆弱性を、修正前に防ぐ', intel_sub: '2 層目のより強力な LLM が、サイトで使っている Web アプリケーションの新しい脆弱性を定期的に Web で探します。URL やヘッダーで見分けられるものには自分で狭い予防ルールを書き、修正が間に合う前にブロックします。',
-  intel1: 'プログラムがアクセスログからサイトで動く Web アプリケーション (約 300 種) と Web サービスを推定し、アプリケーション自身が返すバージョンを読み取ります。人が確認したものだけを検索します',
+  intel_h: '新しい脆弱性を、修正前に防ぐ', intel_sub: '2 層目のより強力な LLM が、サイトで使っている Web アプリケーションの新しい脆弱性を定期的に Web で探します。URL やヘッダーで見分けられるものには自分で狭い予防ルールを書き、修正が間に合う前にブロックします。',
+  intel1a: 'プログラムがアクセスログからサイトで動く Web アプリケーション (', intel1_link: '300 種以上を判別', intel1b: ') と Web サービスを推定し、アプリケーション自身が返すバージョンを読み取ります。人が確認したものだけを検索します',
+  ai_tier: '1 層目の LLM · オンプレミスのモデル', intel_tier: '2 層目の LLM · オンプレミスまたはクラウドのモデル',
   intel2: 'オンプレミスのモデルは MCP 検索サーバー (SearXNG など) で、クラウドのモデル (Anthropic、OpenAI、Google Gemini) は自前の検索でも調べられます。読むのは許可したドメインのページだけで、その内容は信頼しません',
   intel3: '送るのは製品名、バージョンと少しのホスト情報 (OS、アーキテクチャ、C ライブラリ) だけで、リクエスト、アドレス、サイト名は送りません。1 日と 1 か月のトークン上限があります',
   intel4: 'ルールは URL かヘッダーだけを見て、通常の変更フローを通ります：静的チェック、全アクセスログの証拠 (正常な通信をブロックしない)、サンドボックスの回帰テスト。403/200 のテストと出典リンク付き',
@@ -1119,7 +1127,7 @@ const T = {
   intel_rec4: '任意の構造化ソース (既定はオフ)：CISA KEV の悪用済み脆弱性カタログ、OSV のパッケージ照会、NVD の公式 CVSS と CWE。オンにするまでダウンロードも照会もしません',
   intel_disclaimer: 'AI は脆弱性を見落としたり判断を誤ったりすることがあり、修正の代わりにはなりません。ルールは強化のみで緩和はしません。自動適用もすべてのチェックに通る必要があり、設定でオフにすれば 1 件ずつ人の承認を待ちます。',
   pf_h: '2 層の LLM：リクエストからルールの適用まで', pf_sub: '1 層目はすでに起きたイベントを、2 層目は公開されたばかりでまだ狙われていない脆弱性を見ます。どちらが書いたルールも、同じチェック、承認、適用の流れを通ります。',
-  pf_lane1: '1 層目の LLM · オンプレミス · 起きたイベント', pf_lane2: '2 層目の LLM · オンプレミスまたはクラウド · 新しく公開された脆弱性', pf_lane3: '共通の流れ',
+  pf_lane1: '1 層目の LLM · オンプレミスのモデル · 起きたイベント', pf_lane2: '2 層目の LLM · オンプレミスまたはクラウドのモデル · 新しく公開された脆弱性', pf_lane3: '共通の流れ',
   pf_a1_h: 'リクエスト', pf_a1: 'nginx + ModSecurity + CRS がブロックか通過かを判定し、監査ログに記録',
   pf_a2_h: 'イベント', pf_a2: 'jt-waf-mgr がイベントとして読み、パス、送信元、ルールでまとめる',
   pf_a3_h: '1 層目の LLM', pf_a3: '攻撃、探査、誤検知のどれかを判定。リクエストのデータはホストから出ない',
@@ -1183,6 +1191,7 @@ function apply(lang) {
   }
   document.getElementById('lb-x').setAttribute('aria-label', d.close)
   document.getElementById('how-link').href = 'how.html?lang=' + lang
+  for (const a of document.querySelectorAll('a.guess-link')) a.href = 'how.html?lang=' + lang + '#guess'
   document.getElementById('cl-btn').href = 'https://github.com/jasoncheng7115/jt-waf-mgr/blob/main/CHANGELOG' + ({ 'zh-TW': '_zh-TW', ja: '_ja' }[lang] || '') + '.md'
   const mi = document.getElementById('modes-img'); mi.src = 'modes/deploy-modes.' + lang + '.svg'; mi.alt = d.modes_h
   document.getElementById('ms-guide').href = 'https://github.com/jasoncheng7115/jt-waf-mgr/blob/main/docs/MODSECURITY' + ({ 'zh-TW': '.zh-TW', ja: '.ja' }[lang] || '') + '.md'

@@ -111,6 +111,11 @@ table.vtbl code { font-size: 13px; }
 .vsrc.ok { background: #e7f6ec; color: #17803d; } .vsrc.doc { background: #eef2f7; color: #475569; }
 .vtag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 6px; font-size: 12px; background: #fff4e5; color: #9a5b00; }
 .vnote { color: var(--muted); font-size: 13px; margin-top: 3px; }
+/* the guess lists: names in columns */
+ul.glist { list-style: none; margin: 6px 0 26px; padding: 14px 18px; columns: 4 190px; column-gap: 22px; background: #fff; border: 1px solid var(--border); border-radius: 12px; font-size: 14px; }
+ul.glist li { break-inside: avoid; padding: 2px 0; }
+.gcount { display: inline-block; margin-left: 4px; padding: 0 8px; border-radius: 999px; background: #eef4fd; color: var(--blue); font-size: 13px; font-weight: 700; vertical-align: 2px; }
+.gnote { color: var(--muted); font-size: 14px; margin: 0 0 4px; }
 footer p.disc { margin: 14px 0 0; font-size: 12.5px; line-height: 1.7; color: var(--muted); max-width: 980px; }
 @media (max-width: 860px) { .two { grid-template-columns: minmax(0, 1fr); } .hero h1 { font-size: 32px; } nav.links { display: none; } }
 /* a palette around the logo blue: every card and step gets its own colour (--c, --c2), as on the project page */
@@ -191,7 +196,7 @@ body.zm-on { overflow: hidden; }
   <nav class="links">
     <a href="#arch" data-t="nav_arch"></a><a href="#events" data-t="nav_events"></a><a href="#changes" data-t="nav_changes"></a>
     <a href="#analysis" data-t="nav_ai"></a><a href="#crs" data-t="nav_crs"></a><a href="#blocks" data-t="nav_blocks"></a>
-    <a href="#notify" data-t="nav_notify"></a><a href="#integrity" data-t="nav_integrity"></a><a href="#bounds" data-t="nav_bounds"></a><a href="#versions" data-t="nav_ver"></a>
+    <a href="#notify" data-t="nav_notify"></a><a href="#integrity" data-t="nav_integrity"></a><a href="#bounds" data-t="nav_bounds"></a><a href="#guess" data-t="nav_guess"></a><a href="#versions" data-t="nav_ver"></a>
   </nav>
   <a class="gh-btn" href="https://github.com/jasoncheng7115/jt-waf-mgr" target="_blank" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span>GitHub</span></a>
   <div class="lang">
@@ -550,7 +555,381 @@ body.zm-on { overflow: hidden; }
 </div></section>
 
 <!-- 9. Where software versions come from -->
-<section id="versions" class="alt"><div class="wrap">
+<section id="guess" class="alt"><div class="wrap">
+  <h2 data-t="guess_h"></h2><p class="sub" data-t="guess_sub"></p>
+  <!-- guess list: made by tools/make_version_list.py from jtwafmgr/data/software-signatures.json -->
+  <h3><span data-t="guess_apps_h"></span> <span class="gcount">308</span></h3>
+  <p class="gnote" data-t="guess_apps_note"></p>
+  <ul class="glist">
+      <li>AdGuard Home</li>
+      <li>Adminer</li>
+      <li>Adobe ColdFusion</li>
+      <li>Adobe Experience Manager</li>
+      <li>Alertmanager</li>
+      <li>Apache ActiveMQ</li>
+      <li>Apache Airflow</li>
+      <li>Apache CouchDB</li>
+      <li>Apache Guacamole</li>
+      <li>Apache Hadoop YARN</li>
+      <li>Apache Kafka UI</li>
+      <li>Apache Solr</li>
+      <li>Apache Spark</li>
+      <li>Apache Superset</li>
+      <li>Apache Tomcat</li>
+      <li>Apereo CAS</li>
+      <li>Argo CD</li>
+      <li>Atlassian Crowd</li>
+      <li>Audiobookshelf</li>
+      <li>Authelia</li>
+      <li>authentik</li>
+      <li>Axigen</li>
+      <li>Baikal</li>
+      <li>BigBlueButton</li>
+      <li>Bitbucket Server</li>
+      <li>BMC (Redfish)</li>
+      <li>BookStack</li>
+      <li>Cacti</li>
+      <li>Calibre-Web</li>
+      <li>Canvas LMS</li>
+      <li>Casdoor</li>
+      <li>Chamilo</li>
+      <li>Check Point SSL VPN</li>
+      <li>Checkmk</li>
+      <li>Cisco ASA / AnyConnect</li>
+      <li>Citrix NetScaler Gateway</li>
+      <li>Cockpit</li>
+      <li>code-server</li>
+      <li>Collabora Online</li>
+      <li>Concrete CMS</li>
+      <li>Confluence</li>
+      <li>Contao</li>
+      <li>cPanel / WHM</li>
+      <li>Craft CMS</li>
+      <li>CrowdSec LAPI</li>
+      <li>DAViCal</li>
+      <li>DefectDojo</li>
+      <li>Dell iDRAC</li>
+      <li>Dependency-Track</li>
+      <li>Dify</li>
+      <li>DirectAdmin</li>
+      <li>Directus</li>
+      <li>Discourse</li>
+      <li>Docker Registry</li>
+      <li>DokuWiki</li>
+      <li>Dolibarr</li>
+      <li>draw.io</li>
+      <li>Drone CI / Woodpecker</li>
+      <li>Drupal</li>
+      <li>Elasticsearch / OpenSearch</li>
+      <li>Element Web</li>
+      <li>Emby</li>
+      <li>ERPNext / Frappe</li>
+      <li>EspoCRM</li>
+      <li>Etherpad</li>
+      <li>Excalidraw</li>
+      <li>Exchange (OWA)</li>
+      <li>F5 BIG-IP</li>
+      <li>File Browser</li>
+      <li>Firefly III</li>
+      <li>Flarum</li>
+      <li>Flowise</li>
+      <li>Focalboard</li>
+      <li>Fortinet FortiGate SSL VPN</li>
+      <li>FreeIPA</li>
+      <li>FreeScout</li>
+      <li>FreshRSS</li>
+      <li>Frigate</li>
+      <li>Gatus</li>
+      <li>Ghost</li>
+      <li>Gitea / Forgejo</li>
+      <li>GitLab</li>
+      <li>GLPI</li>
+      <li>Gophish</li>
+      <li>Gotify</li>
+      <li>Gradio</li>
+      <li>Grafana</li>
+      <li>Grafana Loki</li>
+      <li>Graylog</li>
+      <li>Greenbone / OpenVAS</li>
+      <li>Group-Office</li>
+      <li>Harbor</li>
+      <li>HashiCorp Consul</li>
+      <li>HashiCorp Nomad</li>
+      <li>HashiCorp Vault</li>
+      <li>Healthchecks.io</li>
+      <li>HedgeDoc / CodiMD</li>
+      <li>Home Assistant</li>
+      <li>Homebridge</li>
+      <li>Horde</li>
+      <li>HPE iLO</li>
+      <li>IBM WebSphere</li>
+      <li>Icinga Web 2</li>
+      <li>ILIAS</li>
+      <li>Immich</li>
+      <li>InfluxDB</li>
+      <li>Invoice Ninja</li>
+      <li>iRedAdmin</li>
+      <li>ISPConfig</li>
+      <li>iTop</li>
+      <li>Ivanti Connect Secure</li>
+      <li>Ivanti EPMM (MobileIron)</li>
+      <li>Java Servlet / JSP</li>
+      <li>Jellyfin</li>
+      <li>Jenkins</li>
+      <li>JFrog Artifactory</li>
+      <li>Jira</li>
+      <li>Jitsi Meet</li>
+      <li>Joomla</li>
+      <li>Joplin Server</li>
+      <li>JupyterHub / Jupyter</li>
+      <li>Kanboard</li>
+      <li>Kavita</li>
+      <li>Kerio Connect</li>
+      <li>Keycloak</li>
+      <li>Kibana</li>
+      <li>Kimai</li>
+      <li>Komga</li>
+      <li>Kubernetes API / Dashboard</li>
+      <li>Label Studio</li>
+      <li>LemonLDAP::NG</li>
+      <li>LibreNMS / Observium</li>
+      <li>Liferay</li>
+      <li>LimeSurvey</li>
+      <li>Linkding</li>
+      <li>Magento</li>
+      <li>Mailcatcher / MailHog</li>
+      <li>mailcow</li>
+      <li>Mailu</li>
+      <li>Mastodon</li>
+      <li>Matomo</li>
+      <li>Matrix (Synapse)</li>
+      <li>Mattermost</li>
+      <li>Mautic</li>
+      <li>MDaemon WorldClient</li>
+      <li>Mealie</li>
+      <li>MediaWiki</li>
+      <li>Memos</li>
+      <li>MeshCentral</li>
+      <li>Metabase</li>
+      <li>Microsoft AD FS</li>
+      <li>Microsoft IIS / ASP.NET</li>
+      <li>Microsoft RD Web Access</li>
+      <li>Microsoft SharePoint</li>
+      <li>MikroTik RouterOS</li>
+      <li>Miniflux</li>
+      <li>MinIO</li>
+      <li>MISP</li>
+      <li>MLflow</li>
+      <li>Mongo Express</li>
+      <li>Moodle</li>
+      <li>Munin</li>
+      <li>n8n</li>
+      <li>Nagios</li>
+      <li>Navidrome / Subsonic</li>
+      <li>NetBox / Nautobot</li>
+      <li>Netdata</li>
+      <li>Nextcloud</li>
+      <li>Nextcloud Talk HPB</li>
+      <li>Nginx Proxy Manager</li>
+      <li>Node-RED</li>
+      <li>noVNC</li>
+      <li>ntfy</li>
+      <li>Odoo</li>
+      <li>Ollama</li>
+      <li>ONLYOFFICE Docs</li>
+      <li>Open edX</li>
+      <li>Open WebUI</li>
+      <li>Open-Xchange App Suite</li>
+      <li>OpenAI-compatible LLM API</li>
+      <li>OpenCart</li>
+      <li>OpenCTI</li>
+      <li>openHAB</li>
+      <li>OpenMediaVault</li>
+      <li>OpenProject</li>
+      <li>OpenSearch Dashboards</li>
+      <li>OpenVPN Access Server</li>
+      <li>OPNsense</li>
+      <li>Oracle WebLogic</li>
+      <li>osTicket</li>
+      <li>OTRS / Znuny</li>
+      <li>Outline</li>
+      <li>Overseerr / Jellyseerr</li>
+      <li>oVirt</li>
+      <li>ownCloud Infinite Scale</li>
+      <li>Palo Alto GlobalProtect</li>
+      <li>Paperless-ngx</li>
+      <li>Passbolt</li>
+      <li>Penpot</li>
+      <li>pfSense</li>
+      <li>pgAdmin</li>
+      <li>PhotoPrism</li>
+      <li>PHP</li>
+      <li>phpBB</li>
+      <li>phpIPAM</li>
+      <li>phpMyAdmin</li>
+      <li>Pi-hole</li>
+      <li>Planka</li>
+      <li>Plausible Analytics</li>
+      <li>Plesk</li>
+      <li>Plex Media Server</li>
+      <li>Portainer</li>
+      <li>Postfix Admin</li>
+      <li>PrestaShop</li>
+      <li>privacyIDEA</li>
+      <li>Prometheus</li>
+      <li>Prowlarr / Lidarr / Readarr</li>
+      <li>Proxmox Backup Server</li>
+      <li>Proxmox Mail Gateway</li>
+      <li>Proxmox VE</li>
+      <li>PRTG Network Monitor</li>
+      <li>Psono</li>
+      <li>Pydio Cells</li>
+      <li>qBittorrent</li>
+      <li>QNAP QTS</li>
+      <li>RabbitMQ Management</li>
+      <li>Radarr</li>
+      <li>Radicale</li>
+      <li>Rancher</li>
+      <li>Redash</li>
+      <li>Redmine</li>
+      <li>Request Tracker</li>
+      <li>Rocket.Chat</li>
+      <li>Roundcube</li>
+      <li>RStudio Server</li>
+      <li>RustDesk Server Pro</li>
+      <li>SABnzbd</li>
+      <li>Seafile</li>
+      <li>Security Onion</li>
+      <li>Sentry</li>
+      <li>Seq</li>
+      <li>Shibboleth IdP</li>
+      <li>Shopware</li>
+      <li>Sitecore</li>
+      <li>Skype for Business Server</li>
+      <li>SmarterMail</li>
+      <li>SnappyMail / RainLoop</li>
+      <li>Snipe-IT</li>
+      <li>SOGo</li>
+      <li>SonarQube</li>
+      <li>Sonarr</li>
+      <li>Sonatype Nexus Repository</li>
+      <li>SonicWall</li>
+      <li>Sophos Firewall</li>
+      <li>Splunk</li>
+      <li>Spring Boot Actuator</li>
+      <li>Stirling-PDF</li>
+      <li>Strapi</li>
+      <li>SuiteCRM / SugarCRM</li>
+      <li>Supermicro BMC</li>
+      <li>Syncthing</li>
+      <li>Synology DSM</li>
+      <li>Taiga</li>
+      <li>Tautulli</li>
+      <li>TeamCity</li>
+      <li>TeamPass</li>
+      <li>Technitium DNS Server</li>
+      <li>Tenable Nessus</li>
+      <li>TheHive</li>
+      <li>Tiny Tiny RSS</li>
+      <li>TP-Link Omada</li>
+      <li>Traefik</li>
+      <li>Transmission</li>
+      <li>TrueNAS</li>
+      <li>TYPO3</li>
+      <li>Umami</li>
+      <li>Umbraco</li>
+      <li>UniFi Network</li>
+      <li>Univention Corporate Server</li>
+      <li>Unraid</li>
+      <li>Uptime Kuma</li>
+      <li>Vaultwarden</li>
+      <li>Velociraptor</li>
+      <li>VictoriaMetrics</li>
+      <li>Vikunja</li>
+      <li>VMware Horizon</li>
+      <li>VMware vCenter / ESXi</li>
+      <li>vtiger CRM</li>
+      <li>Wallabag</li>
+      <li>Wazuh API</li>
+      <li>Wazuh dashboard</li>
+      <li>Webmin</li>
+      <li>Wekan</li>
+      <li>Wetty</li>
+      <li>Wiki.js</li>
+      <li>WildFly / JBoss</li>
+      <li>Windows Admin Center</li>
+      <li>WireGuard (wg-easy)</li>
+      <li>WooCommerce</li>
+      <li>WordPress</li>
+      <li>XWiki</li>
+      <li>Z-Push</li>
+      <li>Zabbix</li>
+      <li>Zammad</li>
+      <li>Zimbra</li>
+      <li>ZITADEL</li>
+      <li>ZoneMinder</li>
+      <li>Zulip</li>
+  </ul>
+  <h3><span data-t="guess_host_h"></span> <span class="gcount">52</span></h3>
+  <p class="gnote" data-t="guess_host_note"></p>
+  <ul class="glist">
+      <li>Apache HTTP Server</li>
+      <li>Apache Tomcat</li>
+      <li>Brotli</li>
+      <li>Cacti</li>
+      <li>Caddy</li>
+      <li>Cockpit</li>
+      <li>Eclipse Jetty</li>
+      <li>Elasticsearch</li>
+      <li>Envoy</li>
+      <li>GitLab</li>
+      <li>GNU Mailman</li>
+      <li>Grafana</li>
+      <li>Graylog</li>
+      <li>HAProxy</li>
+      <li>InfluxDB</li>
+      <li>Jenkins</li>
+      <li>Jitsi Meet</li>
+      <li>Keycloak</li>
+      <li>libmaxminddb</li>
+      <li>libmodsecurity (ModSecurity v3)</li>
+      <li>libxml2</li>
+      <li>lighttpd</li>
+      <li>Lua</li>
+      <li>Matrix (Synapse)</li>
+      <li>Mattermost</li>
+      <li>ModSecurity v2 (Apache)</li>
+      <li>ModSecurity-nginx connector</li>
+      <li>Nagios</li>
+      <li>Nextcloud</li>
+      <li>nginx</li>
+      <li>Node.js</li>
+      <li>OpenJDK</li>
+      <li>OpenSearch</li>
+      <li>OpenSSL</li>
+      <li>OWASP CRS</li>
+      <li>PCRE</li>
+      <li>PCRE2</li>
+      <li>PHP</li>
+      <li>phpMyAdmin</li>
+      <li>Prometheus</li>
+      <li>Proxmox Backup Server</li>
+      <li>Proxmox Mail Gateway</li>
+      <li>Proxmox VE</li>
+      <li>Roundcube</li>
+      <li>Squid</li>
+      <li>Traefik</li>
+      <li>Varnish Cache</li>
+      <li>Webmin</li>
+      <li>YAJL</li>
+      <li>Zabbix</li>
+      <li>ZoneMinder</li>
+      <li>Zulip</li>
+  </ul>
+  <!-- /guess list -->
+</div></section>
+
+<section id="versions"><div class="wrap">
   <h2 data-t="ver_h"></h2><p class="sub" data-t="ver_sub"></p>
   <!-- version list: made by tools/make_version_list.py from jtwafmgr/data/software-versions.json -->
   <h3 data-t="ver_auto_h"></h3>
@@ -612,6 +991,9 @@ const T = {
  en: {
   nav_home: 'Home', nav_arch: 'Architecture', nav_events: 'Events', nav_changes: 'Changes', nav_ai: 'Analysis', nav_crs: 'CRS', nav_blocks: 'IP blocks',
   nav_notify: 'Notifications', nav_integrity: 'Integrity', nav_bounds: 'Boundaries',
+  nav_guess: 'Products', guess_h: 'Web applications the guess recognises', guess_sub: 'The threat intelligence follows web-facing software only. The program guesses the list and a person confirms it before anything is searched; anything not listed here can be added by hand.',
+  guess_apps_h: 'Applications the sites run', guess_apps_note: 'Recognised from paths that answered successfully (2xx) in the access logs, such as /status.php or /api/v4/.',
+  guess_host_h: 'Web services and packages on this host', guess_host_note: 'Recognised from the Debian / Ubuntu packages installed on this host (nginx, ModSecurity, PHP and the like).',
   nav_ver: 'Versions', ver_h: 'Where the web applications\' versions come from', ver_sub: 'The threat intelligence looks up vulnerabilities by product and version. Before each search, the applications below are asked for their own version: one request through the nginx on the same host (a version a person typed is never replaced). The others are filled in by hand, with the command on the application\'s host.',
   ver_auto_h: 'Read automatically', ver_man_h: 'Filled in by hand', ver_c_name: 'Application', ver_c_req: 'Request', ver_c_src: 'Source', ver_c_how: 'How to read it',
   ver_ok: 'Checked on a running one', ver_doc: 'As documented', ver_token: 'needs an API token (settings)',
@@ -860,6 +1242,9 @@ const T = {
  'zh-TW': {
   nav_home: '回首頁', nav_arch: '架構', nav_events: '事件', nav_changes: '變更', nav_ai: '分析', nav_crs: 'CRS', nav_blocks: 'IP 封鎖',
   nav_notify: '通知', nav_integrity: '完整性', nav_bounds: '安全邊界',
+  nav_guess: '可推測套件', guess_h: '可推測的 Web 應用套件', guess_sub: '威脅情報只追蹤和網站有關的套件。清單由程式自動推測，人確認後才搜尋；沒有列在這裡的也可以手動加入。',
+  guess_apps_h: '站台跑的應用程式', guess_apps_note: '依存取記錄裡回應成功 (2xx) 的特徵路徑判斷，例如 /status.php、/api/v4/。',
+  guess_host_h: '本機的網站服務與套件', guess_host_note: '依本機安裝的 Debian / Ubuntu 套件判斷 (nginx、ModSecurity、PHP 等)。',
   nav_ver: '套件版本', ver_h: 'Web 應用套件的版本從哪裡來', ver_sub: '威脅情報依產品與版本查詢漏洞。每次搜尋前，會向下面這些應用程式讀取它們自己回報的版本：經同一台主機的 nginx 發一個請求 (人工填的版本不會被覆寫)。其他的要手動填寫，查詢方式是在該應用程式的主機上執行下列指令。',
   ver_auto_h: '自動讀取', ver_man_h: '手動填寫', ver_c_name: '應用程式', ver_c_req: '請求', ver_c_src: '依據', ver_c_how: '查詢方式',
   ver_ok: '已實測', ver_doc: '依官方文件', ver_token: '需要 API 權杖 (設定)',
@@ -1108,6 +1493,9 @@ const T = {
  ja: {
   nav_home: 'ホームへ', nav_arch: '構成', nav_events: 'イベント', nav_changes: '変更', nav_ai: '分析', nav_crs: 'CRS', nav_blocks: 'IP ブロック',
   nav_notify: '通知', nav_integrity: '完全性', nav_bounds: '境界',
+  nav_guess: '推定できる製品', guess_h: '推定できる Web アプリケーション', guess_sub: '脅威インテリジェンスは Web に関係するソフトウェアだけを追跡します。一覧はプログラムが推定し、人が確認してから検索します。ここにないものも手動で追加できます。',
+  guess_apps_h: 'サイトで動くアプリケーション', guess_apps_note: 'アクセスログで成功 (2xx) した特徴的なパス (/status.php、/api/v4/ など) から判別します。',
+  guess_host_h: 'このホストの Web サービスとパッケージ', guess_host_note: 'このホストにインストールされた Debian / Ubuntu パッケージ (nginx、ModSecurity、PHP など) から判別します。',
   nav_ver: 'バージョン', ver_h: 'Web アプリケーションのバージョンの取得元', ver_sub: '脅威インテリジェンスは製品とバージョンで脆弱性を調べます。検索のたびに、下のアプリケーションに自身のバージョンを問い合わせます：同じホストの nginx 経由で 1 リクエスト (人が入力したバージョンは置き換えません)。その他は手動で入力し、アプリケーションのホストで次のコマンドを実行して確認します。',
   ver_auto_h: '自動で読み取り', ver_man_h: '手動で入力', ver_c_name: 'アプリケーション', ver_c_req: 'リクエスト', ver_c_src: '根拠', ver_c_how: '確認方法',
   ver_ok: '実機で確認', ver_doc: '公式ドキュメントどおり', ver_token: 'API トークンが必要 (設定)',
