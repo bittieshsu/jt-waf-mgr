@@ -86,6 +86,32 @@ img.shot { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; 
 .car-dots button[aria-current="true"] { background: var(--blue); width: 26px; border-radius: 6px; }
 @media (max-width: 860px) { .car-btn.prev { left: 6px; } .car-btn.next { right: 6px; } }
 @media (prefers-reduced-motion: reduce) { .car-slide, .car-slide.on { transition: none; } }
+/* the two-tier flow: two lanes left to right, both into one checked path */
+section#layers { border-top: 1px solid var(--border); }
+.pf { display: grid; align-items: stretch; row-gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr) 22px minmax(0, 1fr) 22px minmax(0, 1fr) 30px minmax(0, 1.15fr) 22px minmax(0, 1.15fr) 22px minmax(0, 1.15fr); }
+.pf .r1 { grid-row: 1; grid-column: 1 / 8; } .pf .r2 { grid-row: 2; } .pf .r3 { grid-row: 3; grid-column: 1 / 8; margin-top: 10px; } .pf .r4 { grid-row: 4; }
+.pf .rc { grid-row: 1; grid-column: 9 / 14; }
+.pf .c1 { grid-row: 2 / 5; grid-column: 9; } .pf .a1 { grid-row: 2 / 5; grid-column: 10; }
+.pf .c2 { grid-row: 2 / 5; grid-column: 11; } .pf .a2 { grid-row: 2 / 5; grid-column: 12; }
+.pf .c3 { grid-row: 2 / 5; grid-column: 13; }
+.pf-tag { font-size: 13px; font-weight: 700; letter-spacing: .02em; color: var(--c); display: flex; align-items: center; gap: 8px; }
+.pf-tag::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--c); flex: none; }
+.pf .l1 { --c: #2563c4; } .pf .l2 { --c: #6d4fd8; } .pf .cm { --c: #d9620b; }
+.pf-box { background: #fff; border: 1px solid color-mix(in srgb, var(--c) 28%, var(--border)); border-top: 3px solid var(--c); border-radius: 10px;
+  padding: 10px 12px 11px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pf-box b { font-size: 14.5px; color: var(--ink); line-height: 1.35; }
+.pf-box span { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.pf-box.cm { justify-content: center; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 6%, #fff), #fff 70%); }
+.pf-ar { font-style: normal; display: flex; align-items: center; justify-content: center; color: #8a9ab3; font-size: 18px; font-weight: 700; }
+.pf-ar.pf-join { color: #d9620b; font-size: 22px; }
+.pf-ar.pf-m { display: none; }
+@media (max-width: 1000px) {
+  .pf { display: flex; flex-direction: column; gap: 6px; }
+  .pf-ar { transform: rotate(90deg); height: 20px; }
+  .pf-ar.pf-join { display: none; } .pf-ar.pf-m { display: flex; color: #d9620b; }
+  .pf .r3, .pf .rc { margin-top: 12px; }
+}
 /* the intro videos: the picture is a link to YouTube; a click swaps in the player (youtube-nocookie, nothing loaded before) */
 .vids { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
 @media (max-width: 820px) { .vids { grid-template-columns: 1fr; } }
@@ -215,7 +241,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
 <header class="top"><div class="wrap">
   <a class="brand" href="#"><img src="logo-mark.svg" alt="">jt-waf-mgr</a>
   <nav class="links">
-    <a href="#features" data-t="nav_features"></a><a href="#flow" data-t="nav_flow"></a><a href="#ai" data-t="nav_ai"></a><a href="#alerts" data-t="nav_alerts"></a>
+    <a href="#features" data-t="nav_features"></a><a href="#flow" data-t="nav_flow"></a><a href="#ai" data-t="nav_ai"></a><a href="#intel" data-t="nav_intel"></a><a href="#alerts" data-t="nav_alerts"></a>
     <a href="#notify" data-t="nav_notify"></a><a href="#integrate" class="opt" data-t="nav_integrate"></a><a href="#security" class="opt" data-t="nav_security"></a><a href="#videos" data-t="nav_videos"></a><a href="#screens" data-t="nav_screens"></a>
     <a href="#install" data-t="nav_install"></a><a href="#specs" class="opt" data-t="nav_specs"></a><a href="how.html" id="how-link" data-t="nav_how"></a>
   </nav>
@@ -322,7 +348,20 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
   </div>
 </div></section>
 
-<section id="ai"><div class="wrap">
+<section id="layers"><div class="wrap">
+  <h2 data-t="pf_h"></h2><p class="sub" data-t="pf_sub"></p>
+  <!-- two lanes (the first-tier LLM on events that happened, the second on newly disclosed vulnerabilities) meet in one path -->
+  <div class="pf">
+    <div class="pf-tag l1 r1" data-t="pf_lane1"></div>
+    <div class="pf-box l1 r2"><b data-t="pf_a1_h"></b><span data-t="pf_a1"></span></div><i class="pf-ar r2" aria-hidden="true">→</i><div class="pf-box l1 r2"><b data-t="pf_a2_h"></b><span data-t="pf_a2"></span></div><i class="pf-ar r2" aria-hidden="true">→</i><div class="pf-box l1 r2"><b data-t="pf_a3_h"></b><span data-t="pf_a3"></span></div><i class="pf-ar r2" aria-hidden="true">→</i><div class="pf-box l1 r2"><b data-t="pf_a4_h"></b><span data-t="pf_a4"></span></div><i class="pf-ar pf-join r2" aria-hidden="true">→</i>
+    <div class="pf-tag l2 r3" data-t="pf_lane2"></div>
+    <div class="pf-box l2 r4"><b data-t="pf_b1_h"></b><span data-t="pf_b1"></span></div><i class="pf-ar r4" aria-hidden="true">→</i><div class="pf-box l2 r4"><b data-t="pf_b2_h"></b><span data-t="pf_b2"></span></div><i class="pf-ar r4" aria-hidden="true">→</i><div class="pf-box l2 r4"><b data-t="pf_b3_h"></b><span data-t="pf_b3"></span></div><i class="pf-ar r4" aria-hidden="true">→</i><div class="pf-box l2 r4"><b data-t="pf_b4_h"></b><span data-t="pf_b4"></span></div><i class="pf-ar pf-join r4" aria-hidden="true">→</i>
+    <div class="pf-tag cm rc" data-t="pf_lane3"></div>
+    <i class="pf-ar pf-m" aria-hidden="true">→</i><div class="pf-box cm c1"><b data-t="pf_c1_h"></b><span data-t="pf_c1"></span></div><i class="pf-ar cm a1" aria-hidden="true">→</i><div class="pf-box cm c2"><b data-t="pf_c2_h"></b><span data-t="pf_c2"></span></div><i class="pf-ar cm a2" aria-hidden="true">→</i><div class="pf-box cm c3"><b data-t="pf_c3_h"></b><span data-t="pf_c3"></span></div>
+  </div>
+</div></section>
+
+<section id="ai" class="alt"><div class="wrap">
   <div class="two top">
     <div><h2 data-t="ai_h"></h2><p class="sub" data-t="ai_sub"></p>
       <ul class="ticks"><li data-t="ai1"></li><li data-t="ai2"></li><li data-t="ai3"></li><li data-t="ai4"></li><li data-t="ai5"></li></ul></div>
@@ -332,6 +371,19 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
     <h3 data-t="ai_rec_h"></h3>
     <ul class="ticks recgrid"><li data-t="ai_rec1"></li><li data-t="ai_rec2"></li><li data-t="ai_rec3"></li><li data-t="ai_rec4"></li></ul>
     <p class="disclaimer" data-t="ai_disclaimer"></p>
+  </div>
+</div></section>
+
+<section id="intel"><div class="wrap">
+  <div class="two top">
+    <a class="shotlink" href="shots/en/intel.png" data-shot="intel"><img class="shot" src="shots/en/thumb/intel.webp" alt="" loading="lazy"></a>
+    <div><h2 data-t="intel_h"></h2><p class="sub" data-t="intel_sub"></p>
+      <ul class="ticks"><li data-t="intel1"></li><li data-t="intel2"></li><li data-t="intel3"></li><li data-t="intel4"></li><li data-t="intel5"></li><li data-t="intel6"></li></ul></div>
+  </div>
+  <div class="reccard">
+    <h3 data-t="intel_rec_h"></h3>
+    <ul class="ticks recgrid"><li data-t="intel_rec1"></li><li data-t="intel_rec2"></li><li data-t="intel_rec3"></li><li data-t="intel_rec4"></li></ul>
+    <p class="disclaimer" data-t="intel_disclaimer"></p>
   </div>
 </div></section>
 
@@ -558,14 +610,14 @@ const T = {
   fl2: "Direction at a glance: tightening or loosening; loosening always waits for a person.",
   fl3: "Each one shows its evidence, sandbox result and rule text before anyone approves it.",
   fl4: "Applied changes become numbered versions you can roll back to.",
-  nav_features: 'Features', nav_videos: 'Videos', nav_flow: 'Workflow', nav_ai: 'AI analysis', nav_notify: 'Notify', nav_security: 'Security', nav_screens: 'Screens', nav_install: 'Install',
+  nav_features: 'Features', nav_videos: 'Videos', nav_flow: 'Workflow', nav_ai: 'AI analysis', nav_intel: 'Threat intel', nav_notify: 'Notify', nav_security: 'Security', nav_screens: 'Screens', nav_install: 'Install',
   lead: 'A self-hosted web manager for nginx + libmodsecurity v3 + OWASP CRS 4. Read what the WAF did, tune it through an evidence-checked, sandbox-tested and approved workflow, let your own LLM review the events, and get told what needs a person.',
   releases: 'Releases', changelog: 'Changelog', get_started: 'Get started',
   features_h: 'A management interface for ModSecurity', features_sub: 'libmodsecurity v3 has no management interface. jt-waf-mgr adds one. It writes nothing until you adopt your rule files, and even then only ModSecurity files and, if you switch it on, one IP block list you include yourself; never the rest of the nginx configuration.',
   f1_h: 'Events you can read', f1: 'Blocked and logged requests by site, attack type, source country and network (with a world map drawn in the page, no map service), rule and time. "Blocked only by the CRS score" first: the likely false positives.',
   f2_h: 'Safe rule changes', f2: 'Exclusions, confident blocks, redactions, plugin toggles and expert rules, checked against the access logs and a sandbox, approved, applied by a small root program that restores on failure.',
   f3_h: 'WAF model', f3: 'How a request is decided on your sites, drawn from the live configuration: engine per site, scoring, thresholds, exclusions and blocks.',
-  f15_h: 'Threat intelligence', f15: 'A second LLM looks up new vulnerabilities in your software and writes a virtual patch for those a URL or header gives away, checked like any change; exploited ones are applied at once, with an alert. Only product names, versions and a few host facts leave the host.',
+  f15_h: 'Threat intelligence', f15: 'A second LLM looks up new vulnerabilities in the web applications your sites run and writes a virtual patch for those a URL or header gives away, checked like any change; exploited ones are applied at once, with an alert. Only product names, versions and a few host facts leave the host.',
   f16_h: 'Periodic WAF review', f16: 'Every 3 hours: who may have been blocked by mistake, new internal hits, attacks that got through, what was done automatically, a line per focus site. Sent to your channels.',
   f4_h: 'Self-hosted LLM analysis', f4: 'Your own OpenAI-compatible LLM server reviews recent events on a schedule and proposes narrow blocks and exclusions. The program decides, a person approves.',
   f5_h: 'Alerts to follow up', f5: 'An attack the site may have answered, users hit by a false positive, outside configuration changes, integrity problems: open until handled, reminded until then.',
@@ -586,10 +638,10 @@ const T = {
   ig2_h: 'jt-wazuh-mgr', ig2: 'A separate Jason Tools project that manages Wazuh: it proposes WAF changes and temporary blocks with its own API token (never approves), and keeps the hourly threat view across systems.',
   ig3_h: 'Graylog', ig3: 'GELF over UDP, TCP or TLS straight to a GELF input: every field (site, rule, outcome, source, country) arrives as its own field for streams, dashboards and alerts.',
   ig4_h: 'Other SIEM and syslog', ig4: 'Up to 8 destinations, each with its own protocol (UDP, TCP, TLS), format (JSON, CEF, LEEF, GELF, key=value, RFC 3164 / 5424) and content (audit trail, events, alerts), with its own queue and a test button.',
-  ig5_h: 'fail2ban and scripts', ig5: 'A ready fail2ban action blocks and unblocks through the IP block API: a token per host, single addresses, up to 7 days; internal and protected networks can never be blocked.',
+  ig5_h: 'fail2ban and scripts', ig5: 'A ready fail2ban action blocks and unblocks through the IP block API: a token per host, single addresses, up to 7 days; internal and protected networks can never be blocked. For example: fail2ban on a Zimbra mail server sees one address guessing passwords, and that address is blocked on every site behind nginx too.',
   ig6_h: 'Messaging apps and webhooks', ig6: 'E-mail, Telegram, Teams, Slack, Discord, Zulip, Nextcloud Talk and a generic webhook signed with HMAC-SHA256.',
   n_h: 'Hear about what needs a person', n_sub: 'The web service only queues messages; a separate sandboxed unit sends them, retries and reminds open alerts.',
-  n1: 'A matrix of events and channels, messages in English, Traditional Chinese or Japanese with a link back', n2: 'Values from requests are never markup, links or mentions; secrets are write-only',
+  n1: 'A matrix of events and channels, messages in English, Traditional Chinese or Japanese with a link back', n2: 'Request content quoted in a message (URL, headers) is sent as plain text, so an attacker cannot slip in links, formatting or @-mentions; channel tokens and passwords can be entered but are never shown again',
   n3: 'Generic webhook with an HMAC-SHA256 signature over timestamp and body',
   sec_h: 'Security design', sec_sub: 'The manager itself is built with least privilege, strict handling of request data and security tests in every release.',
   sec1_h: 'Least privilege', sec1: 'The web service listens on loopback, runs unprivileged and its unit allows connections to localhost only (logs go to the local syslog by default; a remote log server needs an IPAddressAllow drop-in); downloads, the LLM and notifications run in separate restricted units; only the apply program runs as root and writes only the managed files.',
@@ -647,9 +699,35 @@ const T = {
   f14_h: 'Temporary IP blocks',
   f14: 'fail2ban on a mail host, a SOAR playbook or an approver blocks one address for a while (24 hours by default, never for ever); one nginx deny list covers every site. Optionally, sources that guess secret files are blocked automatically.',
   f12: 'A SIEM, a SOAR playbook or a script uses API tokens with scopes and allowed source addresses: read events and alerts, propose changes. Tokens can never approve. See the API manual.',
+  intel_h: 'New vulnerabilities, guarded before you patch', intel_sub: 'A second, stronger LLM regularly searches the web for new vulnerabilities in the web applications your sites run; for those a URL or header gives away, it writes a narrow precaution rule by itself and blocks them before you have had time to patch.',
+  intel1: 'The program guesses the web applications the sites run (about 300 known) and the web services from the access logs, and asks each application for the version it reports itself; only entries a person confirmed are searched',
+  intel2: 'An on-premises model searches through an MCP search server (SearXNG, for example); a cloud model (Anthropic, OpenAI, Google Gemini) can use its own search. Pages are read only from allowed domains, and what they say is never trusted',
+  intel3: 'Only product names, versions and a few host facts (operating system, architecture, C library) leave the host, never requests, addresses or site names; daily and monthly token limits',
+  intel4: 'The rules look only at the URL or headers and take the usual change path: static checks, evidence from every access log (no normal traffic blocked), sandbox regression, with 403/200 tests and source links',
+  intel5: 'Exploited in the wild (CISA KEV or a vendor notice) and not patched here: applied at once, outside the daily limit, with an urgent notification; if a check fails, an urgent alert asks a person to decide',
+  intel6: 'A precondition this host does not meet (C library, build option) marks it not applicable; once the application is updated, a reminder to remove the rule',
+  intel_rec_h: 'Which LLM for the second tier',
+  intel_rec1: 'Tool calling is required: the model decides what to search and which pages to read, within a cap of tool rounds per search',
+  intel_rec2: 'On premises: an OpenAI-compatible server plus an MCP server offering web_search; leave the URL empty to reuse the first-tier server',
+  intel_rec3: 'Cloud: Anthropic (Claude) and the OpenAI API can use the provider\'s own web search; Google Gemini searches through the MCP server. Only public information is sent; request data never leaves the host',
+  intel_rec4: 'Optional structured sources (off by default): the CISA KEV catalog of exploited vulnerabilities, OSV package queries, NVD for the official CVSS and CWE; nothing is downloaded or asked until switched on',
+  intel_disclaimer: 'AI can miss a vulnerability or judge wrong, and it does not replace patching. Its rules can only tighten, never loosen; automatic application still needs every check to pass, and can be switched off in Settings so each rule waits for a person.',
+  pf_h: 'Two LLM tiers: from a request to a rule in force', pf_sub: 'The first tier looks at what already happened; the second at newly disclosed vulnerabilities nobody has tried yet. The rules both write go through the same checks, approval and application.',
+  pf_lane1: 'First-tier LLM · on premises · events that happened', pf_lane2: 'Second-tier LLM · on premises or cloud · newly disclosed vulnerabilities', pf_lane3: 'One path for both',
+  pf_a1_h: 'A request comes in', pf_a1: 'nginx + ModSecurity + CRS block or pass it and write the audit log',
+  pf_a2_h: 'Events', pf_a2: 'jt-waf-mgr reads them as events, grouped by path, source and rule',
+  pf_a3_h: 'First-tier LLM', pf_a3: 'Attack, probe or false positive? Request data never leaves the host',
+  pf_a4_h: 'Proposal', pf_a4: 'A block, the narrowest exclusion, or an alert',
+  pf_b1_h: 'Web applications', pf_b1: 'Guessed from the access logs, versions read from the applications, confirmed by a person',
+  pf_b2_h: 'Second-tier LLM', pf_b2: 'Searches the web for newly disclosed vulnerabilities; CISA KEV, OSV, NVD optional',
+  pf_b3_h: 'Does it affect this site?', pf_b3: 'Versions and preconditions compared; a mismatch is not applicable',
+  pf_b4_h: 'Precaution rule', pf_b4: 'A confident block that looks only at the URL or headers',
+  pf_c1_h: 'Checks', pf_c1: 'Static checks, evidence from every access log, sandbox regression; any failure stops it',
+  pf_c2_h: 'Approval', pf_c2: 'Loosening always needs a person; tightening that passed every check may apply by itself; an exploited vulnerability applies at once',
+  pf_c3_h: 'Apply and notify', pf_c3: 'nginx -t, reload, health checks, restored on failure; notifications, alerts, a hash-chained audit trail',
   ai_rec_h: 'Which LLM',
   ai_rec1: 'Always self-hosted: an OpenAI-compatible server (llama.cpp server, vLLM, Ollama) with JSON-schema-constrained answers; without them plain JSON mode is used and answers are less reliable',
-  ai_rec2: 'An instruction model of about 14B parameters or more, at 4-bit quantization or better; 27–32B dense or 30B-class MoE recommended, with Qwen 3.8 or later or Gemma 4 or later (older versions are not recommended), or gpt-oss-20b',
+  ai_rec2: 'An instruction model of about 14B parameters or more, at 4-bit quantization or better; 27–32B dense or 30B-class MoE recommended, with Qwen 3.8 or later or Gemma 4 or later (older versions are not recommended)',
   ai_rec3: 'A context window of at least 16k tokens: one batch of 11 candidates used about 3k input and 3.5k output tokens and took about 85 seconds on the production server',
   ai_rec4: 'Models of 8B and below or 2–3-bit quantizations contradict themselves more between runs (in production a 3-bit model called the same probe an attack twice and a false positive once); program-side scanner rules and a verdict history counter this, a stronger model helps. On slow hardware, raise the LLM timeout (up to 900 s)',
   cn_h: 'Connect to the management interface',
@@ -735,14 +813,14 @@ const T = {
   fl2: "一眼看出方向：加強或放寬；放寬一律等人核准。",
   fl3: "核准前每筆都附上證據、沙箱結果與規則內容。",
   fl4: "套用後成為有編號的版本，可以退回。",
-  nav_features: '功能', nav_videos: '影片', nav_flow: '變更流程', nav_ai: '事件分析', nav_notify: '通知', nav_security: '安全', nav_screens: '截圖', nav_install: '安裝',
+  nav_features: '功能', nav_videos: '影片', nav_flow: '變更流程', nav_ai: '事件分析', nav_intel: '威脅情報', nav_notify: '通知', nav_security: '安全', nav_screens: '截圖', nav_install: '安裝',
   lead: '自架的 nginx + libmodsecurity v3 + OWASP CRS 4 網頁管理工具。看懂 WAF 做了什麼，透過證據檢查、沙箱測試、人員核准的流程調整規則，由你自己的 LLM 檢視事件，需要有人處理的事情會通知你。',
   releases: '下載發行版', changelog: '變更記錄', get_started: '開始使用',
   features_h: '補強 ModSecurity 管理介面', features_sub: 'libmodsecurity v3 沒有管理介面。jt-waf-mgr 補上它：在你納管規則檔之前什麼都不寫入，之後也只寫 ModSecurity 的檔案，以及你啟用時的一個 IP 封鎖清單檔（由你自己 include）；其他 nginx 設定一律不碰。',
   f1_h: '看得懂的事件', f1: '封鎖與只記錄的請求，依站台、攻擊類型、來源國家與網路（頁面內繪製的世界地圖，不使用地圖服務）、規則與時間呈現。「只因 CRS 分數被封鎖」排最前面：最可能是誤判。',
   f2_h: '安全的規則變更', f2: '排除、確定封鎖、遮蔽、外掛開關與專家規則，先用存取記錄與沙箱檢查，再經核准，由失敗會自動還原的小型 root 程式套用。',
   f3_h: 'WAF 判斷流程', f3: '依實際設定畫出請求在你的站台上怎麼被判定：各站台引擎、計分、門檻、排除與封鎖。',
-  f15_h: '威脅情報', f15: '第二層 LLM 搜尋你的軟體有沒有新漏洞，能從網址或標頭辨識的就寫出預先防護規則，照一般流程檢查；已被利用的立即套用並發警示。只送出產品名稱、版本與少數主機資訊。',
+  f15_h: '威脅情報', f15: '第二層 LLM 搜尋你站台用的 Web 應用套件有沒有新漏洞，能從網址或標頭辨識的就寫出預先防護規則，照一般流程檢查；已被利用的立即套用並發警示。只送出產品名稱、版本與少數主機資訊。',
   f16_h: 'WAF 定期檢討', f16: '每 3 小時：誰可能被誤封鎖、新的內部命中、沒被封鎖的攻擊、自動處理了什麼、每個重點站台一行。送到你的通知管道。',
   f4_h: '地端 LLM 分析', f4: '你自己的 OpenAI 相容 LLM 伺服器定期檢視事件，提出很窄的封鎖與排除。由程式決定，由人核准。',
   f5_h: '待處理警示', f5: '可能沒被封鎖的攻擊、影響使用者的誤判、設定被外部修改、完整性問題：處理前一直開著，並定期提醒。',
@@ -763,10 +841,10 @@ const T = {
   ig2_h: 'jt-wazuh-mgr', ig2: 'Jason Tools 另一個管理 Wazuh 的專案：用自己的 API 權杖提出 WAF 變更與暫時封鎖（永遠不能核准），並負責跨系統的每小時威脅檢視。',
   ig3_h: 'Graylog', ig3: '以 GELF（UDP、TCP 或 TLS）直接送到 GELF input：站台、規則、結果、來源、國家都是各自獨立的欄位，可直接做 stream、儀表板與警示。',
   ig4_h: '其他 SIEM 與 syslog', ig4: '最多 8 個目的地，各自設定協定（UDP、TCP、TLS）、格式（JSON、CEF、LEEF、GELF、key=value、RFC 3164 / 5424）與內容（稽核記錄、事件、警示），各有獨立佇列與測試按鈕。',
-  ig5_h: 'fail2ban 與腳本', ig5: '附上現成的 fail2ban 動作，透過 IP 封鎖 API 封鎖與解除：每台主機一個權杖、只能單一位址、最長 7 天；內部網路與保護清單永遠不會被封鎖。',
+  ig5_h: 'fail2ban 與腳本', ig5: '附上現成的 fail2ban 動作，透過 IP 封鎖 API 封鎖與解除：每台主機一個權杖、只能單一位址、最長 7 天；內部網路與保護清單永遠不會被封鎖。例如：Zimbra 郵件主機的 fail2ban 發現某個位址在猜密碼，就呼叫 API，讓 nginx 後面所有站台一起封鎖這個位址。',
   ig6_h: '通訊軟體與 webhook', ig6: 'E-mail、Telegram、Teams、Slack、Discord、Zulip、Nextcloud Talk，以及 HMAC-SHA256 簽章的通用 webhook。',
   n_h: '需要有人處理時就通知你', n_sub: '網頁服務只把通知排入佇列，由獨立的受限程序發送、重試，並提醒待處理警示。',
-  n1: '事件 × 管道矩陣；訊息可用英文、繁體中文或日文，附上回到頁面的連結', n2: '來自請求的內容永遠不會變成格式、連結或提及；金鑰只能寫入',
+  n1: '事件 × 管道矩陣；訊息可用英文、繁體中文或日文，附上回到頁面的連結', n2: '通知裡引用的請求內容 (網址、標頭等) 一律當純文字送出，攻擊者無法藉此在訊息裡插入連結、改變排版或 @ 標記別人；各管道的權杖與密碼只能填入，存好後畫面上不會再顯示',
   n3: '通用 webhook 以 HMAC-SHA256 對時間戳與內容簽章',
   sec_h: '安全設計', sec_sub: '管理工具本身也照最小權限、嚴格的輸入處理與每版安全測試來設計。',
   sec1_h: '最小權限', sec1: '網頁服務只聽 loopback、以非特權執行，它的 unit 只允許連到本機（記錄預設送到本機 syslog；要直接送遠端記錄伺服器，需另加 IPAddressAllow 設定）；GeoIP 下載、LLM 與通知各在受限的獨立 unit 執行；只有套用程式是 root，而且只寫受管理的檔案。',
@@ -809,7 +887,7 @@ const T = {
   sc_lookup: '查詢位址與所在位置',
   sc_traffic: '請求量與 WAF 封鎖並列',
   sc_countries: '各站台的國家限制：允許哪些國家、封鎖了多少',
-  sc_intel: '威脅情報：已確認軟體的漏洞', sc_reviews: 'WAF 定期檢討：可能誤封鎖排前面、重點站台', sc_warroom: '戰情室：即時或最長 7 天的牆面看板 (七個畫面，可輪播)',
+  sc_intel: '威脅情報：Web 應用套件的漏洞', sc_reviews: 'WAF 定期檢討：可能誤封鎖排前面、重點站台', sc_warroom: '戰情室：即時或最長 7 天的牆面看板 (七個畫面，可輪播)',
   sc_warroom_globe: '戰情室 3D 地球 (示範模式的模擬攻擊)',
   car_overview: '儀表板', car_warroom: '戰情室', car_traffic: '請求量', car_prev: '上一張截圖', car_next: '下一張截圖',
   f9_h: '請求量',
@@ -824,9 +902,35 @@ const T = {
   f14_h: '暫時封鎖 IP',
   f14: '郵件主機的 fail2ban、SOAR 劇本或核准者可以暫時封鎖單一位址（預設 24 小時，沒有永久封鎖）；一個 nginx deny 清單涵蓋所有站台。也可以選擇自動封鎖猜機密檔的來源。',
   f12: 'SIEM、SOAR 劇本或指令稿使用有範圍、限制來源位址的 API 權杖：讀取事件與警示、提出變更。權杖永遠不能核准。詳見 API 介接手冊。',
+  intel_h: '自動追蹤新揭露的漏洞，先寫好防護規則', intel_sub: '第二層、較強的 LLM 定期上網找你站台用的 Web 應用套件有沒有新漏洞；能從網址或標頭辨識的，自己寫出很窄的預先防護規則，在你來得及修補之前先封鎖。',
+  intel1: '程式從存取記錄推測站台跑的 Web 應用套件 (約 300 種) 與網站服務，並向應用程式讀取它自己回報的版本；人確認過的才搜尋',
+  intel2: '地端模型透過 MCP 搜尋伺服器 (例如 SearXNG) 上網，雲端模型 (Anthropic、OpenAI、Google Gemini) 可用自己的搜尋；只讀允許清單上的網域，網頁內容一律視為不可信',
+  intel3: '只送產品名稱、版本與少數主機資訊 (作業系統、架構、C 函式庫)，不送請求、位址或站名；每天、每月有 token 上限',
+  intel4: '規則只看網址或標頭，照一般變更流程：靜態檢查、全部存取記錄的證據 (不可封鎖到正常流量)、沙箱回歸測試，附 403/200 測試與來源連結',
+  intel5: '已被利用 (CISA KEV 或廠商公告) 且本站版本未修補：不受每日上限、立即套用並發緊急通知；檢查沒過就發緊急警示請人決定',
+  intel6: '公告的前提條件 (例如 C 函式庫、編譯選項) 主機不符合就記為不適用；套件更新版本後提醒移除規則',
+  intel_rec_h: '第二層用什麼 LLM',
+  intel_rec1: '要支援工具呼叫 (tool calling)：搜尋什麼、讀哪些網頁由模型決定，每次搜尋有工具回合上限',
+  intel_rec2: '地端：OpenAI 相容伺服器，加上提供 web_search 的 MCP 伺服器；網址留空就沿用第一層的伺服器',
+  intel_rec3: '雲端：Anthropic (Claude) 與 OpenAI 官方 API 可用供應商自己的網路搜尋，Google Gemini 的搜尋走 MCP 伺服器。只送公開資訊，請求資料不會離開本機',
+  intel_rec4: '選用的結構化來源 (預設關閉)：CISA KEV 已被利用漏洞清單、OSV 套件漏洞查詢、NVD 官方 CVSS 與 CWE；打開之前不會下載或查詢',
+  intel_disclaimer: 'AI 可能漏掉漏洞或判斷錯誤，不能取代修補。它的規則只能加強、不能放寬；自動套用一樣要通過所有檢查，也可以在設定關閉，改成每筆等人核准。',
+  pf_h: '兩層 LLM：從請求進來到規則上線', pf_sub: '第一層看已經發生的事件，第二層看剛揭露、還沒被打的新漏洞；兩邊寫出的規則走同一條檢查、核准、套用的流程。',
+  pf_lane1: '第一層 LLM · 地端 · 已經發生的事件', pf_lane2: '第二層 LLM · 地端或雲端 · 新揭露的漏洞', pf_lane3: '兩邊共用的流程',
+  pf_a1_h: '請求進來', pf_a1: 'nginx + ModSecurity + CRS 判斷封鎖或放行，寫入稽核記錄',
+  pf_a2_h: '事件', pf_a2: 'jt-waf-mgr 讀成事件，依路徑、來源、規則分組',
+  pf_a3_h: '第一層 LLM', pf_a3: '判斷是攻擊、探測還是誤判；請求資料不離開本機',
+  pf_a4_h: '提案', pf_a4: '封鎖、範圍最小的排除，或發出警示',
+  pf_b1_h: 'Web 應用套件清單', pf_b1: '從存取記錄推測，向應用程式讀取版本，人確認',
+  pf_b2_h: '第二層 LLM', pf_b2: '上網搜尋新揭露的漏洞；可加 CISA KEV、OSV、NVD',
+  pf_b3_h: '影響判斷', pf_b3: '比對版本與前提條件，不符合就記為不適用',
+  pf_b4_h: '預先防護規則', pf_b4: '只看網址或標頭的確定封鎖',
+  pf_c1_h: '檢查', pf_c1: '靜態檢查、全部存取記錄的證據、沙箱回歸測試；任一項沒過就停',
+  pf_c2_h: '核准', pf_c2: '放寬一律要人核准；通過所有檢查的加強可自動套用；已被利用的漏洞立即套用',
+  pf_c3_h: '套用與通知', pf_c3: 'nginx -t、reload、健康檢查，失敗自動還原；通知、警示、雜湊鏈稽核',
   ai_rec_h: '建議的 LLM',
   ai_rec1: '一律用地端伺服器：OpenAI 相容（llama.cpp server、vLLM、Ollama），並支援以 JSON schema 限制回答格式；不支援時改用一般 JSON 模式，回答比較不可靠',
-  ai_rec2: '約 14B 參數以上的指令模型，4-bit 量化或更好；建議 27–32B 的 dense 模型或 30B 級 MoE，Qwen 要 3.8 以上、Gemma 要 4 以上（較舊的版本不建議），或 gpt-oss-20b',
+  ai_rec2: '約 14B 參數以上的指令模型，4-bit 量化或更好；建議 27–32B 的 dense 模型或 30B 級 MoE，Qwen 要 3.8 以上、Gemma 要 4 以上 (較舊的版本不建議)',
   ai_rec3: '上下文長度至少 16k tokens：實測一批 11 個候選約用 3k 輸入與 3.5k 輸出 tokens，在正式機上約 85 秒',
   ai_rec4: '8B 以下的模型或 2–3-bit 量化，每次的判斷比較容易前後矛盾（正式環境曾有 3-bit 量化模型把同一個探測兩次判為攻擊、一次判為誤判）；程式端的掃描器規則與判斷歷史可以抵銷，但模型強一點有幫助。硬體較慢時請把 LLM 逾時調高（最多 900 秒）',
   cn_h: '連到管理介面',
@@ -912,14 +1016,14 @@ const T = {
   fl2: "方向がひと目で分かります：強化か緩和か。緩和は必ず人の承認を待ちます。",
   fl3: "承認の前に、証拠、サンドボックスの結果、ルールの内容を確認できます。",
   fl4: "適用した変更は番号付きのバージョンになり、戻すことができます。",
-  nav_features: '機能', nav_videos: '動画', nav_flow: '変更フロー', nav_ai: 'イベント分析', nav_notify: '通知', nav_security: 'セキュリティ', nav_screens: '画面', nav_install: 'インストール',
+  nav_features: '機能', nav_videos: '動画', nav_flow: '変更フロー', nav_ai: 'イベント分析', nav_intel: '脅威情報', nav_notify: '通知', nav_security: 'セキュリティ', nav_screens: '画面', nav_install: 'インストール',
   lead: 'nginx + libmodsecurity v3 + OWASP CRS 4 のためのセルフホスト型 Web 管理ツール。WAF が何をしたかを読み取り、証拠確認・サンドボックス試験・承認を経るフローで調整し、自前の LLM にイベントを確認させ、人の対応が必要なことを知らせます。',
   releases: 'リリース', changelog: '変更履歴', get_started: 'はじめる',
   features_h: 'ModSecurity の管理インターフェースを補う', features_sub: 'libmodsecurity v3 には管理画面がありません。jt-waf-mgr はそれを補います。ルールファイルを取り込むまで何も書き込まず、その後も書き込むのは ModSecurity のファイルと、オンにした場合の IP ブロックリスト 1 つ（include はお客様が行います）だけで、それ以外の nginx の設定には書き込みません。',
   f1_h: '読めるイベント', f1: 'ブロック・記録のみのリクエストを、サイト、攻撃の種類、送信元の国とネットワーク（ページ内で描画する世界地図、地図サービスは不使用）、ルール、時間ごとに表示。「CRS スコアだけでブロック」を先頭に：誤検知の可能性が高いものです。',
   f2_h: '安全なルール変更', f2: '除外、確定ブロック、マスク、プラグイン切替、エキスパートルールを、アクセスログとサンドボックスで確認し、承認後、失敗時に復元する小さな root プログラムが適用。',
   f3_h: 'WAF 判定フロー', f3: '現在の設定から、サイトでリクエストがどう判定されるか（サイトごとのエンジン、スコア、しきい値、除外、ブロック）を図示。',
-  f15_h: '脅威インテリジェンス', f15: '第 2 層の LLM が確認済みソフトウェアの新しい脆弱性を検索し、URL やヘッダーで見分けられるものには狭い仮想パッチを書いて通常のチェックに通します。悪用済みで未修正なら即時適用と緊急アラート。送るのは製品名、バージョンと少しのホスト情報だけ。',
+  f15_h: '脅威インテリジェンス', f15: '第 2 層の LLM がサイトで使う Web アプリケーションの新しい脆弱性を検索し、URL やヘッダーで見分けられるものには狭い仮想パッチを書いて通常のチェックに通します。悪用済みで未修正なら即時適用と緊急アラート。送るのは製品名、バージョンと少しのホスト情報だけ。',
   f16_h: 'WAF 定期レビュー', f16: '3 時間ごと:誤ブロックの可能性、新しい内部の一致、通過した攻撃、自動処理の内容、重点サイトごとの 1 行。通知チャネルへ送信。',
   f4_h: 'オンプレミス LLM 分析', f4: '自前の OpenAI 互換 LLM サーバーが定期的にイベントを確認し、狭いブロックと除外を提案。決めるのはプログラム、承認するのは人。',
   f5_h: '対応待ちアラート', f5: '防がれていない可能性のある攻撃、利用者に影響する誤検知、設定の外部変更、完全性の問題：対応されるまで開いたまま、定期的に再通知。',
@@ -940,10 +1044,10 @@ const T = {
   ig2_h: 'jt-wazuh-mgr', ig2: 'Wazuh を管理する Jason Tools の別プロジェクト。専用の API トークンで WAF の変更と一時ブロックを提案し（承認はできない）、システム横断の毎時の脅威確認を担います。',
   ig3_h: 'Graylog', ig3: 'GELF（UDP、TCP、TLS）で GELF input に直接送信。サイト、ルール、結果、送信元、国がそれぞれ独立したフィールドになり、ストリーム、ダッシュボード、アラートにそのまま使えます。',
   ig4_h: 'その他の SIEM と syslog', ig4: '最大 8 つの送信先に、それぞれのプロトコル（UDP、TCP、TLS）、形式（JSON、CEF、LEEF、GELF、key=value、RFC 3164 / 5424）、内容（監査記録、イベント、アラート）を設定。個別のキューとテスト送信付き。',
-  ig5_h: 'fail2ban とスクリプト', ig5: 'IP ブロック API でブロック・解除する fail2ban アクションを用意。ホストごとのトークン、単一アドレスのみ、最長 7 日。内部ネットワークと保護リストは決してブロックしません。',
+  ig5_h: 'fail2ban とスクリプト', ig5: 'IP ブロック API でブロック・解除する fail2ban アクションを用意。ホストごとのトークン、単一アドレスのみ、最長 7 日。内部ネットワークと保護リストは決してブロックしません。例：Zimbra メールサーバーの fail2ban がパスワードを推測しているアドレスを見つけたら API を呼び、nginx の背後の全サイトでもそのアドレスをブロックします。',
   ig6_h: 'メッセージアプリと webhook', ig6: 'メール、Telegram、Teams、Slack、Discord、Zulip、Nextcloud Talk、HMAC-SHA256 署名付きの汎用 webhook。',
   n_h: '人の対応が必要なことを知らせる', n_sub: 'Web サービスはメッセージをキューに入れるだけ。送信・再送・対応待ちアラートの再通知は別の制限付きユニットが行います。',
-  n1: 'イベント × チャネルのマトリクス。メッセージは英語・繁体字中国語・日本語で、ページへのリンク付き', n2: 'リクエスト由来の値が書式・リンク・メンションになることはなく、シークレットは書き込み専用',
+  n1: 'イベント × チャネルのマトリクス。メッセージは英語・繁体字中国語・日本語で、ページへのリンク付き', n2: 'メッセージに引用するリクエストの内容 (URL、ヘッダーなど) はプレーンテキストとして送るため、攻撃者がリンク、書式、@ メンションを紛れ込ませることはできません。各チャネルのトークンとパスワードは入力できますが、保存後は二度と表示されません',
   n3: '汎用 webhook はタイムスタンプと本文に対する HMAC-SHA256 署名付き',
   sec_h: 'セキュリティ設計', sec_sub: '管理ツール自体も、最小権限、リクエストデータの厳格な扱い、リリースごとのセキュリティテストに基づいて設計しています。',
   sec1_h: '最小権限', sec1: 'Web サービスは loopback のみで待ち受け、非特権で動作し、unit はローカルホストへの接続だけを許可します（ログは既定でローカルの syslog へ。リモートのログサーバーへ直接送るには IPAddressAllow の追加設定が必要です）。GeoIP のダウンロード、LLM、通知は制限された別の unit で動きます。root で動くのは適用プログラムだけで、管理対象のファイルだけを書き込みます。',
@@ -1001,9 +1105,35 @@ const T = {
   f14_h: '一時的な IP ブロック',
   f14: 'メールサーバーの fail2ban、SOAR プレイブック、承認者が単一アドレスを一時的にブロック（既定 24 時間、永久なし）。1 つの nginx deny リストですべてのサイトに効きます。機密ファイルを探す送信元の自動ブロックも選べます。',
   f12: 'SIEM、SOAR のプレイブック、スクリプトは、スコープと許可する送信元アドレス付きの API トークンで、イベントやアラートの取得、変更の提案ができます。トークンは承認できません。API 連携マニュアルを参照してください。',
+  intel_h: '新しく公開された脆弱性を、修正前に防ぐ', intel_sub: '2 層目のより強力な LLM が、サイトで使っている Web アプリケーションの新しい脆弱性を定期的に Web で探します。URL やヘッダーで見分けられるものには自分で狭い予防ルールを書き、修正が間に合う前にブロックします。',
+  intel1: 'プログラムがアクセスログからサイトで動く Web アプリケーション (約 300 種) と Web サービスを推定し、アプリケーション自身が返すバージョンを読み取ります。人が確認したものだけを検索します',
+  intel2: 'オンプレミスのモデルは MCP 検索サーバー (SearXNG など) で、クラウドのモデル (Anthropic、OpenAI、Google Gemini) は自前の検索でも調べられます。読むのは許可したドメインのページだけで、その内容は信頼しません',
+  intel3: '送るのは製品名、バージョンと少しのホスト情報 (OS、アーキテクチャ、C ライブラリ) だけで、リクエスト、アドレス、サイト名は送りません。1 日と 1 か月のトークン上限があります',
+  intel4: 'ルールは URL かヘッダーだけを見て、通常の変更フローを通ります：静的チェック、全アクセスログの証拠 (正常な通信をブロックしない)、サンドボックスの回帰テスト。403/200 のテストと出典リンク付き',
+  intel5: '悪用が確認され (CISA KEV またはベンダーの告知)、当サイトのバージョンが未修正なら、1 日の上限に関係なく即時適用して緊急通知。チェックに通らなければ緊急アラートで人に判断を求めます',
+  intel6: '告知の前提条件 (C ライブラリ、ビルドオプションなど) をこのホストが満たさなければ該当なしとして記録。アプリケーションの更新後はルールの削除を促します',
+  intel_rec_h: '2 層目に使う LLM',
+  intel_rec1: 'ツール呼び出し (tool calling) が必要です。何を検索し、どのページを読むかはモデルが決め、1 回の検索のツールラウンド数には上限があります',
+  intel_rec2: 'オンプレミス：OpenAI 互換サーバーと、web_search を持つ MCP サーバー。URL を空にすると 1 層目のサーバーを使います',
+  intel_rec3: 'クラウド：Anthropic (Claude) と OpenAI の API はプロバイダー自身の Web 検索を使えます。Google Gemini は MCP サーバーで検索します。送るのは公開情報だけで、リクエストのデータはホストから出ません',
+  intel_rec4: '任意の構造化ソース (既定はオフ)：CISA KEV の悪用済み脆弱性カタログ、OSV のパッケージ照会、NVD の公式 CVSS と CWE。オンにするまでダウンロードも照会もしません',
+  intel_disclaimer: 'AI は脆弱性を見落としたり判断を誤ったりすることがあり、修正の代わりにはなりません。ルールは強化のみで緩和はしません。自動適用もすべてのチェックに通る必要があり、設定でオフにすれば 1 件ずつ人の承認を待ちます。',
+  pf_h: '2 層の LLM：リクエストからルールの適用まで', pf_sub: '1 層目はすでに起きたイベントを、2 層目は公開されたばかりでまだ狙われていない脆弱性を見ます。どちらが書いたルールも、同じチェック、承認、適用の流れを通ります。',
+  pf_lane1: '1 層目の LLM · オンプレミス · 起きたイベント', pf_lane2: '2 層目の LLM · オンプレミスまたはクラウド · 新しく公開された脆弱性', pf_lane3: '共通の流れ',
+  pf_a1_h: 'リクエスト', pf_a1: 'nginx + ModSecurity + CRS がブロックか通過かを判定し、監査ログに記録',
+  pf_a2_h: 'イベント', pf_a2: 'jt-waf-mgr がイベントとして読み、パス、送信元、ルールでまとめる',
+  pf_a3_h: '1 層目の LLM', pf_a3: '攻撃、探査、誤検知のどれかを判定。リクエストのデータはホストから出ない',
+  pf_a4_h: '提案', pf_a4: 'ブロック、最小範囲の除外、またはアラート',
+  pf_b1_h: 'Web アプリケーション一覧', pf_b1: 'アクセスログから推定し、アプリケーションからバージョンを読み、人が確認',
+  pf_b2_h: '2 層目の LLM', pf_b2: '新しく公開された脆弱性を Web で検索。CISA KEV、OSV、NVD も任意で利用',
+  pf_b3_h: '影響の判定', pf_b3: 'バージョンと前提条件を照合し、合わなければ該当なし',
+  pf_b4_h: '予防ルール', pf_b4: 'URL かヘッダーだけを見る確定ブロック',
+  pf_c1_h: 'チェック', pf_c1: '静的チェック、全アクセスログの証拠、サンドボックスの回帰テスト。1 つでも通らなければ止まる',
+  pf_c2_h: '承認', pf_c2: '緩和は必ず人が承認。すべてのチェックを通った強化は自動適用可。悪用済みの脆弱性は即時適用',
+  pf_c3_h: '適用と通知', pf_c3: 'nginx -t、reload、ヘルスチェック、失敗時は自動で戻す。通知、アラート、ハッシュチェーンの監査',
   ai_rec_h: '推奨する LLM',
   ai_rec1: '常にオンプレミス：OpenAI 互換サーバー（llama.cpp server、vLLM、Ollama）で、JSON スキーマで形式を制約した回答に対応しているもの。非対応なら通常の JSON モードとなり、回答の信頼性が下がります',
-  ai_rec2: '約 14B パラメータ以上の指示モデル、4 ビット量子化以上。27–32B の dense か 30B 級 MoE を推奨。Qwen は 3.8 以上、Gemma は 4 以上（それより古いものは推奨しません）、または gpt-oss-20b',
+  ai_rec2: '約 14B パラメータ以上の指示モデル、4 ビット量子化以上。27–32B の dense か 30B 級 MoE を推奨。Qwen は 3.8 以上、Gemma は 4 以上 (それより古いものは推奨しません)',
   ai_rec3: 'コンテキスト長は 16k トークン以上：実測では候補 11 件の 1 バッチで入力約 3k・出力約 3.5k トークン、本番サーバーで約 85 秒',
   ai_rec4: '8B 以下のモデルや 2–3 ビット量子化は実行ごとの判定が矛盾しやすくなります（本番では 3 ビット量子化のモデルが同じ探査を 2 回は攻撃、1 回は誤検知と判定）。プログラム側のスキャナー規則と判定履歴で補いますが、強いモデルのほうが有利です。遅いハードウェアでは LLM のタイムアウトを延ばしてください（最大 900 秒）',
   cn_h: '管理画面への接続',

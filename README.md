@@ -102,11 +102,11 @@ nginx and ModSecurity keep working with the last rules.
   CRS score alone with possible false blocks first, new internal hits, outside attacks that got through, what was done
   automatically, one line per focus site.
 - **Second-tier LLM (threat intelligence)**: a stronger LLM, local (OpenAI-compatible) or cloud (OpenAI-compatible, Google Gemini or
-  Anthropic), searches the web every few hours for new vulnerabilities in the software list the program guesses and a
+  Anthropic), searches the web every few hours for new vulnerabilities in the list of web applications the program guesses and a
   person confirms (this host's web-facing packages: about 50 products; the CRS; the applications the sites run:
   about 300 recognised from the paths they answer), above all those exploited in the wild.
   Only product names and versions leave the host, with a few facts for the vulnerabilities' preconditions
-  (operating system, architecture, C library, sshd's UsePAM). Local models search through an MCP server (for example SearXNG);
+  (operating system, architecture, C library). Local models search through an MCP server (for example SearXNG);
   Anthropic and OpenAI's own API can use the provider's web search instead. The program reads only https pages on an
   allow-list, and "exploited" counts only when it read the CISA catalog itself in that run, or -- with the KEV catalog
   switched on (downloaded daily, about 1.5 MB) -- when the catalog lists it. A product can be confirmed
@@ -120,7 +120,7 @@ nginx and ModSecurity keep working with the last rules.
   handled with a note; reminded until then.
 - **Notifications**: e-mail (SMTP, text + HTML), Telegram, Microsoft Teams (Workflows / Adaptive Card), Slack,
   Discord, Zulip, Nextcloud Talk and a generic webhook (HMAC-SHA256 signature); a matrix of events × channels; a test
-  per channel; retries, rate limits and delivery records. Values from requests are never markup, links or mentions.
+  per channel; retries, rate limits and delivery records. Request content quoted in a message (URL, headers) is sent as plain text, so an attacker cannot slip in links, formatting or @-mentions.
 - **OWASP CRS updates** (optional, off by default): a sandboxed daily check takes the newest release of the major
   version in use once it has been out a week, keeps it only with a valid signature by the pinned CRS release key and
   stages it; the CRS page shows what is in use, what is new and what is verified. Switching to it (or back to a kept
@@ -419,7 +419,7 @@ The analysis always runs on your own, self-hosted LLM server.
 - **Server**: OpenAI-compatible (llama.cpp server, vLLM, Ollama) with JSON-schema-constrained answers. Without them,
   plain JSON mode is used and answers are less reliable.
 - **Model**: an instruction model of about 14B parameters or more, at 4-bit quantization or better; 27–32B dense or a
-  30B-class MoE is recommended. Versions: Qwen 3.8 or later, Gemma 4 or later (older versions are not recommended), or gpt-oss-20b.
+  30B-class MoE is recommended. Versions: Qwen 3.8 or later, Gemma 4 or later (older versions are not recommended).
 - **Context window**: at least 16k tokens. Measured: one batch of 11 candidates used about 3k input and 3.5k output
   tokens and took about 85 seconds on the production server.
 - **Smaller models** (8B and below) or 2–3-bit quantizations contradict themselves more between runs: in production a

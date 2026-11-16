@@ -612,7 +612,7 @@ const T = {
  en: {
   nav_home: 'Home', nav_arch: 'Architecture', nav_events: 'Events', nav_changes: 'Changes', nav_ai: 'Analysis', nav_crs: 'CRS', nav_blocks: 'IP blocks',
   nav_notify: 'Notifications', nav_integrity: 'Integrity', nav_bounds: 'Boundaries',
-  nav_ver: 'Versions', ver_h: 'Where software versions come from', ver_sub: 'The threat intelligence looks up vulnerabilities by product and version. Before each search, the applications below are asked for their own version: one request through the nginx on the same host (a version a person typed is never replaced). The others are filled in by hand, with the command on the application\'s host.',
+  nav_ver: 'Versions', ver_h: 'Where the web applications\' versions come from', ver_sub: 'The threat intelligence looks up vulnerabilities by product and version. Before each search, the applications below are asked for their own version: one request through the nginx on the same host (a version a person typed is never replaced). The others are filled in by hand, with the command on the application\'s host.',
   ver_auto_h: 'Read automatically', ver_man_h: 'Filled in by hand', ver_c_name: 'Application', ver_c_req: 'Request', ver_c_src: 'Source', ver_c_how: 'How to read it',
   ver_ok: 'Checked on a running one', ver_doc: 'As documented', ver_token: 'needs an API token (settings)',
   ver_note_zimbra: 'The webmail hides the version unless zimbraSoapExposeVersion is TRUE; zmsoap -z GetVersionInfoRequest also tells it.',
@@ -860,7 +860,7 @@ const T = {
  'zh-TW': {
   nav_home: '回首頁', nav_arch: '架構', nav_events: '事件', nav_changes: '變更', nav_ai: '分析', nav_crs: 'CRS', nav_blocks: 'IP 封鎖',
   nav_notify: '通知', nav_integrity: '完整性', nav_bounds: '安全邊界',
-  nav_ver: '軟體版本', ver_h: '軟體版本從哪裡來', ver_sub: '威脅情報依產品與版本查詢漏洞。每次搜尋前，會向下面這些應用程式讀取它們自己回報的版本：經同一台主機的 nginx 發一個請求 (人工填的版本不會被覆寫)。其他的要手動填寫，查詢方式是在該應用程式的主機上執行下列指令。',
+  nav_ver: '套件版本', ver_h: 'Web 應用套件的版本從哪裡來', ver_sub: '威脅情報依產品與版本查詢漏洞。每次搜尋前，會向下面這些應用程式讀取它們自己回報的版本：經同一台主機的 nginx 發一個請求 (人工填的版本不會被覆寫)。其他的要手動填寫，查詢方式是在該應用程式的主機上執行下列指令。',
   ver_auto_h: '自動讀取', ver_man_h: '手動填寫', ver_c_name: '應用程式', ver_c_req: '請求', ver_c_src: '依據', ver_c_how: '查詢方式',
   ver_ok: '已實測', ver_doc: '依官方文件', ver_token: '需要 API 權杖 (設定)',
   ver_note_zimbra: '除非 zimbraSoapExposeVersion 設為 TRUE，否則 Webmail 不會透露版本；也可以用 zmsoap -z GetVersionInfoRequest 查。',
@@ -1056,7 +1056,7 @@ const T = {
   nc_1: 'Email（純文字與 HTML）、Telegram、Microsoft Teams、Slack、Discord、Zulip、Nextcloud Talk，以及以 HMAC-SHA256 對時間戳與內容簽章的通用 webhook。',
   nc_2: '事件與管道的對照矩陣；訊息可用英文、繁體中文或日文，附上回到頁面的連結；每個管道都能測試發送。',
   nc_3: '由 notify unit 發送：失敗後 1、5、15 分鐘重試，每個管道每小時最多 60 則，預設每天 8:00 發送每日摘要。',
-  nc_4: '來自請求的內容一律以程式碼格式顯示或跳脫：永遠不會變成格式、連結或提及。Bot 權杖、webhook 網址與密碼都是只能寫入的設定。',
+  nc_4: '通知裡引用的請求內容 (網址、標頭等) 一律以程式碼格式顯示或跳脫，攻擊者無法藉此在訊息裡插入連結、改變排版或 @ 標記別人。Bot 權杖、webhook 網址與密碼都是只能寫入的設定。',
   ls_h: '記錄伺服器（syslog / SIEM）',
   ls_1: '最多 8 個目的地，各自選擇協定（本機 socket、UDP、TCP、TLS）、syslog 標頭（RFC 3164 或 5424）、記錄格式（JSON、CEF、LEEF 2.0、GELF 1.1、key=value）與內容（稽核記錄、WAF 事件、警示）。',
   ls_2: '每個目的地有自己的佇列與重試；測試發送會顯示實際送出的內容。',
@@ -1108,7 +1108,7 @@ const T = {
  ja: {
   nav_home: 'ホームへ', nav_arch: '構成', nav_events: 'イベント', nav_changes: '変更', nav_ai: '分析', nav_crs: 'CRS', nav_blocks: 'IP ブロック',
   nav_notify: '通知', nav_integrity: '完全性', nav_bounds: '境界',
-  nav_ver: 'バージョン', ver_h: 'ソフトウェアのバージョンの取得元', ver_sub: '脅威インテリジェンスは製品とバージョンで脆弱性を調べます。検索のたびに、下のアプリケーションに自身のバージョンを問い合わせます：同じホストの nginx 経由で 1 リクエスト (人が入力したバージョンは置き換えません)。その他は手動で入力し、アプリケーションのホストで次のコマンドを実行して確認します。',
+  nav_ver: 'バージョン', ver_h: 'Web アプリケーションのバージョンの取得元', ver_sub: '脅威インテリジェンスは製品とバージョンで脆弱性を調べます。検索のたびに、下のアプリケーションに自身のバージョンを問い合わせます：同じホストの nginx 経由で 1 リクエスト (人が入力したバージョンは置き換えません)。その他は手動で入力し、アプリケーションのホストで次のコマンドを実行して確認します。',
   ver_auto_h: '自動で読み取り', ver_man_h: '手動で入力', ver_c_name: 'アプリケーション', ver_c_req: 'リクエスト', ver_c_src: '根拠', ver_c_how: '確認方法',
   ver_ok: '実機で確認', ver_doc: '公式ドキュメントどおり', ver_token: 'API トークンが必要 (設定)',
   ver_note_zimbra: 'zimbraSoapExposeVersion が TRUE でない限り Webmail はバージョンを出しません。zmsoap -z GetVersionInfoRequest でも確認できます。',
