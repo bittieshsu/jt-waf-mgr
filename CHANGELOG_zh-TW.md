@@ -2,6 +2,12 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.4.72 (2026-11-16)
+
+- 威脅情報：每次搜尋前，向站台後面的應用程式讀取它們自己回報的版本 (經本機 nginx 發一個請求，驗證憑證)：Nextcloud、Zulip、Odoo、Grafana、Open WebUI、WordPress、draw.io (已在實際安裝上驗證)，以及 ownCloud Infinite Scale、Gitea / Forgejo、Rocket.Chat、Mattermost、Jenkins、Matrix (Synapse)、Seafile、Harbor、Mastodon、Collabora Online、LibreNMS (需要它的 API 權杖，新的只寫設定)。人工填的版本不會被覆寫；之前讀到的版本會跟著升級更新 (記稽核)。威脅情報頁與專案網站 (運作原理 → 軟體版本) 列出哪些應用程式會回報版本，以及其他的要怎麼在主機上查。存取記錄也能認出 Univention Corporate Server。
+- 威脅情報頁：第二層 LLM 卡片改成兩個等寬的框，結構化來源以「已開啟/未開啟」標籤顯示；未開啟時附連結直接開啟「設定 → 第二層 LLM (威脅情報)」(之前的提示寫了一個不存在的卡片名稱)。
+- 安全政策：從這一版起，每個實際可被利用、已在新版修正的問題都會發 GitHub 安全公告 (SECURITY.md)。
+
 ## 0.4.71 (2026-11-16)
 
 - 戰情室：第六個畫面改名為「AI 分析與威脅情報」。

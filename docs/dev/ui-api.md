@@ -461,3 +461,7 @@ Editing comes in a later phase (config file for now).
 ## 0.4.69
 - `GET /warroom/snapshot?range=` also takes `1m`, `5m`, `10m`.
 - `jt-waf-mgr check`: `audit_log_readable` is true / false / null (cannot tell from the command line); `audit_log_last_read` from `collector_state`.
+
+## 0.4.72
+- `GET /intel/software/version-sources` (viewer): `auto` [{name, method, path, verified}], `manual` [{name, how}] from `jtwafmgr/data/software-versions.json`.
+- `POST /intel/software/guess` answer adds `versions` (how many were read). Versions are read before each intel run (`software.detect_versions`, audit `software.version_detected`); setting `intel.librenms_token` (secret).

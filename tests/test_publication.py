@@ -307,5 +307,14 @@ class TestSiteShots(unittest.TestCase):
             for lang in ('en', 'zh-TW', 'ja'):
                 self.assertTrue(os.path.exists(os.path.join(TOP, 'docs', 'shots', lang, 'thumb', name + '.webp')), (lang, name))
 
+class TestVersionList(unittest.TestCase):
+    """The project site lists where software versions come from, made from the program's own data."""
+
+    @unittest.skipUnless(os.path.exists(os.path.join(TOP, 'docs', 'how.html')), 'the project site is not in a release')
+    def test_the_page_matches_the_data(self):
+        r = subprocess.run([sys.executable, os.path.join(TOP, 'tools', 'make_version_list.py'), '--check'],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
 if __name__ == '__main__':
     unittest.main()

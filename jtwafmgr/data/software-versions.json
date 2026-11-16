@@ -1,0 +1,161 @@
+{
+ "_comment": "Where the version of an application behind the sites can be read (software.py detect_versions). auto: one request to the site through this host's own nginx (127.0.0.1:443, the site's name for TLS and Host); the version from a JSON field (json: dotted path, digits index a list), a header (header) or the body (regex, group 1). token_setting: a write-only setting holding the application's API token, sent in token_header (no token: not asked). verified: checked against a running installation; the others follow the project's documentation. manual: no public version: the command on the application's host (how), with an interface note (note: i18n key swv.note.<note>). Names are those of software-signatures.json.",
+ "auto": [
+  {
+   "name": "Nextcloud",
+   "path": "/status.php",
+   "json": "versionstring",
+   "verified": true
+  },
+  {
+   "name": "Zulip",
+   "path": "/api/v1/server_settings",
+   "json": "zulip_version",
+   "verified": true
+  },
+  {
+   "name": "Odoo",
+   "method": "POST",
+   "path": "/web/webclient/version_info",
+   "body": {
+    "jsonrpc": "2.0",
+    "method": "call",
+    "params": {}
+   },
+   "json": "result.server_version",
+   "verified": true
+  },
+  {
+   "name": "Grafana",
+   "path": "/api/health",
+   "json": "version",
+   "verified": true
+  },
+  {
+   "name": "Open WebUI",
+   "path": "/api/version",
+   "json": "version",
+   "verified": true
+  },
+  {
+   "name": "WordPress",
+   "path": "/feed/",
+   "regex": "<generator>https?://wordpress\\.org/\\?v=([0-9][0-9.]*)</generator>",
+   "verified": true
+  },
+  {
+   "name": "draw.io",
+   "path": "/js/app.min.js",
+   "regex": "VERSION\\W{0,4}([0-9]+\\.[0-9]+\\.[0-9]+)",
+   "max_bytes": 8000000,
+   "verified": true
+  },
+  {
+   "name": "ownCloud Infinite Scale",
+   "path": "/status.php",
+   "json": "versionstring",
+   "verified": false
+  },
+  {
+   "name": "Gitea / Forgejo",
+   "path": "/api/v1/version",
+   "json": "version",
+   "verified": false
+  },
+  {
+   "name": "Rocket.Chat",
+   "path": "/api/info",
+   "json": "version",
+   "verified": false
+  },
+  {
+   "name": "Mattermost",
+   "path": "/api/v4/system/ping",
+   "header": "X-Version-Id",
+   "regex": "^([0-9]+\\.[0-9]+\\.[0-9]+)",
+   "verified": false
+  },
+  {
+   "name": "Jenkins",
+   "path": "/login",
+   "header": "X-Jenkins",
+   "verified": false
+  },
+  {
+   "name": "Matrix (Synapse)",
+   "path": "/_matrix/federation/v1/version",
+   "json": "server.version",
+   "verified": false
+  },
+  {
+   "name": "Seafile",
+   "path": "/api2/server-info/",
+   "json": "version",
+   "verified": false
+  },
+  {
+   "name": "Harbor",
+   "path": "/api/v2.0/systeminfo",
+   "json": "harbor_version",
+   "regex": "v?([0-9]+\\.[0-9]+\\.[0-9]+)",
+   "verified": false
+  },
+  {
+   "name": "Mastodon",
+   "path": "/api/v1/instance",
+   "json": "version",
+   "verified": false
+  },
+  {
+   "name": "Collabora Online",
+   "path": "/hosting/capabilities",
+   "json": "productVersion",
+   "verified": false
+  },
+  {
+   "name": "LibreNMS / Observium",
+   "path": "/api/v0/system",
+   "json": "system.0.local_ver",
+   "token_header": "X-Auth-Token",
+   "token_setting": "intel.librenms_token",
+   "verified": false
+  }
+ ],
+ "manual": [
+  {
+   "name": "Keycloak",
+   "how": "kc.sh --version",
+   "note": "container"
+  },
+  {
+   "name": "Zimbra",
+   "how": "su - zimbra -c 'zmcontrol -v'",
+   "note": "zimbra"
+  },
+  {
+   "name": "Z-Push",
+   "how": "curl -sS --user USER https://SITE/Microsoft-Server-ActiveSync",
+   "note": "zpush"
+  },
+  {
+   "name": "Univention Corporate Server",
+   "how": "ucr get version/version; ucr get version/patchlevel"
+  },
+  {
+   "name": "OpenCode",
+   "how": "opencode --version"
+  },
+  {
+   "name": "Proxmox VE",
+   "how": "pveversion"
+  },
+  {
+   "name": "GitLab",
+   "how": "gitlab-rake gitlab:env:info"
+  },
+  {
+   "name": "Jitsi Meet",
+   "how": "dpkg -l jitsi-meet"
+  }
+ ]
+}

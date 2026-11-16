@@ -36,6 +36,17 @@ def _load(path=SIGNATURE_FILE):
 
 
 PACKAGES, PACKAGE_PATTERNS, SIGNATURES = _load()
+VERSION_FILE = os.path.join(os.path.dirname(__file__), 'data', 'software-versions.json')
+
+
+def version_sources(path=VERSION_FILE):
+    """{'auto': [...], 'manual': [...]}: where an application's version can be read (data/software-versions.json)."""
+    try:
+        with open(path, encoding='utf-8') as fh:
+            d = json.load(fh)
+    except (OSError, ValueError):
+        return {'auto': [], 'manual': []}
+    return {'auto': list(d.get('auto') or []), 'manual': list(d.get('manual') or [])}
 # The products of this host the threat intelligence follows: web-facing ones only (the web servers, the WAF and the
 # libraries it parses requests with, TLS, the CRS, web applications installed as packages). Anything else on the host
 # (an SSH server, the system's Python, the kernel) is not reached through the sites, so a WAF cannot shield it: it is
@@ -233,6 +244,107 @@ def prune_unrelated(db):
     return gone
 
 
+# --- versions read from the applications themselves -----------------------------------------------------------
+
+PROBE_ACTOR = 'version-probe'
+
+
+def fetch_local(host, probe, timeout=6, token=None):
+    """One request to a site through this host's own nginx: 127.0.0.1:443 with the site's name for TLS (SNI, the
+    certificate checked against it) and Host. Returns (status, headers {lower: value}, body bytes) or None."""
+    import http.client
+    import socket
+    import ssl
+    body = probe.get('body')
+    data = json.dumps(body).encode() if isinstance(body, (dict, list)) else None
+    ctx = ssl.create_default_context()
+    try:
+        raw = socket.create_connection(('127.0.0.1', 443), timeout=timeout)
+        sock = ctx.wrap_socket(raw, server_hostname=host)
+    except (OSError, ssl.SSLError):
+        return None
+    conn = http.client.HTTPSConnection(host, 443, timeout=timeout, context=ctx)
+    conn.sock = sock
+    try:
+        conn.request(probe.get('method') or 'GET', probe['path'], body=data,
+                     headers={'Host': host, 'User-Agent': 'jt-waf-mgr version check', 'Accept': '*/*',
+                              **({'Content-Type': 'application/json'} if data else {}),
+                              **({probe['token_header']: token} if token and probe.get('token_header') else {})})
+        r = conn.getresponse()
+        out = r.read(int(probe.get('max_bytes') or 300000))
+        return r.status, {k.lower(): v for k, v in r.getheaders()}, out
+    except (OSError, http.client.HTTPException):
+        return None
+    finally:
+        conn.close()
+
+
+def extract_version(probe, status, headers, body):
+    """The version an answer carries, or None (anything that is not a plain version string is refused)."""
+    if status != 200:
+        return None
+    v = None
+    if probe.get('header'):
+        v = headers.get(probe['header'].lower())
+    elif probe.get('json'):
+        try:
+            v = json.loads(body.decode('utf-8', 'replace'))
+            for part in probe['json'].split('.'):
+                if isinstance(v, list) and part.isdigit():
+                    v = v[int(part)] if int(part) < len(v) else None
+                else:
+                    v = v.get(part) if isinstance(v, dict) else None
+        except ValueError:
+            v = None
+    elif probe.get('regex'):
+        m = re.search(probe['regex'], body.decode('utf-8', 'replace'))
+        v = m.group(1) if m else None
+    if v is not None and probe.get('regex') and (probe.get('header') or probe.get('json')):
+        m = re.search(probe['regex'], str(v))
+        v = m.group(1) if m else None
+    v = str(v).strip() if v is not None else ''
+    return v if v and len(v) <= 60 and VERSION_RE.fullmatch(v) and re.search(r'\d', v) else None
+
+
+def detect_versions(app, fetch=fetch_local, log=print):
+    """For each application in the list that tells its version (version_sources()['auto']) and has a site: read it
+    and fill it in. A version a person typed is never replaced; one read before is kept current. Returns
+    [{name, old, new, host}] of what changed (audited)."""
+    db = app.db
+    probes = {p['name']: p for p in version_sources()['auto']}
+
+    def token_of(p):
+        sec, _, key = (p.get('token_setting') or '').partition('.')
+        return str((app.cfg.data.get(sec) or {}).get(key) or '') if key else ''
+
+    changed = []
+    for r in db.q("SELECT * FROM software WHERE kind='site'"):
+        p = probes.get(r['name'])
+        if not p:
+            continue
+        token = token_of(p)
+        if p.get('token_setting') and not token:
+            continue                    # it tells its version only with a token: not set, not asked
+        if r['version'] and r['updated_by'] != PROBE_ACTOR:
+            continue                    # a person's version (or one they confirmed by hand) stays
+        hosts = json.loads(r['hosts'] or '[]')
+        for host in hosts[:5]:
+            got = fetch(host, p, token=token) if token else fetch(host, p)
+            v = extract_version(p, *got) if got else None
+            if not v:
+                continue
+            if v != r['version']:
+                db.x('UPDATE software SET version=?, evidence=?, updated_at=?, updated_by=? WHERE id=?',
+                     (v, util.clip('%s told its version (%s %s)' % (host, p.get('method') or 'GET', p['path']), 200),
+                      util.now(), PROBE_ACTOR, r['id']))
+                app.audit.log('software.version_detected', PROBE_ACTOR, 'system', None, 'ok', name=r['name'],
+                              old=r['version'] or None, new=v, host=host)
+                changed.append({'name': r['name'], 'old': r['version'], 'new': v, 'host': host})
+                log('software: %s %s -> %s (%s)' % (r['name'], r['version'] or '-', v, host))
+            break
+    return changed
+
+
 def refresh(app, actor):
     """Store the guesses: new names are added unconfirmed; a guessed version that changed updates an unconfirmed
     entry (a person's version is never overwritten); hosts and evidence are refreshed. Returns {added, updated}."""
@@ -266,7 +378,11 @@ def refresh(app, actor):
             db.x('UPDATE software SET version=?, hosts=?, evidence=?, confirmed=?, updated_at=? WHERE id=?',
                  (version, hosts, g['evidence'], confirmed_flag, now, r['id']))
             updated += 1
-    return {'added': added, 'updated': updated, 'removed': removed}
+    try:
+        versions = len(detect_versions(app, log=lambda *a: None))
+    except Exception:          # noqa: BLE001 -- the guess stands without the versions
+        versions = 0
+    return {'added': added, 'updated': updated, 'removed': removed, 'versions': versions}
 
 
 def confirm_all(db, actor):

@@ -9,6 +9,7 @@
   ["Shibboleth IdP", "^/idp/(?:profile|shibboleth)(?:[/?]|$)", ["/idp/profile/SAML2/Redirect/SSO"]],
   ["Apereo CAS", "^/cas/(?:login|logout|serviceValidate|p3/serviceValidate|oidc/)", ["/cas/login?service=x"]],
   ["FreeIPA", "^/ipa/(?:session/|ui/|json(?:[/?]|$))", ["/ipa/ui/", "/ipa/session/json"]],
+  ["Univention Corporate Server", "^/univention/(?:portal|management|login|get|command|set|auth|self-service)(?:[/?]|$)", ["/univention/portal/", "/univention/get/meta", "/univention/login/?location=/univention/management/"]],
   ["Casdoor", "^/api/(?:get-account|login/oauth/access_token|get-app-login)(?:[/?]|$)", ["/api/get-account"]],
   ["privacyIDEA", "^/(?:validate/(?:check|samlcheck|triggerchallenge)|static/templates/(?:baseline|login)\\.html)", ["/validate/check"]],
   ["LemonLDAP::NG", "^/(?:\\?lmAuth=|static/common/js/portal\\.min\\.js|oauth2/authorize\\?.*lemonldap)", ["/static/common/js/portal.min.js"]],

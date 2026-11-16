@@ -21,8 +21,8 @@
         <p v-if="!st.confirmed_software" class="alert warn">{{ t('intel.no_software') }}</p>
         <!-- two groups side by side: the model and its searching, the structured sources -->
         <div class="intel-groups">
-          <div>
-            <h3 class="small muted">{{ t('intel.g_model') }}</h3>
+          <div class="intel-panel">
+            <h3><Icon name="ai" />{{ t('intel.g_model') }}</h3>
             <dl class="kv">
               <dt>{{ t('intel.provider') }}</dt><dd>{{ t('intel.provider_v.' + st.provider) }}<span v-if="st.model" class="mono small gapl">{{ st.model }}</span>
                 <div v-if="st.uses_first_tier" class="muted small">{{ t('intel.first_tier') }}</div></dd>
@@ -35,16 +35,13 @@
               <dt>{{ t('intel.tokens') }}</dt><dd>{{ t('intel.tokens_v', { d: fmtNum(st.tokens.day), dl: st.daily_tokens ? fmtNum(st.daily_tokens) : '∞', m: fmtNum(st.tokens.month), ml: st.monthly_tokens ? fmtNum(st.monthly_tokens) : '∞' }) }}</dd>
             </dl>
           </div>
-          <div>
-            <h3 class="small muted">{{ t('intel.g_sources') }}</h3>
+          <div class="intel-panel">
+            <h3><Icon name="list" />{{ t('intel.g_sources') }}</h3>
             <dl class="kv">
-              <dt>{{ t('intel.kev') }}</dt><dd><template v-if="st.kev && st.kev.enabled">
-                <template v-if="st.kev.fetched_at">{{ t('intel.kev_v', { n: fmtNum(st.kev.entries), at: fmtMinute(st.kev.fetched_at) }) }}</template>
-                <template v-else>{{ t('intel.kev_pending') }}</template></template>
-                <span v-else class="muted">{{ t('intel.kev_off') }}</span></dd>
-              <dt>{{ t('intel.osv') }}</dt><dd><template v-if="st.osv && st.osv.enabled">{{ st.osv.ecosystem ? t('intel.osv_on', { eco: st.osv.ecosystem }) : t('intel.osv_no_eco') }}</template>
-                <span v-else class="muted">{{ t('intel.kev_off') }}</span></dd>
-              <dt>{{ t('intel.nvd') }}</dt><dd><template v-if="st.nvd && st.nvd.enabled">{{ t('intel.nvd_on') }}</template><span v-else class="muted">{{ t('intel.kev_off') }}</span></dd>
+              <template v-for="x in sources" :key="x.key">
+                <dt>{{ t('intel.' + x.key) }}</dt>
+                <dd><span class="badge" :class="{ 'b-ok': x.on }">{{ x.on ? t('intel.src_on') : t('intel.src_off') }}</span><span v-if="x.detail" class="gapl">{{ x.detail }}</span><RouterLink v-if="!x.on && isAdmin" class="gapl" to="/admin/settings#uiset-intel">{{ t('intel.src_where') }}</RouterLink></dd>
+              </template>
             </dl>
           </div>
         </div>
@@ -137,6 +134,23 @@
         </form>
       </section>
 
+      <!-- where the versions come from: read from the applications themselves, or filled in by hand -->
+      <section v-if="vsrc" class="card">
+        <h2><Icon name="info" /> {{ t('swv.title') }}</h2>
+        <p class="muted small">{{ t('swv.hint') }}</p>
+        <h3 class="small">{{ t('swv.auto') }}</h3>
+        <DataTable id="intel-version-auto" :columns="vAutoCols" :rows="vsrc.auto" row-key="name" :page-size="50">
+          <template #cell-request="{ row }"><span class="mono small">{{ row.method }} {{ row.path }}</span></template>
+          <template #cell-verified="{ row }"><span class="badge" :class="{ 'b-ok': row.verified }">{{ row.verified ? t('swv.verified') : t('swv.documented') }}</span></template>
+          <template #cell-used="{ row }"><span v-if="usedVersion(row.name) !== null" class="badge b-ok">{{ usedVersion(row.name) || t('swv.no_version_yet') }}</span><span v-else class="muted">—</span></template>
+        </DataTable>
+        <h3 class="small">{{ t('swv.manual') }}</h3>
+        <DataTable id="intel-version-manual" :columns="vManCols" :rows="vsrc.manual" row-key="name" :page-size="50">
+          <template #cell-how="{ row }"><code class="small">{{ row.how }}</code><div v-if="row.note" class="muted small">{{ t('swv.note.' + row.note) }}</div></template>
+          <template #cell-used="{ row }"><span v-if="usedVersion(row.name) !== null" class="badge b-ok">{{ usedVersion(row.name) || t('swv.no_version_yet') }}</span><span v-else class="muted">—</span></template>
+        </DataTable>
+      </section>
+
       <!-- each search: what was asked and read -->
       <section class="card">
         <h2><Icon name="history" /> {{ t('intel.runs') }}</h2>
@@ -182,6 +196,16 @@ const openRun = ref(null)
 const isApprover = computed(() => hasRole('approver'))
 const isAdmin = computed(() => hasRole('admin'))
 const st = computed(() => data.value && data.value.status)
+// the structured sources: on or off, and what that means now
+const sources = computed(() => {
+  const s = st.value || {}
+  const kev = s.kev || {}, osv = s.osv || {}, nvd = s.nvd || {}
+  return [
+    { key: 'kev', on: !!kev.enabled, detail: kev.enabled ? (kev.fetched_at ? t('intel.kev_v', { n: fmtNum(kev.entries), at: fmtMinute(kev.fetched_at) }) : t('intel.kev_next')) : '' },
+    { key: 'osv', on: !!osv.enabled, detail: osv.enabled ? (osv.ecosystem ? t('intel.osv_eco', { eco: osv.ecosystem }) : t('intel.osv_none')) : '' },
+    { key: 'nvd', on: !!nvd.enabled, detail: nvd.enabled ? t('intel.nvd_does') : '' },
+  ]
+})
 const openCount = computed(() => (data.value ? data.value.threats.filter((x) => x.status === 'open').length : 0))
 function hostOf(u) { try { return new URL(u).hostname } catch { return '' } }
 const SEV = { critical: 'b-blocked', high: 'b-blocked', medium: 'b-warn', low: 'b-logged', unknown: 'b-logged' }
@@ -203,6 +227,24 @@ const swCols = computed(() => [
   { key: 'confirmed', label: t('intel.col.confirmed'), value: (r) => (r.confirmed ? 1 : 0) },
   { key: 'act', label: '', sortable: false, filterable: false },
 ])
+// where the versions come from (GET /intel/software/version-sources)
+const vsrc = ref(null)
+const vAutoCols = computed(() => [
+  { key: 'name', label: t('intel.name'), required: true },
+  { key: 'request', label: t('swv.col.request'), value: (r) => r.path },
+  { key: 'verified', label: t('swv.col.verified'), value: (r) => (r.verified ? 1 : 0) },
+  { key: 'used', label: t('swv.col.used'), value: (r) => usedVersion(r.name) ?? '' },
+])
+const vManCols = computed(() => [
+  { key: 'name', label: t('intel.name'), required: true },
+  { key: 'how', label: t('swv.col.how'), sortable: false },
+  { key: 'used', label: t('swv.col.used'), value: (r) => usedVersion(r.name) ?? '' },
+])
+// in this site's software list: its version ('' when none yet), or null when not used here
+function usedVersion(name) {
+  const r = ((data.value && data.value.software) || []).find((x) => x.name === name)
+  return r ? (r.version || '') : null
+}
 const runCols = computed(() => [
   { key: 'id', label: '#', align: 'num' },
   { key: 'started_at', label: t('intel.col.time'), value: (r) => r.started_at },
@@ -217,6 +259,7 @@ function resetEdit() { Object.assign(edit, { id: null, orig: '', name: '', versi
 function startEdit(r) { Object.assign(edit, { id: r.id, orig: r.name, name: r.name, version: r.version, hosts: r.hosts.join(', ') }) }
 const hostList = () => edit.hosts.split(/[\s,]+/).filter(Boolean)
 
+async function loadSources() { try { vsrc.value = await get('/intel/software/version-sources') } catch (e) { vsrc.value = null } }
 async function load() {
   error.value = null
   try { data.value = await get('/intel') } catch (e) { error.value = e }
@@ -253,13 +296,17 @@ const saveSw = () => act(async () => {
   resetEdit()
 })
 const setStatus = (row, status) => act(async () => { data.value.threats = (await post('/intel/threats/' + row.threat_id, { status })).threats })
-onMounted(load)
+onMounted(() => { load(); loadSources() })
 </script>
 
 <style scoped>
-.intel-groups { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px 32px; }
-.intel-groups h3 { margin: 0 0 8px; font-weight: 600; letter-spacing: .02em; }
-.intel-groups dl.kv { grid-template-columns: 7.5em minmax(0, 1fr); gap: 7px 14px; }
+/* the second-tier card: two panels of one width, a row per line with a thin rule between */
+.intel-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.intel-panel { border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px 4px; min-width: 0; }
+.intel-panel h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 2px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.intel-groups dl.kv { grid-template-columns: 7.5em minmax(0, 1fr); gap: 0 14px; margin: 0; }
+.intel-panel dl.kv > dt, .intel-panel dl.kv > dd { padding: 8px 0; border-top: 1px solid var(--border); }
+.intel-panel dl.kv > dt:first-of-type, .intel-panel dl.kv > dd:first-of-type { border-top: none; }
 @media (max-width: 900px) { .intel-groups { grid-template-columns: minmax(0, 1fr); } }
 .thdetail { display: flex; flex-direction: column; gap: 8px; }
 .thdetail p { margin: 0; }

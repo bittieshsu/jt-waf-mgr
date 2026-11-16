@@ -1390,6 +1390,16 @@ def software_confirm_all(app, req):
     return json_response(200, {'confirmed': n, 'software': software.listing(app.db)})
 
 
+def software_version_sources(app, req):
+    """Which applications tell their version (read automatically) and how to read the others on their host."""
+    from .. import software
+    v = software.version_sources()
+    return json_response(200, {
+        'auto': [{'name': p['name'], 'method': p.get('method') or 'GET', 'path': p['path'], 'verified': bool(p.get('verified'))}
+                 for p in v['auto']],
+        'manual': [{'name': m['name'], 'how': m['how']} for m in v['manual']]})
+
+
 def software_guess(app, req):
     """Look again: this host's packages, the CRS version, the applications the access logs show."""
     from .. import software
@@ -1693,6 +1703,7 @@ def register(router):
     R('POST', V + '/intel/threats/{id}', intel_threat, ('role', 'approver', None))
     R('POST', V + '/intel/software', software_add, ('role', 'approver', None))
     R('POST', V + '/intel/software/guess', software_guess, ('role', 'approver', None))
+    R('GET', V + '/intel/software/version-sources', software_version_sources, viewer('events:read'))
     R('POST', V + '/intel/software/confirm-all', software_confirm_all, ('role', 'approver', None))
     R('PATCH', V + '/intel/software/{id}', software_edit, ('role', 'approver', None))
     R('DELETE', V + '/intel/software/{id}', software_delete, ('role', 'approver', None))

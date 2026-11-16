@@ -2,6 +2,22 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.72 (2026-11-16)
+
+- Threat intelligence: the versions of the applications behind the sites are read from the applications themselves
+  before each search (one request through this host's nginx, the certificate checked): Nextcloud, Zulip, Odoo,
+  Grafana, Open WebUI, WordPress and draw.io (checked on running installations), and ownCloud Infinite Scale, Gitea /
+  Forgejo, Rocket.Chat, Mattermost, Jenkins, Matrix (Synapse), Seafile, Harbor, Mastodon, Collabora Online and
+  LibreNMS (with its API token, a new write-only setting). A version a person typed is never replaced; one read before
+  follows upgrades (audited). The threat intelligence page and the project site (How it works → Versions) list which
+  applications tell their version and how to read the others on their host. Univention Corporate Server is now
+  recognised in the access logs.
+- Threat intelligence page: the second-tier card shows two panels of one width, the structured sources as on / off
+  badges; when one is off, a link opens Settings → Second-tier LLM (threat intelligence) (the hint named a card that
+  does not exist).
+- Security policy: from this release on, every exploitable issue fixed in a release gets a GitHub Security Advisory
+  (SECURITY.md).
+
 ## 0.4.71 (2026-11-16)
 
 - War room: the sixth page is named "AI analysis and threat intel" (in Chinese, AI 分析與威脅情報).

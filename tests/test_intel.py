@@ -485,6 +485,63 @@ class TestSoftware(unittest.TestCase):
         self.app.db.release()
         self.env.cleanup()
 
+    def test_versions_the_applications_tell(self):
+        """Read from the application itself (here a stand-in fetch): JSON field, header, body; a person's version stays."""
+        db = self.app.db
+        ins = ("INSERT INTO software(name, version, hosts, kind, source, confirmed, evidence, notes, updated_at, updated_by) "
+               "VALUES (?, ?, ?, 'site', ?, 1, '', '', 0, ?)")
+        db.x(ins, ('Nextcloud', '', '["files.example.com"]', 'guess', 'x'))
+        db.x(ins, ('Zulip', '9.0', '["chat.example.com"]', 'person', 'alice'))        # a person's version
+        db.x(ins, ('Jenkins', '', '["ci.example.com"]', 'guess', 'x'))
+        db.x(ins, ('WordPress', '', '["www.example.com"]', 'guess', 'x'))
+        answers = {
+            ('files.example.com', '/status.php'): (200, {}, b'{"installed":true,"versionstring":"30.0.4","version":"30.0.4.1"}'),
+            ('chat.example.com', '/api/v1/server_settings'): (200, {}, b'{"zulip_version":"12.3"}'),
+            ('ci.example.com', '/login'): (200, {'x-jenkins': '2.479.1'}, b''),
+            ('www.example.com', '/feed/'): (200, {}, b'<generator>https://wordpress.org/?v=6.8.1</generator>'),
+        }
+        seen = []
+
+        def fetch(host, probe, token=None):
+            seen.append((host, probe['path']))
+            return answers.get((host, probe['path']))
+        changed = software.detect_versions(self.app, fetch=fetch, log=lambda *a: None)
+        got = {r['name']: r['version'] for r in software.listing(db)}
+        self.assertEqual((got['Nextcloud'], got['Jenkins'], got['WordPress']), ('30.0.4', '2.479.1', '6.8.1'))
+        self.assertEqual(got['Zulip'], '9.0')                                          # never replaced
+        self.assertNotIn(('chat.example.com', '/api/v1/server_settings'), seen)        # not even asked
+        self.assertEqual(len(changed), 3)
+        self.assertTrue(db.one("SELECT 1 FROM audit WHERE action='software.version_detected'"))
+        # upgraded later: the version read before follows; a broken answer is refused
+        answers[('files.example.com', '/status.php')] = (200, {}, b'{"versionstring":"31.0.0"}')
+        answers[('www.example.com', '/feed/')] = (200, {}, b'<generator>https://wordpress.org/?v=<script></generator>')
+        software.detect_versions(self.app, fetch=fetch, log=lambda *a: None)
+        got = {r['name']: r['version'] for r in software.listing(db)}
+        self.assertEqual((got['Nextcloud'], got['WordPress']), ('31.0.0', '6.8.1'))
+        self.assertIsNone(software.extract_version({'json': 'version'}, 500, {}, b'{"version":"1.0"}'))
+        self.assertIsNone(software.extract_version({'json': 'version'}, 200, {}, b'{"version":"1.0; rm -rf /"}'))
+        self.assertEqual(software.extract_version({'json': 'harbor_version', 'regex': 'v?([0-9]+\\.[0-9]+\\.[0-9]+)'}, 200, {},
+                                                  b'{"harbor_version":"v2.10.0-abc"}'), '2.10.0')
+        src = software.version_sources()
+        names = {s[0] for s in software.SIGNATURES}
+        for p in src['auto']:                  # read automatically: only for an application the guess finds
+            self.assertIn(p['name'], names, 'a version source for a name the guess does not know')
+        # LibreNMS: only with its API token (sent in its header), the version in a list
+        db.x(ins, ('LibreNMS / Observium', '', '["nms.example.com"]', 'guess', 'x'))
+        tokens = []
+
+        def fetch2(host, probe, token=None):
+            if probe['path'] != '/api/v0/system':
+                return None
+            tokens.append(token)
+            return (200, {}, b'{"status":"ok","system":[{"local_ver":"25.11.0","local_sha":"abc"}]}')
+        software.detect_versions(self.app, fetch=fetch2, log=lambda *a: None)
+        self.assertEqual(tokens, [])                                        # no token set: not asked
+        self.app.cfg.data['intel']['librenms_token'] = 'tok-1'
+        software.detect_versions(self.app, fetch=fetch2, log=lambda *a: None)
+        self.assertEqual(tokens, ['tok-1'])
+        self.assertEqual({r['name']: r['version'] for r in software.listing(db)}['LibreNMS / Observium'], '25.11.0')
+
     def test_dpkg(self):
         p = os.path.join(self.env.dir, 'status')
         with open(p, 'w') as fh:

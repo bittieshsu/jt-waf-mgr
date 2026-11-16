@@ -2,6 +2,12 @@
 
 [English](CHANGELOG.md) · [繁體中文](CHANGELOG_zh-TW.md) · **日本語**
 
+## 0.4.72 (2026-11-16)
+
+- 脅威インテリジェンス：検索のたびに、サイトの背後にあるアプリケーション自身が報告するバージョンを読み取ります (このホストの nginx 経由で 1 リクエスト、証明書を検証)：Nextcloud、Zulip、Odoo、Grafana、Open WebUI、WordPress、draw.io (実機で確認済み)、および ownCloud Infinite Scale、Gitea / Forgejo、Rocket.Chat、Mattermost、Jenkins、Matrix (Synapse)、Seafile、Harbor、Mastodon、Collabora Online、LibreNMS (API トークンが必要、新しい書き込み専用の設定)。人が入力したバージョンは置き換えません。以前に読み取ったバージョンはアップグレードに追従します (監査記録あり)。脅威インテリジェンスのページとプロジェクトサイト (仕組み → バージョン) に、バージョンを報告するアプリケーションと、その他をホストで確認する方法を掲載。アクセスログから Univention Corporate Server も識別します。
+- 脅威インテリジェンスのページ：第 2 層 LLM のカードを同じ幅の 2 つの枠にし、構造化された情報源をオン/オフのバッジで表示。オフのときは「設定 → 第 2 層 LLM (脅威インテリジェンス)」を開くリンク (以前のヒントは存在しないカード名でした)。
+- セキュリティポリシー：このリリースから、実際に悪用でき新しいリリースで修正した問題には GitHub セキュリティアドバイザリを発行します (SECURITY.md)。
+
 ## 0.4.71 (2026-11-16)
 
 - 作戦室：6 番目の画面の名前を「AI 分析と脅威インテリジェンス」に変更。

@@ -1097,6 +1097,10 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
         retire_unrelated(app, log=log)
     except Exception as e:      # noqa: BLE001 -- the search goes on; the list is pruned next time
         log('intel: pruning failed: %s' % type(e).__name__)
+    try:
+        software.detect_versions(app, log=log)      # the versions the applications tell themselves, before the search
+    except Exception as e:      # noqa: BLE001 -- the search goes on with the versions known
+        log('intel: version check failed: %s' % type(e).__name__)
     products = software.confirmed(db)
     c = cfg['intel']
     provider = c['provider']
