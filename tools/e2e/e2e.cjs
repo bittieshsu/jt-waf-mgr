@@ -496,7 +496,7 @@ async function audit(page, where) {
   ok(!/\/(?:\.env|wp-login|etc\/passwd)/.test(await page.locator('.wr').innerText()), 'war room: no request path on the operations page');
   // 0.4.66: a longer window from the top bar (kept in the address for a wall screen); the big numbers roll
   await page.locator('.wr-range .sb-btn').click();
-  await page.locator('.wr-range .sb-pop li').nth(6).click();
+  await page.locator('.wr-range .sb-pop li').nth(9).click();
   await page.waitForTimeout(1000);
   ok(/[?&]range=24h\b/.test(page.url()) && /24/.test(await page.locator('.wr-bottom').innerText()), 'war room: a 24-hour window, kept in the address');
   ok((await page.locator('.wr-kpis .rn').count()) >= 1, 'war room: rolling numbers');

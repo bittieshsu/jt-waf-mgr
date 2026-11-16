@@ -5,7 +5,7 @@ What leaves here is what a wall may show: the country of the source (GeoIP or th
 alias for a site nginx serves only to internal networks), the outcome and how it was decided, the time. Never the
 address, the path, the query or a header -- the fields are not in the answer at all.
 
-- GET /warroom/snapshot?range=   the window (live = the last 30 minutes, or 15m 1h 3h 6h 12h 24h 7d; only=blocked: the
+- GET /warroom/snapshot?range=   the window (live = the last 30 minutes, or 1m 5m 10m 15m 1h 3h 6h 12h 24h 7d; only=blocked: the
                                  blocked events alone), its totals, per country and minute, the latest events, the collector's
                                  state, the destination; the same answer for every screen for a few seconds
 - GET /warroom/events?after=<id> the events after an id (up to 500, oldest first, `more` when there are more), with the
@@ -20,7 +20,7 @@ from .server import ApiError, json_response
 V = '/api/v1'
 WINDOW = 30 * 60
 # the windows a screen may ask for: live is the rolling 30 minutes; the others the same board over a longer stretch
-RANGES = {'live': WINDOW, '15m': 900, '1h': 3600, '3h': 3 * 3600, '6h': 6 * 3600, '12h': 12 * 3600, '24h': 86400,
+RANGES = {'live': WINDOW, '1m': 60, '5m': 300, '10m': 600, '15m': 900, '1h': 3600, '3h': 3 * 3600, '6h': 6 * 3600, '12h': 12 * 3600, '24h': 86400,
           '7d': 7 * 86400}
 COLUMNS = 30                          # the timeline: 30 steps (31 columns) whatever the window
 CELLS = 15                            # the site density cells

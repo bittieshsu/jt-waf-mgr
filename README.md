@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.67
+# jt-waf-mgr v0.4.69
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -167,7 +167,7 @@ nginx and ModSecurity keep working with the last rules.
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # a fixed place for the releases
-V=0.4.67; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.69; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # the release, its signature, the public key
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -388,7 +388,7 @@ the file next to the current values and writes only what you tick).
 
 ```sh
 cd /opt/jt-waf-mgr-install   # the new release, unpacked into the same current
-V=0.4.67; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.69; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # every check, nothing changed
@@ -495,3 +495,16 @@ jt-waf-mgr/
 
 AGPL-3.0. If you run a modified version as a network service, offer its source to its users (the footer link does
 that for the unmodified version).
+
+## Disclaimer
+
+- jt-waf-mgr is provided "as is", without warranty of any kind, express or implied (see sections 15 and 16 of the
+  AGPL-3.0). The authors and contributors are not liable for any damage or loss from using it.
+- A WAF lowers risk; it cannot stop every attack and can block legitimate users. Try it in a test environment before
+  production, and start in log-only mode.
+- Event analysis and threat intelligence are helped by AI models and can be wrong. Their findings are suggestions:
+  loosening changes always need a person's approval; look at the evidence before approving.
+- The administrators are responsible for the rules and for the nginx and ModSecurity configuration: keep backups, and
+  make sure changes follow your organisation's policies and the law.
+- nginx, ModSecurity, OWASP CRS, MaxMind and GeoLite2 are trademarks of their owners; this project is not affiliated with
+  them.

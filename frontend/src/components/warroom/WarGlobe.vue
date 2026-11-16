@@ -47,7 +47,16 @@ function setZoom(z) { zoom = Math.max(ZMIN, Math.min(ZMAX, z)); kick() }
 function wheel(e) { setZoom(zoom * Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015))) }
 function zoomBy(f) { setZoom(zoom * f) }
 function zoomReset() { setZoom(1) }
-defineExpose({ zoomBy, zoomReset })
+// turn to where we are (the destination), the way a picked country is turned to
+function centerUs() {
+  const d = props.destination
+  if (!d || !Number.isFinite(d.lat) || !Number.isFinite(d.lon)) return false
+  fling = null
+  aim = { yaw: d.lon, pitch: Math.max(-60, Math.min(60, d.lat)) }
+  kick()
+  return true
+}
+defineExpose({ zoomBy, zoomReset, centerUs })
 
 const RAD = Math.PI / 180
 const SPIN = 1.5                       // degrees a second, westwards like the Earth seen from space
@@ -423,11 +432,16 @@ watch(() => [props.sources, props.destination, props.spin, props.paused], kick, 
 
 function resize() {
   if (!root.value || !cv.value) return
-  dpr = Math.min(1.5, window.devicePixelRatio || 1)
-  w = root.value.clientWidth
-  h = root.value.clientHeight
+  const nd = Math.min(1.5, window.devicePixelRatio || 1), nw = root.value.clientWidth, nh = root.value.clientHeight
+  // setting a canvas's size clears it: only when the size really changed (other cards refreshing their lists must
+  // not blank the globe), and then paint again at once instead of showing an empty frame until the next one
+  if (nw === w && nh === h && nd === dpr && cv.value.width > 1) return
+  dpr = nd
+  w = nw
+  h = nh
   cv.value.width = Math.max(1, Math.round(w * dpr))
   cv.value.height = Math.max(1, Math.round(h * dpr))
+  if (ctx && w && h) draw()
   halt()
   kick()
 }

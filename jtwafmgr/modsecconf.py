@@ -38,12 +38,16 @@ def logical_lines(text):
 
 
 def split_args(s):
-    """Splits a directive line into words, honouring "..." and '...' quoting."""
+    """Splits a directive line into words, honouring "..." and '...' quoting. An unquoted word that starts with "#"
+    after the directive begins a comment to the end of the line, as libmodsecurity reads it
+    (`SecRuleEngine DetectionOnly   # log first` is DetectionOnly)."""
     out, i, n = [], 0, len(s)
     while i < n:
         while i < n and s[i] in ' \t\n\r':
             i += 1
         if i >= n:
+            break
+        if s[i] == '#' and out:
             break
         if s[i] in '"\'':
             q, j, buf = s[i], i + 1, []

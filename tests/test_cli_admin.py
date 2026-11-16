@@ -3,6 +3,7 @@ import contextlib
 import io
 import json
 import os
+import tempfile
 import unittest
 
 from jtwafmgr import cli
@@ -102,6 +103,52 @@ class TestCliAdmin(unittest.TestCase):
             self.assertEqual(app.workflow.setting('apply.auto_tighten_daily_limit'), 4)
         finally:
             app.stop()
+
+
+class TestServiceCanRead(unittest.TestCase):
+    """jt-waf-mgr check: the command line runs without the service's extra groups; readability is judged by them."""
+
+    def test_by_the_groups_the_service_gets(self):
+        import grp
+        from unittest import mock
+        from jtwafmgr.cli import _service_can_read
+        with tempfile.TemporaryDirectory() as d:
+            logs = os.path.join(d, 'logs')
+            os.mkdir(logs, 0o750)
+            f = os.path.join(logs, 'audit.log')
+            open(f, 'w').close()
+            os.chmod(f, 0o640)
+            group = grp.getgrgid(os.stat(f).st_gid).gr_name
+            dropins = os.path.join(d, 'jt-waf-mgr.service.d')
+            os.mkdir(dropins)
+            with open(os.path.join(dropins, '10-log-group.conf'), 'w') as fh:
+                fh.write('[Service]\nSupplementaryGroups=%s\n' % group)
+            os.chmod(d, 0o755)
+            with mock.patch('jtwafmgr.cli.os.access', return_value=False):
+                self.assertTrue(_service_can_read(f, dropins))
+                with open(os.path.join(dropins, '10-log-group.conf'), 'w') as fh:
+                    fh.write('[Service]\n')
+                self.assertFalse(_service_can_read(f, dropins))
+                os.chmod(f, 0o644)
+                os.chmod(logs, 0o755)
+                self.assertTrue(_service_can_read(f, dropins))       # readable by all
+                os.chmod(logs, 0o700)
+                self.assertFalse(_service_can_read(f, dropins))      # but the directory is closed
+                # a directory only the service's group opens: the file's own permissions cannot be seen from here
+                # (here: a mocked stat), so the service having read the file lately answers
+                real_stat = os.stat
+
+                def hidden(p, *a, **k):
+                    if p == f:
+                        raise PermissionError(13, 'denied')
+                    return real_stat(p, *a, **k)
+                os.chmod(logs, 0o750)
+                with open(os.path.join(dropins, '10-log-group.conf'), 'w') as fh:
+                    fh.write('[Service]\nSupplementaryGroups=%s\n' % group)
+                with mock.patch('jtwafmgr.cli.os.stat', side_effect=hidden):
+                    import time
+                    self.assertTrue(_service_can_read(f, dropins, last_read=time.time() - 60))
+                    self.assertIsNone(_service_can_read(f, dropins, last_read=None))     # cannot tell: no problem raised
 
 
 if __name__ == '__main__':

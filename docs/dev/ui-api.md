@@ -453,3 +453,11 @@ Editing comes in a later phase (config file for now).
 - Threat intelligence follows web-facing software only (`software.WEB_PRODUCTS`, `software.confirmed`): each run first calls `intel.retire_unrelated` (guessed host entries outside it are deleted, their open threats set `ignored` by `intel`, their open `intel:*` alerts handled; audit `software.pruned`, `intel.threat_status` with `reason: not_web`). Host facts no longer include sshd's UsePAM.
 - War room: `?page=<atlas|globe|flow|sites|review|intel|ops>` opens on that page; the globe zooms (wheel, pinch, `zoomBy` / `zoomReset`) and keeps turning after a drag (inertia).
 - `GET /warroom/snapshot?only=blocked`: the blocked events alone (answer `only`; anything else but empty is 400; cached apart).
+
+## 0.4.68
+- `jt-waf-mgr check` (CLI): adds `main_config`, `audit_log`, `problems`; `warnings` now includes the audit-format ones; exit 1 when `problems` is not empty. `audit_log_readable` follows the service's `SupplementaryGroups` (`cli._service_can_read`).
+- ModSecurity parsing: an unquoted word starting with `#` after the directive ends the line (trailing comment).
+
+## 0.4.69
+- `GET /warroom/snapshot?range=` also takes `1m`, `5m`, `10m`.
+- `jt-waf-mgr check`: `audit_log_readable` is true / false / null (cannot tell from the command line); `audit_log_last_read` from `collector_state`.

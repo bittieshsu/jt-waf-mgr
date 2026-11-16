@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.67
+# jt-waf-mgr v0.4.69
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -149,7 +149,7 @@ ModSecurity は最後のルールのまま動作し続けます。
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # リリースの決まった場所
-V=0.4.67; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.69; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # リリース、署名、公開鍵
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -355,7 +355,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新しいリリースも同じ current に展開
-V=0.4.67; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.69; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # すべての検査のみ、何も変更しない
@@ -461,3 +461,15 @@ jt-waf-mgr/
 
 AGPL-3.0。変更したバージョンをネットワークサービスとして提供する場合は、利用者がソースコードを入手できるようにしてください
 （未変更版はフッターのリンクで提供しています）。
+
+## 免責事項
+
+- jt-waf-mgr は「現状のまま」提供され、明示または黙示を問わず一切の保証はありません（AGPL-3.0 第 15 条・第 16 条を参照）。
+  本ソフトウェアの使用による損害や損失について、作者と貢献者は責任を負いません。
+- WAF はリスクを下げるものであり、すべての攻撃を防げるわけではなく、正当な利用者をブロックすることもあります。本番の前に
+  テスト環境で確認し、記録のみモードから始めてください。
+- イベント分析と脅威インテリジェンスは AI モデルの判断を補助に使っており、誤ることがあります。結果は提案であり、緩和する変更は
+  必ず人の承認が必要です。承認の前に証拠を確認してください。
+- ルールと nginx・ModSecurity の設定の責任は管理者にあります。バックアップを残し、変更が組織の規程と法律に沿っていることを
+  確認してください。
+- nginx、ModSecurity、OWASP CRS、MaxMind、GeoLite2 はそれぞれの所有者の商標であり、本プロジェクトはそれらと提携していません。

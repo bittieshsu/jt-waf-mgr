@@ -8,11 +8,11 @@ import {
   Undo, Import, Database, Archive, StatsReport, Globe, Prohibition, Laptop, MoreHoriz, Send, Code, Page,
   Fingerprint, Sort, SortUp, SortDown, Erase, Calendar, Book, HelpCircle, Hashtag, Bell, List, GitFork, Server,
   Network, Restart, Timer, Wrench, MultiplePages, FastArrowRight, Reports, Map, Mail, ChatLines, BellNotification, Sparks,
-  ZoomIn, ZoomOut, KeyCommand, Expand, Collapse,
+  ZoomIn, ZoomOut, KeyCommand, Expand, Collapse, Position,
 } from '@iconoir/vue'
 
 export const ICONS = {
-  zoom_in: ZoomIn, zoom_out: ZoomOut, keys: KeyCommand, fullscreen: Expand, fullscreen_exit: Collapse,
+  zoom_in: ZoomIn, zoom_out: ZoomOut, keys: KeyCommand, fullscreen: Expand, fullscreen_exit: Collapse, center: Position,
   add: Plus, edit: EditPencil, delete: Trash, save: FloppyDisk, close: Xmark, cancel: Xmark, dismiss: Xmark,
   refresh: Refresh, reload: Restart, download: Download, upload: Upload, search: Search, filter: Filter,
   columns: ViewColumns3, check: Check, approve: CheckCircle, reject: XmarkCircle, back: ArrowLeft, forward: ArrowRight,

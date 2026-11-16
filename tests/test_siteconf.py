@@ -131,6 +131,10 @@ class TestModsec(unittest.TestCase):
         self.assertEqual(readable_host(r'^app\.example\.com(?::[0-9]+)?$'), 'app.example.com')
         self.assertEqual(readable_host(r'^mail[12]?\.example\.com(?::[0-9]+)?$'), r'^mail[12]?\.example\.com$')
         self.assertEqual(split_args('SecRule A "@rx \\"x\\"" "id:1"'), ['SecRule', 'A', '@rx "x"', 'id:1'])
+        # a comment at the end of a line is not part of the value (libmodsecurity reads it so); "#" inside quotes stays
+        self.assertEqual(split_args('SecRuleEngine DetectionOnly          # log first; On later'), ['SecRuleEngine', 'DetectionOnly'])
+        self.assertEqual(split_args('SecAuditLogFormat JSON  # JSON for jt-waf-mgr'), ['SecAuditLogFormat', 'JSON'])
+        self.assertEqual(split_args('SecRule ARGS "@rx a#b" "id:1,msg:\'x # y\'"  # note'), ['SecRule', 'ARGS', '@rx a#b', "id:1,msg:'x # y'"])
         self.assertEqual(split_actions("id:1,msg:'a, b',t:none"), [('id', '1'), ('msg', 'a, b'), ('t', 'none')])
 
     def test_per_vhost_rules_file_warning(self):

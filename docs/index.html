@@ -127,6 +127,7 @@ ul.ticks li::before { content: "✓"; position: absolute; left: 0; top: 2px; wid
 ul.ticks.recgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; margin: 0; }
 @media (max-width: 860px) { ul.ticks.recgrid { grid-template-columns: minmax(0, 1fr); } }
 footer { padding: 30px 0 40px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--border); background: #fff; }
+footer p.disc { margin: 14px 0 0; font-size: 12.5px; line-height: 1.7; color: var(--muted); max-width: 980px; }
 @media (max-width: 860px) { .hero .wrap, .two { grid-template-columns: minmax(0, 1fr); } .hero h1 { font-size: 34px; } nav.links { display: none; } }
 /* a palette around the logo blue: every card, step and block gets its own colour (--c, --c2) */
 .grid > .card:nth-child(8n+1), ol.flow li:nth-child(6n+1) { --c: #2563c4; --c2: #3a86e6; }
@@ -215,7 +216,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
 
 <div class="hero"><div class="wrap">
   <div>
-    <h1>jt-waf-mgr <span class="ver">v0.4.67</span></h1>
+    <h1>jt-waf-mgr <span class="ver">v0.4.69</span></h1>
     <p class="lead" data-t="lead"></p>
     <div class="btns">
       <a class="btn primary" href="https://github.com/jasoncheng7115/jt-waf-mgr">GitHub</a>
@@ -369,7 +370,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
       <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_dir"></span>
 sudo mkdir -p /opt/jt-waf-mgr-install &amp;&amp; cd /opt/jt-waf-mgr-install
 <span class="c" data-t="c_get"></span>
-V=<span class="v-cur">0.4.67</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=<span class="v-cur">0.4.69</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done
 <span class="c" data-t="c_verify"></span>
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
@@ -405,7 +406,7 @@ sudo nginx -t &amp;&amp; sudo systemctl reload nginx</pre></div>
       <div class="ihead"><span class="ic">↻</span><div><h3 data-t="ub_h"></h3><p data-t="ub_d"></p></div></div>
       <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_udir"></span>
 cd /opt/jt-waf-mgr-install
-V=<span class="v-cur">0.4.67</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=<span class="v-cur">0.4.69</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current &amp;&amp; sudo mkdir current &amp;&amp; sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 &amp;&amp; cd current
 <span class="c" data-t="c_ucheck"></span>
@@ -448,11 +449,13 @@ sudo ./uninstall.sh --purge</pre></div>
 <footer><div class="wrap">
   jt-waf-mgr · AGPL-3.0 · <a href="https://github.com/jasoncheng7115/jt-waf-mgr">GitHub</a> ·
   <a href="https://github.com/jasoncheng7115/jt-waf-mgr/blob/main/SECURITY.md" data-t="sec_policy"></a> · Jason Tools Co., Ltd.
+  <p class="disc" data-t="disc"></p>
 </div></footer>
 
 <script>
 const T = {
  en: {
+  disc: 'Disclaimer: jt-waf-mgr is provided "as is", without warranty of any kind (AGPL-3.0, sections 15 and 16); the authors are not liable for any damage from using it. A WAF lowers risk but cannot stop every attack and can block legitimate users: try it in a test environment and start in log-only mode. AI analysis can be wrong; its findings are suggestions, and loosening changes always need a person. The administrators are responsible for their rules and their nginx and ModSecurity configuration. nginx, ModSecurity, OWASP CRS, MaxMind and GeoLite2 are trademarks of their owners; this project is not affiliated with them.',
   modes_h: 'Three ways to use it', modes_sub: 'jt-waf-mgr runs on the nginx host, beside ModSecurity: requests never pass through it, and nginx keeps protecting the sites with the last rules if it stops.',
   m1_h: 'nginx is the web server', m1: 'The sites live on the nginx host itself (static files, PHP-FPM ...). ModSecurity inspects every request before nginx answers it; jt-waf-mgr manages the rules, approvals and analysis.',
   m2_h: 'nginx as a reverse proxy', m2: 'The sites run on other servers. nginx with ModSecurity sits in front of them as the WAF and forwards only the requests that pass.',
@@ -625,6 +628,7 @@ const T = {
   api_link: 'API manual →',
  },
  'zh-TW': {
+  disc: '免責聲明：jt-waf-mgr 依「現狀」提供，不附任何保證 (AGPL-3.0 第 15、16 條)；使用本軟體造成的任何損害，作者不負責任。WAF 只能降低風險，無法擋住所有攻擊，也可能誤封鎖正常使用者：請先在測試環境驗證，並以「只記錄」模式開始。AI 分析可能出錯，結果只是建議，放寬類變更一律要人核准。規則以及 nginx、ModSecurity 的設定由管理者負責。nginx、ModSecurity、OWASP CRS、MaxMind、GeoLite2 為各自所有者的商標，本專案與它們沒有隸屬關係。',
   modes_h: '三種使用方式', modes_sub: 'jt-waf-mgr 裝在 nginx 主機上、在 ModSecurity 旁邊：請求不會經過它；它停止時，nginx 仍以最後一版規則保護網站。',
   m1_h: 'nginx 本身就是網站伺服器', m1: '網站就在 nginx 這台主機上 (靜態網頁、PHP-FPM 等)。nginx 回應前 ModSecurity 先檢查每個請求，jt-waf-mgr 加強 WAF 的防護與管理。',
   m2_h: 'nginx 當反向代理', m2: '網站在後面其他的網站伺服器上；nginx 加上 ModSecurity 在前面提供 WAF 保護，只轉送通過檢查的請求。',
@@ -797,6 +801,7 @@ const T = {
   api_link: 'API 介接手冊 →',
  },
  ja: {
+  disc: '免責事項：jt-waf-mgr は「現状のまま」提供され、一切の保証はありません（AGPL-3.0 第 15 条・第 16 条）。使用による損害について作者は責任を負いません。WAF はリスクを下げるものですが、すべての攻撃を防げるわけではなく、正当な利用者をブロックすることもあります。テスト環境で確認し、記録のみモードから始めてください。AI の分析は誤ることがあり、結果は提案です。緩和する変更は必ず人が承認します。ルールと nginx・ModSecurity の設定の責任は管理者にあります。nginx、ModSecurity、OWASP CRS、MaxMind、GeoLite2 はそれぞれの所有者の商標であり、本プロジェクトはそれらと提携していません。',
   modes_h: '3 つの使い方', modes_sub: 'jt-waf-mgr は nginx ホスト上で ModSecurity の横に置かれます。リクエストは jt-waf-mgr を通らず、停止しても nginx は最後のルールでサイトを守り続けます。',
   m1_h: 'nginx が Web サーバー', m1: 'サイトは nginx ホスト上にあります (静的ファイル、PHP-FPM など)。nginx が応答する前に ModSecurity が各リクエストを検査し、jt-waf-mgr がルール、承認、分析を管理します。',
   m2_h: 'nginx がリバースプロキシ', m2: 'サイトは別のサーバーにあります。ModSecurity を組み込んだ nginx が前段で WAF として保護し、通過したリクエストだけを転送します。',

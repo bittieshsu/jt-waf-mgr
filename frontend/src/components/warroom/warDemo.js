@@ -38,6 +38,10 @@ function rate(ms) { const w = wave(ms); return base(ms) + (w ? w.rate : 0) }
 export function createDemo(destination) {
   let id = 900000000
   let last = Date.now()
+  // the events already shown, newest last: a new snapshot lists these again (same ids), so the latest-events list
+  // only ever gets new ones pushed in at the top -- never a whole new set every minute
+  let recent = []
+  const remember = (list) => { recent = recent.concat(list).slice(-80) }
 
   function event(ms, cc0) {
     const internal = Math.random() < INTERNAL
@@ -58,6 +62,7 @@ export function createDemo(destination) {
     const share = w ? w.rate / rate(mid) : 0
     const times = Array.from({ length: n }, () => now - Math.random() * span).sort((a, b) => a - b)
     const out = times.map((ms) => event(ms, Math.random() < share ? w.cc : null))
+    remember(out)
     last = now
     return { now: iso(now), after: 0, high_water_id: id, more: false, collector: { stopped: false }, events: out }
   }
@@ -124,11 +129,8 @@ export function createDemo(destination) {
       delete flow.external.logged; delete flow.internal.logged
     }
     const list = Object.values(countries).filter((c) => c.events > 0).sort((a, b) => b.events - a.events)
-    const latest = []
-    for (let k = 1; latest.length < 30 && k < 400; k++) {
-      const e = event(now - k * 1700, null)
-      if (!blockedOnly || e.outcome === 'blocked') latest.push(e)
-    }
+    if (!recent.length) remember(Array.from({ length: 60 }, (_, k) => event(now - (60 - k) * 1700, null)))
+    const latest = recent.filter((e) => !blockedOnly || e.outcome === 'blocked').slice(-30).reverse()
     return {
       now: iso(now), window_start: iso(since), window_end: iso(now), window_seconds: seconds, range: rng,
       only: blockedOnly ? 'blocked' : '', step_seconds: Math.round(step / 1000), cell_seconds: Math.round(cell / 1000), node_id: 'demo', high_water_id: id,

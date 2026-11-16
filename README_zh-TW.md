@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.67
+# jt-waf-mgr v0.4.69
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -132,7 +132,7 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # 發行檔的固定位置
-V=0.4.67; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.69; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # 發行檔、簽章與公鑰
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -327,7 +327,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新版本一樣解開到 current
-V=0.4.67; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.69; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # 只做所有檢查，不改任何東西
@@ -427,3 +427,12 @@ jt-waf-mgr/
 ## 授權
 
 AGPL-3.0。如果你把修改過的版本作為網路服務提供，必須讓使用者取得原始碼（未修改版本由頁尾連結提供）。
+
+## 免責聲明
+
+- jt-waf-mgr 依「現狀」提供，不附任何明示或默示的保證 (見 AGPL-3.0 第 15、16 條)。使用本軟體造成的任何損害或損失，作者與貢獻者
+  不負責任。
+- WAF 只能降低風險，無法擋住所有攻擊，也可能誤封鎖正常使用者。正式上線前請先在測試環境驗證，並以「只記錄」模式開始。
+- 事件分析與威脅情報由 AI 模型輔助判斷，可能出錯；結果只是建議：放寬類變更一律要人核准，核准前請自行查看證據。
+- 規則以及 nginx、ModSecurity 的設定由管理者負責：請保留備份，並確認變更符合所屬組織的規範與法律。
+- nginx、ModSecurity、OWASP CRS、MaxMind、GeoLite2 為各自所有者的商標；本專案與它們沒有隸屬關係。

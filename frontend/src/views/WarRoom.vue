@@ -12,15 +12,16 @@
     <header class="wr-top">
       <div class="wr-brand"><img src="/logo-mark.svg" alt="" width="26" height="26"><b>jt-waf-mgr</b><span class="wr-sep" aria-hidden="true"></span><span>{{ t('war.title') }}</span></div>
       <div class="wr-ctl">
-        <span class="wr-state" :class="'st-' + state" role="status" :title="stateHint"><span class="wr-dot" aria-hidden="true"></span>{{ t('war.state.' + state) }}</span>
-        <SelectBox v-model="range" class="wr-range" small :options="rangeOptions" :aria-label="t('war.range')" />
+        <!-- in demo mode the demo button is the state as well (one place says "demo") -->
+        <span v-if="!demo" class="wr-state" :class="'st-' + state" role="status" :title="stateHint"><span class="wr-dot" aria-hidden="true"></span>{{ t('war.state.' + state) }}</span>
+        <SelectBox v-model="range" class="wr-range" small :searchable="false" :options="rangeOptions" :aria-label="t('war.range')" />
         <button type="button" class="wr-btn wr-onlybtn" :class="{ on: onlyBlocked }" :aria-pressed="onlyBlocked ? 'true' : 'false'"
                 :title="t('war.only_hint')" @click="onlyBlocked = !onlyBlocked"><Icon name="filter" />{{ t(onlyBlocked ? 'war.only_blocked' : 'war.only_all') }}</button>
         <span class="wr-clock mono">{{ clock }}</span><span class="wr-tz mono">{{ tz }}</span>
         <button type="button" class="wr-btn" :class="{ on: rotating }" :aria-pressed="rotating ? 'true' : 'false'" :title="t('war.rotate')" @click="rotating = !rotating"><Icon name="refresh" /><span class="wr-lbl">{{ t('war.rotate') }}</span></button>
         <button type="button" class="wr-btn" :class="{ on: paused }" :aria-pressed="paused ? 'true' : 'false'" :title="t(paused ? 'war.resume' : 'war.pause')" @click="paused = !paused"><Icon :name="paused ? 'run' : 'timer'" /><span class="wr-lbl">{{ t(paused ? 'war.resume' : 'war.pause') }}</span></button>
         <button type="button" class="wr-btn" :class="{ on: frozen }" :aria-pressed="frozen ? 'true' : 'false'" :title="t(frozen ? 'war.unfreeze' : 'war.freeze')" @click="toggleFreeze"><Icon :name="frozen ? 'unlock' : 'lock'" /><span class="wr-lbl">{{ t(frozen ? 'war.unfreeze' : 'war.freeze') }}</span></button>
-        <button type="button" class="wr-btn wr-demobtn" :class="{ on: demo }" :aria-pressed="demo ? 'true' : 'false'" :title="t('war.demo')" @click="demo = !demo"><Icon name="test" /><span class="wr-lbl">{{ t('war.demo') }}</span></button>
+        <button type="button" class="wr-btn wr-demobtn" :class="{ on: demo }" :aria-pressed="demo ? 'true' : 'false'" :title="demo ? stateHint : t('war.demo')" @click="demo = !demo"><span v-if="demo" class="wr-dot st-demo" aria-hidden="true"></span><Icon name="test" /><span class="wr-lbl">{{ t('war.demo') }}</span></button>
         <button type="button" class="wr-btn wr-keybtn" :aria-pressed="showHelp ? 'true' : 'false'" :aria-label="t('war.keys_hint')" :title="t('war.keys_hint')" @click="showHelp = !showHelp"><Icon name="keys" />H</button>
         <button type="button" class="wr-btn" :class="{ on: isFull }" :aria-pressed="isFull ? 'true' : 'false'" :title="t('war.fullscreen')" @click="fullscreen"><Icon :name="isFull ? 'fullscreen_exit' : 'fullscreen'" /><span class="wr-lbl">{{ t('war.fullscreen') }}</span></button>
       </div>
@@ -135,8 +136,9 @@
           <div class="wr-card-f">
             <span class="wr-legend"><i class="lg-b"></i>{{ t('war.k.blocked') }}<i class="lg-l"></i>{{ t('war.k.logged') }}</span>
             <span v-if="PAGES[page] === 'globe'" class="wr-globectl">
-              <button type="button" class="wr-btn small" :aria-label="t('war.zoom_out')" :title="t('war.zoom_out')" @click="globe && globe.zoomBy(1 / 1.25)"><Icon name="zoom_out" /></button>
-              <button type="button" class="wr-btn small" :aria-label="t('war.zoom_in')" :title="t('war.zoom_in')" @click="globe && globe.zoomBy(1.25)"><Icon name="zoom_in" /></button>
+              <button type="button" class="wr-btn small wr-iconbtn" :aria-label="t('war.zoom_out')" :title="t('war.zoom_out')" @click="globe && globe.zoomBy(1 / 1.25)"><Icon name="zoom_out" /></button>
+              <button type="button" class="wr-btn small wr-iconbtn" :aria-label="t('war.zoom_in')" :title="t('war.zoom_in')" @click="globe && globe.zoomBy(1.25)"><Icon name="zoom_in" /></button>
+              <button type="button" class="wr-btn small" :disabled="!dest" @click="centerUs"><Icon name="center" />{{ t('war.center') }}</button>
               <button type="button" class="wr-btn small" @click="globe && globe.zoomReset()"><Icon name="refresh" />{{ t('war.zoom_reset') }}</button>
               <button type="button" class="wr-btn small" @click="spin = !spin"><Icon :name="spin ? 'timer' : 'refresh'" />{{ t(spin ? 'war.stop_spin' : 'war.start_spin') }}</button>
             </span>
@@ -267,8 +269,8 @@ const POLL = 5000
 const RESYNC = 60000
 const CELLS = 15
 // the windows the board can show (the server keeps the same list): live = the rolling 30 minutes
-const RANGES = ['live', '15m', '1h', '3h', '6h', '12h', '24h', '7d']
-const RANGE_SECONDS = { live: 1800, '15m': 900, '1h': 3600, '3h': 10800, '6h': 21600, '12h': 43200, '24h': 86400, '7d': 604800 }
+const RANGES = ['live', '1m', '5m', '10m', '15m', '1h', '3h', '6h', '12h', '24h', '7d']
+const RANGE_SECONDS = { live: 1800, '1m': 60, '5m': 300, '10m': 600, '15m': 900, '1h': 3600, '3h': 10800, '6h': 21600, '12h': 43200, '24h': 86400, '7d': 604800 }
 const DECIDED = { confident: 'war.d.confident', fallback: 'war.d.fallback', score: 'war.d.crs' }
 
 // ?page=globe (or atlas, flow, sites, review, intel, ops): the page a wall screen opens on
@@ -305,6 +307,8 @@ const dest = computed(() => {
 })
 // the globe marks where we are without words (the flat map names it)
 const globe = ref(null)
+// one click: the globe turns to where we are and stays there (its spin stops)
+function centerUs() { if (globe.value && globe.value.centerUs()) spin.value = false }
 const globeDest = computed(() => (dest.value ? { ...dest.value, label: '' } : null))
 // a stretch of time in words: 30 s, 6 min, 1 hour, 1.6 hours, 7 days
 function span(sec) {
@@ -641,6 +645,7 @@ const KEYS = [
   { keys: ['F'], label: 'war.key.fullscreen' },
   { keys: ['+', '−', '0'], label: 'war.key.zoom' },
   { keys: ['S'], label: 'war.key.spin' },
+  { keys: ['C'], label: 'war.key.center' },
   { keys: ['H'], label: 'war.key.help' },
   { keys: ['Esc'], label: 'war.key.close' },
 ]
@@ -663,6 +668,7 @@ function onKey(e) {
   else if ((k === '-' || k === '_') && onGlobe) globe.value.zoomBy(1 / 1.25)
   else if (k === '0' && onGlobe) globe.value.zoomReset()
   else if ((k === 's' || k === 'S') && PAGES[page.value] === 'globe') spin.value = !spin.value
+  else if ((k === 'c' || k === 'C') && onGlobe) centerUs()
   else if (k === 'h' || k === 'H') showHelp.value = !showHelp.value
   else if (k === 'Escape') { if (showHelp.value) showHelp.value = false; else picked.value = null }
   else return
@@ -728,6 +734,10 @@ onBeforeUnmount(() => {
   .wr-ctl > .wr-btn { padding: 0 10px; }
 }
 .wr-onlybtn.on { border-color: var(--b); color: var(--b); }
+/* the globe's controls: one height, square icon-only buttons, a gap between them */
+.wr-globectl { display: inline-flex; align-items: center; gap: 8px; }
+.wr-globectl .wr-btn { height: 32px; box-sizing: border-box; padding: 0 12px; font-size: 13px; }
+.wr-globectl .wr-iconbtn { width: 32px; padding: 0; justify-content: center; }
 .wr-keybtn { font-family: var(--mono, monospace); font-weight: 600; }
 .wr-help { position: fixed; z-index: 40; right: 32px; bottom: 56px; width: min(620px, calc(100vw - 32px)); max-height: calc(100vh - 120px); overflow: auto;
   padding: 22px 26px; border: 1px solid #3a6463; border-radius: 12px; background: rgba(7, 22, 24, .97); box-shadow: 0 18px 50px rgba(0, 0, 0, .5); cursor: pointer; }

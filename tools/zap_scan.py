@@ -231,7 +231,16 @@ def main():
         base = 'http://127.0.0.1:%d' % port
         p = plan(base, cookie, csrf, out, a.minutes, a.passive_only, version)
         print('ZAP plan %s against %s' % (p, base), flush=True)
-        run = subprocess.run(['nice', '-n', '10', ZAP, '-cmd', '-autorun', p], env=dict(os.environ, JAVA_HOME=JAVA_HOME),
+        # a home directory of its own: ZAP locks its default one, so another scan on this host (another project)
+        # would stop this one
+        home = os.path.join(w, 'zap-home')
+        os.makedirs(home, exist_ok=True)
+        # and a proxy port of its own (8080 may be another scan's)
+        with socket.socket() as so:
+            so.bind(('127.0.0.1', 0))
+            zport = so.getsockname()[1]
+        run = subprocess.run(['nice', '-n', '10', ZAP, '-cmd', '-dir', home, '-port', str(zport), '-autorun', p],
+                             env=dict(os.environ, JAVA_HOME=JAVA_HOME),
                              check=False, capture_output=True, text=True)
         log = run.stdout + run.stderr
         open(os.path.join(out, 'zap-%s.log' % version), 'w').write(log)
@@ -240,7 +249,8 @@ def main():
         session_ok = not re.search(r'(?i)unexpected response|response code.*expected', log)
         report = os.path.join(out, 'zap-%s.json' % version)
         if not os.path.exists(report):
-            print('no report written: the scan did not run (see the ZAP output above)')
+            print('no report written: the scan did not run; the last lines of its output:')
+            print('\n'.join(log.strip().splitlines()[-15:]))
             return 2
         urls, rows, bad = summarise(report, baseline())
         print('requested %d URLs, spider found %d, session %s' % (requested, spider, 'OK' if session_ok else 'NOT USED'))

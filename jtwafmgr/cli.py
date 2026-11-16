@@ -5,9 +5,11 @@ import json
 import os
 import signal
 import sys
+import time
 
 from . import __version__
 from . import config as config_mod
+from . import util
 
 
 def _app(args, collector=False):
@@ -91,6 +93,57 @@ def cmd_import(args):
     return 0
 
 
+SERVICE_DROPINS = '/etc/systemd/system/jt-waf-mgr.service.d'
+
+
+def _service_can_read(path, dropins=SERVICE_DROPINS, last_read=None):
+    """Whether the web service can read a file: True, False, or None when this cannot be told from here.
+    This process can; or the groups systemd gives the service (SupplementaryGroups in its drop-ins, written by
+    install.sh) can -- the command line runs without them. When a directory closed to this process hides the file's
+    own permissions, the service having read it lately (last_read, from the collector's state) answers."""
+    if os.access(path, os.R_OK):
+        return True
+    import glob
+    import grp
+    import stat
+    groups = set()
+    for f in sorted(glob.glob(os.path.join(dropins, '*.conf'))):
+        try:
+            with open(f, encoding='utf-8') as fh:
+                for line in fh:
+                    if line.strip().startswith('SupplementaryGroups='):
+                        groups.update(line.split('=', 1)[1].split())
+        except OSError:
+            continue
+    gids = set()
+    for g in groups:
+        try:
+            gids.add(grp.getgrnam(g).gr_gid)
+        except KeyError:
+            continue
+
+    def ok(p, bit_g, bit_o):
+        try:
+            st = os.stat(p)
+        except PermissionError:
+            return None
+        except OSError:
+            return False
+        return bool(st.st_mode & bit_o) or (st.st_gid in gids and bool(st.st_mode & bit_g))
+    d = os.path.dirname(os.path.abspath(path))
+    parts = []
+    while d and d != '/':
+        parts.append(d)
+        d = os.path.dirname(d)
+    if not all(ok(p, stat.S_IXGRP, stat.S_IXOTH) for p in parts):
+        return False
+    f = ok(path, stat.S_IRGRP, stat.S_IROTH)
+    if f is None:                      # the file is behind a directory only the service's groups open
+        recent = last_read is not None and time.time() - last_read < 7 * 86400
+        return True if recent else None
+    return f
+
+
 def cmd_check(args):
     """Parse the site configuration and print a summary (read-only)."""
     app = _app(args)
@@ -103,11 +156,32 @@ def cmd_check(args):
         'removals': len(m.removals), 'servers': len(servers),
         'servers_waf': {s: sum(1 for x in servers if x['waf'] == s) for s in ('on', 'off', 'block', 'unknown')},
         'crs': {k: crs[k] for k in ('version', 'paranoia_level', 'inbound_threshold', 'engine_mode', 'rule_count')},
-        'external_threshold_block': m.external_threshold_block(), 'warnings': m.warnings,
-        'audit_log_readable': os.access(app.cfg['paths']['audit_log'], os.R_OK),
+        'external_threshold_block': m.external_threshold_block(), 'warnings': m.status_warnings(),
+        'main_config': sorted({p for p, _f, _l, _c in n.modsec_rules_files()}),
+        'audit_log': app.cfg['paths']['audit_log'],
+        'audit_log_last_read': None,
     }
+    st = app.db.one('SELECT updated FROM collector_state WHERE path=?', (app.cfg['paths']['audit_log'],))
+    if st and st['updated']:
+        out['audit_log_last_read'] = util.iso(st['updated'])
+    out['audit_log_readable'] = _service_can_read(app.cfg['paths']['audit_log'], last_read=st['updated'] if st else None)
+    # what keeps jt-waf-mgr from working, in words a person can act on; any of them: exit 1
+    problems = []
+    if n.errors or m.errors:
+        problems.append('the nginx or ModSecurity configuration has parse errors (nginx_errors, modsec_errors)')
+    if not out['main_config']:
+        problems.append('no modsecurity_rules_file in the nginx configuration')
+    if 'audit_log_not_json' in out['warnings']:
+        problems.append('SecAuditLogFormat is not JSON')
+    if 'audit_engine_off' in out['warnings']:
+        problems.append('SecAuditEngine is Off')
+    if out['audit_log_readable'] is False:
+        problems.append('the service cannot read the audit log %s (its directories and the file need the group install.sh gave the service, or read access for all)' % out['audit_log'])
+    if not crs.get('version'):
+        problems.append('no OWASP CRS loaded (install it from the CRS page, or by hand)')
+    out['problems'] = problems
     print(json.dumps(out, indent=1, ensure_ascii=False))
-    return 0 if not (n.errors or m.errors) else 1
+    return 1 if problems else 0
 
 
 def cmd_integrity(args):

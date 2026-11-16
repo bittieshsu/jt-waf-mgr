@@ -2,6 +2,35 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.69 (2026-11-16)
+
+- War room: a "center on us" button under the globe (key C) turns it to our location and stops its spin; the globe's
+  buttons have one height and some room between them; the time range also offers the last 1, 5 and 10 minutes; in
+  demo mode the demo button is the state as well (one place says "demo"); the globe no longer flashes when other cards
+  refresh (its canvas is only reset when its size really changes, and painted again at once); in demo mode new
+  latest events are pushed in at the top instead of the whole list changing every minute.
+- `jt-waf-mgr check`: whether the service can read the audit log, when a directory open only to the service's group
+  hides the file from the command line, is told by when the service last read it (`audit_log_last_read`; `null` when
+  that cannot tell, not a problem). 0.4.68 reported such a host as a problem.
+- Release checks: the ZAP scan has a home directory and proxy port of its own (another scan on the host stopped it).
+
+## 0.4.68 (2026-11-16)
+
+- ModSecurity guide (three languages), after an outside review: what jt-waf-mgr may change in nginx (marked includes
+  for a site's WAF and the blocked page, the IP block list); `apt install --no-install-recommends` (the connector
+  recommends the distribution's CRS 3); package sources and the loaded configuration checked with `apt-cache policy`
+  and `nginx -T`; the upstream ModSecurity version without the distribution's revision; comments on their own lines;
+  the raw audit log may hold what the database masks; `adm` is only an example (install.sh finds the group); base
+  rules can log before the CRS; a hand-installed CRS in `crs-<version>` (so jt-waf-mgr can update and roll it back);
+  the optional site rule files commented out until created; testing with the real site name and a value of this
+  request; reload after switching to `On`.
+- A comment at the end of a ModSecurity directive line (`SecRuleEngine DetectionOnly  # ...`) is no longer read as part
+  of its value (libmodsecurity ignores it).
+- `jt-waf-mgr check` adds the main file(s) nginx loads (`main_config`), the audit log path, the audit-format warnings
+  and `problems` in words; it exits 1 when any is found. Whether the service can read the audit log is judged by the
+  groups systemd gives it (the command line runs without them).
+- README and project site: a disclaimer at the end.
+
 ## 0.4.67 (2026-11-16)
 
 - Threat intelligence: only web-facing software is followed (the web servers, the WAF and the libraries it parses
