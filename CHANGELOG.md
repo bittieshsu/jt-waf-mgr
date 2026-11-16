@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.71 (2026-11-16)
+
+- War room: the sixth page is named "AI analysis and threat intel" (in Chinese, AI 分析與威脅情報).
+
 ## 0.4.70 (2026-11-16)
 
 - Wording: the interface no longer says "we" or "us". In Chinese the place the war room marks is 本站 ("our site"),

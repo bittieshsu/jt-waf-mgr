@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.70
+# jt-waf-mgr v0.4.71
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -58,7 +58,7 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
 - **總覽與事件**：在時間軸上拖曳即可放大，或自訂最長 31 天的範圍；篩選條件存在網址；事件詳情列出每條命中的規則；一鍵草擬
   排除或封鎖。
 - **戰情室** (0.4.56 新增)：總覽 → 戰情室，開新分頁顯示適合牆面螢幕的看板：最近 30 分鐘 (或選更長的範圍，最長 7 天；也有模擬攻擊的示範模式) 的平面地圖與 3D 地球 (來源國家、
-  封鎖/只記錄、每批新事件飛向你的 WAF)、封鎖決策流、站台熱區 (每 2 分鐘一格)、誤判檢討、AI 與威脅情報、警示與變更，可輪播；牆上不顯示位址、路徑或查詢字串。
+  封鎖/只記錄、每批新事件飛向你的 WAF)、封鎖決策流、站台熱區 (每 2 分鐘一格)、誤判檢討、AI 分析與威脅情報、警示與變更，可輪播；牆上不顯示位址、路徑或查詢字串。
 - **暫時封鎖 IP**（0.4.24 新增，選用）：郵件主機的 fail2ban、SOAR 劇本或核准者可以暫時封鎖單一位址；一個 nginx deny
   清單涵蓋所有站台。見[暫時封鎖 IP](#暫時封鎖-ip選用)。
 - **國家封鎖**（0.4.28 新增，選用）：讓站台只允許某些國家，或封鎖某些國家；清單來自五大區域網際網路註冊機構，每天更新。
@@ -132,7 +132,7 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # 發行檔的固定位置
-V=0.4.70; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.71; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # 發行檔、簽章與公鑰
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -327,7 +327,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新版本一樣解開到 current
-V=0.4.70; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.71; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # 只做所有檢查，不改任何東西

@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.70
+# jt-waf-mgr v0.4.71
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -59,7 +59,7 @@ ModSecurity は最後のルールのまま動作し続けます。
 - **概要とイベント**：タイムラインをドラッグして拡大、または最長 31 日の期間を指定。絞り込み条件は URL に保持。イベント詳細で
   一致したすべてのルールを表示し、ワンクリックで除外やブロックを起案。
 - **作戦室** (0.4.56 で追加)：概要 → 作戦室 で壁面スクリーン向けのボードを新しいタブに表示：直近 30 分 (または最長 7 日までの範囲、模擬攻撃のデモモードもあり) の平面地図と
-  3D 地球 (送信元の国、ブロック/記録のみ、新しいイベントが WAF へ飛ぶ軌跡)、ブロック判定の流れ、サイトの活動 (2 分ごと)、誤検知の確認、AI と脅威インテリジェンス、アラートと変更、巡回表示。アドレス・パス・クエリは表示しません。
+  3D 地球 (送信元の国、ブロック/記録のみ、新しいイベントが WAF へ飛ぶ軌跡)、ブロック判定の流れ、サイトの活動 (2 分ごと)、誤検知の確認、AI 分析と脅威インテリジェンス、アラートと変更、巡回表示。アドレス・パス・クエリは表示しません。
 - **一時的な IP ブロック**（0.4.24 で追加、任意）：メールサーバーの fail2ban、SOAR プレイブック、承認者が単一アドレスを
   一時的にブロックします。1 つの nginx deny リストがすべてのサイトに効きます。[一時的な IP ブロック](#一時的な-ip-ブロック任意)を参照。
 - **国別ブロック**（0.4.28 で追加、任意）：サイトを一部の国だけに限定、または一部の国をブロックします。一覧は 5 つの地域
@@ -149,7 +149,7 @@ ModSecurity は最後のルールのまま動作し続けます。
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # リリースの決まった場所
-V=0.4.70; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.71; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # リリース、署名、公開鍵
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -355,7 +355,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新しいリリースも同じ current に展開
-V=0.4.70; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.71; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # すべての検査のみ、何も変更しない

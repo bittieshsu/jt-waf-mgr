@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.70
+# jt-waf-mgr v0.4.71
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -63,7 +63,7 @@ nginx and ModSecurity keep working with the last rules.
   URL; event detail with every matched rule; one click to draft an exclusion or a block.
 - **War room** (new in 0.4.56): Overview > War room opens a board for a wall screen in a new tab: a flat map and a
   3D globe of the last 30 minutes, or a longer range up to 7 days, or a demo with made-up attacks (source countries, blocked / logged, a tracer per new batch towards your WAF),
-  the decision flow, site activity in 2-minute cells, a false-positive review desk, the AI and threat intelligence,
+  the decision flow, site activity in 2-minute cells, a false-positive review desk, AI analysis and threat intelligence,
   and alerts and changes, rotating; no address, path or query on the wall.
 - **Temporary IP blocks** (new in 0.4.24, optional): fail2ban on a mail server, a SOAR playbook or an approver blocks
   a single address for a while; one nginx deny list covers every site. See [Temporary IP blocks](#temporary-ip-blocks-optional).
@@ -167,7 +167,7 @@ nginx and ModSecurity keep working with the last rules.
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # a fixed place for the releases
-V=0.4.70; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.71; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # the release, its signature, the public key
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -388,7 +388,7 @@ the file next to the current values and writes only what you tick).
 
 ```sh
 cd /opt/jt-waf-mgr-install   # the new release, unpacked into the same current
-V=0.4.70; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.71; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # every check, nothing changed
