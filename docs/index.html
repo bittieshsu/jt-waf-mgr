@@ -438,6 +438,8 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
     <figure><a class="shotlink" href="shots/en/changes.png" data-shot="changes"><img src="shots/en/thumb/changes.webp" alt="" loading="lazy"></a><figcaption data-t="sc_changes"></figcaption></figure>
     <figure><a class="shotlink" href="shots/en/rules.png" data-shot="rules"><img src="shots/en/thumb/rules.webp" alt="" loading="lazy"></a><figcaption data-t="sc_rules"></figcaption></figure>
     <figure><a class="shotlink" href="shots/en/alerts.png" data-shot="alerts"><img src="shots/en/thumb/alerts.webp" alt="" loading="lazy"></a><figcaption data-t="sc_alerts"></figcaption></figure>
+    <figure><a class="shotlink" href="shots/en/notify-alerts.png" data-shot="notify-alerts"><img src="shots/en/thumb/notify-alerts.webp" alt="" loading="lazy"></a><figcaption data-t="sc_notify_alerts"></figcaption></figure>
+    <figure><a class="shotlink" href="shots/en/notify-intel.png" data-shot="notify-intel"><img src="shots/en/thumb/notify-intel.webp" alt="" loading="lazy"></a><figcaption data-t="sc_notify_intel"></figcaption></figure>
     <figure><a class="shotlink" href="shots/en/system-check.png" data-shot="system-check"><img src="shots/en/thumb/system-check.webp" alt="" loading="lazy"></a><figcaption data-t="sc_system"></figcaption></figure>
     <figure><a class="shotlink" href="shots/en/lookup.png" data-shot="lookup"><img src="shots/en/thumb/lookup.webp" alt="" loading="lazy"></a><figcaption data-t="sc_lookup"></figcaption></figure>
     <figure><a class="shotlink" href="shots/en/traffic.png" data-shot="traffic"><img src="shots/en/thumb/traffic.webp" alt="" loading="lazy"></a><figcaption data-t="sc_traffic"></figcaption></figure>
@@ -689,6 +691,7 @@ const T = {
   sc_lookup: 'Address lookup with its location',
   sc_traffic: 'Request volume next to what the WAF blocked',
   sc_countries: 'Country limits by site: who may reach each site, what was refused',
+  sc_notify_alerts: 'Notifications on a phone (Zulip): alerts, the periodic WAF review, the daily summary', sc_notify_intel: 'Notifications on a phone (Zulip): new vulnerabilities, analysis proposals, a change approved and applied',
   sc_intel: 'Threat intelligence: vulnerabilities found for the confirmed software', sc_reviews: 'Periodic WAF review: possible false blocks first, focus sites', sc_warroom: 'War room: a wall board, live or up to 7 days (seven pages, rotating)',
   sc_warroom_globe: 'War room 3D globe (demo mode: made-up attacks)',
   car_overview: 'Dashboard', car_warroom: 'War room', car_traffic: 'Request volume', car_prev: 'Previous screenshot', car_next: 'Next screenshot',
@@ -893,6 +896,7 @@ const T = {
   sc_lookup: '查詢位址與所在位置',
   sc_traffic: '請求量與 WAF 封鎖並列',
   sc_countries: '各站台的國家限制：允許哪些國家、封鎖了多少',
+  sc_notify_alerts: '手機收到的通知 (Zulip)：警示、WAF 定期檢討、每日摘要', sc_notify_intel: '手機收到的通知 (Zulip)：新漏洞、事件分析提案、變更核准與套用',
   sc_intel: '威脅情報：Web 應用套件的漏洞', sc_reviews: 'WAF 定期檢討：可能誤封鎖排前面、重點站台', sc_warroom: '戰情室：即時或最長 7 天的牆面看板 (七個畫面，可輪播)',
   sc_warroom_globe: '戰情室 3D 地球 (示範模式的模擬攻擊)',
   car_overview: '儀表板', car_warroom: '戰情室', car_traffic: '請求量', car_prev: '上一張截圖', car_next: '下一張截圖',
@@ -1097,6 +1101,7 @@ const T = {
   sc_lookup: 'アドレスの照会と所在地',
   sc_traffic: 'リクエスト量と WAF のブロックを並べて表示',
   sc_countries: 'サイトごとの国別制限：接続できる国とブロック数',
+  sc_notify_alerts: 'スマートフォンの通知 (Zulip)：アラート、WAF 定期レビュー、日次レポート', sc_notify_intel: 'スマートフォンの通知 (Zulip)：新しい脆弱性、イベント分析の提案、変更の承認と適用',
   sc_intel: '脅威インテリジェンス：確認済みソフトウェアの脆弱性', sc_reviews: 'WAF 定期レビュー：誤ブロックの可能性を先頭に、重点サイト', sc_warroom: '作戦室：ライブまたは最長 7 日の壁面ボード (7 画面、巡回)',
   sc_warroom_globe: '作戦室の 3D 地球 (デモモードの模擬攻撃)',
   car_overview: 'ダッシュボード', car_warroom: '作戦室', car_traffic: 'リクエスト量', car_prev: '前のスクリーンショット', car_next: '次のスクリーンショット',
