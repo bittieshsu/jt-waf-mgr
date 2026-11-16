@@ -2,6 +2,12 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.70 (2026-11-16)
+
+- Wording: the interface no longer says "we" or "us". In Chinese the place the war room marks is 本站 ("our site"),
+  and the threat intelligence says "affects our site" (影響本站); the English war room says "Our site" and "Center
+  on our site". The Chinese word for "we" is now rejected by the interface wording check.
+
 ## 0.4.69 (2026-11-16)
 
 - War room: a "center on us" button under the globe (key C) turns it to our location and stops its spin; the globe's

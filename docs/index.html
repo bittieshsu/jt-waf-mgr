@@ -216,7 +216,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
 
 <div class="hero"><div class="wrap">
   <div>
-    <h1>jt-waf-mgr <span class="ver">v0.4.69</span></h1>
+    <h1>jt-waf-mgr <span class="ver">v0.4.70</span></h1>
     <p class="lead" data-t="lead"></p>
     <div class="btns">
       <a class="btn primary" href="https://github.com/jasoncheng7115/jt-waf-mgr">GitHub</a>
@@ -370,7 +370,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
       <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_dir"></span>
 sudo mkdir -p /opt/jt-waf-mgr-install &amp;&amp; cd /opt/jt-waf-mgr-install
 <span class="c" data-t="c_get"></span>
-V=<span class="v-cur">0.4.69</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=<span class="v-cur">0.4.70</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done
 <span class="c" data-t="c_verify"></span>
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
@@ -406,7 +406,7 @@ sudo nginx -t &amp;&amp; sudo systemctl reload nginx</pre></div>
       <div class="ihead"><span class="ic">↻</span><div><h3 data-t="ub_h"></h3><p data-t="ub_d"></p></div></div>
       <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_udir"></span>
 cd /opt/jt-waf-mgr-install
-V=<span class="v-cur">0.4.69</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=<span class="v-cur">0.4.70</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current &amp;&amp; sudo mkdir current &amp;&amp; sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 &amp;&amp; cd current
 <span class="c" data-t="c_ucheck"></span>
@@ -636,7 +636,7 @@ const T = {
   nav_specs: "規格",
   nav_how: "運作架構",
   sp_h: "規格與來源",
-  sp_sub: "jt-waf-mgr 管理的是由知名開源元件組成的 WAF。下面列出每個部分是什麼、來自哪裡，以及哪些是我們自己寫的。介面的規則清單也會逐條標示撰寫者。",
+  sp_sub: "jt-waf-mgr 管理的是由知名開源元件組成的 WAF。下面列出每個部分是什麼、來自哪裡，以及哪些是 jt-waf-mgr 自己寫的。介面的規則清單也會逐條標示撰寫者。",
   sp1_h: "WAF 引擎",
   sp1_by: "上游開源專案 · nginx（BSD-2-Clause）、OWASP ModSecurity v3 與 nginx 連接器（Apache-2.0）",
   sp1_1: "nginx：反向代理、TLS、HTTP/2、存取限制。由你安裝與設定；jt-waf-mgr 不會寫入 nginx 設定（只有選用的 IP 封鎖清單檔，由你自己 include）。",
