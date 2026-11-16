@@ -26,7 +26,8 @@ header.top .wrap { display: flex; align-items: center; gap: 18px; height: 60px; 
 .brand:hover { text-decoration: none; }
 .brand img { width: 28px; height: 28px; filter: drop-shadow(0 2px 6px rgba(37, 99, 196, .35)); }
 header.top .wrap { max-width: 1320px; }
-nav.links { display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; }
+nav.links { display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+nav.links::-webkit-scrollbar { display: none; }
 /* the links in the middle of the bar (logo and name stay left, language right); auto margins, unlike justify-content:
    center, never cut off the first links when a narrow screen scrolls the row */
 nav.links > a:first-child { margin-left: auto; }
@@ -35,6 +36,8 @@ nav.links a { color: var(--text); font-size: 14px; font-weight: 500; padding: 6p
 nav.links a:hover { color: var(--blue); background: #eef4fd; text-decoration: none; }
 @media (max-width: 1360px) { nav.links a { padding: 6px 7px; font-size: 13.5px; } }
 @media (max-width: 1140px) { nav.links a { padding: 5px 5px; font-size: 12.5px; } }
+/* a narrower bar: the less used links go first (the page still has the sections) */
+@media (max-width: 1280px) { nav.links a.opt { display: none; } }
 .gh-btn { display: inline-flex; align-items: center; gap: 6px; flex: none; border: 1px solid var(--border); background: #fff; color: var(--text); border-radius: 10px; padding: 6px 10px; font-size: 13.5px; font-weight: 600; line-height: 1.3; white-space: nowrap; }
 .gh-btn:hover { border-color: var(--blue); color: var(--blue); text-decoration: none; }
 .gh-btn svg { width: 16px; height: 16px; }
@@ -196,8 +199,8 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
   <a class="brand" href="#"><img src="logo-mark.svg" alt="">jt-waf-mgr</a>
   <nav class="links">
     <a href="#features" data-t="nav_features"></a><a href="#flow" data-t="nav_flow"></a><a href="#ai" data-t="nav_ai"></a><a href="#alerts" data-t="nav_alerts"></a>
-    <a href="#notify" data-t="nav_notify"></a><a href="#integrate" data-t="nav_integrate"></a><a href="#security" data-t="nav_security"></a><a href="#screens" data-t="nav_screens"></a>
-    <a href="#install" data-t="nav_install"></a><a href="#specs" data-t="nav_specs"></a><a href="how.html" id="how-link" data-t="nav_how"></a>
+    <a href="#notify" data-t="nav_notify"></a><a href="#integrate" class="opt" data-t="nav_integrate"></a><a href="#security" class="opt" data-t="nav_security"></a><a href="#screens" data-t="nav_screens"></a>
+    <a href="#install" data-t="nav_install"></a><a href="#specs" class="opt" data-t="nav_specs"></a><a href="how.html" id="how-link" data-t="nav_how"></a>
   </nav>
   <a class="gh-btn" href="https://github.com/jasoncheng7115/jt-waf-mgr" target="_blank" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span>GitHub</span></a>
   <div class="lang">
@@ -520,7 +523,7 @@ const T = {
   fl2: "Direction at a glance: tightening or loosening; loosening always waits for a person.",
   fl3: "Each one shows its evidence, sandbox result and rule text before anyone approves it.",
   fl4: "Applied changes become numbered versions you can roll back to.",
-  nav_features: 'Features', nav_flow: 'Change workflow', nav_ai: 'Event analysis', nav_notify: 'Notifications', nav_security: 'Security', nav_screens: 'Screenshots', nav_install: 'Install',
+  nav_features: 'Features', nav_flow: 'Workflow', nav_ai: 'AI analysis', nav_notify: 'Notify', nav_security: 'Security', nav_screens: 'Screens', nav_install: 'Install',
   lead: 'A self-hosted web manager for nginx + libmodsecurity v3 + OWASP CRS 4. Read what the WAF did, tune it through an evidence-checked, sandbox-tested and approved workflow, let your own LLM review the events, and get told what needs a person.',
   releases: 'Releases', changelog: 'Changelog', get_started: 'Get started',
   features_h: 'A management interface for ModSecurity', features_sub: 'libmodsecurity v3 has no management interface. jt-waf-mgr adds one. It writes nothing until you adopt your rule files, and even then only ModSecurity files and, if you switch it on, one IP block list you include yourself; never the rest of the nginx configuration.',
@@ -866,7 +869,7 @@ const T = {
   fl2: "方向がひと目で分かります：強化か緩和か。緩和は必ず人の承認を待ちます。",
   fl3: "承認の前に、証拠、サンドボックスの結果、ルールの内容を確認できます。",
   fl4: "適用した変更は番号付きのバージョンになり、戻すことができます。",
-  nav_features: '機能', nav_flow: '変更フロー', nav_ai: 'イベント分析', nav_notify: '通知', nav_security: 'セキュリティ', nav_screens: 'スクリーンショット', nav_install: 'インストール',
+  nav_features: '機能', nav_flow: '変更フロー', nav_ai: 'イベント分析', nav_notify: '通知', nav_security: 'セキュリティ', nav_screens: '画面', nav_install: 'インストール',
   lead: 'nginx + libmodsecurity v3 + OWASP CRS 4 のためのセルフホスト型 Web 管理ツール。WAF が何をしたかを読み取り、証拠確認・サンドボックス試験・承認を経るフローで調整し、自前の LLM にイベントを確認させ、人の対応が必要なことを知らせます。',
   releases: 'リリース', changelog: '変更履歴', get_started: 'はじめる',
   features_h: 'ModSecurity の管理インターフェースを補う', features_sub: 'libmodsecurity v3 には管理画面がありません。jt-waf-mgr はそれを補います。ルールファイルを取り込むまで何も書き込まず、その後も書き込むのは ModSecurity のファイルと、オンにした場合の IP ブロックリスト 1 つ（include はお客様が行います）だけで、それ以外の nginx の設定には書き込みません。',

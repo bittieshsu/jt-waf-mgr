@@ -26,7 +26,8 @@ header.top .wrap { display: flex; align-items: center; gap: 18px; height: 60px; 
 .brand:hover { text-decoration: none; }
 .brand img { width: 28px; height: 28px; filter: drop-shadow(0 2px 6px rgba(37, 99, 196, .35)); }
 header.top .wrap { max-width: 1320px; }
-nav.links { display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; }
+nav.links { display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+nav.links::-webkit-scrollbar { display: none; }
 /* the links in the middle of the bar (logo and name stay left, language right); auto margins, unlike justify-content:
    center, never cut off the first links when a narrow screen scrolls the row */
 nav.links > a:first-child { margin-left: auto; }
