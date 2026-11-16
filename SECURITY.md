@@ -13,6 +13,17 @@ vulnerability). Do not open a public issue.
 
 Only the latest release is supported.
 
+## Security advisories
+
+Published advisories: https://github.com/jasoncheng7115/jt-waf-mgr/security/advisories
+
+From 0.4.72 on, every issue that can actually be exploited and is fixed in a new release (unauthorised access,
+privilege escalation, authentication bypass, code or command injection, path traversal, SSRF, XSS…, including those
+that need a signed-in account) gets a GitHub Security Advisory, made public after the fixed release is out: what kind
+of problem it is, who is affected, the consequence, the affected and fixed versions, how to upgrade and a general
+mitigation. It never describes how to exploit it. Hardening, default changes and dependency updates that do not affect
+jt-waf-mgr are written only in the release notes.
+
 ## Design summary
 
 These are what the code does; the [compliance mapping](docs/COMPLIANCE.md) links each to the
