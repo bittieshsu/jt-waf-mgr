@@ -86,6 +86,23 @@ img.shot { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; 
 .car-dots button[aria-current="true"] { background: var(--blue); width: 26px; border-radius: 6px; }
 @media (max-width: 860px) { .car-btn.prev { left: 6px; } .car-btn.next { right: 6px; } }
 @media (prefers-reduced-motion: reduce) { .car-slide, .car-slide.on { transition: none; } }
+/* the intro videos: the picture is a link to YouTube; a click swaps in the player (youtube-nocookie, nothing loaded before) */
+.vids { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+@media (max-width: 820px) { .vids { grid-template-columns: 1fr; } }
+.card.vid-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.vid { position: relative; display: block; aspect-ratio: 16 / 9; background: #05100f; overflow: hidden; }
+.vid img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .3s; }
+.vid:hover img { transform: scale(1.02); }
+.vid iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.vid .play { position: absolute; left: 50%; top: 50%; width: 72px; height: 50px; margin: -25px 0 0 -36px; border-radius: 14px;
+  background: rgba(0, 0, 0, .72); display: flex; align-items: center; justify-content: center; transition: background .15s; }
+.vid:hover .play, .vid:focus-visible .play { background: #e11d2a; }
+.vid:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; }
+.vid .dur { position: absolute; right: 10px; bottom: 10px; background: rgba(0, 0, 0, .78); color: #fff; font-size: 12.5px; font-weight: 600; padding: 2px 7px; border-radius: 6px; }
+.vid-txt { padding: 18px 22px 20px; }
+.vid-txt h3 { margin: 0 0 8px; font-size: 19px; }
+.vid-txt p { margin: 0 0 10px; color: var(--muted); font-size: 15px; }
+.vid-txt .yt { font-size: 14px; font-weight: 600; }
 section { padding: 60px 0; } section.alt { background: #fff; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 h2 { font-size: 30px; margin: 0 0 10px; } h2 + p.sub { color: var(--muted); margin: 0 0 28px; font-size: 17px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 18px; }
@@ -199,7 +216,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
   <a class="brand" href="#"><img src="logo-mark.svg" alt="">jt-waf-mgr</a>
   <nav class="links">
     <a href="#features" data-t="nav_features"></a><a href="#flow" data-t="nav_flow"></a><a href="#ai" data-t="nav_ai"></a><a href="#alerts" data-t="nav_alerts"></a>
-    <a href="#notify" data-t="nav_notify"></a><a href="#integrate" class="opt" data-t="nav_integrate"></a><a href="#security" class="opt" data-t="nav_security"></a><a href="#screens" data-t="nav_screens"></a>
+    <a href="#notify" data-t="nav_notify"></a><a href="#integrate" class="opt" data-t="nav_integrate"></a><a href="#security" class="opt" data-t="nav_security"></a><a href="#videos" data-t="nav_videos"></a><a href="#screens" data-t="nav_screens"></a>
     <a href="#install" data-t="nav_install"></a><a href="#specs" class="opt" data-t="nav_specs"></a><a href="how.html" id="how-link" data-t="nav_how"></a>
   </nav>
   <a class="gh-btn" href="https://github.com/jasoncheng7115/jt-waf-mgr" target="_blank" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span>GitHub</span></a>
@@ -244,6 +261,20 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
       <span class="car-dots"><button type="button" data-i="0" data-ta="car_overview" aria-current="true"></button><button type="button" data-i="1" data-ta="car_warroom"></button><button type="button" data-i="2" data-ta="car_traffic"></button></span></div>
   </div>
 </div></div>
+
+<section id="videos"><div class="wrap">
+  <h2 data-t="vid_h"></h2><p class="sub" data-t="vid_sub"></p>
+  <div class="vids">
+    <div class="card vid-card">
+      <a class="vid" href="https://www.youtube.com/watch?v=0UiSY0ZQ2Ag" data-yt="0UiSY0ZQ2Ag" data-yt-zh="Hk683fKNxJs" data-yt-en="0UiSY0ZQ2Ag" data-v="full" data-cap="vid_full_h" target="_blank" rel="noopener"><img src="shots/video/full-en.webp" width="960" height="540" loading="lazy" alt=""><span class="play" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></span><span class="dur">3:12</span></a>
+      <div class="vid-txt"><h3 data-t="vid_full_h"></h3><p data-t="vid_full"></p><a class="yt" href="https://www.youtube.com/watch?v=0UiSY0ZQ2Ag" data-t="vid_yt"></a></div>
+    </div>
+    <div class="card vid-card">
+      <a class="vid" href="https://www.youtube.com/watch?v=gMSYuQQuHqg" data-yt="gMSYuQQuHqg" data-yt-zh="kijgvIAC3Po" data-yt-en="gMSYuQQuHqg" data-v="warroom" data-cap="vid_warroom_h" target="_blank" rel="noopener"><img src="shots/video/warroom-en.webp" width="960" height="540" loading="lazy" alt=""><span class="play" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></span><span class="dur">1:38</span></a>
+      <div class="vid-txt"><h3 data-t="vid_warroom_h"></h3><p data-t="vid_warroom"></p><a class="yt" href="https://www.youtube.com/watch?v=gMSYuQQuHqg" data-t="vid_yt"></a></div>
+    </div>
+  </div>
+</div></section>
 
 <section id="modes" class="alt"><div class="wrap">
   <h2 data-t="modes_h"></h2><p class="sub" data-t="modes_sub"></p>
@@ -459,6 +490,10 @@ sudo ./uninstall.sh --purge</pre></div>
 const T = {
  en: {
   disc: 'Disclaimer: jt-waf-mgr is provided "as is", without warranty of any kind (AGPL-3.0, sections 15 and 16); the authors are not liable for any damage from using it. A WAF lowers risk but cannot stop every attack and can block legitimate users: try it in a test environment and start in log-only mode. AI analysis can be wrong; its findings are suggestions, and loosening changes always need a person. The administrators are responsible for their rules and their nginx and ModSecurity configuration. nginx, ModSecurity, OWASP CRS, MaxMind and GeoLite2 are trademarks of their owners; this project is not affiliated with them.',
+  vid_h: 'See it in motion', vid_sub: 'Recorded from the real screens, with subtitles and music; every site, address and number in them is test data, and the war room runs in demo mode.',
+  vid_full_h: 'Feature tour', vid_full: 'The dashboard, events and an event\'s detail, how a request is decided, AI event analysis, the change workflow and approval, rules, alerts, temporary IP blocks, country limits, request volume, threat intelligence and the periodic WAF review, then the war room.',
+  vid_warroom_h: 'War room', vid_warroom: 'The live wall board: the global event map, the 3D defence globe (zoom, drag, back to this site), the decision flow, site activity, the false-positive review, AI analysis and threat intelligence, alerts and changes, time ranges, blocked only and the keys.',
+  vid_yt: 'Watch on YouTube',
   modes_h: 'Three ways to use it', modes_sub: 'jt-waf-mgr runs on the nginx host, beside ModSecurity: requests never pass through it, and nginx keeps protecting the sites with the last rules if it stops.',
   m1_h: 'nginx is the web server', m1: 'The sites live on the nginx host itself (static files, PHP-FPM ...). ModSecurity inspects every request before nginx answers it; jt-waf-mgr manages the rules, approvals and analysis.',
   m2_h: 'nginx as a reverse proxy', m2: 'The sites run on other servers. nginx with ModSecurity sits in front of them as the WAF and forwards only the requests that pass.',
@@ -523,7 +558,7 @@ const T = {
   fl2: "Direction at a glance: tightening or loosening; loosening always waits for a person.",
   fl3: "Each one shows its evidence, sandbox result and rule text before anyone approves it.",
   fl4: "Applied changes become numbered versions you can roll back to.",
-  nav_features: 'Features', nav_flow: 'Workflow', nav_ai: 'AI analysis', nav_notify: 'Notify', nav_security: 'Security', nav_screens: 'Screens', nav_install: 'Install',
+  nav_features: 'Features', nav_videos: 'Videos', nav_flow: 'Workflow', nav_ai: 'AI analysis', nav_notify: 'Notify', nav_security: 'Security', nav_screens: 'Screens', nav_install: 'Install',
   lead: 'A self-hosted web manager for nginx + libmodsecurity v3 + OWASP CRS 4. Read what the WAF did, tune it through an evidence-checked, sandbox-tested and approved workflow, let your own LLM review the events, and get told what needs a person.',
   releases: 'Releases', changelog: 'Changelog', get_started: 'Get started',
   features_h: 'A management interface for ModSecurity', features_sub: 'libmodsecurity v3 has no management interface. jt-waf-mgr adds one. It writes nothing until you adopt your rule files, and even then only ModSecurity files and, if you switch it on, one IP block list you include yourself; never the rest of the nginx configuration.',
@@ -632,6 +667,10 @@ const T = {
  },
  'zh-TW': {
   disc: '免責聲明：jt-waf-mgr 依「現狀」提供，不附任何保證 (AGPL-3.0 第 15、16 條)；使用本軟體造成的任何損害，作者不負責任。WAF 只能降低風險，無法擋住所有攻擊，也可能誤封鎖正常使用者：請先在測試環境驗證，並以「只記錄」模式開始。AI 分析可能出錯，結果只是建議，放寬類變更一律要人核准。規則以及 nginx、ModSecurity 的設定由管理者負責。nginx、ModSecurity、OWASP CRS、MaxMind、GeoLite2 為各自所有者的商標，本專案與它們沒有隸屬關係。',
+  vid_h: '看影片認識 jt-waf-mgr', vid_sub: '實際畫面錄製，有字幕與配樂；畫面裡的站台、位址與數字都是測試資料，戰情室是示範模式。',
+  vid_full_h: '功能介紹', vid_full: '儀表板、事件與事件明細、WAF 判斷流程、AI 事件分析、變更流程與核准、規則、警示、暫時封鎖 IP、國家限制、請求量、威脅情報、WAF 定期檢討，最後是戰情室。',
+  vid_warroom_h: '戰情室', vid_warroom: '給牆面看的即時看板：全球事件地圖、3D 防禦地球 (縮放、拖動、轉回本站)、封鎖決策流、站台熱區、誤判檢討、AI 分析與威脅情報、警示與變更，以及時間範圍、只看封鎖與按鍵操作。',
+  vid_yt: '在 YouTube 觀看',
   modes_h: '三種使用方式', modes_sub: 'jt-waf-mgr 裝在 nginx 主機上、在 ModSecurity 旁邊：請求不會經過它；它停止時，nginx 仍以最後一版規則保護網站。',
   m1_h: 'nginx 本身就是網站伺服器', m1: '網站就在 nginx 這台主機上 (靜態網頁、PHP-FPM 等)。nginx 回應前 ModSecurity 先檢查每個請求，jt-waf-mgr 加強 WAF 的防護與管理。',
   m2_h: 'nginx 當反向代理', m2: '網站在後面其他的網站伺服器上；nginx 加上 ModSecurity 在前面提供 WAF 保護，只轉送通過檢查的請求。',
@@ -696,7 +735,7 @@ const T = {
   fl2: "一眼看出方向：加強或放寬；放寬一律等人核准。",
   fl3: "核准前每筆都附上證據、沙箱結果與規則內容。",
   fl4: "套用後成為有編號的版本，可以退回。",
-  nav_features: '功能', nav_flow: '變更流程', nav_ai: '事件分析', nav_notify: '通知', nav_security: '安全', nav_screens: '截圖', nav_install: '安裝',
+  nav_features: '功能', nav_videos: '影片', nav_flow: '變更流程', nav_ai: '事件分析', nav_notify: '通知', nav_security: '安全', nav_screens: '截圖', nav_install: '安裝',
   lead: '自架的 nginx + libmodsecurity v3 + OWASP CRS 4 網頁管理工具。看懂 WAF 做了什麼，透過證據檢查、沙箱測試、人員核准的流程調整規則，由你自己的 LLM 檢視事件，需要有人處理的事情會通知你。',
   releases: '下載發行版', changelog: '變更記錄', get_started: '開始使用',
   features_h: '補強 ModSecurity 管理介面', features_sub: 'libmodsecurity v3 沒有管理介面。jt-waf-mgr 補上它：在你納管規則檔之前什麼都不寫入，之後也只寫 ModSecurity 的檔案，以及你啟用時的一個 IP 封鎖清單檔（由你自己 include）；其他 nginx 設定一律不碰。',
@@ -805,6 +844,10 @@ const T = {
  },
  ja: {
   disc: '免責事項：jt-waf-mgr は「現状のまま」提供され、一切の保証はありません（AGPL-3.0 第 15 条・第 16 条）。使用による損害について作者は責任を負いません。WAF はリスクを下げるものですが、すべての攻撃を防げるわけではなく、正当な利用者をブロックすることもあります。テスト環境で確認し、記録のみモードから始めてください。AI の分析は誤ることがあり、結果は提案です。緩和する変更は必ず人が承認します。ルールと nginx・ModSecurity の設定の責任は管理者にあります。nginx、ModSecurity、OWASP CRS、MaxMind、GeoLite2 はそれぞれの所有者の商標であり、本プロジェクトはそれらと提携していません。',
+  vid_h: '動画で見る', vid_sub: '実際の画面を録画したもので、字幕と音楽付きです (英語版を表示しています)。画面内のサイト、アドレス、数値はすべてテスト用のデータで、ウォールームはデモモードです。',
+  vid_full_h: '機能紹介', vid_full: 'ダッシュボード、イベントとその詳細、リクエストの判定の流れ、AI イベント分析、変更フローと承認、ルール、アラート、IP の一時ブロック、国別制限、リクエスト量、脅威インテリジェンス、WAF 定期レビュー、最後にウォールーム。',
+  vid_warroom_h: 'ウォールーム', vid_warroom: '壁に映すリアルタイムボード：世界のイベントマップ、3D 防御地球 (拡大縮小、ドラッグ、自サイトへ戻る)、ブロック判定の流れ、サイト別の状況、誤検知レビュー、AI 分析と脅威インテリジェンス、アラートと変更、時間範囲、ブロックのみ表示とキー操作。',
+  vid_yt: 'YouTube で見る',
   modes_h: '3 つの使い方', modes_sub: 'jt-waf-mgr は nginx ホスト上で ModSecurity の横に置かれます。リクエストは jt-waf-mgr を通らず、停止しても nginx は最後のルールでサイトを守り続けます。',
   m1_h: 'nginx が Web サーバー', m1: 'サイトは nginx ホスト上にあります (静的ファイル、PHP-FPM など)。nginx が応答する前に ModSecurity が各リクエストを検査し、jt-waf-mgr がルール、承認、分析を管理します。',
   m2_h: 'nginx がリバースプロキシ', m2: 'サイトは別のサーバーにあります。ModSecurity を組み込んだ nginx が前段で WAF として保護し、通過したリクエストだけを転送します。',
@@ -869,7 +912,7 @@ const T = {
   fl2: "方向がひと目で分かります：強化か緩和か。緩和は必ず人の承認を待ちます。",
   fl3: "承認の前に、証拠、サンドボックスの結果、ルールの内容を確認できます。",
   fl4: "適用した変更は番号付きのバージョンになり、戻すことができます。",
-  nav_features: '機能', nav_flow: '変更フロー', nav_ai: 'イベント分析', nav_notify: '通知', nav_security: 'セキュリティ', nav_screens: '画面', nav_install: 'インストール',
+  nav_features: '機能', nav_videos: '動画', nav_flow: '変更フロー', nav_ai: 'イベント分析', nav_notify: '通知', nav_security: 'セキュリティ', nav_screens: '画面', nav_install: 'インストール',
   lead: 'nginx + libmodsecurity v3 + OWASP CRS 4 のためのセルフホスト型 Web 管理ツール。WAF が何をしたかを読み取り、証拠確認・サンドボックス試験・承認を経るフローで調整し、自前の LLM にイベントを確認させ、人の対応が必要なことを知らせます。',
   releases: 'リリース', changelog: '変更履歴', get_started: 'はじめる',
   features_h: 'ModSecurity の管理インターフェースを補う', features_sub: 'libmodsecurity v3 には管理画面がありません。jt-waf-mgr はそれを補います。ルールファイルを取り込むまで何も書き込まず、その後も書き込むのは ModSecurity のファイルと、オンにした場合の IP ブロックリスト 1 つ（include はお客様が行います）だけで、それ以外の nginx の設定には書き込みません。',
@@ -1000,6 +1043,14 @@ function apply(lang) {
     const cap = a.dataset.cap ? { textContent: d[a.dataset.cap] || T.en[a.dataset.cap] } : a.parentElement.querySelector('figcaption')
     a.querySelector('img').alt = cap ? cap.textContent : 'jt-waf-mgr'
   }
+  for (const a of document.querySelectorAll('a.vid[data-v]')) {
+    // the Chinese pages show the Chinese videos; English and Japanese the English ones
+    const vl = lang === 'zh-TW' ? 'zh' : 'en', id = a.dataset['yt' + (vl === 'zh' ? 'Zh' : 'En')]
+    a.dataset.yt = id; a.href = 'https://www.youtube.com/watch?v=' + id
+    a.querySelector('img').src = 'shots/video/' + a.dataset.v + '-' + vl + '.webp'
+    a.querySelector('img').alt = 'jt-waf-mgr: ' + (d[a.dataset.cap] || T.en[a.dataset.cap])
+    a.parentElement.querySelector('.yt').href = a.href
+  }
   document.getElementById('lb-x').setAttribute('aria-label', d.close)
   document.getElementById('how-link').href = 'how.html?lang=' + lang
   document.getElementById('cl-btn').href = 'https://github.com/jasoncheng7115/jt-waf-mgr/blob/main/CHANGELOG' + ({ 'zh-TW': '_zh-TW', ja: '_ja' }[lang] || '') + '.md'
@@ -1066,6 +1117,24 @@ car.addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowRight') { e.preventDefault(); carShow(carAt + 1); carStart() }
 })
 carStart()
+// the videos: a click swaps the picture for the YouTube player (youtube-nocookie: nothing from YouTube before the click);
+// the id is checked before it goes into the address. Without JavaScript the picture is a link to YouTube.
+for (const a of document.querySelectorAll('a.vid[data-v]')) a.addEventListener('click', (e) => {
+  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return
+  const id = a.dataset.yt || ''
+  if (!/^[A-Za-z0-9_-]{11}$/.test(id)) return
+  e.preventDefault()
+  const f = document.createElement('iframe')
+  f.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0'
+  f.title = a.querySelector('img').alt || 'YouTube'
+  f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'
+  f.allowFullscreen = true
+  f.referrerPolicy = 'strict-origin-when-cross-origin'
+  const box = document.createElement('div')
+  box.className = 'vid'
+  box.appendChild(f)
+  a.replaceWith(box)
+})
 // copy a block of commands (without the comment lines)
 for (const b of document.querySelectorAll('button.copy')) b.addEventListener('click', async () => {
   const text = b.parentElement.querySelector('pre').innerText.split('\n').filter((l) => l.trim() && !l.trim().startsWith('#')).join('\n')
