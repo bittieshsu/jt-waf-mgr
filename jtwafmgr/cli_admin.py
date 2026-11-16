@@ -7,7 +7,7 @@ single-admin mode, a fresh one-time code where the web interface asks for one).
   jt-waf-mgr blocks list | add IP --reason R [--ttl 24h] | extend ID --ttl 7d|--permanent --reason R | remove ID --note N
   jt-waf-mgr alerts list [--all] | handle ID --note N
   jt-waf-mgr changes list [--state S] | show ID | approve ID [--note N] [--totp CODE] | reject ID --note N | recheck ID
-  jt-waf-mgr settings show [PREFIX] | set KEY=VALUE... | export [-o FILE] [--secrets] | import FILE [--only LIST] [--dry-run]
+  jt-waf-mgr settings show [PREFIX] | set KEY=VALUE... | export -o FILE [--secrets] | import FILE [--only LIST] [--dry-run]
   jt-waf-mgr tokens list | revoke ID
   jt-waf-mgr intel threats | status ID open|handled|ignored
   jt-waf-mgr review run
@@ -206,14 +206,14 @@ def cmd_settings(app, args):
             print('the web service reads its settings when it starts: sudo systemctl restart jt-waf-mgr')
         return 0
     if args.action == 'export':
+        # always to a new mode-600 file, never to the terminal (scrollback, a captured log)
+        if not args.output:
+            raise CliError('export needs -o FILE: the settings are written to a new file (mode 600)')
         if args.secrets:
-            # keys and passwords never go to the terminal (scrollback, a captured log): only to a new mode-600 file
-            if not args.output:
-                raise CliError('--secrets needs -o FILE: keys and passwords are written only to a new file (mode 600)')
             _person(app, args, 'admin')
         app.audit.log('settings.exported', getattr(args, 'as_user', None) or 'cli', src_ip='cli', secrets=args.secrets,
                       severity='warning' if args.secrets else 'info')
-        if args.output:
+        if args.output:      # always (checked above)
             text = json.dumps(settings_io.export(app, secrets=bool(args.secrets)), ensure_ascii=False, indent=1)
             import os
             try:
@@ -223,8 +223,6 @@ def cmd_settings(app, args):
             with os.fdopen(fd, 'w', encoding='utf-8') as fh:
                 fh.write(text + '\n')
             print('written to %s%s' % (args.output, ' (keys and passwords included: keep it safe)' if args.secrets else ''))
-        else:
-            print(json.dumps(settings_io.export(app, secrets=False), ensure_ascii=False, indent=1))
         return 0
     if args.action == 'import':
         with open(args.file, 'rb') as fh:

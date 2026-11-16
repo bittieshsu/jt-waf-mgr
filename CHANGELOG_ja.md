@@ -2,6 +2,15 @@
 
 [English](CHANGELOG.md) · [繁體中文](CHANGELOG_zh-TW.md) · **日本語**
 
+## 0.4.76 (2026-11-16)
+
+- 脅威インテリジェンスのソフトウェア一覧：自分でバージョンを返すアプリケーションを約 50 種追加 (Jira、Confluence、Bitbucket、SonarQube、Nexus、Portainer、Immich、Jellyfin、Emby、Plex、Paperless-ngx、Graylog、Zabbix、Netdata、Prometheus、Alertmanager、Loki、InfluxDB、Elasticsearch / OpenSearch、CouchDB、Traefik、Nginx Proxy Manager、Discourse、Ghost、MediaWiki、Gotify、Roundcube、ONLYOFFICE、Element、Miniflux、Vikunja、Mealie、Audiobookshelf、Ollama、JupyterHub、MLflow、Metabase、Kubernetes、Rancher、Vault、Argo CD、NetBox、TheHive、Seq、Node-RED、Vaultwarden、Kibana、OpenSearch Dashboards、Solr)、合計 67 種。分割されたバージョン、どの応答のヘッダーからでも読み取り、Roundcube のバージョン番号の変換に対応。
+- ローカルネットワークだけを許可するサイトは 127.0.0.1 に 403 を返します：その場合、このホストのローカルアドレスからもう一度バージョンを問い合わせます。(Web サービスの systemd 制限は localhost のみ許可するため、画面の「再推測」ではこの再試行が通らないことがあります。脅威インテリジェンス自身の実行では行われます。)
+- 推定で各サイトのトップページも読みます (タイトル、generator タグ、固有のヘッダー。このホストの nginx 経由で少しずつ)：約 80 種のアプリケーションをこの方法で認識し (Grafana、Open WebUI、WordPress、draw.io、Univention など)、そのバージョンも読み取ります。
+- ソフトウェア一覧に推定の根拠を表示 (「根拠：サイト 5,844 件のリクエスト」または「サイトのトップページの特徴」)、数字の意味の説明付き。
+- イベント：「サイトが 404 を返答（内容は送信されず）」を追加：拒否するルールが一致したものの、サイト自身の nginx が先に 404 を返した (.git や .env などの隠しファイルへの `return 404` など) ため記録のみ。「リダイレクト済み」と同じく専用のラベル、説明、結果フィルターの選択肢があります。
+- `settings export` は常に新しく作るモード 600 のファイル (`-o FILE`) に書き出し、端末には出力しません。
+
 ## 0.4.75 (2026-11-16)
 
 - 脅威インテリジェンス：同じ製品を複数登録できます (バージョンの異なる 2 台の Zimbra など)。それぞれに専用のサイトを指定します (1 つのサイトは 1 項目のみ)。検索では製品ごとに 1 行ですべてのバージョンを示し (「10.1.20, 10.1.21」)、どれかが該当すれば影響ありとします。サイトは送りません。登録できなかった理由はフォームの下に表示し、サイト欄に複数の指定方法 (カンマまたは空白) を示します。データベース schema 16。

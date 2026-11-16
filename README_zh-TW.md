@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.75
+# jt-waf-mgr v0.4.76
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -87,7 +87,7 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
 - **WAF 定期檢討**：每 3 小時一次 (存下來，並送到你的通知管道)：只靠 CRS 分數封鎖的請求 (可能誤封鎖的排前面)、新的
   內部命中、沒被封鎖的外部攻擊、自動處理了什麼、每個重點站台一行。
 - **第二層 LLM (威脅情報)**：較強的 LLM (地端 OpenAI 相容，或雲端 OpenAI 相容 / Anthropic / Google Gemini) 每隔幾小時上網搜尋 Web 應用套件清單的
-  新漏洞，特別是已經被利用的；清單由程式推測 (本機與網站服務有關的套件約 50 種、CRS、各站台跑的應用程式約 300 種，依回應的路徑判斷)、人確認。離開本機的只有產品名稱、版本，以及判斷漏洞前提條件用的主機資訊 (作業系統、架構、C 函式庫)。
+  新漏洞，特別是已經被利用的；清單由程式推測 (本機與網站服務有關的套件約 50 種、CRS、各站台跑的應用程式約 300 種，依回應的路徑或首頁特徵判斷)、人確認。離開本機的只有產品名稱、版本，以及判斷漏洞前提條件用的主機資訊 (作業系統、架構、C 函式庫)。
   地端模型透過 MCP 伺服器 (例如 SearXNG) 搜尋；Anthropic 與 OpenAI 官方 API 也可以改用供應商自己的
   網路搜尋。程式只讀允許清單上的 https 網頁，而且只有本輪程式自己讀到 CISA 清單，或開啟 KEV 清單 (每天下載，約 1.5 MB) 且清單上有列出，才算「已被利用」。套件只填名稱也能確認；
   已被利用且影響 (或沒有版本、可能影響) 本站的漏洞會發出緊急警示；公告寫明的前提條件 (例如只影響 musl C 函式庫) 主機不符合就不算影響，查不到就只發一般警示。能從網址或標頭辨識的漏洞會產生預先防護規則 (很窄的確定封鎖，和一般變更一樣經過證據與沙箱檢查)；已被利用
@@ -132,7 +132,7 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # 發行檔的固定位置
-V=0.4.75; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.76; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # 發行檔、簽章與公鑰
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -327,7 +327,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新版本一樣解開到 current
-V=0.4.75; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.76; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # 只做所有檢查，不改任何東西

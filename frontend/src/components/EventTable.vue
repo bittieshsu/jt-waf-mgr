@@ -9,8 +9,8 @@
     <template #cell-ts="{ row }"><RouterLink :to="'/events/' + row.id">{{ fmtShortTime(row.ts) }}</RouterLink>
       <span v-if="row.repeat > 1" class="badge tiny b-warn gapl" :title="t('events.repeat_title', { n: row.repeat, from: fmtTime(row.first_ts), to: fmtTime(row.ts) })">×{{ row.repeat }}</span></template>
     <template #cell-outcome="{ row }">
-      <FilterValue v-if="filterable" :value="outKey(row)" :text="t('event.outcome')" :field="t('event.outcome')" :active="act('outcome', outKey(row))" @filter="(m) => emit('filter', 'outcome', outKey(row), m)"><OutcomeBadge :outcome="row.outcome" :decided-by="row.decided_by" :redirected="row.redirected" /></FilterValue>
-      <OutcomeBadge v-else :outcome="row.outcome" :decided-by="row.decided_by" :redirected="row.redirected" />
+      <FilterValue v-if="filterable" :value="outKey(row)" :text="t('event.outcome')" :field="t('event.outcome')" :active="act('outcome', outKey(row))" @filter="(m) => emit('filter', 'outcome', outKey(row), m)"><OutcomeBadge :outcome="row.outcome" :decided-by="row.decided_by" :redirected="row.redirected" :not-found="row.not_found" /></FilterValue>
+      <OutcomeBadge v-else :outcome="row.outcome" :decided-by="row.decided_by" :redirected="row.redirected" :not-found="row.not_found" />
     </template>
     <template #cell-host="{ row }">
       <FilterValue v-if="filterable && row.host" :value="row.host" :head="row.host" :field="t('event.host')" :active="act('host', row.host)" @filter="(m) => emit('filter', 'host', row.host, m)"><TruncText :text="row.host" :max="80" /></FilterValue>
@@ -79,7 +79,7 @@ const props = defineProps({
   filters: { type: Object, default: () => ({}) },   // the current query (key / not_key)
 })
 const emit = defineEmits(['filter'])
-function outKey(row) { return row.redirected ? 'redirected' : row.outcome }
+function outKey(row) { return row.redirected ? 'redirected' : row.not_found ? 'not_found' : row.outcome }
 // 'in' when the value is the filter now, 'out' when it is excluded now
 function act(key, v) {
   const f = props.filters || {}
@@ -88,6 +88,7 @@ function act(key, v) {
 
 function outcomeText(e) {
   if (e.redirected) return t('outcome.redirected')
+  if (e.not_found) return t('outcome.not_found')
   return e.outcome === 'blocked' ? t('outcome.blocked') + (e.decided_by ? ' ' + t('decided.' + e.decided_by) : '') : t('outcome.logged')
 }
 const cols = computed(() => [

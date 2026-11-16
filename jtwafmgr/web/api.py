@@ -83,13 +83,24 @@ COUNTRY = None
 REFUSING_RANGES = ()
 
 
+def _early(r, lo_st, hi_st):
+    st = r['status']
+    if r['outcome'] != 'logged' or st is None or not lo_st <= st <= hi_st:
+        return False
+    return any(lo <= i <= hi for i in _ids(r['rule_ids']) for lo, hi in REFUSING_RANGES)
+
+
 def _redirected(r):
     """Answered with a redirect although a refusing rule matched: the site redirects every path before the WAF can
     step in (nothing was served), not a request the WAF chose to let through."""
-    st = r['status']
-    if r['outcome'] != 'logged' or st is None or not 300 <= st < 400:
-        return False
-    return any(lo <= i <= hi for i in _ids(r['rule_ids']) for lo, hi in REFUSING_RANGES)
+    return _early(r, 300, 399)
+
+
+def _not_found(r):
+    """Answered 404 although a refusing rule matched: the site's own nginx answered first (a `return 404` for hidden
+    files such as .git and .env runs before ModSecurity can step in), so nothing was served; ModSecurity still
+    evaluated the rules and logged them."""
+    return _early(r, 404, 404)
 
 
 def geo(ip):
@@ -113,7 +124,8 @@ def event_summary(r):
             'query': r['query'], 'src_ip': r['src_ip'], 'origin': r['origin'], 'status': r['status'],
             'outcome': r['outcome'], 'decided_by': r['decided_by'], 'rule_ids': _ids(r['rule_ids']),
             'families': [x for x in r['families'].strip(',').split(',') if x], 'message': r['message'],
-            'local_rule_ids': _ids(r['local_rule_ids']), 'src_geo': geo(r['src_ip']), 'redirected': _redirected(r)}
+            'local_rule_ids': _ids(r['local_rule_ids']), 'src_geo': geo(r['src_ip']), 'redirected': _redirected(r),
+            'not_found': _not_found(r)}
 
 
 def event_full(r):
@@ -676,9 +688,11 @@ def _value_filters(req, q, where, args):
     if rid is not None:
         where.append('rule_ids LIKE ?')
         args.append('%%,%d,%%' % rid)
-    if q.get('outcome') == 'redirected':
-        # redirected before the WAF could refuse: logged, 3xx, and a refusing rule among the matched ones
-        where.append("outcome='logged' AND status>=300 AND status<400 AND id IN (SELECT event_id FROM event_rules WHERE "
+    if q.get('outcome') in ('redirected', 'not_found'):
+        # answered before the WAF could refuse: logged, 3xx (a redirect) or 404 (the site's own nginx), and a
+        # refusing rule among the matched ones
+        st = 'status>=300 AND status<400' if q['outcome'] == 'redirected' else 'status=404'
+        where.append("outcome='logged' AND " + st + " AND id IN (SELECT event_id FROM event_rules WHERE "
                      + ' OR '.join('rule_id BETWEEN ? AND ?' for _ in REFUSING_RANGES) + ')' if REFUSING_RANGES else '0')
         for lo, hi in REFUSING_RANGES:
             args += [lo, hi]

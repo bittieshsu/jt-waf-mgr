@@ -6,7 +6,10 @@ import tempfile
 import time
 
 from jtwafmgr import config
+from jtwafmgr import software as _software
 from jtwafmgr.web import api as _api
+
+_software.OFFLINE = True          # the sites are never asked for real (the tests also run on a production host)
 
 _api.OVERVIEW_CACHE_SECONDS = 0       # a test sees its own writes at once (the cache has its own test)
 

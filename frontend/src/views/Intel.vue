@@ -132,7 +132,7 @@
         <p class="muted small">{{ t('intel.software_hint') }}</p>
         <p v-if="guessMsg" class="muted small" role="status">{{ guessMsg }}</p>
         <DataTable id="intel-software" :columns="swCols" :rows="data.software" row-key="id" :page-size="50" :empty="t('intel.no_software_rows')">
-          <template #cell-name="{ row }"><b>{{ row.name }}</b><div v-if="row.evidence" class="sub muted"><TruncText :text="row.evidence" :max="120" /></div></template>
+          <template #cell-name="{ row }"><b>{{ row.name }}</b><div v-if="row.evidence" class="sub muted" :title="hits(row) ? t('intel.hits_hint') : null"><TruncText :text="hits(row) || row.evidence" :max="140" /></div></template>
           <template #cell-version="{ row }"><span class="mono">{{ row.version || '—' }}</span></template>
           <template #cell-hosts="{ row }"><span class="small">{{ row.kind === 'host' ? t('intel.this_host') : (row.hosts.join(', ') || '—') }}</span></template>
           <template #cell-confirmed="{ row }"><span class="badge" :class="row.confirmed ? 'b-ok' : 'b-warn'">{{ row.confirmed ? t('intel.confirmed') : t('intel.unconfirmed') }}</span>
@@ -282,6 +282,20 @@ const runCols = computed(() => [
 ])
 
 const edit = reactive({ id: null, orig: '', name: '', version: '', hosts: '' })
+// a guess's evidence, worded: "site 5844, site 283" (requests on the application's own paths answered 2xx) and / or
+// "homepage: site, site" (its home page names it); anything else is shown as it is
+function hits(row) {
+  if (row.kind !== 'site') return ''
+  const out = []
+  for (const part of String(row.evidence || '').split('; ')) {
+    if (/^[A-Za-z0-9.-]+ \d+(, [A-Za-z0-9.-]+ \d+)*$/.test(part)) {
+      out.push(part.split(', ').map((x) => { const [h, n] = x.split(' '); return t('intel.hits_one', { host: h, n: fmtNum(+n) }) }).join(t('intel.hits_sep')))
+    } else if (/^homepage: [A-Za-z0-9.-]+(, [A-Za-z0-9.-]+)*$/.test(part)) {
+      out.push(t('intel.hits_home', { hosts: part.slice(10) }))
+    } else return ''
+  }
+  return out.length ? t('intel.hits', { list: out.join(t('intel.hits_sep')) }) : ''
+}
 // the form's own error, shown under the form (the page's error box is far up when the list is long)
 const swError = ref(null)
 function resetEdit() { Object.assign(edit, { id: null, orig: '', name: '', version: '', hosts: '' }); swError.value = null }

@@ -11,7 +11,7 @@
       <section class="card">
         <h2><Icon name="page" /> {{ t('event.request') }}</h2>
         <div class="reqline">
-          <OutcomeBadge :outcome="ev.outcome" :decided-by="ev.decided_by" />
+          <OutcomeBadge :outcome="ev.outcome" :decided-by="ev.decided_by" :redirected="ev.redirected" :not-found="ev.not_found" />
           <span class="method">{{ safeText(ev.method, 12) }}</span>
           <span class="mono breakall">{{ safeText(ev.host, 255) }}{{ safeText(pathWithQuery(ev), 4000) }}</span>
         </div>

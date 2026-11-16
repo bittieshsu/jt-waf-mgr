@@ -73,6 +73,26 @@ class TestSignatures(unittest.TestCase):
         self.assertEqual(first('/wp-content/a.css'), 'WordPress')       # not PHP
         self.assertEqual(first('/owa/auth/logon.aspx'), 'Exchange (OWA)')   # not ASP.NET
 
+    def test_homepages(self):
+        """Every home page signature names an application the path guess knows, its samples are named as it (the first
+        match wins), and pages any site may show name nothing."""
+        names = {n for n, _rx, _s in self.data['signatures']}
+        hp = self.data['homepages']
+        self.assertGreaterEqual(len(hp), 60)
+        self.assertEqual(len(software.HOMEPAGES), len(hp))
+        wrong = []
+        for name, rx, samples in hp:
+            re.compile(rx)
+            self.assertIn(name, names, 'a home page signature for a name the guess does not know')
+            self.assertTrue(samples, name)
+            wrong += [(t, name, software.match_homepage(t)) for t in samples if software.match_homepage(t) != name]
+        self.assertEqual(wrong, [])
+        for page in ('<title>Login</title>', '<title>Dashboard</title>', '<title>Welcome to nginx!</title>',
+                     '<title>403 Forbidden</title>', '<title>Index of /</title>', '<title>Home</title>',
+                     '<meta name="generator" content="Hugo 0.120.4">', 'server: nginx\n', '<title>Sign in</title>',
+                     '<title>Elements of style</title>', '<title>My Vault of notes</title>', '{"status":"ok"}'):
+            self.assertIsNone(software.match_homepage(page), page)
+
     def test_packages(self):
         self.assertEqual(software.product_of('nginx-core'), 'nginx')
         self.assertEqual(software.product_of('php8.2-fpm'), 'PHP')

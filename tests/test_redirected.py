@@ -20,7 +20,9 @@ class TestRedirected(unittest.TestCase):
         rows = [('r1', 301, 'logged', [lo + 5, 930130]),       # redirected, a confident block matched
                 ('r2', 301, 'logged', [930130]),                # a plain redirect: no refusing rule
                 ('r3', 403, 'blocked', [lo + 5, 949110]),       # refused
-                ('r4', 200, 'logged', [lo + 5])]                # answered 200: not a redirect
+                ('r4', 200, 'logged', [lo + 5]),                # answered 200: not a redirect
+                ('r5', 404, 'logged', [lo + 5, 930130]),        # the site's own 404 (return 404 for dot files) came first
+                ('r6', 404, 'logged', [930130])]                # a plain 404: no refusing rule
         for uid, st, outcome, ids in rows:
             cur = app.db.x("INSERT INTO events(node_id, unique_id, ts, host, method, path, query, src_ip, origin, status, outcome, "
                            "rule_ids, local_rule_ids, families, message, matches) VALUES ('n', ?, ?, 'a.example.com', 'GET', "
@@ -37,11 +39,14 @@ class TestRedirected(unittest.TestCase):
             return {x['id']: x for x in json.loads(api.events(app, Req(q)).body)['items']}
         every = items({})
         got = {x['path'] + str(x['status']): x['redirected'] for x in every.values()}
-        self.assertEqual(sorted(x['redirected'] for x in every.values()), [False, False, False, True])
+        self.assertEqual(sorted(x['redirected'] for x in every.values()), [False] * 5 + [True])
         self.assertEqual(sum(1 for x in every.values() if x['redirected'] and x['status'] == 301), 1)
         only = items({'outcome': 'redirected'})
         self.assertEqual([x['status'] for x in only.values()], [301])
-        self.assertEqual(len(items({'outcome': 'logged'})), 3)
+        self.assertEqual(len(items({'outcome': 'logged'})), 5)
+        # answered 404 by the site before the WAF could refuse: its own label and filter
+        self.assertEqual(sorted(x['not_found'] for x in every.values()), [False] * 5 + [True])
+        self.assertEqual([(x['status'], x['outcome']) for x in items({'outcome': 'not_found'}).values()], [(404, 'logged')])
         self.assertTrue(got)
 
 

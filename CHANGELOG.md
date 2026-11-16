@@ -2,6 +2,28 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.76 (2026-11-16)
+
+- Threat intelligence, the software list: about 50 more applications tell their version by themselves (Jira,
+  Confluence, Bitbucket, SonarQube, Nexus, Portainer, Immich, Jellyfin, Emby, Plex, Paperless-ngx, Graylog, Zabbix,
+  Netdata, Prometheus, Alertmanager, Loki, InfluxDB, Elasticsearch / OpenSearch, CouchDB, Traefik, Nginx Proxy
+  Manager, Discourse, Ghost, MediaWiki, Gotify, Roundcube, ONLYOFFICE, Element, Miniflux, Vikunja, Mealie,
+  Audiobookshelf, Ollama, JupyterHub, MLflow, Metabase, Kubernetes, Rancher, Vault, Argo CD, NetBox, TheHive, Seq,
+  Node-RED, Vaultwarden, Kibana, OpenSearch Dashboards, Solr): 67 in all. A version can be read in parts, from a
+  header of any answer, and Roundcube's number is turned into its version.
+- A site that lets only the local network in answers 403 to 127.0.0.1: the version is asked once more at this host's
+  own local address. (The web service's systemd limits allow localhost only, so from "Guess again" this second try
+  may not get through; the threat intelligence's own run does it.)
+- The guess also reads each site's home page (its title, a generator tag, a header only it sends; over this host's
+  own nginx, a few at a time): about 80 applications are recognised that way (Grafana, Open WebUI, WordPress, draw.io,
+  Univention and more), so their versions are read too.
+- The software list says why each guess was made ("Seen in the logs: site 5,844 requests" or "the home page of site
+  names it"), with a note on what the numbers mean.
+- Events: "Site answered 404 (nothing served)": a refusing rule matched but the site's own nginx answered 404 first
+  (for example a `return 404` for hidden files such as .git and .env), so it was only logged. Its own label, a note,
+  and a choice in the outcome filter, like the redirected ones.
+- `settings export` always writes to a new mode-600 file (`-o FILE`); nothing goes to the terminal.
+
 ## 0.4.75 (2026-11-16)
 
 - Threat intelligence: one product can be listed more than once (two Zimbra servers on different versions), each

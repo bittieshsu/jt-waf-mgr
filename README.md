@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.75
+# jt-waf-mgr v0.4.76
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -104,7 +104,7 @@ nginx and ModSecurity keep working with the last rules.
 - **Second-tier LLM (threat intelligence)**: a stronger LLM, local (OpenAI-compatible) or cloud (OpenAI-compatible, Google Gemini or
   Anthropic), searches the web every few hours for new vulnerabilities in the list of web applications the program guesses and a
   person confirms (this host's web-facing packages: about 50 products; the CRS; the applications the sites run:
-  about 300 recognised from the paths they answer), above all those exploited in the wild.
+  about 300 recognised from the paths they answer or their home page), above all those exploited in the wild.
   Only product names and versions leave the host, with a few facts for the vulnerabilities' preconditions
   (operating system, architecture, C library). Local models search through an MCP server (for example SearXNG);
   Anthropic and OpenAI's own API can use the provider's web search instead. The program reads only https pages on an
@@ -167,7 +167,7 @@ nginx and ModSecurity keep working with the last rules.
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # a fixed place for the releases
-V=0.4.75; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.76; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # the release, its signature, the public key
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -388,7 +388,7 @@ the file next to the current values and writes only what you tick).
 
 ```sh
 cd /opt/jt-waf-mgr-install   # the new release, unpacked into the same current
-V=0.4.75; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.76; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # every check, nothing changed

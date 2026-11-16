@@ -2,6 +2,15 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.4.76 (2026-11-16)
+
+- 威脅情報軟體清單：再多約 50 種應用程式可以自己回報版本 (Jira、Confluence、Bitbucket、SonarQube、Nexus、Portainer、Immich、Jellyfin、Emby、Plex、Paperless-ngx、Graylog、Zabbix、Netdata、Prometheus、Alertmanager、Loki、InfluxDB、Elasticsearch / OpenSearch、CouchDB、Traefik、Nginx Proxy Manager、Discourse、Ghost、MediaWiki、Gotify、Roundcube、ONLYOFFICE、Element、Miniflux、Vikunja、Mealie、Audiobookshelf、Ollama、JupyterHub、MLflow、Metabase、Kubernetes、Rancher、Vault、Argo CD、NetBox、TheHive、Seq、Node-RED、Vaultwarden、Kibana、OpenSearch Dashboards、Solr)，共 67 種。支援分段組成的版本、從任何回應的標頭讀版本，以及 Roundcube 的版本號換算。
+- 只允許內網連線的站台會對 127.0.0.1 回 403：這時改用本機的內網位址再問一次版本。(網頁服務的 systemd 限制只允許連 localhost，所以從頁面按「重新推測」時這次重試可能連不出去；威脅情報自己的排程會做到。)
+- 推測時也讀各站台的首頁 (網頁標題、generator 標籤、它特有的標頭；透過本機 nginx、少量同時進行)：約 80 種應用程式可以這樣認出 (Grafana、Open WebUI、WordPress、draw.io、Univention 等)，認出後也會讀它們的版本。
+- 軟體清單寫出推測依據 (「依據：站台 5,844 筆請求」或「站台的首頁特徵」)，並說明數字的意思。
+- 事件：新增「站台已回 404（未送出內容）」：有封鎖規則命中，但站台自己的 nginx 先回了 404 (例如對 .git、.env 等隱藏檔一律 `return 404`)，所以只記錄。有自己的標籤、說明，結果篩選也多這個選項，比照「已轉址」。
+- `settings export` 一律寫到新建的 600 權限檔案 (`-o FILE`)，不輸出到終端機。
+
 ## 0.4.75 (2026-11-16)
 
 - 威脅情報：同一產品可以列多筆 (例如兩台不同版本的 Zimbra)，每一筆有自己的站台 (同一個站台只能在一筆)。搜尋時每個產品仍是一行、列出所有版本 (「10.1.20, 10.1.21」)，任何一個版本受影響就算影響本站；站台不會送出。新增失敗的原因顯示在表單下方，站台欄說明多個站台用逗號或空白分隔。資料庫 schema 16。

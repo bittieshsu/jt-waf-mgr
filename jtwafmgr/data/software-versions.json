@@ -1,5 +1,5 @@
 {
- "_comment": "Where the version of an application behind the sites can be read (software.py detect_versions). auto: one request to the site through this host's own nginx (127.0.0.1:443, the site's name for TLS and Host); the version from a JSON field (json: dotted path, digits index a list), a header (header) or the body (regex, group 1). token_setting: a write-only setting holding the application's API token, sent in token_header (no token: not asked). verified: checked against a running installation; the others follow the project's documentation. manual: no public version: the command on the application's host (how), with an interface note (note: i18n key swv.note.<note>). Names are those of software-signatures.json.",
+ "_comment": "Where the version of an application behind the sites can be read (software.py detect_versions). auto: one request to the site through this host's own nginx (127.0.0.1:443, the site's name for TLS and Host); the version from a JSON field (json: dotted path, digits index a list), a header (header) or the body (regex, group 1). json_parts: a version in parts (each a dotted path), joined with dots. any_status: read whatever the status (a header every answer carries). convert \"roundcube\": 10605 -> 1.6.5. A 403 from 127.0.0.1 (a site open to the local network only) is asked again at this host's local address. token_setting: a write-only setting holding the application's API token, sent in token_header (no token: not asked). verified: checked against a running installation; the others follow the project's documentation. manual: no public version: the command on the application's host (how), with an interface note (note: i18n key swv.note.<note>). Names are those of software-signatures.json.",
  "auto": [
   {
    "name": "Nextcloud",
@@ -119,6 +119,332 @@
    "token_header": "X-Auth-Token",
    "token_setting": "intel.librenms_token",
    "verified": false
+  },
+  {
+   "name": "Jira",
+   "path": "/rest/api/2/serverInfo",
+   "json": "version",
+   "verified": false
+  },
+  {
+   "name": "Confluence",
+   "path": "/rest/applinks/1.0/manifest",
+   "regex": "<version>([0-9]+(?:\\.[0-9]+)*)</version>",
+   "verified": false
+  },
+  {
+   "name": "Bitbucket Server",
+   "path": "/rest/api/1.0/application-properties",
+   "json": "version",
+   "verified": false
+  },
+  {
+   "name": "SonarQube",
+   "path": "/api/server/version",
+   "regex": "^\\s*([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "Sonatype Nexus Repository",
+   "path": "/",
+   "header": "Server",
+   "regex": "Nexus/([0-9][0-9.]*(?:-[0-9]+)?)",
+   "any_status": true,
+   "verified": false
+  },
+  {
+   "name": "Portainer",
+   "path": "/api/status",
+   "json": "Version",
+   "verified": false
+  },
+  {
+   "name": "Immich",
+   "path": "/api/server/version",
+   "json_parts": [
+    "major",
+    "minor",
+    "patch"
+   ],
+   "verified": false
+  },
+  {
+   "name": "Jellyfin",
+   "path": "/System/Info/Public",
+   "json": "Version",
+   "verified": false
+  },
+  {
+   "name": "Emby",
+   "path": "/emby/System/Info/Public",
+   "json": "Version",
+   "verified": false
+  },
+  {
+   "name": "Plex Media Server",
+   "path": "/identity",
+   "regex": "version=\"([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "Paperless-ngx",
+   "path": "/api/",
+   "header": "X-Version",
+   "any_status": true,
+   "verified": false
+  },
+  {
+   "name": "Graylog",
+   "path": "/api/",
+   "json": "version",
+   "regex": "^([0-9]+\\.[0-9]+\\.[0-9]+)",
+   "verified": false
+  },
+  {
+   "name": "Zabbix",
+   "path": "/api_jsonrpc.php",
+   "method": "POST",
+   "body": {
+    "jsonrpc": "2.0",
+    "method": "apiinfo.version",
+    "params": {},
+    "id": 1
+   },
+   "json": "result",
+   "verified": false
+  },
+  {
+   "name": "Netdata",
+   "path": "/api/v1/info",
+   "json": "version",
+   "regex": "v?([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "Prometheus",
+   "path": "/api/v1/status/buildinfo",
+   "json": "data.version",
+   "verified": false
+  },
+  {
+   "name": "Alertmanager",
+   "path": "/api/v2/status",
+   "json": "versionInfo.version",
+   "verified": false
+  },
+  {
+   "name": "Grafana Loki",
+   "path": "/loki/api/v1/status/buildinfo",
+   "json": "version",
+   "verified": false
+  },
+  {
+   "name": "InfluxDB",
+   "path": "/ping",
+   "header": "X-Influxdb-Version",
+   "regex": "v?([0-9]+(?:\\.[0-9]+)*)",
+   "any_status": true,
+   "verified": false
+  },
+  {
+   "name": "Elasticsearch / OpenSearch",
+   "path": "/",
+   "json": "version.number",
+   "verified": false
+  },
+  {
+   "name": "Apache CouchDB",
+   "path": "/",
+   "json": "version",
+   "verified": false
+  },
+  {
+   "name": "Traefik",
+   "path": "/api/version",
+   "json": "Version",
+   "verified": false
+  },
+  {
+   "name": "Nginx Proxy Manager",
+   "path": "/api/",
+   "json_parts": [
+    "version.major",
+    "version.minor",
+    "version.revision"
+   ],
+   "verified": false
+  },
+  {
+   "name": "Discourse",
+   "path": "/",
+   "regex": "<meta name=\"generator\" content=\"Discourse ([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "Ghost",
+   "path": "/",
+   "regex": "<meta name=\"generator\" content=\"Ghost ([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "MediaWiki",
+   "path": "/api.php?action=query&meta=siteinfo&format=json",
+   "json": "query.general.generator",
+   "regex": "MediaWiki ([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "Gotify",
+   "path": "/version",
+   "json": "version",
+   "verified": false
+  },
+  {
+   "name": "Roundcube",
+   "path": "/",
+   "regex": "\"rcversion\":\\s*([0-9]+)",
+   "convert": "roundcube",
+   "verified": false
+  },
+  {
+   "name": "ONLYOFFICE Docs",
+   "path": "/web-apps/apps/api/documents/api.js",
+   "regex": "Version: ([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "Element Web",
+   "path": "/version",
+   "regex": "^\\s*v?([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "Miniflux",
+   "path": "/version",
+   "regex": "^\\s*v?([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "Vikunja",
+   "path": "/api/v1/info",
+   "json": "version",
+   "regex": "v?([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "Mealie",
+   "path": "/api/app/about",
+   "json": "version",
+   "regex": "v?([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "Audiobookshelf",
+   "path": "/status",
+   "json": "serverVersion",
+   "verified": false
+  },
+  {
+   "name": "Ollama",
+   "path": "/api/version",
+   "json": "version",
+   "verified": false
+  },
+  {
+   "name": "JupyterHub / Jupyter",
+   "path": "/hub/api",
+   "json": "version",
+   "verified": false
+  },
+  {
+   "name": "MLflow",
+   "path": "/version",
+   "regex": "^\\s*v?([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "Metabase",
+   "path": "/api/session/properties",
+   "json": "version.tag",
+   "regex": "v?([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "Kubernetes API / Dashboard",
+   "path": "/version",
+   "json": "gitVersion",
+   "regex": "v?([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "Rancher",
+   "path": "/rancherversion",
+   "json": "Version",
+   "regex": "v?([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "HashiCorp Vault",
+   "path": "/v1/sys/health",
+   "json": "version",
+   "any_status": true,
+   "verified": false
+  },
+  {
+   "name": "Argo CD",
+   "path": "/api/version",
+   "json": "Version",
+   "regex": "v?([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "NetBox / Nautobot",
+   "path": "/api/status/",
+   "json": "netbox-version",
+   "verified": false
+  },
+  {
+   "name": "TheHive",
+   "path": "/api/status",
+   "json": "versions.TheHive",
+   "regex": "([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "Seq",
+   "path": "/api",
+   "json": "Version",
+   "verified": false
+  },
+  {
+   "name": "Node-RED",
+   "path": "/settings",
+   "json": "version",
+   "verified": false
+  },
+  {
+   "name": "Vaultwarden",
+   "path": "/api/version",
+   "regex": "^\\s*\"?([0-9]+(?:\\.[0-9]+)*)",
+   "verified": false
+  },
+  {
+   "name": "Kibana",
+   "path": "/api/status",
+   "json": "version.number",
+   "verified": false
+  },
+  {
+   "name": "OpenSearch Dashboards",
+   "path": "/api/status",
+   "json": "version.number",
+   "verified": false
+  },
+  {
+   "name": "Apache Solr",
+   "path": "/solr/admin/info/system?wt=json",
+   "json": "lucene.solr-spec-version",
+   "verified": false
   }
  ],
  "manual": [
@@ -156,6 +482,22 @@
   {
    "name": "Jitsi Meet",
    "how": "dpkg -l jitsi-meet"
+  },
+  {
+   "name": "Home Assistant",
+   "how": "Settings > About (or: ha core info)"
+  },
+  {
+   "name": "Moodle",
+   "how": "Site administration > Notifications"
+  },
+  {
+   "name": "Matomo",
+   "how": "Administration > System > General settings (or: ./console core:version)"
+  },
+  {
+   "name": "phpMyAdmin",
+   "how": "the home page after signing in"
   }
  ]
 }

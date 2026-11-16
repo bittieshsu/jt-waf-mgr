@@ -30,12 +30,20 @@ def _load(path=SIGNATURE_FILE):
         with open(path, encoding='utf-8') as fh:
             d = json.load(fh)
     except (OSError, ValueError):
-        return {}, [], []
+        return {}, [], [], []
     return (dict(d.get('packages') or {}), [(re.compile(rx), name) for rx, name in d.get('package_patterns') or []],
-            [(name, rx) for name, rx, _samples in d.get('signatures') or []])
+            [(name, rx) for name, rx, _samples in d.get('signatures') or []],
+            [(name, re.compile(rx)) for name, rx, _samples in d.get('homepages') or []])
 
 
-PACKAGES, PACKAGE_PATTERNS, SIGNATURES = _load()
+def _load4(path=SIGNATURE_FILE):
+    try:
+        return _load(path)
+    except (TypeError, ValueError):
+        return {}, [], [], []
+
+
+PACKAGES, PACKAGE_PATTERNS, SIGNATURES, HOMEPAGES = _load4()
 VERSION_FILE = os.path.join(os.path.dirname(__file__), 'data', 'software-versions.json')
 
 
@@ -167,7 +175,87 @@ def own_hosts(app):
 ACTIVESYNC_SERVERS = ('Exchange (OWA)', 'Zimbra', 'SOGo', 'Kerio Connect')
 
 
-def guess(app):
+HOME_BYTES = 200000                 # the start of a home page is enough for its title and meta tags
+HOME_WORKERS = 8
+
+
+def homepage_text(got):
+    """The headers ("name: value" lines, names in lower case) and the start of the body of an answer: what the home
+    page signatures (HOMEPAGES) are matched against."""
+    status, headers, body = got
+    return ''.join('%s: %s\n' % (k, v) for k, v in sorted(headers.items())) + '\n' + body[:HOME_BYTES].decode('utf-8', 'replace')
+
+
+def match_homepage(text):
+    """The application a home page names (its title, a generator tag, a header only it sends), or None."""
+    for name, rx in HOMEPAGES:
+        if rx.search(text):
+            return name
+    return None
+
+
+def _home(host, fetch):
+    """The home page of a site, following up to two redirects that stay on the site."""
+    import urllib.parse
+    path = '/'
+    for _ in range(3):
+        got = fetch(host, {'path': path, 'max_bytes': HOME_BYTES}, timeout=5)
+        if not got:
+            return None
+        status, headers, _body = got
+        loc = headers.get('location') or ''
+        if status in (301, 302, 303, 307, 308) and loc:
+            u = urllib.parse.urlsplit(loc)
+            if u.netloc and u.netloc.lower().split(':')[0] != host:
+                return None                     # it sends elsewhere: not this site's page
+            path = (u.path or '/') + ('?' + u.query if u.query else '')
+            if not path.startswith('/'):
+                return None
+            continue
+        return got if status == 200 else None
+    return None
+
+
+def homepage_sites(app):
+    """The sites worth asking for their home page: a name nginx serves over TLS on port 443, not a wildcard or a
+    pattern, not this program's own, not a block that only redirects."""
+    out = []
+    own = own_hosts(app)
+    try:
+        n, _ = app.site.load()
+        servers = n.servers()
+    except Exception:          # noqa: BLE001 -- no nginx configuration here
+        return out
+    for sv in servers:
+        if sv.get('redirect_only') or not any(re.search(r'(?:^|:)443\b', x) for x in sv.get('listen') or []):
+            continue
+        for h in sv.get('server_names') or []:
+            h = h.lower()
+            if h not in own and h not in out and traffic.HOST_RE.fullmatch(h) and '.' in h:
+                out.append(h)
+    return out[:200]
+
+
+def guess_homepages(app, hosts, fetch=None):
+    """{application: [hosts]} from the sites' own home pages (read through this host's nginx, a few at a time)."""
+    from concurrent.futures import ThreadPoolExecutor
+    fetch = fetch or fetch_local
+
+    def one(h):
+        try:
+            got = _home(h, fetch)
+            return h, (match_homepage(homepage_text(got)) if got else None)
+        except Exception:      # noqa: BLE001 -- one site's odd answer never stops the guess
+            return h, None
+    found = collections.defaultdict(list)
+    with ThreadPoolExecutor(max_workers=HOME_WORKERS) as ex:
+        for h, name in ex.map(one, hosts):
+            if name:
+                found[name].append(h)
+    return dict(found)
+
+
+def guess(app, fetch=None):
     """What the program can tell: [{name, version, hosts, evidence, kind}]."""
     out = []
     pk = dpkg_packages()
@@ -200,11 +288,20 @@ def guess(app):
         with_own.update(found.get(n, {}))
     if 'Z-Push' in found:
         found['Z-Push'] = {h: c for h, c in found['Z-Push'].items() if h not in with_own}
-    for name, by_host in sorted(found.items()):
+    # the home pages: an application whose paths the logs do not show (or show too seldom) but whose page names it
+    try:
+        home = guess_homepages(app, homepage_sites(app), fetch=fetch)
+    except Exception:          # noqa: BLE001 -- the guess stands on the logs alone
+        home = {}
+    for name in sorted(set(found) | set(home)):
+        by_host = found.get(name, {})
         hosts = sorted(h for h, n in by_host.items() if n >= MIN_HITS)
-        if hosts:
-            out.append({'name': name, 'version': '', 'hosts': hosts, 'kind': 'site',
-                        'evidence': ', '.join('%s %d' % (h, by_host[h]) for h in hosts[:8])})
+        pages = sorted(h for h in home.get(name, []) if h not in hosts)
+        if hosts or pages:
+            ev = ', '.join('%s %d' % (h, by_host[h]) for h in hosts[:8])
+            if pages:
+                ev = (ev + '; ' if ev else '') + 'homepage: ' + ', '.join(pages[:8])
+            out.append({'name': name, 'version': '', 'hosts': sorted(hosts + pages), 'kind': 'site', 'evidence': ev})
     return out
 
 
@@ -282,9 +379,28 @@ def prune_unrelated(db):
 PROBE_ACTOR = 'version-probe'
 
 
-def fetch_local(host, probe, timeout=6, token=None):
-    """One request to a site through this host's own nginx: 127.0.0.1:443 with the site's name for TLS (SNI, the
-    certificate checked against it) and Host. Returns (status, headers {lower: value}, body bytes) or None."""
+def lan_address():
+    """This host's own address on its local network (the one its default route leaves from), or None: a site that
+    only lets the local network in (an nginx allow list, a geo map) answers 403 to 127.0.0.1 but not to this one.
+    Found without sending anything (a UDP socket's connect only picks the route); a private address only."""
+    import ipaddress
+    import socket
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(('192.0.2.1', 9))             # documentation address: nothing is sent
+            ip = s.getsockname()[0]
+        a = ipaddress.ip_address(ip)
+    except (OSError, ValueError):
+        return None
+    return ip if a.is_private and not a.is_loopback and not a.is_link_local else None
+
+
+OFFLINE = False          # tests: never ask a real nginx (the unit tests also run on a production host)
+
+
+def _fetch_at(addr, host, probe, timeout, token):
+    if OFFLINE:
+        return None
     import http.client
     import socket
     import ssl
@@ -293,7 +409,7 @@ def fetch_local(host, probe, timeout=6, token=None):
     data = json.dumps(body).encode() if isinstance(body, (dict, list)) else None
     ctx = util.tls_context()            # the system's verification, TLS 1.2 or newer (as every TLS client here)
     try:
-        raw = socket.create_connection(('127.0.0.1', 443), timeout=timeout)
+        raw = socket.create_connection((addr, 443), timeout=timeout)
         sock = ctx.wrap_socket(raw, server_hostname=host)
     except (OSError, ssl.SSLError):
         return None
@@ -313,21 +429,39 @@ def fetch_local(host, probe, timeout=6, token=None):
         conn.close()
 
 
+def fetch_local(host, probe, timeout=6, token=None, lan=None):
+    """One request to a site through this host's own nginx: 127.0.0.1:443 with the site's name for TLS (SNI, the
+    certificate checked against it) and Host. Returns (status, headers {lower: value}, body bytes) or None.
+    A 403 there (a site open to the local network only) is asked once more at this host's local address."""
+    got = _fetch_at('127.0.0.1', host, probe, timeout, token)
+    if got and got[0] == 403:
+        addr = lan if lan is not None else lan_address()
+        if addr:
+            again = _fetch_at(addr, host, probe, timeout, token)
+            if again:
+                return again
+    return got
+
+
 def extract_version(probe, status, headers, body):
     """The version an answer carries, or None (anything that is not a plain version string is refused)."""
-    if status != 200:
-        return None
+    if status != 200 and not (probe.get('any_status') and status):
+        return None                 # any_status: the version is in a header of every answer (a 204, a 401, a 429)
     v = None
-    if probe.get('header'):
+    if probe.get('json_parts'):
+        # a version in parts ({"major":1,"minor":2,"patch":3}): each a dotted path, joined with dots
+        try:
+            doc = json.loads(body.decode('utf-8', 'replace'))
+        except ValueError:
+            doc = None
+        parts = [_json_at(doc, p) for p in probe['json_parts']]
+        v = '.'.join(str(x) for x in parts) if all(isinstance(x, (int, str)) and not isinstance(x, bool)
+                                                   and str(x) != '' for x in parts) else None
+    elif probe.get('header'):
         v = headers.get(probe['header'].lower())
     elif probe.get('json'):
         try:
-            v = json.loads(body.decode('utf-8', 'replace'))
-            for part in probe['json'].split('.'):
-                if isinstance(v, list) and part.isdigit():
-                    v = v[int(part)] if int(part) < len(v) else None
-                else:
-                    v = v.get(part) if isinstance(v, dict) else None
+            v = _json_at(json.loads(body.decode('utf-8', 'replace')), probe['json'])
         except ValueError:
             v = None
     elif probe.get('regex'):
@@ -336,8 +470,25 @@ def extract_version(probe, status, headers, body):
     if v is not None and probe.get('regex') and (probe.get('header') or probe.get('json')):
         m = re.search(probe['regex'], str(v))
         v = m.group(1) if m else None
+    if v is not None and probe.get('convert') == 'roundcube':
+        # Roundcube's "rcversion" 10605 is 1.6.5 (major * 10000 + minor * 100 + patch)
+        try:
+            n = int(v)
+            v = '%d.%d.%d' % (n // 10000, n // 100 % 100, n % 100) if 10000 <= n < 1000000 else None
+        except (TypeError, ValueError):
+            v = None
     v = str(v).strip() if v is not None else ''
     return v if v and len(v) <= 60 and VERSION_RE.fullmatch(v) and re.search(r'\d', v) else None
+
+
+def _json_at(v, path):
+    """The value at a dotted path ("result.server_version"; a number indexes a list), or None."""
+    for part in str(path).split('.'):
+        if isinstance(v, list) and part.isdigit():
+            v = v[int(part)] if int(part) < len(v) else None
+        else:
+            v = v.get(part) if isinstance(v, dict) else None
+    return v
 
 
 def detect_versions(app, fetch=fetch_local, log=print):
@@ -379,13 +530,13 @@ def detect_versions(app, fetch=fetch_local, log=print):
     return changed
 
 
-def refresh(app, actor):
+def refresh(app, actor, fetch=fetch_local):
     """Store the guesses: new names are added unconfirmed; a guessed version that changed updates an unconfirmed
     entry (a person's version is never overwritten); hosts and evidence are refreshed. Returns {added, updated}."""
     db = app.db
     added = updated = removed = 0
     now = util.now()
-    found = guess(app)
+    found = guess(app, fetch=fetch)
     # a guess the program no longer makes (and nobody confirmed or edited) goes away
     dismissed = set(dismissed_names(db))
     found = [g for g in found if g['name'] not in dismissed]     # a person removed it: not guessed again
@@ -416,7 +567,7 @@ def refresh(app, actor):
                  (version, hosts, g['evidence'], confirmed_flag, now, r['id']))
             updated += 1
     try:
-        versions = len(detect_versions(app, log=lambda *a: None))
+        versions = len(detect_versions(app, fetch=fetch, log=lambda *a: None))
     except Exception:          # noqa: BLE001 -- the guess stands without the versions
         versions = 0
     return {'added': added, 'updated': updated, 'removed': removed, 'versions': versions}
