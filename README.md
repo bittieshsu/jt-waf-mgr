@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.66
+# jt-waf-mgr v0.4.67
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -166,12 +166,23 @@ nginx and ModSecurity keep working with the last rules.
 ## Install
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.44.tar.gz.sig jt-waf-mgr-0.4.44.tar.gz
-tar xzf jt-waf-mgr-0.4.44.tar.gz && cd jt-waf-mgr-0.4.44
+sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # a fixed place for the releases
+V=0.4.67; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # the release, its signature, the public key
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
+sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./install.sh                             # verifies every file and the release signature first
 sudo jt-waf-mgr check                         # parses the nginx / ModSecurity configuration
 sudo jt-waf-mgr user add alice --role admin   # prints a temporary password
 ```
+
+Where things are after installing:
+
+- program `/usr/lib/jt-waf-mgr`, command `/usr/bin/jt-waf-mgr` (root-owned, read-only)
+- configuration `/etc/jt-waf-mgr`
+- data (database, queue) `/var/lib/jt-waf-mgr`; the apply program `/var/lib/jt-waf-mgr-apply`
+- backups before each upgrade `/var/backups/jt-waf-mgr`
+- releases `/opt/jt-waf-mgr-install`; the current one unpacked in `/opt/jt-waf-mgr-install/current` (install, upgrade and removal run there)
 
 ### Connect to the management interface
 
@@ -376,6 +387,10 @@ the file next to the current values and writes only what you tick).
 ### Upgrade
 
 ```sh
+cd /opt/jt-waf-mgr-install   # the new release, unpacked into the same current
+V=0.4.67; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
+sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # every check, nothing changed
 sudo ./upgrade.sh             # backup, switch, checks; rolls back by itself on any failure
 sudo ./upgrade.sh --rollback  # later, if needed: back to the version (and database) before the upgrade
@@ -389,6 +404,7 @@ trail.
 ### Uninstall
 
 ```sh
+cd /opt/jt-waf-mgr-install/current   # the fixed directory (the installed version)
 sudo ./uninstall.sh           # remove the service and the program; keep data and configuration
 sudo ./uninstall.sh --purge   # also remove /var/lib/jt-waf-mgr, /etc/jt-waf-mgr and the jtwaf user
 ```

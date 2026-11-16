@@ -133,7 +133,8 @@ LITERAL = re.compile(r"""\b(?:t|tOr)\(\s*'([A-Za-z0-9_.\-]+)'\s*[,)]""")
 
 
 ZH_TERMS = [('收編', '納管'), ('擋下', '封鎖'), ('阻擋', '封鎖'), ('擋', '封鎖'), ('收緊', '加強'), ('\u52a0\u56b4', '加強'),
-            ('\u6f02\u79fb', '被外部修改'), ('\u9ed1\u540d\u55ae', '封鎖清單'), ('\u767d\u540d\u55ae', '允許清單')]
+            ('\u6f02\u79fb', '被外部修改'), ('\u9ed1\u540d\u55ae', '封鎖清單'), ('\u767d\u540d\u55ae', '允許清單'),
+            ('\u4fdd\u5e95', '標記後封鎖')]   # 2026-11-16: not Taiwan usage
 # the same rule in the other languages (any case): denylist / allowlist, 拒否リスト / 許可リスト
 OTHER_TERMS = [('black' + 'list', 'denylist'), ('white' + 'list', 'allowlist'),
                ('\u30d6\u30e9\u30c3\u30af\u30ea\u30b9\u30c8', '拒否リスト'), ('\u30db\u30ef\u30a4\u30c8\u30ea\u30b9\u30c8', '許可リスト')]

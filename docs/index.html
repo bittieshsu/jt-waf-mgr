@@ -68,6 +68,21 @@ nav.links a:hover { color: var(--blue); background: #eef4fd; text-decoration: no
 a.shotlink { display: block; }
 img.shot { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; object-position: top; border-radius: 12px; border: 1px solid var(--border); background: #fff; box-shadow: 0 10px 30px rgba(15, 23, 42, .10); }
 .hero img.shot { box-shadow: 0 18px 50px rgba(26, 76, 156, .20); }
+.car { min-width: 0; }
+.car-track { position: relative; display: grid; }
+.car-slide { grid-area: 1 / 1; opacity: 0; visibility: hidden; transition: opacity .6s ease, visibility 0s linear .6s; }
+.car-slide.on { opacity: 1; visibility: visible; transition: opacity .6s ease; }
+.car-btn { position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border);
+  background: rgba(255, 255, 255, .92); color: var(--ink); font: 600 26px/1 system-ui; cursor: pointer; box-shadow: 0 4px 14px rgba(15, 23, 42, .18); display: flex; align-items: center; justify-content: center; padding: 0 0 3px; }
+.car-btn:hover, .car-btn:focus-visible { border-color: var(--blue); color: var(--blue); }
+.car-btn.prev { left: -16px; } .car-btn.next { right: -16px; }
+.car-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+.car-cap { color: var(--muted); font-size: 15px; }
+.car-dots { display: flex; gap: 8px; }
+.car-dots button { width: 10px; height: 10px; border-radius: 50%; border: 0; padding: 0; background: #c3cfe2; cursor: pointer; }
+.car-dots button[aria-current="true"] { background: var(--blue); width: 26px; border-radius: 6px; }
+@media (max-width: 860px) { .car-btn.prev { left: 6px; } .car-btn.next { right: 6px; } }
+@media (prefers-reduced-motion: reduce) { .car-slide, .car-slide.on { transition: none; } }
 section { padding: 60px 0; } section.alt { background: #fff; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 h2 { font-size: 30px; margin: 0 0 10px; } h2 + p.sub { color: var(--muted); margin: 0 0 28px; font-size: 17px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 18px; }
@@ -200,7 +215,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
 
 <div class="hero"><div class="wrap">
   <div>
-    <h1>jt-waf-mgr <span class="ver">v0.4.66</span></h1>
+    <h1>jt-waf-mgr <span class="ver">v0.4.67</span></h1>
     <p class="lead" data-t="lead"></p>
     <div class="btns">
       <a class="btn primary" href="https://github.com/jasoncheng7115/jt-waf-mgr">GitHub</a>
@@ -211,7 +226,19 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
     <div class="chips"><span class="chip">nginx</span><span class="chip">libmodsecurity v3</span><span class="chip">OWASP CRS 4</span>
       <span class="chip">Python 3.11+ stdlib</span><span class="chip">Vue 3</span><span class="chip">AGPL-3.0</span></div>
   </div>
-  <a class="shotlink" href="shots/en/overview.png" data-shot="overview"><img class="shot" src="shots/en/thumb/overview.webp" alt=""></a>
+  <!-- the hero: three screens in turn (every 6 s; paused under the pointer or focus, and when motion is reduced);
+       arrows, dots and the arrow keys switch by hand -->
+  <div class="car" id="car">
+    <div class="car-track">
+      <a class="shotlink car-slide on" href="shots/en/overview.png" data-shot="overview" data-cap="car_overview"><img class="shot" src="shots/en/thumb/overview.webp" alt=""></a>
+      <a class="shotlink car-slide" href="shots/en/warroom.png" data-shot="warroom" data-cap="car_warroom" aria-hidden="true" tabindex="-1"><img class="shot" src="shots/en/thumb/warroom.webp" alt=""></a>
+      <a class="shotlink car-slide" href="shots/en/traffic.png" data-shot="traffic" data-cap="car_traffic" aria-hidden="true" tabindex="-1"><img class="shot" src="shots/en/thumb/traffic.webp" alt=""></a>
+      <button type="button" class="car-btn prev" id="car-prev" data-ta="car_prev">&#8249;</button>
+      <button type="button" class="car-btn next" id="car-next" data-ta="car_next">&#8250;</button>
+    </div>
+    <div class="car-foot"><span class="car-cap" id="car-cap"></span>
+      <span class="car-dots"><button type="button" data-i="0" data-ta="car_overview" aria-current="true"></button><button type="button" data-i="1" data-ta="car_warroom"></button><button type="button" data-i="2" data-ta="car_traffic"></button></span></div>
+  </div>
 </div></div>
 
 <section id="modes" class="alt"><div class="wrap">
@@ -326,6 +353,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
     <figure><a class="shotlink" href="shots/en/intel.png" data-shot="intel"><img src="shots/en/thumb/intel.webp" alt="" loading="lazy"></a><figcaption data-t="sc_intel"></figcaption></figure>
     <figure><a class="shotlink" href="shots/en/reviews.png" data-shot="reviews"><img src="shots/en/thumb/reviews.webp" alt="" loading="lazy"></a><figcaption data-t="sc_reviews"></figcaption></figure>
     <figure><a class="shotlink" href="shots/en/warroom.png" data-shot="warroom"><img src="shots/en/thumb/warroom.webp" alt="" loading="lazy"></a><figcaption data-t="sc_warroom"></figcaption></figure>
+    <figure><a class="shotlink" href="shots/en/warroom-globe.png" data-shot="warroom-globe"><img src="shots/en/thumb/warroom-globe.webp" alt="" loading="lazy"></a><figcaption data-t="sc_warroom_globe"></figcaption></figure>
     <figure><a class="shotlink" href="shots/en/thumb/overview-dark.webp" data-shot="overview-dark" data-full="thumb"><img src="shots/en/thumb/overview-dark.webp" alt="" loading="lazy"></a><figcaption data-t="sc_dark"></figcaption></figure>
   </div>
 </div></section>
@@ -338,15 +366,21 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
   <div class="inst">
     <div class="iblock c-install">
       <div class="ihead"><span class="ic">↓</span><div><h3 data-t="ib_h"></h3><p data-t="ib_d"></p></div></div>
-      <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_verify"></span>
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.25.tar.gz.sig jt-waf-mgr-0.4.25.tar.gz
-tar xzf jt-waf-mgr-0.4.25.tar.gz &amp;&amp; cd jt-waf-mgr-0.4.25
+      <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_dir"></span>
+sudo mkdir -p /opt/jt-waf-mgr-install &amp;&amp; cd /opt/jt-waf-mgr-install
+<span class="c" data-t="c_get"></span>
+V=<span class="v-cur">0.4.67</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done
+<span class="c" data-t="c_verify"></span>
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
+sudo rm -rf current &amp;&amp; sudo mkdir current &amp;&amp; sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 &amp;&amp; cd current
 <span class="c" data-t="c_install"></span>
 sudo ./install.sh
 <span class="c" data-t="c_check"></span>
 sudo jt-waf-mgr check
 <span class="c" data-t="c_admin"></span>
 sudo jt-waf-mgr user add alice --role admin</pre></div>
+      <ul class="ticks"><li data-t="loc1"></li><li data-t="loc2"></li><li data-t="loc3"></li><li data-t="loc4"></li><li data-t="loc5"></li></ul>
     </div>
     <div class="iblock c-install">
       <div class="ihead"><span class="ic">⇢</span><div><h3 data-t="cn_h"></h3><p data-t="cn_d"></p></div></div>
@@ -369,7 +403,12 @@ sudo nginx -t &amp;&amp; sudo systemctl reload nginx</pre></div>
     </div>
     <div class="iblock c-upgrade">
       <div class="ihead"><span class="ic">↻</span><div><h3 data-t="ub_h"></h3><p data-t="ub_d"></p></div></div>
-      <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_ucheck"></span>
+      <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_udir"></span>
+cd /opt/jt-waf-mgr-install
+V=<span class="v-cur">0.4.67</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
+sudo rm -rf current &amp;&amp; sudo mkdir current &amp;&amp; sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 &amp;&amp; cd current
+<span class="c" data-t="c_ucheck"></span>
 sudo ./upgrade.sh --check
 <span class="c" data-t="c_up"></span>
 sudo ./upgrade.sh
@@ -378,7 +417,9 @@ sudo ./upgrade.sh --rollback</pre></div>
     </div>
     <div class="iblock c-remove">
       <div class="ihead"><span class="ic">✕</span><div><h3 data-t="rb_h"></h3><p data-t="rb_d"></p></div></div>
-      <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_keep"></span>
+      <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_rdir"></span>
+cd /opt/jt-waf-mgr-install/current
+<span class="c" data-t="c_keep"></span>
 sudo ./uninstall.sh
 <span class="c" data-t="c_purge"></span>
 sudo ./uninstall.sh --purge</pre></div>
@@ -528,6 +569,9 @@ const T = {
   ib_h: 'Install',
   ib_d: 'Verify the release signature, unpack and install. Then connect the management interface (below), sign in, change the password and set up two-factor authentication. Adopting your rule files is described in the README.',
   c_verify: '# verify the release signature and unpack',
+  loc1: 'Program /usr/lib/jt-waf-mgr, command /usr/bin/jt-waf-mgr (root-owned, read-only)', loc2: 'Configuration /etc/jt-waf-mgr', loc3: 'Data (database, queue) /var/lib/jt-waf-mgr; the apply program /var/lib/jt-waf-mgr-apply', loc4: 'Backups before each upgrade /var/backups/jt-waf-mgr', loc5: 'Releases /opt/jt-waf-mgr-install; the current one unpacked in /opt/jt-waf-mgr-install/current',
+  c_dir: '# one fixed place: every release unpacks into current, where install, upgrade and removal run', c_get: '# download the release, its signature and the public key (GitHub Releases)',
+  c_udir: '# the new release, unpacked into the same current', c_rdir: '# the fixed directory (the installed version)',
   c_install: '# install: checks every file and the signature first',
   c_check: '# read the nginx / ModSecurity configuration',
   c_admin: '# first admin account; prints a temporary password',
@@ -548,6 +592,8 @@ const T = {
   sc_traffic: 'Request volume next to what the WAF blocked',
   sc_countries: 'Country limits by site: who may reach each site, what was refused',
   sc_intel: 'Threat intelligence: vulnerabilities found for the confirmed software', sc_reviews: 'Periodic WAF review: possible false blocks first, focus sites', sc_warroom: 'War room: a wall board, live or up to 7 days (seven pages, rotating)',
+  sc_warroom_globe: 'War room 3D globe (demo mode: made-up attacks)',
+  car_overview: 'Dashboard', car_warroom: 'War room', car_traffic: 'Request volume', car_prev: 'Previous screenshot', car_next: 'Next screenshot',
   f9_h: 'Request volume',
   f9: 'Requests per site and hour from the nginx access logs (status codes, external share, bytes; numbers only), next to what the WAF blocked. Optional alerts for a traffic spike or many 5xx.',
   f10_h: 'Who wrote each rule',
@@ -695,6 +741,9 @@ const T = {
   ib_h: '安裝',
   ib_d: '驗證發行檔簽章、解開後安裝。接著連到管理介面（見下方），登入後改密碼並設定雙因素驗證。納管現有規則檔的方式請見 README。',
   c_verify: '# 驗證發行檔簽章並解開',
+  loc1: '程式 /usr/lib/jt-waf-mgr、指令 /usr/bin/jt-waf-mgr (root 擁有、唯讀)', loc2: '設定 /etc/jt-waf-mgr', loc3: '資料 (資料庫、佇列) /var/lib/jt-waf-mgr；套用程式 /var/lib/jt-waf-mgr-apply', loc4: '每次升級前的備份 /var/backups/jt-waf-mgr', loc5: '發行檔 /opt/jt-waf-mgr-install；目前的版本解開在 /opt/jt-waf-mgr-install/current',
+  c_dir: '# 固定的目錄：每個版本都解開到 current，安裝、升級、移除都在那裡執行', c_get: '# 從 GitHub Releases 下載發行檔、簽章與公鑰',
+  c_udir: '# 新版本一樣解開到 current', c_rdir: '# 固定的目錄 (目前安裝的版本)',
   c_install: '# 安裝：先驗證每個檔案與簽章',
   c_check: '# 解析 nginx / ModSecurity 設定',
   c_admin: '# 第一個管理者帳號，會印出臨時密碼',
@@ -715,6 +764,8 @@ const T = {
   sc_traffic: '請求量與 WAF 封鎖並列',
   sc_countries: '各站台的國家限制：允許哪些國家、封鎖了多少',
   sc_intel: '威脅情報：已確認軟體的漏洞', sc_reviews: 'WAF 定期檢討：可能誤封鎖排前面、重點站台', sc_warroom: '戰情室：即時或最長 7 天的牆面看板 (七個畫面，可輪播)',
+  sc_warroom_globe: '戰情室 3D 地球 (示範模式的模擬攻擊)',
+  car_overview: '儀表板', car_warroom: '戰情室', car_traffic: '請求量', car_prev: '上一張截圖', car_next: '下一張截圖',
   f9_h: '請求量',
   f9: '依站台和小時統計 nginx 存取記錄的請求 (狀態碼、外部比例、傳送量；只有數字)，和 WAF 封鎖數並列。可選用流量暴增或大量 5xx 警示。',
   f10_h: '規則的撰寫者',
@@ -862,6 +913,9 @@ const T = {
   ib_h: 'インストール',
   ib_d: 'リリースの署名を検証し、展開してインストールします。続いて管理画面に接続し（下記）、サインインしてパスワード変更と二要素認証を設定します。既存ルールファイルの取り込みは README を参照してください。',
   c_verify: '# リリースの署名を検証して展開',
+  loc1: 'プログラム /usr/lib/jt-waf-mgr、コマンド /usr/bin/jt-waf-mgr (root 所有、読み取り専用)', loc2: '設定 /etc/jt-waf-mgr', loc3: 'データ (データベース、キュー) /var/lib/jt-waf-mgr、適用プログラム /var/lib/jt-waf-mgr-apply', loc4: 'アップグレード前のバックアップ /var/backups/jt-waf-mgr', loc5: 'リリース /opt/jt-waf-mgr-install、現在のものは /opt/jt-waf-mgr-install/current に展開',
+  c_dir: '# 決まった場所：どのリリースも current に展開し、インストール・アップグレード・削除はそこで実行', c_get: '# GitHub Releases からリリース、署名、公開鍵をダウンロード',
+  c_udir: '# 新しいリリースも同じ current に展開', c_rdir: '# 決まったディレクトリ (インストール中のバージョン)',
   c_install: '# インストール：先にすべてのファイルと署名を検証',
   c_check: '# nginx / ModSecurity の設定を解析',
   c_admin: '# 最初の管理者アカウント（一時パスワードを表示）',
@@ -882,6 +936,8 @@ const T = {
   sc_traffic: 'リクエスト量と WAF のブロックを並べて表示',
   sc_countries: 'サイトごとの国別制限：接続できる国とブロック数',
   sc_intel: '脅威インテリジェンス：確認済みソフトウェアの脆弱性', sc_reviews: 'WAF 定期レビュー：誤ブロックの可能性を先頭に、重点サイト', sc_warroom: '作戦室：ライブまたは最長 7 日の壁面ボード (7 画面、巡回)',
+  sc_warroom_globe: '作戦室の 3D 地球 (デモモードの模擬攻撃)',
+  car_overview: 'ダッシュボード', car_warroom: '作戦室', car_traffic: 'リクエスト量', car_prev: '前のスクリーンショット', car_next: '次のスクリーンショット',
   f9_h: 'リクエスト量',
   f9: 'nginx アクセスログのリクエストをサイト・時間ごとに集計 (ステータス、外部の割合、送信量。数値のみ) し、WAF のブロック数と並べます。急増や 5xx 多発のアラートも任意で。',
   f10_h: 'ルールの作成元',
@@ -919,17 +975,21 @@ function pick() {
   const n = (navigator.language || 'en').toLowerCase()
   return n.startsWith('zh') ? 'zh-TW' : n.startsWith('ja') ? 'ja' : 'en'
 }
+// the commands use the version on the badge (one place to change at a release)
+for (const el of document.querySelectorAll('.v-cur')) el.textContent = document.querySelector('.hero .ver').textContent.trim().replace(/^v/, '')
 function apply(lang) {
   const d = T[lang]
   document.documentElement.lang = lang
   for (const el of document.querySelectorAll('[data-t]')) el.textContent = d[el.dataset.t] || T.en[el.dataset.t] || ''
+  for (const el of document.querySelectorAll('[data-ta]')) el.setAttribute('aria-label', d[el.dataset.ta] || T.en[el.dataset.ta] || '')
+  carCaption()
   for (const b of document.querySelectorAll('#lang-menu button')) b.setAttribute('aria-checked', b.dataset.lang === lang ? 'true' : 'false')
   document.getElementById('lang-cur').textContent = { en: 'EN', 'zh-TW': '繁中', ja: '日本語' }[lang]
   for (const a of document.querySelectorAll('a[data-shot]')) {
     const thumb = 'shots/' + lang + '/thumb/' + a.dataset.shot + '.webp'
     a.querySelector('img').src = thumb
     a.href = a.dataset.full === 'thumb' ? thumb : 'shots/' + lang + '/' + a.dataset.shot + '.png'
-    const cap = a.parentElement.querySelector('figcaption')
+    const cap = a.dataset.cap ? { textContent: d[a.dataset.cap] || T.en[a.dataset.cap] } : a.parentElement.querySelector('figcaption')
     a.querySelector('img').alt = cap ? cap.textContent : 'jt-waf-mgr'
   }
   document.getElementById('lb-x').setAttribute('aria-label', d.close)
@@ -974,6 +1034,30 @@ for (const a of document.querySelectorAll('a[data-shot]')) a.addEventListener('c
 document.getElementById('lb-x').addEventListener('click', () => lb.close())
 lb.addEventListener('click', (e) => { if (e.target === lb || e.target.classList.contains('lb-body')) lb.close() })
 lb.addEventListener('close', () => { document.body.classList.remove('lb-on'); document.getElementById('lb-img').removeAttribute('src') })
+// the hero carousel
+const car = document.getElementById('car'), slides = [...car.querySelectorAll('.car-slide')], dots = [...car.querySelectorAll('.car-dots button')]
+let carAt = 0, carTimer = null, carHold = false
+const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+function carCaption() { const d = T[document.documentElement.lang] || T.en; document.getElementById('car-cap').textContent = d[slides[carAt].dataset.cap] || T.en[slides[carAt].dataset.cap] }
+function carShow(i) {
+  carAt = (i + slides.length) % slides.length
+  slides.forEach((s, k) => { s.classList.toggle('on', k === carAt); s.toggleAttribute('aria-hidden', k !== carAt); s.tabIndex = k === carAt ? 0 : -1 })
+  dots.forEach((b, k) => b.setAttribute('aria-current', k === carAt ? 'true' : 'false'))
+  carCaption()
+}
+function carStart() { clearInterval(carTimer); if (!still) carTimer = setInterval(() => { if (!carHold && !document.hidden) carShow(carAt + 1) }, 6000) }
+document.getElementById('car-prev').addEventListener('click', () => { carShow(carAt - 1); carStart() })
+document.getElementById('car-next').addEventListener('click', () => { carShow(carAt + 1); carStart() })
+dots.forEach((b) => b.addEventListener('click', () => { carShow(Number(b.dataset.i)); carStart() }))
+car.addEventListener('mouseenter', () => { carHold = true })
+car.addEventListener('mouseleave', () => { carHold = false })
+car.addEventListener('focusin', () => { carHold = true })
+car.addEventListener('focusout', () => { carHold = false })
+car.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft') { e.preventDefault(); carShow(carAt - 1); carStart() }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); carShow(carAt + 1); carStart() }
+})
+carStart()
 // copy a block of commands (without the comment lines)
 for (const b of document.querySelectorAll('button.copy')) b.addEventListener('click', async () => {
   const text = b.parentElement.querySelector('pre').innerText.split('\n').filter((l) => l.trim() && !l.trim().startsWith('#')).join('\n')

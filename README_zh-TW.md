@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.66
+# jt-waf-mgr v0.4.67
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -131,12 +131,23 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
 ## 安裝
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.44.tar.gz.sig jt-waf-mgr-0.4.44.tar.gz
-tar xzf jt-waf-mgr-0.4.44.tar.gz && cd jt-waf-mgr-0.4.44
+sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # 發行檔的固定位置
+V=0.4.67; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # 發行檔、簽章與公鑰
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
+sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./install.sh                             # 先驗證每個檔案與發行檔簽章
 sudo jt-waf-mgr check                         # 解析 nginx / ModSecurity 設定
 sudo jt-waf-mgr user add alice --role admin   # 印出臨時密碼
 ```
+
+安裝後的位置：
+
+- 程式 `/usr/lib/jt-waf-mgr`、指令 `/usr/bin/jt-waf-mgr` (root 擁有、唯讀)
+- 設定 `/etc/jt-waf-mgr`
+- 資料 (資料庫、佇列) `/var/lib/jt-waf-mgr`；套用程式 `/var/lib/jt-waf-mgr-apply`
+- 每次升級前的備份 `/var/backups/jt-waf-mgr`
+- 發行檔 `/opt/jt-waf-mgr-install`；目前的版本解開在 `/opt/jt-waf-mgr-install/current` (安裝、升級、移除都在這裡執行)
 
 ### 連到管理介面
 
@@ -315,6 +326,10 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 ### 升級
 
 ```sh
+cd /opt/jt-waf-mgr-install   # 新版本一樣解開到 current
+V=0.4.67; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
+sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # 只做所有檢查，不改任何東西
 sudo ./upgrade.sh             # 備份、切換、檢查；任何一步失敗自動還原
 sudo ./upgrade.sh --rollback  # 之後需要時：回到升級前的版本（與資料庫）
@@ -327,6 +342,7 @@ sudo jt-waf-mgr doctor        # 隨時查看健康狀態
 ### 移除
 
 ```sh
+cd /opt/jt-waf-mgr-install/current   # 固定的目錄 (目前安裝的版本)
 sudo ./uninstall.sh           # 移除服務與程式，保留資料與設定
 sudo ./uninstall.sh --purge   # 連同 /var/lib/jt-waf-mgr、/etc/jt-waf-mgr 與 jtwaf 帳號一併移除
 ```

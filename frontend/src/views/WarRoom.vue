@@ -4,21 +4,25 @@
      change (down when they grew, up when they shrank); the maps mark where we are ("Us") once a location is set.
      Demo mode (?demo=1, a button at the top): made-up traffic of a site under steady attack, made in the browser
      (components/warroom/warDemo.js); nothing goes to the server, a banner says so all the time and no link opens.
+     ?page=<name> opens on that page (atlas globe flow sites review intel ops).
      Read only: nothing here asks for an analysis or writes anything. No address, path or query reaches this page
      (the API leaves them out); a site served only to internal networks has an alias. -->
 <template>
-  <div class="wr" :class="{ reduced, demo }" @keydown="onKey" @click.capture="onDemoClick">
+  <div class="wr" :class="{ reduced, demo }" @click.capture="onDemoClick">
     <header class="wr-top">
       <div class="wr-brand"><img src="/logo-mark.svg" alt="" width="26" height="26"><b>jt-waf-mgr</b><span class="wr-sep" aria-hidden="true"></span><span>{{ t('war.title') }}</span></div>
       <div class="wr-ctl">
         <span class="wr-state" :class="'st-' + state" role="status" :title="stateHint"><span class="wr-dot" aria-hidden="true"></span>{{ t('war.state.' + state) }}</span>
         <SelectBox v-model="range" class="wr-range" small :options="rangeOptions" :aria-label="t('war.range')" />
+        <button type="button" class="wr-btn wr-onlybtn" :class="{ on: onlyBlocked }" :aria-pressed="onlyBlocked ? 'true' : 'false'"
+                :title="t('war.only_hint')" @click="onlyBlocked = !onlyBlocked"><Icon name="filter" />{{ t(onlyBlocked ? 'war.only_blocked' : 'war.only_all') }}</button>
         <span class="wr-clock mono">{{ clock }}</span><span class="wr-tz mono">{{ tz }}</span>
-        <button type="button" class="wr-btn" :class="{ on: rotating }" :aria-pressed="rotating ? 'true' : 'false'" @click="rotating = !rotating"><Icon name="refresh" />{{ t('war.rotate') }}</button>
-        <button type="button" class="wr-btn" :class="{ on: paused }" :aria-pressed="paused ? 'true' : 'false'" @click="paused = !paused"><Icon :name="paused ? 'run' : 'timer'" />{{ t(paused ? 'war.resume' : 'war.pause') }}</button>
-        <button type="button" class="wr-btn" :class="{ on: frozen }" :aria-pressed="frozen ? 'true' : 'false'" @click="toggleFreeze"><Icon :name="frozen ? 'unlock' : 'lock'" />{{ t(frozen ? 'war.unfreeze' : 'war.freeze') }}</button>
-        <button type="button" class="wr-btn wr-demobtn" :class="{ on: demo }" :aria-pressed="demo ? 'true' : 'false'" @click="demo = !demo"><Icon name="test" />{{ t('war.demo') }}</button>
-        <button type="button" class="wr-btn" @click="fullscreen"><Icon name="expand" />{{ t('war.fullscreen') }}</button>
+        <button type="button" class="wr-btn" :class="{ on: rotating }" :aria-pressed="rotating ? 'true' : 'false'" :title="t('war.rotate')" @click="rotating = !rotating"><Icon name="refresh" /><span class="wr-lbl">{{ t('war.rotate') }}</span></button>
+        <button type="button" class="wr-btn" :class="{ on: paused }" :aria-pressed="paused ? 'true' : 'false'" :title="t(paused ? 'war.resume' : 'war.pause')" @click="paused = !paused"><Icon :name="paused ? 'run' : 'timer'" /><span class="wr-lbl">{{ t(paused ? 'war.resume' : 'war.pause') }}</span></button>
+        <button type="button" class="wr-btn" :class="{ on: frozen }" :aria-pressed="frozen ? 'true' : 'false'" :title="t(frozen ? 'war.unfreeze' : 'war.freeze')" @click="toggleFreeze"><Icon :name="frozen ? 'unlock' : 'lock'" /><span class="wr-lbl">{{ t(frozen ? 'war.unfreeze' : 'war.freeze') }}</span></button>
+        <button type="button" class="wr-btn wr-demobtn" :class="{ on: demo }" :aria-pressed="demo ? 'true' : 'false'" :title="t('war.demo')" @click="demo = !demo"><Icon name="test" /><span class="wr-lbl">{{ t('war.demo') }}</span></button>
+        <button type="button" class="wr-btn wr-keybtn" :aria-pressed="showHelp ? 'true' : 'false'" :aria-label="t('war.keys_hint')" :title="t('war.keys_hint')" @click="showHelp = !showHelp"><Icon name="keys" />H</button>
+        <button type="button" class="wr-btn" :class="{ on: isFull }" :aria-pressed="isFull ? 'true' : 'false'" :title="t('war.fullscreen')" @click="fullscreen"><Icon :name="isFull ? 'fullscreen_exit' : 'fullscreen'" /><span class="wr-lbl">{{ t('war.fullscreen') }}</span></button>
       </div>
     </header>
     <nav class="wr-tabs" role="tablist" :aria-label="t('war.title')">
@@ -33,6 +37,8 @@
       <a class="wr-btn" href="/login?next=/warroom"><Icon name="login" />{{ t('war.signin') }}</a>
     </div>
     <template v-else>
+      <!-- switching pages: the content fades and slides (none when motion is reduced) -->
+      <Transition name="wr-page" mode="out-in"><div :key="page" class="wr-body">
       <section class="wr-head">
         <div>
           <div class="wr-eyebrow">{{ EYEBROW[PAGES[page]] }}</div>
@@ -63,12 +69,12 @@
           <template v-if="ops && ops.intel.enabled">
             <div class="wr-note-card" :class="{ warn: ops.intel.exploited }"><b>{{ ops.intel.exploited ? t('war.intel_exploited', { n: ops.intel.exploited }) : t('war.intel_open', { n: ops.intel.open }) }}</b>
               <p>{{ t('war.intel_counts', { a: ops.intel.affected, u: ops.intel.unknown, p: ops.intel.patched_by_rule }) }}</p></div>
-            <ul class="wr-revlist">
+            <ul class="wr-revlist wr-intel">
               <li v-for="x in ops.intel.top" :key="x.id + x.product"><a href="/intel" target="_blank" rel="noopener">
                 <span class="wr-tag" :class="{ b: x.exploited }">{{ x.exploited ? t('war.exploited') : tOr('intel.affected.' + x.affected, x.affected) }}</span>
-                <span class="mono">{{ x.id }}</span><span>{{ x.product }}</span><Icon name="external" /></a></li>
+                <span class="mono">{{ x.id }}</span><span class="wr-prod">{{ x.product }}</span><Icon name="external" /></a></li>
             </ul>
-            <a class="wr-clue" href="/intel" target="_blank" rel="noopener"><span class="wr-tag l">{{ t('war.sw_pending', { n: ops.intel.software_unconfirmed }) }}</span><b>{{ t('war.check_software') }}</b><Icon name="external" /></a>
+            <a class="wr-clue wr-intel-clue" href="/intel" target="_blank" rel="noopener"><span class="wr-tag l">{{ t('war.sw_pending', { n: ops.intel.software_unconfirmed }) }}</span><b>{{ t('war.check_software') }}</b><Icon name="external" /></a>
             <p class="wr-foot">{{ ops.intel.last_run_at ? t('war.intel_last', { time: fmtTimeShort(ops.intel.last_run_at) }) : t('war.analysis_none') }}</p>
           </template>
           <p v-else class="wr-empty">{{ t('war.intel_off') }}</p>
@@ -99,36 +105,39 @@
         <section v-else-if="PAGES[page] === 'sites'" class="wr-card wr-map">
           <div class="wr-card-h"><h2><Icon name="server" />{{ t('war.sites_title') }}</h2><span class="wr-sub">{{ t('war.sites_unit', { w: winLabel, b: span(cellSec) }) }}</span></div>
           <div class="wr-sitehead"><span>{{ t('war.col.site') }}</span><span>{{ t('war.col.density') }}</span><span>{{ t('war.k.events', { w: winLabel }) }}</span><span>{{ t('war.k.blocked') }}</span><span>{{ t('war.k.logged') }}</span></div>
-          <ul class="wr-sites">
+          <TransitionGroup tag="ul" name="wr-mv" class="wr-sites">
             <li v-for="st in siteRows" :key="st.host"><a :href="siteLink(st.host)" target="_blank" rel="noopener">
               <span class="mono wr-host">{{ st.host }}</span>
               <span class="wr-cells" aria-hidden="true"><i v-for="(n, i) in st.buckets" :key="i" :style="{ opacity: cell(n) }"></i></span>
-              <span class="mono">{{ fmtNum(st.events) }}</span><span class="mono b">{{ fmtNum(st.blocked) }}</span><span class="mono l">{{ fmtNum(st.logged) }}</span></a></li>
-          </ul>
+              <span class="mono"><RollNum :value="fmtNum(st.events)" :still="reduced" /></span><span class="mono b"><RollNum :value="fmtNum(st.blocked)" :still="reduced" /></span><span class="mono l"><RollNum :value="fmtNum(st.logged)" :still="reduced" /></span></a></li>
+          </TransitionGroup>
           <p v-if="!siteRows.length" class="wr-empty">{{ t('war.quiet', { w: winLabel }) }}</p>
         </section>
         <section v-else-if="PAGES[page] === 'review'" class="wr-card wr-map">
           <div class="wr-card-h"><h2><Icon name="block" />{{ t('war.review_title') }}</h2><span class="wr-sub">{{ t('war.by_site') }}</span></div>
           <p class="wr-sub">{{ t('war.review_unit', { w: winLabel }) }}</p>
           <div class="wr-big score"><RollNum :value="fmtNum(scoreOnlyTotal)" :still="reduced" /></div>
-          <ul class="wr-revlist">
+          <TransitionGroup tag="ul" name="wr-mv" class="wr-revlist">
             <li v-for="g in scoreOnly.slice(0, 6)" :key="g.host"><a :href="scoreLink(g.host)" target="_blank" rel="noopener">
               <span class="wr-tag">{{ t('war.d.crs') }} · {{ fmtNum(g.events) }}</span><span class="mono wr-host">{{ g.host }}</span><Icon name="external" /></a></li>
-          </ul>
+          </TransitionGroup>
           <p v-if="!scoreOnly.length" class="wr-empty">{{ t('war.no_score_only', { w: winLabel }) }}</p>
         </section>
         <section v-else class="wr-card wr-map">
           <div class="wr-card-h"><h2><Icon name="globe" />{{ t(PAGES[page] === 'atlas' ? 'war.map_title' : 'war.globe_title') }}</h2>
-            <span class="wr-sub">{{ dest ? t('war.to_dest', { dest: dest.label }) : t('war.no_dest') }}</span></div>
+            <span class="wr-sub">{{ dest ? t('war.to_dest', { dest: t('war.our_waf') + (snap && snap.destination && snap.destination.label ? ' · ' + snap.destination.label : '') }) : t('war.no_dest') }}</span></div>
           <div class="wr-mapbox">
             <WarAtlas v-if="PAGES[page] === 'atlas'" :sources="countries" :batches="batches" :destination="dest" :paused="paused || frozen || state === 'offline'"
                       :reduced="reduced" :focus="picked" :label="t('war.map_title')" :describe="describe" @pick="pick" />
-            <WarGlobe v-else :sources="countries" :batches="batches" :destination="dest" :paused="paused || frozen || state === 'offline'"
+            <WarGlobe v-else ref="globe" :sources="countries" :batches="batches" :destination="globeDest" :paused="paused || frozen || state === 'offline'"
                       :reduced="reduced" :focus="picked" :spin="spin" :label="t('war.globe_title')" :describe="describe" @pick="pick" />
           </div>
           <div class="wr-card-f">
             <span class="wr-legend"><i class="lg-b"></i>{{ t('war.k.blocked') }}<i class="lg-l"></i>{{ t('war.k.logged') }}</span>
             <span v-if="PAGES[page] === 'globe'" class="wr-globectl">
+              <button type="button" class="wr-btn small" :aria-label="t('war.zoom_out')" :title="t('war.zoom_out')" @click="globe && globe.zoomBy(1 / 1.25)"><Icon name="zoom_out" /></button>
+              <button type="button" class="wr-btn small" :aria-label="t('war.zoom_in')" :title="t('war.zoom_in')" @click="globe && globe.zoomBy(1.25)"><Icon name="zoom_in" /></button>
+              <button type="button" class="wr-btn small" @click="globe && globe.zoomReset()"><Icon name="refresh" />{{ t('war.zoom_reset') }}</button>
               <button type="button" class="wr-btn small" @click="spin = !spin"><Icon :name="spin ? 'timer' : 'refresh'" />{{ t(spin ? 'war.stop_spin' : 'war.start_spin') }}</button>
             </span>
             <span class="wr-sub">{{ t('war.geo_note') }}</span>
@@ -139,7 +148,7 @@
           <div class="wr-card-h"><h2><Icon name="list" />{{ t('war.basis') }}</h2><span class="wr-sub">{{ t('war.click_event') }}</span></div>
           <ul class="wr-basis">
             <li v-for="d in decisionRows" :key="d.key"><a :href="decisionLink(d.key)" target="_blank" rel="noopener">
-              <span :class="'d-' + d.key">{{ flowLabels[d.key] }}</span><span class="mono">{{ fmtNum(d.n) }}</span></a></li>
+              <span :class="'d-' + d.key">{{ flowLabels[d.key] }}</span><span class="mono"><RollNum :value="fmtNum(d.n)" :still="reduced" /></span></a></li>
           </ul>
         </section>
         <section v-else-if="PAGES[page] === 'sites'" class="wr-card wr-rank">
@@ -159,49 +168,61 @@
         </section>
         <section v-else class="wr-card wr-rank">
           <div class="wr-card-h"><h2><Icon name="chart" />{{ t('war.rank') }}</h2><span class="wr-sub">{{ t('war.window', { w: winLabel }) }}</span></div>
-          <ol v-if="countries.length" class="wr-ranklist">
+          <TransitionGroup v-if="countries.length" tag="ol" name="wr-mv" class="wr-ranklist">
             <li v-for="c in countries.slice(0, 8)" :key="c.cc">
               <button type="button" class="wr-rankrow" :class="{ on: picked === c.cc }" @click="pick(c.cc)">
                 <span class="wr-cc mono">{{ c.cc }}</span>
                 <span class="wr-cn">{{ countryName(c.cc) || c.cc }}<small>{{ t('war.sources_n', { n: fmtNum(c.sources) }) }}</small></span>
-                <span class="wr-n mono">{{ fmtNum(c.events) }}</span>
+                <span class="wr-n mono"><RollNum :value="fmtNum(c.events)" :still="reduced" /></span>
                 <span class="wr-bar" aria-hidden="true"><i class="b" :style="{ width: pct(c.blocked) }"></i><i class="l" :style="{ width: pct(c.logged) }"></i></span>
               </button>
             </li>
-          </ol>
+          </TransitionGroup>
           <p v-else class="wr-empty">{{ t('war.no_outside', { w: winLabel }) }}</p>
           <p class="wr-foot">{{ t('war.internal_n', { n: fmtNum(totals.internal) }) }} · {{ t('war.unlocated_n', { n: fmtNum(totals.unlocated) }) }}</p>
         </section>
 
         <section class="wr-card wr-pulse">
           <div class="wr-card-h"><h2><Icon name="timer" />{{ t('war.intensity') }}</h2><span class="wr-sub">{{ stepSec === 60 ? t('war.per_minute', { n: fmtNum(peak) }) : t('war.per_bucket', { b: span(stepSec), n: fmtNum(peak) }) }}</span></div>
-          <div class="wr-bars" role="img" :aria-label="t('war.intensity')">
+          <TransitionGroup tag="div" name="wr-colmv" class="wr-bars" role="img" :aria-label="t('war.intensity')">
             <div v-for="m in minutes" :key="m.t" class="wr-col" :title="fmtAxis(m.t) + ' · ' + fmtNum(m.blocked + m.logged)">
               <i class="l" :style="{ height: h(m.logged) }"></i><i class="b" :style="{ height: h(m.blocked) }"></i>
             </div>
-          </div>
+          </TransitionGroup>
           <div class="wr-axis mono"><span>{{ minutes.length ? fmtAxis(minutes[0].t) : '' }}</span><span>{{ minutes.length ? fmtAxis(minutes[minutes.length - 1].t) : '' }}</span></div>
         </section>
 
         <section class="wr-card wr-latest">
           <div class="wr-card-h"><h2><Icon name="list" />{{ t('war.latest') }}</h2><span class="wr-sub">{{ t('war.click_event') }}</span></div>
-          <ul v-if="latest.length" class="wr-events">
-            <li v-for="e in latest.slice(0, 7)" :key="e.id">
+          <TransitionGroup v-if="latest.length" tag="ul" name="wr-in" class="wr-events">
+            <li v-for="e in latest.slice(0, 4)" :key="e.id">
               <a :href="'/events/' + e.id" target="_blank" rel="noopener">
                 <span class="mono">{{ fmtClock(e.ts) }}</span><span class="mono wr-cc2">{{ e.cc === 'LAN' ? t('war.lan') : e.cc }}</span>
                 <span class="mono wr-host">{{ e.host }}</span>
                 <span class="wr-oc" :class="e.outcome === 'blocked' ? 'b' : 'l'">{{ e.outcome === 'blocked' ? (DECIDED[e.decided_by] ? t(DECIDED[e.decided_by]) : t('war.k.blocked')) : t('war.k.logged') }}</span>
               </a>
             </li>
-          </ul>
+          </TransitionGroup>
           <p v-else class="wr-empty">{{ t('war.quiet', { w: winLabel }) }}</p>
         </section>
       </div>
+      </div></Transition>
 
       <footer class="wr-bottom">
         <span><span class="wr-dot" :class="'st-' + state" aria-hidden="true"></span>{{ t('war.footer', { s: POLL / 1000, w: winLabel }) }}</span>
         <span class="mono">jt-waf-mgr · {{ nodeId }}</span>
       </footer>
+
+      <!-- H: the keys (the same list the handler uses: KEYS) -->
+      <aside v-if="showHelp" class="wr-help" role="dialog" :aria-label="t('war.keys_title')" @click="showHelp = false">
+        <h2><Icon name="keys" />{{ t('war.keys_title') }}</h2>
+        <dl>
+          <template v-for="row in KEYS" :key="row.label">
+            <dt><template v-for="(k, i) in row.keys" :key="k"><span v-if="row.range && i" class="wr-help-dash">–</span><kbd>{{ k }}</kbd></template></dt>
+            <dd>{{ t(row.label) }}</dd>
+          </template>
+        </dl>
+      </aside>
 
       <!-- a country picked on the map or in the ranking: its numbers in the window and where to read the events -->
       <aside v-if="picked && pickedRow" class="wr-drawer" role="dialog" :aria-label="countryName(picked) || picked">
@@ -250,8 +271,11 @@ const RANGES = ['live', '15m', '1h', '3h', '6h', '12h', '24h', '7d']
 const RANGE_SECONDS = { live: 1800, '15m': 900, '1h': 3600, '3h': 10800, '6h': 21600, '12h': 43200, '24h': 86400, '7d': 604800 }
 const DECIDED = { confident: 'war.d.confident', fallback: 'war.d.fallback', score: 'war.d.crs' }
 
-const page = ref(0)
+// ?page=globe (or atlas, flow, sites, review, intel, ops): the page a wall screen opens on
+const page = ref(Math.max(0, PAGES.indexOf(new URLSearchParams(location.search).get('page'))))
 const demo = ref(new URLSearchParams(location.search).get('demo') === '1')
+// ?only=blocked: the blocked events alone, everywhere on the board (the server counts them so; new ones are filtered here)
+const onlyBlocked = ref(new URLSearchParams(location.search).get('only') === 'blocked')
 const demoNote = ref(false)
 let lastDest = null                // the real destination, for the demo's "Us" (a made-up one when none is set)
 const sim = createDemo(() => lastDest)
@@ -279,6 +303,9 @@ const dest = computed(() => {
   const d = snap.value && snap.value.destination
   return d ? { ...d, label: d.label ? t('war.us') + ' · ' + d.label : t('war.us') } : null
 })
+// the globe marks where we are without words (the flat map names it)
+const globe = ref(null)
+const globeDest = computed(() => (dest.value ? { ...dest.value, label: '' } : null))
 // a stretch of time in words: 30 s, 6 min, 1 hour, 1.6 hours, 7 days
 function span(sec) {
   if (sec < 60) return t('war.span.sec', { n: sec })
@@ -472,7 +499,7 @@ function eventsLink(cc) {
 async function get(path, params) {
   if (demo.value) {                // demo: the answers are made here, nothing is asked of the server
     offline.value = false
-    if (path === '/warroom/snapshot') return sim.snapshot(params.range, RANGE_SECONDS[params.range] || 1800)
+    if (path === '/warroom/snapshot') return sim.snapshot(params.range, RANGE_SECONDS[params.range] || 1800, params.only)
     if (path === '/warroom/events') return sim.events()
     return sim.ops()
   }
@@ -488,10 +515,11 @@ async function get(path, params) {
 }
 async function loadSnapshot() {
   syncing.value = !!snap.value || offline.value
-  const want = range.value
-  const s = await get('/warroom/snapshot', { range: want })
+  const want = range.value, wantOnly = onlyBlocked.value
+  const s = await get('/warroom/snapshot', wantOnly ? { range: want, only: 'blocked' } : { range: want })
   syncing.value = false
-  if (!s || want !== range.value || !!s.demo !== demo.value) return   // the range or the mode changed meanwhile
+  // the range, the filter or the mode changed meanwhile: that answer is on its way
+  if (!s || want !== range.value || wantOnly !== onlyBlocked.value || !!s.demo !== demo.value) return
   if (!s.demo) lastDest = s.destination || null
   snap.value = s
   if (s.high_water_id < hw) {
@@ -511,10 +539,12 @@ async function poll() {
   if (r.collector && snap.value) snap.value = { ...snap.value, collector: r.collector }
   if (!r.events.length) return
   hw = r.high_water_id
-  extra.value = r.events.slice().reverse().concat(extra.value).slice(0, 2000)
+  const fresh = onlyBlocked.value ? r.events.filter((e) => e.outcome === 'blocked') : r.events
+  if (!fresh.length) return
+  extra.value = fresh.slice().reverse().concat(extra.value).slice(0, 2000)
   // one tracer per country and outcome of this poll (×n when more), only for outside sources with a country
   const groups = {}
-  for (const e of r.events) {
+  for (const e of fresh) {
     if (e.cc === 'LAN' || e.cc === '?') continue
     const k = e.cc + '|' + e.outcome
     groups[k] = groups[k] || { id: hw + ':' + k, cc: e.cc, outcome: e.outcome === 'blocked' ? 'blocked' : 'logged', count: 0, t: e.ts }
@@ -536,6 +566,13 @@ function setRotation() {
   if (rotating.value) rotateTimer = setInterval(() => go((page.value + 1) % PAGES.length), ((snap.value && snap.value.rotate_seconds) || 25) * 1000)
 }
 watch(rotating, setRotation)
+// only the blocked events, or all: start over from a snapshot counted that way
+watch(onlyBlocked, () => {
+  setParam('only', onlyBlocked.value ? 'blocked' : null)
+  extra.value = []
+  batches.value = []
+  loadSnapshot()
+})
 // into or out of the demo: start over (another id sequence), and keep it in the address
 watch(demo, () => {
   setParam('demo', demo.value ? '1' : null)
@@ -584,17 +621,52 @@ async function toggleFreeze() {
 }
 function go(i) { page.value = i; batches.value = [] }
 function pick(cc) { picked.value = picked.value === cc ? null : cc }
+const isFull = ref(!!document.fullscreenElement)
+function onFull() { isFull.value = !!document.fullscreenElement }
 function fullscreen() {
   const el = document.documentElement
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
   else if (el.requestFullscreen) el.requestFullscreen().catch(() => {})
 }
+// The keys: one list, for the handler below and for the H panel (a key that works is listed, a listed key works)
+const KEYS = [
+  { keys: ['1', String(PAGES.length)], range: true, label: 'war.key.page_num' },
+  { keys: ['←', '→', 'PgUp', 'PgDn'], label: 'war.key.page' },
+  { keys: ['Home'], label: 'war.key.first' },
+  { keys: ['Space'], label: 'war.key.pause' },
+  { keys: ['R'], label: 'war.key.rotate' },
+  { keys: ['Z'], label: 'war.key.freeze' },
+  { keys: ['B'], label: 'war.key.only' },
+  { keys: ['D'], label: 'war.key.demo' },
+  { keys: ['F'], label: 'war.key.fullscreen' },
+  { keys: ['+', '−', '0'], label: 'war.key.zoom' },
+  { keys: ['S'], label: 'war.key.spin' },
+  { keys: ['H'], label: 'war.key.help' },
+  { keys: ['Esc'], label: 'war.key.close' },
+]
+const showHelp = ref(false)
 function onKey(e) {
-  if (e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return
-  if (e.key === 'ArrowRight') go((page.value + 1) % PAGES.length)
-  else if (e.key === 'ArrowLeft') go((page.value + PAGES.length - 1) % PAGES.length)
-  else if (e.key === 'Escape') picked.value = null
-  else if (e.key === ' ' && !(e.target && e.target.tagName === 'BUTTON')) { e.preventDefault(); paused.value = !paused.value }
+  if (e.ctrlKey || e.metaKey || e.altKey) return
+  if (e.target && (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) || e.target.closest?.('.selectbox'))) return
+  const k = e.key, n = PAGES.length, onGlobe = PAGES[page.value] === 'globe' && globe.value
+  if (/^[1-9]$/.test(k) && Number(k) <= n) go(Number(k) - 1)
+  else if (k === 'ArrowRight' || k === 'PageDown') go((page.value + 1) % n)
+  else if (k === 'ArrowLeft' || k === 'PageUp') go((page.value + n - 1) % n)
+  else if (k === 'Home') go(0)
+  else if (k === ' ') { if (e.target && e.target.tagName === 'BUTTON') return; paused.value = !paused.value }
+  else if (k === 'r' || k === 'R') rotating.value = !rotating.value
+  else if (k === 'z' || k === 'Z') toggleFreeze()
+  else if (k === 'b' || k === 'B') onlyBlocked.value = !onlyBlocked.value
+  else if (k === 'd' || k === 'D') demo.value = !demo.value
+  else if (k === 'f' || k === 'F') fullscreen()
+  else if ((k === '+' || k === '=') && onGlobe) globe.value.zoomBy(1.25)
+  else if ((k === '-' || k === '_') && onGlobe) globe.value.zoomBy(1 / 1.25)
+  else if (k === '0' && onGlobe) globe.value.zoomReset()
+  else if ((k === 's' || k === 'S') && PAGES[page.value] === 'globe') spin.value = !spin.value
+  else if (k === 'h' || k === 'H') showHelp.value = !showHelp.value
+  else if (k === 'Escape') { if (showHelp.value) showHelp.value = false; else picked.value = null }
+  else return
+  e.preventDefault()
 }
 function onVisible() { if (!document.hidden) loadSnapshot() }
 
@@ -603,6 +675,7 @@ onMounted(async () => {
   document.documentElement.classList.add('wr-page')
   window.addEventListener('keydown', onKey)
   document.addEventListener('visibilitychange', onVisible)
+  document.addEventListener('fullscreenchange', onFull)
   clockTimer = setInterval(() => { nowMs.value = Date.now() }, 1000)
   await loadSnapshot()
   loadOps()
@@ -613,6 +686,7 @@ onBeforeUnmount(() => {
   clearInterval(clockTimer)
   window.removeEventListener('keydown', onKey)
   document.removeEventListener('visibilitychange', onVisible)
+  document.removeEventListener('fullscreenchange', onFull)
   document.documentElement.classList.remove('wr-page')
 })
 </script>
@@ -633,6 +707,37 @@ onBeforeUnmount(() => {
   color: #e8f1ec; font: inherit; font-size: 14px; cursor: pointer; text-decoration: none; }
 .wr-btn:hover { border-color: var(--l); }
 .wr-btn.on { border-color: var(--l); color: var(--l); }
+/* lists that re-order (ranking, sites, score-only): a row slides to its new place; new ones fade in. A new latest
+   event slides in from the top. None of it when motion is reduced. */
+.wr-mv-move { transition: transform .7s cubic-bezier(.2, .8, .2, 1); }
+.wr-mv-enter-active { transition: opacity .5s ease; }
+.wr-mv-enter-from { opacity: 0; }
+.wr-mv-leave-active { display: none; }
+.wr-in-enter-active { transition: opacity .45s ease, transform .45s cubic-bezier(.2, .8, .2, 1); }
+.wr-in-enter-from { opacity: 0; transform: translateY(-10px); }
+.wr-in-move { transition: transform .45s cubic-bezier(.2, .8, .2, 1); }
+.wr-in-leave-active { display: none; }
+.wr-bar i { transition: width .7s cubic-bezier(.2, .8, .2, 1); }
+.wr-cells i { transition: opacity .7s ease; }
+.wr.reduced .wr-mv-move, .wr.reduced .wr-in-move, .wr.reduced .wr-in-enter-active, .wr.reduced .wr-mv-enter-active, .wr.reduced .wr-bar i { transition: none; }
+@media (prefers-reduced-motion: reduce) { .wr-mv-move, .wr-in-move, .wr-in-enter-active, .wr-mv-enter-active, .wr-bar i, .wr-cells i { transition: none; } }
+/* narrower screens: the top bar's buttons show their icons only (the name is the tooltip and stays for screen
+   readers), so the bar keeps to one line */
+@media (max-width: 1400px) {
+  .wr-ctl .wr-lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+  .wr-ctl > .wr-btn { padding: 0 10px; }
+}
+.wr-onlybtn.on { border-color: var(--b); color: var(--b); }
+.wr-keybtn { font-family: var(--mono, monospace); font-weight: 600; }
+.wr-help { position: fixed; z-index: 40; right: 32px; bottom: 56px; width: min(620px, calc(100vw - 32px)); max-height: calc(100vh - 120px); overflow: auto;
+  padding: 22px 26px; border: 1px solid #3a6463; border-radius: 12px; background: rgba(7, 22, 24, .97); box-shadow: 0 18px 50px rgba(0, 0, 0, .5); cursor: pointer; }
+.wr-help h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; font-size: 22px; color: #f6f1e6; }
+.wr-help dl { display: grid; grid-template-columns: auto 1fr; gap: 10px 20px; margin: 0; align-items: center; font-size: 15px; }
+.wr-help dt { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+.wr-help dd { margin: 0; color: var(--muted); }
+.wr-help kbd { font-family: var(--mono, monospace); font-size: 13px; min-width: 28px; text-align: center; padding: 2px 8px; border: 1px solid #3a6463;
+  border-bottom-width: 2px; border-radius: 5px; background: rgba(12, 40, 42, .9); color: #e8f1ec; }
+.wr-help-dash { color: var(--muted); }
 .wr-demobtn.on { border-color: #f5b13d; color: #f5b13d; }
 .wr-demo { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 10px; padding: 8px 14px; border: 1px solid #f5b13d;
   border-radius: 8px; color: #ffe2a8; background: repeating-linear-gradient(135deg, rgba(245, 177, 61, .16) 0 14px, rgba(245, 177, 61, .06) 14px 28px); }
@@ -650,7 +755,10 @@ onBeforeUnmount(() => {
 .wr-btn .icon { width: 16px; height: 16px; }
 .wr-card-h h2 .icon { width: 18px; height: 18px; color: var(--l); }
 .wr-btn:focus-visible, .wr-tabs button:focus-visible, .wr-ranklist button:focus-visible { outline: 2px solid #f3c778; outline-offset: 2px; }
-.wr-state { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 6px; font-size: 13px; border: 1px solid #3a6463; }
+.wr-state { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 6px; font-size: 14px; border: 1px solid #3a6463; background: rgba(12, 40, 42, .8); }
+/* the top bar: the state, the range and the buttons all the same height */
+.wr-ctl > .wr-state, .wr-ctl > .wr-btn, .wr-ctl .wr-range :deep(.sb-btn) { height: 36px; box-sizing: border-box; }
+.wr-ctl > .wr-btn { padding-top: 0; padding-bottom: 0; }
 .wr-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--l); margin-right: 6px; vertical-align: 0; }
 .st-live .wr-dot, .wr-dot.st-live { background: var(--l); box-shadow: 0 0 8px var(--l); }
 .st-quiet .wr-dot, .wr-dot.st-quiet { background: #6f9b92; }
@@ -661,6 +769,13 @@ onBeforeUnmount(() => {
 .wr-tabs button { white-space: nowrap; flex: none; }
 .wr-tabs button { background: none; border: none; color: #b9cfc9; font: inherit; font-size: 16px; font-weight: 600; padding: 4px 0 10px; cursor: pointer; border-bottom: 2px solid transparent; }
 .wr-tabs button.on { color: var(--l); border-bottom-color: var(--l); }
+.wr-body { display: flex; flex-direction: column; gap: 14px; flex: 1 0 auto; min-height: 0; }
+.wr-page-enter-active { transition: opacity .35s ease, transform .35s cubic-bezier(.2, .8, .2, 1); }
+.wr-page-leave-active { transition: opacity .16s ease, transform .16s ease; }
+.wr-page-enter-from { opacity: 0; transform: translateX(24px); }
+.wr-page-leave-to { opacity: 0; transform: translateX(-12px); }
+.wr.reduced .wr-page-enter-active, .wr.reduced .wr-page-leave-active { transition: none; }
+@media (prefers-reduced-motion: reduce) { .wr-page-enter-active, .wr-page-leave-active { transition: none; } }
 .wr-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
 .wr-eyebrow { font-size: 11px; letter-spacing: .22em; color: var(--l); font-weight: 700; }
 .wr-head h1 { margin: 4px 0 0; font-size: clamp(30px, 4vw, 52px); line-height: 1.1; color: #f6f1e6; }
@@ -701,9 +816,16 @@ onBeforeUnmount(() => {
 .wr-bar .l, .wr-col .l { background: var(--l); }
 .wr-foot { margin: 6px 0 0; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 .wr-empty { color: var(--muted); margin: 8px 0; }
-.wr-bars { display: flex; align-items: flex-end; gap: 3px; height: 92px; border-bottom: 1px solid var(--line); }
+.wr-bars { display: flex; align-items: flex-end; gap: 3px; flex: 1 1 auto; min-height: 72px; border-bottom: 1px solid var(--line); }
 .wr-col { flex: 1; display: flex; flex-direction: column-reverse; height: 100%; min-width: 2px; }
-.wr-col i { display: block; width: 100%; }
+.wr-col i { display: block; width: 100%; transition: height .7s cubic-bezier(.2, .8, .2, 1); }
+/* a new minute: the columns slide left, the new one grows from the bottom; the oldest leaves at once */
+.wr-colmv-move { transition: transform .7s cubic-bezier(.2, .8, .2, 1); }
+.wr-colmv-enter-active { transition: transform .7s cubic-bezier(.2, .8, .2, 1); transform-origin: bottom; }
+.wr-colmv-enter-from { transform: scaleY(0); }
+.wr-colmv-leave-active { display: none; }
+.wr.reduced .wr-col i, .wr.reduced .wr-colmv-move, .wr.reduced .wr-colmv-enter-active { transition: none; }
+@media (prefers-reduced-motion: reduce) { .wr-col i, .wr-colmv-move, .wr-colmv-enter-active { transition: none; } }
 .wr-col .b { border-radius: 2px 2px 0 0; }
 .wr-axis { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; }
 .wr-events { list-style: none; margin: 0; padding: 0; }
@@ -747,6 +869,11 @@ onBeforeUnmount(() => {
 .wr-tag { display: inline-block; border: 1px solid #f3c778; color: #f3c778; border-radius: 4px; padding: 0 6px; font-size: 12px; font-family: var(--mono, monospace); }
 .wr-tag.l { border-color: var(--l); color: var(--l); }
 .wr-clue { border-top: 1px solid var(--line); }
+/* threat intelligence: the tag, the id and the product in columns, whatever the tag's words */
+.wr-intel a, .wr-intel-clue { display: grid; grid-template-columns: 6.2em 16ch minmax(0, 1fr) 16px; gap: 12px; }
+.wr-intel-clue { grid-template-columns: 6.2em minmax(0, 1fr) 16px; }
+.wr-intel .wr-tag, .wr-intel-clue .wr-tag { justify-self: stretch; text-align: center; padding: 1px 4px; }
+.wr-prod { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wr-basis { list-style: none; margin: 0; padding: 0; }
 .wr-basis li { border-top: 1px solid var(--line); }
 .wr-basis a { display: flex; justify-content: space-between; padding: 14px 2px; color: #e8f1ec; text-decoration: none; font-size: 17px; font-weight: 600; }

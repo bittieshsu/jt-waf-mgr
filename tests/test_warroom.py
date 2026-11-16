@@ -86,6 +86,10 @@ class TestWarRoom(unittest.TestCase):
         st, live, _ = c.req('GET', '/api/v1/warroom/snapshot')
         self.assertEqual((live['range'], live['totals']['events']), ('live', 4))   # cached apart from the 6 hours
         self.assertEqual(c.req('GET', '/api/v1/warroom/snapshot?range=99d')[0], 400)
+        st, b, _ = c.req('GET', '/api/v1/warroom/snapshot?only=blocked')
+        self.assertEqual((st, b['only'], b['totals']['events'], b['totals']['logged']), (200, 'blocked', 1, 0))
+        self.assertTrue(all(e['outcome'] == 'blocked' for e in b['latest']))
+        self.assertEqual(c.req('GET', '/api/v1/warroom/snapshot?only=logged')[0], 400)
 
     def test_events_after_an_id(self):
         c = self.viewer()

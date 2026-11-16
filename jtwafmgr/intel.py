@@ -5,7 +5,7 @@ Runs in its own unit (jt-waf-mgr-intel.service: a timer every hour, it decides i
 has passed; a path unit for "search now"). The web service never talks to the LLM or the web.
 
 What leaves the host: product names and versions, a few host facts for the preconditions (operating system,
-architecture, C library, sshd's UsePAM), and the questions the model asks the search engine. Never
+architecture, C library), and the questions the model asks the search engine. Never
 requests, addresses, site names or anything from the events.
 
 Two providers:
@@ -101,8 +101,8 @@ Rules:
 - "affected": "yes" only if the listed version is inside the affected range; "no" if it is outside; "unknown" if
   the version is unknown or the range unclear.
 - "preconditions": what the vulnerability needs besides the version, as the advisory or the distribution's tracker
-  says (an operating system, a C library such as musl, a build or configuration option such as sshd without PAM, an
-  enabled module, exposure to the internet); empty if nothing. Distribution trackers often list every package
+  says (an operating system, a C library such as musl, a build or configuration option, an enabled module, exposure to
+  the internet); empty if nothing. Distribution trackers often list every package
   version as vulnerable: read their notes for such conditions. "conditions_met": compare the preconditions with the
   host facts given by the user: "no" when one is clearly not met, "yes" when all are met or there are none,
   "unknown" when the facts do not say.
@@ -116,8 +116,7 @@ Rules:
 
 
 def host_facts(cfg=None):
-    """What this host is, for a vulnerability's preconditions: operating system, architecture, C library, and a few
-    settings of exposed services. No names, addresses or paths of the sites -- the same kind of fact as a package
+    """What this host is, for a vulnerability's preconditions: operating system, architecture, C library. No names, addresses or paths of the sites -- the same kind of fact as a package
     version. A fact that cannot be read is left out (the model then answers "unknown")."""
     import platform
     facts = {}
@@ -137,26 +136,7 @@ def host_facts(cfg=None):
         facts['C library'] = lib
     elif glob.glob('/lib/ld-musl-*'):
         facts['C library'] = 'musl'
-    sshd = _sshd_use_pam()
-    if sshd:
-        facts['OpenSSH server UsePAM'] = sshd
     return facts
-
-
-def _sshd_use_pam():
-    """sshd's UsePAM (the first value wins, as sshd reads it; drop-ins come first when included at the top)."""
-    import glob
-    files = sorted(glob.glob('/etc/ssh/sshd_config.d/*.conf')) + ['/etc/ssh/sshd_config']
-    for f in files:
-        try:
-            with open(f, encoding='utf-8', errors='replace') as fh:
-                for line in fh:
-                    parts = line.split()
-                    if len(parts) >= 2 and parts[0].lower() == 'usepam':
-                        return 'yes' if parts[1].lower() == 'yes' else 'no'
-        except OSError:
-            continue
-    return 'no (not set: the OpenSSH default)' if os.path.exists('/etc/ssh/sshd_config') else None
 
 
 class IntelError(Exception):
@@ -1063,6 +1043,31 @@ def _store(app, run_id, threats, now):
     return new, urgent, check
 
 
+def retire_unrelated(app, log=print):
+    """Software that is not web-facing is not followed (software.WEB_PRODUCTS): what an older version guessed of it
+    goes from the list, its open threats are set aside ("ignored", by intel) and their open alerts handled, with the
+    reason -- a WAF cannot shield what is not reached through the sites. Returns the threat ids set aside."""
+    db = app.db
+    gone = software.prune_unrelated(db)
+    if gone:
+        log('intel: no longer followed (not web-facing): %s' % ', '.join(gone))
+        app.audit.log('software.pruned', 'intel', 'system', None, 'ok', names=gone, reason='not_web')
+    done = []
+    note = 'not web-facing software: a WAF cannot shield it, so it is no longer followed'
+    for r in db.q("SELECT id, cve, product FROM intel_threats WHERE status='open'"):
+        if software.followed(db, r['product']):
+            continue
+        db.x("UPDATE intel_threats SET status='ignored', status_by='intel', status_at=? WHERE id=?", (util.now(), r['id']))
+        app.audit.log('intel.threat_status', 'intel', 'system', None, 'ok', threat_id=r['id'], status='ignored', reason='not_web')
+        done.append(r['id'])
+        for pre in ('intel', 'intel-check', 'intel-patch'):
+            for a in db.q("SELECT id, kind FROM alerts WHERE state='open' AND dedup=?", ('%s:%s:%s' % (pre, r['cve'], r['product']),)):
+                if db.x("UPDATE alerts SET state='handled', handled_by='intel', handled_at=?, note=? WHERE id=? AND state='open'",
+                        (util.now(), note, a['id'])).rowcount == 1:
+                    app.audit.log('alert.handled', 'intel', 'system', None, 'ok', alert_id=a['id'], kind=a['kind'], note=note)
+    return done
+
+
 def _level(t):
     """'urgent' (exploited, may affect us, nothing left to verify), 'check' (exploited, may affect us, preconditions not
     confirmed) or None."""
@@ -1088,6 +1093,10 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
     if why:
         log('intel: not run (%s)' % why)
         return None
+    try:
+        retire_unrelated(app, log=log)
+    except Exception as e:      # noqa: BLE001 -- the search goes on; the list is pruned next time
+        log('intel: pruning failed: %s' % type(e).__name__)
     products = software.confirmed(db)
     c = cfg['intel']
     provider = c['provider']

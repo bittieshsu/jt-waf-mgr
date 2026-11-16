@@ -507,6 +507,23 @@ async function audit(page, where) {
   await page.locator('.wr-range .sb-pop li').first().click();
   await page.waitForTimeout(800);
   ok(!/[?&]range=/.test(page.url()), 'war room: back to live');
+  // 0.4.67: keys (one list for the handler and the H panel)
+  await page.locator('body').click({ position: { x: 5, y: 5 } }).catch(() => {});
+  await page.keyboard.press('h'); await page.waitForTimeout(300);
+  ok((await page.locator('.wr-help kbd').count()) >= 10, 'war room: H shows the keys');
+  await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+  ok((await page.locator('.wr-help').count()) === 0, 'war room: Esc closes the keys');
+  await page.keyboard.press('3'); await page.waitForTimeout(700);
+  ok((await page.locator('.wr-tabs button').nth(2).getAttribute('aria-selected')) === 'true', 'war room: 3 opens the third page');
+  await page.keyboard.press('ArrowLeft'); await page.waitForTimeout(700);
+  ok((await page.locator('.wr-tabs button').nth(1).getAttribute('aria-selected')) === 'true', 'war room: the arrow keys turn the pages');
+  // 0.4.67: blocked only, everywhere on the board, kept in the address
+  await page.locator('.wr-tabs button').nth(0).click(); await page.waitForTimeout(600);
+  await page.locator('.wr-onlybtn').click(); await page.waitForTimeout(1200);
+  ok(/[?&]only=blocked\b/.test(page.url()) && (await page.locator('.wr-kpis .rn .sr-only').nth(2).textContent()).trim() === '0',
+     'war room: blocked only (nothing logged counted)');
+  await page.locator('.wr-onlybtn').click(); await page.waitForTimeout(800);
+  ok(!/[?&]only=/.test(page.url()), 'war room: blocked and logged again');
   // 0.4.66: demo mode: made-up attacks in the browser, a banner all the time, links do not open
   await page.locator('.wr-demobtn').click();
   await page.waitForTimeout(6000);
@@ -527,6 +544,9 @@ async function audit(page, where) {
     await page.goto(base + '/warroom', { waitUntil: 'networkidle' });
     await page.waitForTimeout(2500);
     await page.screenshot({ path: SHOTS + '/' + pre + '_warroom.png' });
+    await page.goto(base + '/warroom?demo=1&page=globe', { waitUntil: 'networkidle' });
+    await page.waitForTimeout(3000);
+    await page.screenshot({ path: SHOTS + '/' + pre + '_warroom-globe.png' });
   }
   const firstRank = page.locator('.wr-ranklist button').first();
   if (await firstRank.count()) {
@@ -673,7 +693,7 @@ async function audit(page, where) {
   // Thumbnails for the project site (docs/index.html): one screen of each page, rendered at twice the resolution
   // so they stay sharp when shown small (tools/make_thumbs.py scales them down). Same session, its own window size.
   const THUMBS = { overview: '/', events: '/events', 'waf-model': '/waf', analysis: '/analysis', notifications: '/admin/notify',
-    alerts: '/alerts', 'system-check': '/admin/system', changes: '/changes', rules: '/rules', lookup: '/lookup/203.0.113.9', traffic: '/traffic', countries: '/countries', intel: '/intel', reviews: '/reviews/8', warroom: '/warroom' };
+    alerts: '/alerts', 'system-check': '/admin/system', changes: '/changes', rules: '/rules', lookup: '/lookup/203.0.113.9', traffic: '/traffic', countries: '/countries', intel: '/intel', reviews: '/reviews/8', warroom: '/warroom', 'warroom-globe': '/warroom?demo=1&page=globe' };
   const state = await ctx.storageState();
   for (const scheme of ['light', 'dark']) {
     const tc = await browser.newContext({ storageState: state, viewport: { width: 1200, height: 900 }, deviceScaleFactor: 2, colorScheme: scheme });
@@ -685,14 +705,14 @@ async function audit(page, where) {
       await setLang(tp, lang);
       for (const [name, p] of Object.entries(scheme === 'light' ? THUMBS : { overview: '/' })) {
         await tp.goto(base + p, { waitUntil: 'networkidle' });
-        await tp.waitForTimeout(p === '/warroom' ? 2000 : 400);
+        await tp.waitForTimeout(p.startsWith('/warroom') ? 2500 : 400);
         await tp.screenshot({ path: SHOTS + '/thumb-' + lang + '-' + name + (scheme === 'dark' ? '-dark' : '') + '.png' });
       }
     }
     await setLang(tp, 'zh-TW');
     await tc.close();
   }
-  ok(fs.existsSync(SHOTS + '/thumb-ja-lookup.png') && fs.existsSync(SHOTS + '/thumb-en-overview-dark.png'), 'site thumbnails at 2x');
+  ok(fs.existsSync(SHOTS + '/thumb-ja-lookup.png') && fs.existsSync(SHOTS + '/thumb-en-overview-dark.png') && fs.existsSync(SHOTS + '/thumb-en-warroom-globe.png'), 'site thumbnails at 2x');
   await ctx.close();
   // viewer: guide and events, no admin links
   const v = await login(browser, 'viewer', 'dark');

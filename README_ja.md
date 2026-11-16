@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.66
+# jt-waf-mgr v0.4.67
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -148,12 +148,23 @@ ModSecurity は最後のルールのまま動作し続けます。
 ## インストール
 
 ```sh
-openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-0.4.44.tar.gz.sig jt-waf-mgr-0.4.44.tar.gz
-tar xzf jt-waf-mgr-0.4.44.tar.gz && cd jt-waf-mgr-0.4.44
+sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # リリースの決まった場所
+V=0.4.67; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # リリース、署名、公開鍵
+openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
+sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./install.sh                             # 先にすべてのファイルとリリース署名を検証
 sudo jt-waf-mgr check                         # nginx / ModSecurity 設定を解析
 sudo jt-waf-mgr user add alice --role admin   # 一時パスワードを表示
 ```
+
+インストール後の場所：
+
+- プログラム `/usr/lib/jt-waf-mgr`、コマンド `/usr/bin/jt-waf-mgr` (root 所有、読み取り専用)
+- 設定 `/etc/jt-waf-mgr`
+- データ (データベース、キュー) `/var/lib/jt-waf-mgr`、適用プログラム `/var/lib/jt-waf-mgr-apply`
+- アップグレード前のバックアップ `/var/backups/jt-waf-mgr`
+- リリース `/opt/jt-waf-mgr-install`、現在のものは `/opt/jt-waf-mgr-install/current` に展開 (インストール・アップグレード・削除はここで実行)
 
 ### 管理画面への接続
 
@@ -343,6 +354,10 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 ### アップグレード
 
 ```sh
+cd /opt/jt-waf-mgr-install   # 新しいリリースも同じ current に展開
+V=0.4.67; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
+sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # すべての検査のみ、何も変更しない
 sudo ./upgrade.sh             # バックアップ、切替、検査。どこかで失敗すれば自動で元に戻す
 sudo ./upgrade.sh --rollback  # 後で必要なら：アップグレード前のバージョン（とデータベース）に戻す
@@ -355,6 +370,7 @@ sudo jt-waf-mgr doctor        # いつでも健全性を確認
 ### アンインストール
 
 ```sh
+cd /opt/jt-waf-mgr-install/current   # 決まったディレクトリ (インストール中のバージョン)
 sudo ./uninstall.sh           # サービスとプログラムを削除し、データと設定は残す
 sudo ./uninstall.sh --purge   # /var/lib/jt-waf-mgr、/etc/jt-waf-mgr と jtwaf ユーザーも削除
 ```

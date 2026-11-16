@@ -19,24 +19,35 @@
         <p v-if="!st.ready" class="alert info">{{ tOr('intel.not_ready.' + st.not_ready_reason, st.not_ready_reason) }}</p>
         <p v-else-if="st.over_budget" class="alert warn">{{ t('intel.over_budget') }}</p>
         <p v-if="!st.confirmed_software" class="alert warn">{{ t('intel.no_software') }}</p>
-        <dl class="kv two">
-          <dt>{{ t('intel.provider') }}</dt><dd>{{ t('intel.provider_v.' + st.provider) }}<span v-if="st.model" class="mono small gapl">{{ st.model }}</span>
-            <div v-if="st.uses_first_tier" class="muted small">{{ t('intel.first_tier') }}</div></dd>
-          <dt>{{ t('intel.search') }}</dt><dd>{{ t('intel.search_v.' + st.search) }}</dd>
-          <dt>{{ t('intel.kev') }}</dt><dd><template v-if="st.kev && st.kev.enabled">
-            <template v-if="st.kev.fetched_at">{{ t('intel.kev_v', { n: fmtNum(st.kev.entries), at: fmtMinute(st.kev.fetched_at) }) }}</template>
-            <template v-else>{{ t('intel.kev_pending') }}</template></template>
-            <span v-else class="muted">{{ t('intel.kev_off') }}</span></dd>
-          <dt>{{ t('intel.nvd') }}</dt><dd><template v-if="st.nvd && st.nvd.enabled">{{ t('intel.nvd_on') }}</template><span v-else class="muted">{{ t('intel.kev_off') }}</span></dd>
-          <dt>{{ t('intel.osv') }}</dt><dd><template v-if="st.osv && st.osv.enabled">{{ st.osv.ecosystem ? t('intel.osv_on', { eco: st.osv.ecosystem }) : t('intel.osv_no_eco') }}</template>
-            <span v-else class="muted">{{ t('intel.kev_off') }}</span></dd>
-          <dt>{{ t('intel.schedule') }}</dt><dd>{{ t('intel.schedule_v', { h: st.interval_hours, d: st.days }) }}
-            <span v-if="st.requested" class="badge b-warn gapl">{{ t('countries.queued') }}</span></dd>
-          <dt>{{ t('intel.tokens') }}</dt><dd>{{ t('intel.tokens_v', { d: fmtNum(st.tokens.day), dl: st.daily_tokens ? fmtNum(st.daily_tokens) : '∞', m: fmtNum(st.tokens.month), ml: st.monthly_tokens ? fmtNum(st.monthly_tokens) : '∞' }) }}</dd>
-          <dt>{{ t('intel.last_run') }}</dt><dd><template v-if="st.last_run">{{ fmtMinute(st.last_run.started_at) }}
-            <span class="badge gapl" :class="st.last_run.error ? 'b-blocked' : 'b-ok'">{{ st.last_run.error ? t('result.failed') : t('intel.found', { n: st.last_run.threats }) }}</span>
-            <div v-if="st.last_run.error" class="small warn">{{ safeText(st.last_run.error, 300) }}</div></template><span v-else class="muted">—</span></dd>
-        </dl>
+        <!-- two groups side by side: the model and its searching, the structured sources -->
+        <div class="intel-groups">
+          <div>
+            <h3 class="small muted">{{ t('intel.g_model') }}</h3>
+            <dl class="kv">
+              <dt>{{ t('intel.provider') }}</dt><dd>{{ t('intel.provider_v.' + st.provider) }}<span v-if="st.model" class="mono small gapl">{{ st.model }}</span>
+                <div v-if="st.uses_first_tier" class="muted small">{{ t('intel.first_tier') }}</div></dd>
+              <dt>{{ t('intel.search') }}</dt><dd>{{ t('intel.search_v.' + st.search) }}</dd>
+              <dt>{{ t('intel.schedule') }}</dt><dd>{{ t('intel.schedule_v', { h: st.interval_hours, d: st.days }) }}
+                <span v-if="st.requested" class="badge b-warn gapl">{{ t('countries.queued') }}</span></dd>
+              <dt>{{ t('intel.last_run') }}</dt><dd><template v-if="st.last_run">{{ fmtMinute(st.last_run.started_at) }}
+                <span class="badge gapl" :class="st.last_run.error ? 'b-blocked' : 'b-ok'">{{ st.last_run.error ? t('result.failed') : t('intel.found', { n: st.last_run.threats }) }}</span>
+                <div v-if="st.last_run.error" class="small warn">{{ safeText(st.last_run.error, 300) }}</div></template><span v-else class="muted">—</span></dd>
+              <dt>{{ t('intel.tokens') }}</dt><dd>{{ t('intel.tokens_v', { d: fmtNum(st.tokens.day), dl: st.daily_tokens ? fmtNum(st.daily_tokens) : '∞', m: fmtNum(st.tokens.month), ml: st.monthly_tokens ? fmtNum(st.monthly_tokens) : '∞' }) }}</dd>
+            </dl>
+          </div>
+          <div>
+            <h3 class="small muted">{{ t('intel.g_sources') }}</h3>
+            <dl class="kv">
+              <dt>{{ t('intel.kev') }}</dt><dd><template v-if="st.kev && st.kev.enabled">
+                <template v-if="st.kev.fetched_at">{{ t('intel.kev_v', { n: fmtNum(st.kev.entries), at: fmtMinute(st.kev.fetched_at) }) }}</template>
+                <template v-else>{{ t('intel.kev_pending') }}</template></template>
+                <span v-else class="muted">{{ t('intel.kev_off') }}</span></dd>
+              <dt>{{ t('intel.osv') }}</dt><dd><template v-if="st.osv && st.osv.enabled">{{ st.osv.ecosystem ? t('intel.osv_on', { eco: st.osv.ecosystem }) : t('intel.osv_no_eco') }}</template>
+                <span v-else class="muted">{{ t('intel.kev_off') }}</span></dd>
+              <dt>{{ t('intel.nvd') }}</dt><dd><template v-if="st.nvd && st.nvd.enabled">{{ t('intel.nvd_on') }}</template><span v-else class="muted">{{ t('intel.kev_off') }}</span></dd>
+            </dl>
+          </div>
+        </div>
       </section>
 
       <!-- what was found -->
@@ -246,6 +257,10 @@ onMounted(load)
 </script>
 
 <style scoped>
+.intel-groups { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px 32px; }
+.intel-groups h3 { margin: 0 0 8px; font-weight: 600; letter-spacing: .02em; }
+.intel-groups dl.kv { grid-template-columns: 7.5em minmax(0, 1fr); gap: 7px 14px; }
+@media (max-width: 900px) { .intel-groups { grid-template-columns: minmax(0, 1fr); } }
 .thdetail { display: flex; flex-direction: column; gap: 8px; }
 .thdetail p { margin: 0; }
 .thdetail h4 { margin: 6px 0 0; font-size: 13.5px; }

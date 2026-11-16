@@ -290,5 +290,22 @@ class TestPush(Base):
         self.assertIn('no user.name', r.stderr)
 
 
+class TestSiteShots(unittest.TestCase):
+    """The project site's screenshot grid: two a row, so an even number (never one alone at the end), each with its
+    images in every language."""
+
+    @unittest.skipUnless(os.path.exists(os.path.join(TOP, 'docs', 'index.html')), 'the project site is not in a release')
+    def test_an_even_number_each_with_its_images(self):
+        import re
+        html = open(os.path.join(TOP, 'docs', 'index.html'), encoding='utf-8').read()
+        grid = html[html.index('<div class="shots">'):]
+        grid = grid[:grid.index('</div>')]
+        shots = re.findall(r'<figure><a class="shotlink" href="[^"]+" data-shot="([\w-]+)"', grid)
+        self.assertGreater(len(shots), 0)
+        self.assertEqual(len(shots) % 2, 0, 'an odd number of screenshots: %d' % len(shots))
+        for name in shots:
+            for lang in ('en', 'zh-TW', 'ja'):
+                self.assertTrue(os.path.exists(os.path.join(TOP, 'docs', 'shots', lang, 'thumb', name + '.webp')), (lang, name))
+
 if __name__ == '__main__':
     unittest.main()

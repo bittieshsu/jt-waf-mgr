@@ -133,7 +133,7 @@ def check_privacy(files, deny):
 # 許可リスト), 加強, 被外部修改. Spelled with escapes so this file does not trip its own check.
 REJECTED_TERMS = ['\u9ed1\u540d\u55ae', '\u767d\u540d\u55ae', 'black' + 'list', 'white' + 'list',
                   '\u30d6\u30e9\u30c3\u30af\u30ea\u30b9\u30c8', '\u30db\u30ef\u30a4\u30c8\u30ea\u30b9\u30c8',
-                  '\u52a0\u56b4', '\u6f02\u79fb']
+                  '\u52a0\u56b4', '\u6f02\u79fb', '\u4fdd\u5e95']
 
 
 def check_wording(files):
@@ -267,6 +267,11 @@ def check_version():
         for other in ('README.md', 'README_zh-TW.md', 'README_ja.md'):
             if other != f and '(%s)' % other not in head:
                 fail('version', '%s: no language link to %s right under the title' % (f, other))
+        # the install and upgrade commands name the version to download (V=...): always this one
+        with open(p, encoding='utf-8') as fh:
+            stale = sorted({x for x in re.findall(r'^V=([\d.]+);', fh.read(), re.M) if x != v})
+        if stale:
+            fail('version', '%s: the commands download %s; they must use V=%s' % (f, ', '.join(stale), v))
     # the version badge on the Pages home page (it showed an old version for a while)
     with open(os.path.join(ROOT, 'docs', 'index.html'), encoding='utf-8') as fh:
         if '<span class="ver">v%s</span>' % v not in fh.read():

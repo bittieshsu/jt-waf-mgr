@@ -151,7 +151,7 @@ svg .e.dash { stroke-dasharray: 5 4; } svg .e.bad { stroke: #e8590c; }
 svg .el { fill: #334155; font-size: 11.5px; font-weight: 600; paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; }
 svg .ah { fill: #64748b; } svg .ah.main { fill: #2563c4; } svg .ah.bad { fill: #e8590c; }
 /* the large view of a diagram */
-dialog#zoom { width: min(1400px, 96vw); height: 94vh; max-height: 94vh; padding: 0; border: 0; border-radius: 14px; background: #fff; overflow: hidden; box-shadow: 0 30px 80px rgba(0, 0, 0, .45); }
+dialog#zoom { width: 98vw; max-width: 98vw; height: 96vh; max-height: 96vh; padding: 0; border: 0; border-radius: 14px; background: #fff; overflow: hidden; box-shadow: 0 30px 80px rgba(0, 0, 0, .45); }
 dialog#zoom[open] { display: flex; flex-direction: column; }
 dialog#zoom::backdrop { background: rgba(15, 23, 42, .72); backdrop-filter: blur(3px); }
 .zm-bar { display: flex; align-items: center; gap: 14px; padding: 10px 12px 10px 18px; border-bottom: 1px solid var(--border); flex: none; }
@@ -159,7 +159,14 @@ dialog#zoom::backdrop { background: rgba(15, 23, 42, .72); backdrop-filter: blur
 .zm-x { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: #fff; color: var(--ink); font-size: 17px; cursor: pointer; flex: none; }
 .zm-x:hover { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
 .zm-body { flex: 1; overflow: auto; background: var(--bg); padding: 14px; overscroll-behavior: contain; }
+.zm-body { cursor: grab; }
+.zm-body.panning { cursor: grabbing; user-select: none; }
+/* the diagram is a vector drawing: it opens as large as the window allows, and zooms from there (+ - fit, Ctrl+wheel) */
 .zm-body svg { display: block; width: 1100px; max-width: none; height: auto; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: var(--shadow); }
+.zm-tools { display: flex; gap: 6px; flex: none; }
+.zm-tools button { height: 36px; min-width: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--border); background: #fff; color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.zm-tools button:hover { border-color: var(--blue); color: var(--blue); }
+.zm-pct { min-width: 4.5em; text-align: center; color: var(--muted); font-size: 13.5px; align-self: center; }
 body.zm-on { overflow: hidden; }
 @media (max-width: 860px) { dialog#zoom { width: 100vw; height: 100vh; max-height: 100vh; max-width: 100vw; border-radius: 0; } }
 @media (max-width: 640px) { section { padding: 44px 0; } h2 { font-size: 26px; } .hero p.lead { font-size: 17px; } figure.fig { padding: 8px; } }
@@ -531,7 +538,9 @@ body.zm-on { overflow: hidden; }
 </div></section>
 
 <dialog id="zoom" aria-labelledby="zm-title">
-  <div class="zm-bar"><span id="zm-title"></span><button type="button" class="zm-x" id="zm-x" aria-label="Close">✕</button></div>
+  <div class="zm-bar"><span id="zm-title"></span>
+    <span class="zm-tools"><button type="button" id="zm-out" data-ta="zm_out">−</button><span class="zm-pct" id="zm-pct"></span><button type="button" id="zm-in" data-ta="zm_in">+</button><button type="button" id="zm-fit" data-t="zm_fit"></button></span>
+    <button type="button" class="zm-x" id="zm-x" aria-label="Close">✕</button></div>
   <div class="zm-body" id="zm-body"></div>
 </dialog>
 
@@ -548,6 +557,7 @@ const T = {
   h1: 'How jt-waf-mgr works',
   lead: 'The parts of jt-waf-mgr, the processes they run in, where the data goes, and the path a rule change takes from a proposal to production. Everything here describes what the code does.',
   back: '← Project page', zoom: 'Enlarge', close: 'Close',
+  zm_in: 'Zoom in', zm_out: 'Zoom out', zm_fit: 'Fit to window',
   arch_h: 'Architecture',
   arch_sub: 'nginx with ModSecurity and the OWASP CRS handles the traffic. jt-waf-mgr reads what it logs and prepares changes; only a separate root program writes the managed files. Each part runs in its own systemd unit with only what it needs.',
   d_clients: 'Clients', d_clients_s: 'browsers, apps, bots', d_nginx_s: 'ModSecurity v3 + OWASP CRS · your sites · the management vhost',
@@ -788,6 +798,7 @@ const T = {
   h1: 'jt-waf-mgr 運作架構',
   lead: 'jt-waf-mgr 由哪些部分組成、各在哪個程序裡執行、資料往哪裡去，以及一筆規則變更從提出到上線的完整路徑。這裡寫的都是程式實際的行為。',
   back: '← 專案首頁', zoom: '放大檢視', close: '關閉',
+  zm_in: '放大', zm_out: '縮小', zm_fit: '符合視窗',
   arch_h: '系統架構',
   arch_sub: 'nginx 加上 ModSecurity 與 OWASP CRS 負責處理流量。jt-waf-mgr 讀取它寫下的記錄並準備變更；只有獨立的 root 程式會寫入受管理檔案。每個部分都在自己的 systemd unit 裡執行，只拿到必要的權限。',
   d_clients: '訪客', d_clients_s: '瀏覽器、App、機器人', d_nginx_s: 'ModSecurity v3 + OWASP CRS · 你的站台 · 管理介面 vhost',
@@ -848,7 +859,7 @@ const T = {
   cl_h: '事件如何分類',
   cl_1: '來源：來源位址在設定的內部網路清單裡（預設是私有、loopback、link-local 與 CGNAT 範圍）就是內部，其餘是外部。',
   cl_2: '結果：這個請求的規則引擎是開啟的、回應是 403（本體格式錯誤時是 400）才算封鎖；其他都是只記錄。',
-  cl_3: '決定者：確定封鎖規則、CRS 異常分數、保底規則或其他規則。',
+  cl_3: '決定者：確定封鎖規則、CRS 異常分數、標記後封鎖規則或其他規則。',
   cl_4: '異常分數：從 CRS 計分規則的訊息讀出。',
   cl_5: '超過大小上限（1 MiB）的記錄不會被丟掉：只保留重點存成標示為截斷的事件，攻擊者無法用很大的請求藏住攻擊。',
   geo_h: '國家與網路擁有者（GeoIP）',
@@ -1028,6 +1039,7 @@ const T = {
   h1: 'jt-waf-mgr の仕組み',
   lead: 'jt-waf-mgr を構成する部品、それぞれが動くプロセス、データの流れ、そしてルール変更が提案から本番反映まで通る道筋。ここに書いてあるのはすべてプログラムが実際に行うことです。',
   back: '← プロジェクトページ', zoom: '拡大表示', close: '閉じる',
+  zm_in: '拡大', zm_out: '縮小', zm_fit: 'ウィンドウに合わせる',
   arch_h: 'アーキテクチャ',
   arch_sub: 'トラフィックを処理するのは ModSecurity と OWASP CRS を組み込んだ nginx です。jt-waf-mgr はその記録を読み、変更を準備します。管理ファイルを書き込むのは別の root プログラムだけです。各部品は必要な権限だけを持つ専用の systemd ユニットで動きます。',
   d_clients: 'クライアント', d_clients_s: 'ブラウザ、アプリ、ボット', d_nginx_s: 'ModSecurity v3 + OWASP CRS · 各サイト · 管理用 vhost',
@@ -1282,6 +1294,7 @@ function apply(lang) {
   const d = T[lang]
   document.documentElement.lang = lang
   for (const el of document.querySelectorAll('[data-t]')) el.textContent = d[el.dataset.t] || T.en[el.dataset.t] || ''
+  for (const el of document.querySelectorAll('[data-ta]')) { const v = d[el.dataset.ta] || T.en[el.dataset.ta] || ''; el.setAttribute('aria-label', v); el.title = v }
   for (const b of document.querySelectorAll('#lang-menu button')) b.setAttribute('aria-checked', b.dataset.lang === lang ? 'true' : 'false')
   document.getElementById('lang-cur').textContent = { en: 'EN', 'zh-TW': '繁中', ja: '日本語' }[lang]
   for (const id of ['home-brand', 'home-btn', 'home-top']) document.getElementById(id).href = 'index.html?lang=' + lang
@@ -1322,11 +1335,60 @@ for (const b of document.querySelectorAll('button.zoom')) b.addEventListener('cl
   document.getElementById('zm-title').textContent = svg.querySelector('title').textContent
   zoom.showModal()
   fit(body)
+  zmScale = 1
+  zmSize()
   body.scrollTop = 0; body.scrollLeft = 0
   document.body.classList.add('zm-on')
 })
+// the size: "fit" is the largest the window holds (width and height); the buttons and Ctrl+wheel zoom from there
+let zmScale = 1
+function zmFitWidth() {
+  const body = document.getElementById('zm-body'), svg = body.querySelector('svg')
+  if (!svg) return 1100
+  const vb = svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width ? svg.viewBox.baseVal : { width: 1100, height: 620 }
+  return Math.max(320, Math.min(body.clientWidth - 30, (body.clientHeight - 30) * vb.width / vb.height))
+}
+function zmSize(anchor) {
+  const body = document.getElementById('zm-body'), svg = body.querySelector('svg')
+  if (!svg) return
+  const before = svg.getBoundingClientRect().width || 1
+  const fx = anchor ? (body.scrollLeft + anchor[0]) / before : 0, fy = anchor ? (body.scrollTop + anchor[1]) / (svg.getBoundingClientRect().height || 1) : 0
+  svg.style.width = Math.round(zmFitWidth() * zmScale) + 'px'
+  document.getElementById('zm-pct').textContent = Math.round(zmScale * 100) + '%'
+  if (anchor) {                      // keep the point under the pointer where it was
+    const r = svg.getBoundingClientRect()
+    body.scrollLeft = fx * r.width - anchor[0]; body.scrollTop = fy * r.height - anchor[1]
+  }
+}
+function zmBy(f, anchor) { zmScale = Math.max(0.5, Math.min(4, zmScale * f)); zmSize(anchor) }
+document.getElementById('zm-in').addEventListener('click', () => zmBy(1.25))
+document.getElementById('zm-out').addEventListener('click', () => zmBy(1 / 1.25))
+document.getElementById('zm-fit').addEventListener('click', () => { zmScale = 1; zmSize() })
+window.addEventListener('resize', () => { if (zoom.open) zmSize() })
+const zmBody = document.getElementById('zm-body')
+zmBody.addEventListener('wheel', (e) => {
+  if (!e.ctrlKey && !e.metaKey) return
+  e.preventDefault()
+  const r = zmBody.getBoundingClientRect()
+  zmBy(Math.exp(-e.deltaY * 0.0025), [e.clientX - r.left, e.clientY - r.top])
+}, { passive: false })
+// drag to move around a zoomed drawing
+let zmPan = null
+zmBody.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return
+  zmPan = { x: e.clientX, y: e.clientY, l: zmBody.scrollLeft, t: zmBody.scrollTop, moved: false }
+})
+zmBody.addEventListener('pointermove', (e) => {
+  if (!zmPan) return
+  const dx = e.clientX - zmPan.x, dy = e.clientY - zmPan.y
+  if (!zmPan.moved && Math.hypot(dx, dy) < 4) return
+  zmPan.moved = true
+  zmBody.classList.add('panning')
+  zmBody.scrollLeft = zmPan.l - dx; zmBody.scrollTop = zmPan.t - dy
+})
+for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) zmBody.addEventListener(ev, () => { setTimeout(() => { zmPan = null }, 0); zmBody.classList.remove('panning') })
 document.getElementById('zm-x').addEventListener('click', () => zoom.close())
-zoom.addEventListener('click', (e) => { if (e.target === zoom || e.target.id === 'zm-body') zoom.close() })
+zoom.addEventListener('click', (e) => { if (zmPan && zmPan.moved) return; if (e.target === zoom || e.target.id === 'zm-body') zoom.close() })
 zoom.addEventListener('close', () => { document.body.classList.remove('zm-on'); document.getElementById('zm-body').replaceChildren() })
 apply(pick())
 </script>

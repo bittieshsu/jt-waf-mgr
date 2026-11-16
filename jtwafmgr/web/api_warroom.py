@@ -5,7 +5,8 @@ What leaves here is what a wall may show: the country of the source (GeoIP or th
 alias for a site nginx serves only to internal networks), the outcome and how it was decided, the time. Never the
 address, the path, the query or a header -- the fields are not in the answer at all.
 
-- GET /warroom/snapshot?range=   the window (live = the last 30 minutes, or 15m 1h 3h 6h 12h 24h 7d), its totals, per country and minute, the latest events, the collector's
+- GET /warroom/snapshot?range=   the window (live = the last 30 minutes, or 15m 1h 3h 6h 12h 24h 7d; only=blocked: the
+                                 blocked events alone), its totals, per country and minute, the latest events, the collector's
                                  state, the destination; the same answer for every screen for a few seconds
 - GET /warroom/events?after=<id> the events after an id (up to 500, oldest first, `more` when there are more), with the
                                  server time (a heartbeat when there is none)
@@ -117,7 +118,7 @@ def _collector(app):
             'stopped': (not running) or (lag is not None and lag > 120)}
 
 
-def _snapshot(app, rng='live'):
+def _snapshot(app, rng='live', only=''):
     from . import api
     window = RANGES[rng]
     step = window // COLUMNS
@@ -126,8 +127,8 @@ def _snapshot(app, rng='live'):
     since = now - window
     alias = _hosts_alias(app)
     hw = app.db.one('SELECT MAX(id) FROM events')[0] or 0
-    rows = app.db.q('SELECT id, ts, host, src_ip, origin, outcome, decided_by FROM events WHERE ts>=? AND id<=? ORDER BY id',
-                    (since, hw))
+    rows = app.db.q('SELECT id, ts, host, src_ip, origin, outcome, decided_by FROM events WHERE ts>=? AND id<=?'
+                    + (" AND outcome='blocked'" if only == 'blocked' else '') + ' ORDER BY id', (since, hw))
     countries, minutes, srcs = {}, {}, {}
     flow = {}                                  # origin -> decision -> n (decision: how the WAF decided, or logged)
     sites = {}                                 # site (alias) -> {events, blocked, logged, buckets[15] of 2 minutes}
@@ -177,7 +178,7 @@ def _snapshot(app, rng='live'):
     latest = [_event(api, alias, r) for r in sorted(rows, key=lambda r: (r['ts'], r['id']))[-LATEST:]][::-1]
     return {
         'now': util.iso(now), 'window_start': util.iso(since), 'window_end': util.iso(now), 'window_seconds': window,
-        'range': rng, 'ranges': list(RANGES), 'step_seconds': step, 'cell_seconds': cell,
+        'range': rng, 'ranges': list(RANGES), 'only': only, 'step_seconds': step, 'cell_seconds': cell,
         'node_id': app.cfg['node']['id'], 'high_water_id': hw, 'collector': _collector(app),
         'totals': dict(totals, countries=len(countries)), 'decided_by': decided,
         'countries': sorted(countries.values(), key=lambda c: (-c['events'], c['cc'])),
@@ -195,8 +196,11 @@ def snapshot(app, req):
     rng = req.query.get('range') or 'live'
     if rng not in RANGES:
         raise ApiError(400, 'bad_request', 'range: one of ' + ', '.join(RANGES))
+    only = req.query.get('only') or ''
+    if only not in ('', 'blocked'):
+        raise ApiError(400, 'bad_request', 'only: blocked, or nothing for every event')
     keep = max(CACHE_SECONDS, min(60, RANGES[rng] // 900))
-    key = (app.cfg['node']['id'], rng)
+    key = (app.cfg['node']['id'], rng, only)
     with _lock:
         hit = _cache.get(key)
         if hit and time.monotonic() - hit[0] < keep:
@@ -206,7 +210,7 @@ def snapshot(app, req):
             hit = _cache.get(key)
             if hit and time.monotonic() - hit[0] < keep:
                 return json_response(200, hit[1])
-        out = _snapshot(app, rng)
+        out = _snapshot(app, rng, only)
         with _lock:
             _cache[key] = (time.monotonic(), out)
     return json_response(200, out)

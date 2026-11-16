@@ -448,3 +448,8 @@ Editing comes in a later phase (config file for now).
 - `GET /warroom/snapshot?range=live|15m|1h|3h|6h|12h|24h|7d` (default live = 30 minutes; anything else 400): answer adds `range`, `ranges`, `step_seconds` (timeline step, window/30) and `cell_seconds` (site cell, window/15); `minutes` stays 31 entries, `sites[].buckets` 15. Cached per range (4 s for live, up to 60 s for long windows).
 - `destination.label` may be empty (the maps call it "Us"); latitude and longitude alone are enough.
 - War room demo mode is front-end only (`components/warroom/warDemo.js`, `?demo=1`): no API call while it is on; the made-up answers have the shapes of `snapshot`, `events` and `ops` plus `demo: true`.
+
+## 0.4.67
+- Threat intelligence follows web-facing software only (`software.WEB_PRODUCTS`, `software.confirmed`): each run first calls `intel.retire_unrelated` (guessed host entries outside it are deleted, their open threats set `ignored` by `intel`, their open `intel:*` alerts handled; audit `software.pruned`, `intel.threat_status` with `reason: not_web`). Host facts no longer include sshd's UsePAM.
+- War room: `?page=<atlas|globe|flow|sites|review|intel|ops>` opens on that page; the globe zooms (wheel, pinch, `zoomBy` / `zoomReset`) and keeps turning after a drag (inertia).
+- `GET /warroom/snapshot?only=blocked`: the blocked events alone (answer `only`; anything else but empty is 400; cached apart).

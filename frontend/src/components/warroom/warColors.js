@@ -81,7 +81,8 @@ export function slerp(a, b, f, omega = angle(a, b)) {
   return [a[0] * p + b[0] * q, a[1] * p + b[1] * q, a[2] * p + b[2] * q]
 }
 // height of a tracer above the surface at fraction f: rises and falls, higher for longer routes (capped)
-export function lift(f, omega) { return 1 + Math.sin(Math.PI * f) * Math.min(0.22, omega * 0.13) }
+// at most 1.15 radius high: the globe (0.43 of the shorter side) keeps its arcs inside the board
+export function lift(f, omega) { return 1 + Math.sin(Math.PI * f) * Math.min(0.15, omega * 0.1) }
 
 // default spoken text of a source (aria-label): no words, so it needs no translation; pages pass `describe`
 export function describeDefault(s) {

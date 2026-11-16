@@ -2,6 +2,36 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.67 (2026-11-16)
+
+- Threat intelligence: only web-facing software is followed (the web servers, the WAF and the libraries it parses
+  requests with, TLS, the CRS, web applications). What an older version guessed outside that (an SSH server, the
+  system's Python) leaves the list even when confirmed, its open threats are set aside and their alerts handled: a
+  WAF cannot shield what is not reached through the sites. A person's own entries stay.
+- War room globe: zoom with the mouse wheel, two fingers or the buttons (0.6x to 3x); a drag let go while moving
+  keeps turning at that speed and slows down; up to 60 frames a second when the machine keeps up; the globe marks
+  our place without words. The map area is larger (four latest events, the timeline fills its card, a slightly
+  larger globe). The map subtitle reads "Outside sources → our WAF". The state, the range and the buttons at the
+  top have the same height. `?page=globe` (or another page) opens the board on that page.
+- Wording: the decision "fallback" is now 標記後封鎖 in Chinese (a rule marked the request, the last rule blocks).
+- Project site: the top picture rotates through the dashboard, the war room and the request volume (arrows, dots
+  and arrow keys switch by hand); the screenshot grid has an even number (the war room globe added); thumbnails are
+  full-size lossless WebP (small text was blurred).
+- War room, more: a switch in the top bar shows the blocked events alone or with the logged ones (`?only=blocked`,
+  key B; the server counts them so); keys like jt-ipam's board (1–7, arrows, PgUp / PgDn, Home, Space, R, Z, B, D,
+  F, + − 0, S) with an H button and panel listing them; rankings, site rows and the score-only list slide to their
+  new places, numbers roll, bars grow and shrink smoothly, a new minute slides the timeline left; pages change with a
+  short slide and fade; the threat-intelligence list is in columns; a proper full-screen icon; on screens narrower
+  than 1400 px the top bar's buttons show icons only (one line).
+- Threat intelligence page: the second-tier card is two aligned groups (model and search, structured sources).
+- The help menu says "Project site".
+- Installing: one fixed place, `/opt/jt-waf-mgr-install/current` (every release unpacks there; install, upgrade,
+  rollback and removal run there); the README and the project site download the release from GitHub, verify and
+  unpack it there, and list where things are after installing (the program stays in `/usr/lib/jt-waf-mgr`). The
+  site fills the version into its commands; the release checks catch an old version in the README commands.
+- The date fields of the filters stay on one line (the full value in the tooltip).
+- Project site, how it works: the enlarged diagram fills the window and zooms (+ − fit, Ctrl+wheel, drag to move).
+
 ## 0.4.66 (2026-11-16)
 
 - War room: a time range in the top bar: live (the last 30 minutes, as before) or the last 15 minutes, 1, 3, 6, 12 or

@@ -1,17 +1,18 @@
 <!-- War room, globe board: an orthographic globe on a canvas (back side hidden), dotted land and coasts from the
      same outline as the flat maps, graticule and glow. It turns slowly by itself (`spin`), can be dragged (the drag
-     takes over from the spin) and turns smoothly to the `focus` country. Same data and colours as WarAtlas: the
+     takes over from the spin; let go while moving and it keeps turning at that speed, slowing down) and turns smoothly to the `focus` country. Same data and colours as WarAtlas: the
      window's countries with their arcs to the destination (great circles), and for each NEW batch a tracer that
      rises and falls onto the destination, a blocked one ending in an interception ring. No destination: only the
      sources, new batches pulse there. Under load, fewer tracers first, then fewer frames.
      A visually hidden list makes every source reachable by keyboard (also those on the back side): focusing one
-     turns the globe to it, Enter picks it.
+     turns the globe to it, Enter picks it. Zoom: the mouse wheel, two fingers (pinch), or zoomBy() / zoomReset()
+     from the board's buttons (0.6x to 3x).
      props:  sources  batches  destination  paused  reduced  spin  focus  label  describe   (see WarAtlas)
      emits:  pick(cc) -->
 <template>
   <div ref="root" class="war-globe">
     <canvas ref="cv" class="wg-canvas" :class="{ dragging: dragOn }" role="img" :aria-label="label || null"
-            @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="cancel" />
+            @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="cancel" @wheel.prevent="wheel" />
     <ul class="wg-keys">
       <li v-for="p in placed" :key="p.cc" role="button" tabindex="0" :aria-label="p.text"
           @focus="kb = p.cc" @blur="kb = ''" @keydown.enter.prevent="emit('pick', p.cc)"
@@ -38,11 +39,20 @@ const props = defineProps({
   describe: { type: Function, default: null },
 })
 const emit = defineEmits(['pick'])
+const ZMIN = 0.6, ZMAX = 3
+let zoom = 1
+const pointers = new Map()        // the fingers / pointers down now (two of them: a pinch)
+let pinch = null
+function setZoom(z) { zoom = Math.max(ZMIN, Math.min(ZMAX, z)); kick() }
+function wheel(e) { setZoom(zoom * Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015))) }
+function zoomBy(f) { setZoom(zoom * f) }
+function zoomReset() { setZoom(1) }
+defineExpose({ zoomBy, zoomReset })
 
 const RAD = Math.PI / 180
 const SPIN = 1.5                       // degrees a second, westwards like the Earth seen from space
 const CAPS = [24, 12, 6, 3]            // visible tracers by load level
-const FRAME = [33, 33, 50, 66]         // ms between frames by load level
+const FRAME = [16, 33, 50, 66]         // ms between frames by load level (60 a second when the machine keeps up)
 // graticule, once: parallels every 15 degrees, meridians every 30
 const GRAT = []
 for (let lat = -75; lat <= 75; lat += 15) GRAT.push(Array.from({ length: 121 }, (_, j) => vec(lat, j * 3 - 180)))
@@ -57,6 +67,9 @@ let w = 0, h = 0, dpr = 1
 let yaw = 20, pitch = 20               // the point at the centre of the view (degrees)
 let aim = null                         // { yaw, pitch } to turn to
 let drag = null, dragEnd = 0, hits = []
+let fling = null                       // { vy, vp } degrees a second after a drag let go while moving (inertia)
+let trail = []                         // the drag's last positions [time, yaw, pitch], for its speed
+const FRICTION = 2.4                   // the speed falls by e every 1/FRICTION s: it goes on about speed / FRICTION degrees
 let raf = 0, lastPaint = 0, level = 0, slow = 0, calm = 0
 let V = null                           // this frame's projection (rotation, radius, centre)
 
@@ -128,7 +141,7 @@ function ringAt(x, y, r, colour, width, alpha) {
 function draw() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, w, h)
-  const R = Math.min(w, h) * 0.41, ox = w / 2, oy = h / 2
+  const R = Math.min(w, h) * 0.43 * zoom, ox = w / 2, oy = h / 2
   V = { R, ox, oy, cy: Math.cos(yaw * RAD), sy: Math.sin(yaw * RAD), cp: Math.cos(pitch * RAD), sp: Math.sin(pitch * RAD) }
   const font = Math.max(11, Math.round(R * 0.04))
 
@@ -274,7 +287,7 @@ function drawTracers(dest, font) {
 // ---- the loop: runs only while something moves; otherwise one frame per change ----
 function busy() {
   if (document.hidden || !ctx) return false
-  if (aim || drag) return true
+  if (aim || drag || fling) return true
   if (props.paused || still.value) return false
   return tracers.list.length > 0 || (props.spin && !focusCc.value)
 }
@@ -301,6 +314,16 @@ function halt() { if (raf) cancelAnimationFrame(raf); raf = 0 }
 
 function turn(dt) {
   if (drag) return
+  if (fling) {
+    yaw += fling.vy * dt
+    const p = pitch + fling.vp * dt
+    pitch = Math.max(-80, Math.min(80, p))
+    if (pitch !== p) fling.vp = 0
+    const k = Math.exp(-FRICTION * dt)
+    fling.vy *= k; fling.vp *= k
+    if (Math.hypot(fling.vy, fling.vp) < 2) { fling = null; dragEnd = performance.now() }
+    return
+  }
   if (aim) {
     if (still.value) { yaw = aim.yaw; pitch = aim.pitch; aim = null; return }
     const dy = ((aim.yaw - yaw + 540) % 360) - 180, dp = aim.pitch - pitch
@@ -328,20 +351,41 @@ function shed(interval, cost) {
 
 // ---- pointer: drag to turn, a short click picks the nearest visible source ----
 function down(e) {
+  pointers.set(e.pointerId, [e.clientX, e.clientY])
+  cv.value.setPointerCapture(e.pointerId)
+  if (pointers.size === 2) {        // a second finger: pinch to zoom, no turning meanwhile
+    const [a, b] = [...pointers.values()]
+    pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, z: zoom }
+    drag = null
+    return
+  }
   drag = { x: e.clientX, y: e.clientY, yaw, pitch }
   dragOn.value = true
   aim = null
+  fling = null
+  trail = [[performance.now(), yaw, pitch]]
   cv.value.setPointerCapture(e.pointerId)
   kick()
 }
 function move(e) {
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, [e.clientX, e.clientY])
+  if (pinch && pointers.size >= 2) {
+    const [a, b] = [...pointers.values()]
+    setZoom(pinch.z * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch.d)
+    return
+  }
   if (!drag) return
-  const k = 90 / Math.max(60, Math.min(w, h) * 0.41)      // about a quarter turn for a drag across the radius
+  const k = 90 / Math.max(60, Math.min(w, h) * 0.43 * zoom)      // about a quarter turn for a drag across the radius
   yaw = drag.yaw - (e.clientX - drag.x) * k
   pitch = Math.max(-80, Math.min(80, drag.pitch + (e.clientY - drag.y) * k))
+  const now = performance.now()
+  trail.push([now, yaw, pitch])
+  while (trail.length > 2 && now - trail[0][0] > 100) trail.shift()
   kick()
 }
 function up(e) {
+  pointers.delete(e.pointerId)
+  if (pinch) { if (pointers.size < 2) pinch = null; cancel(); return }
   if (drag && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 5) {
     const r = cv.value.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top
     let best = null, bd = 14
@@ -350,14 +394,25 @@ function up(e) {
       if (d < bd) { bd = d; best = cc }
     }
     if (best) emit('pick', best)
+  } else if (drag && !still.value && trail.length > 1) {
+    // let go while moving: keep turning at the speed of the last tenth of a second (none when the hand had stopped)
+    const now = performance.now(), [t0, y0, p0] = trail[0], [t1, y1, p1] = trail[trail.length - 1]
+    const span = (t1 - t0) / 1000
+    if (span > 0.01 && now - t1 < 60) {
+      const cap = (v) => Math.max(-720, Math.min(720, v))
+      const vy = cap((y1 - y0) / span), vp = cap((p1 - p0) / span)
+      if (Math.hypot(vy, vp) > 8) fling = { vy, vp }
+    }
   }
+  trail = []
   cancel()
 }
-function cancel() { drag = null; dragOn.value = false; dragEnd = performance.now(); kick() }
+function cancel(e) { if (e && e.pointerId != null) pointers.delete(e.pointerId); if (pointers.size < 2) pinch = null; drag = null; dragOn.value = false; dragEnd = performance.now(); kick() }
 
 // ---- data and props ----
 function aimAt(cc) {
   const c = cc && centre(cc)
+  fling = null
   if (!c) { aim = null; return }
   aim = { yaw: c[1], pitch: Math.max(-60, Math.min(60, c[0])) }
 }

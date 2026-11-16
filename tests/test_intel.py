@@ -344,6 +344,34 @@ class TestRun(Base):
         rid = intel.run(self.app, 'manual', log=lambda m: None)
         self.assertTrue(self.app.db.one('SELECT error FROM intel_runs WHERE id=?', (rid,))['error'].startswith('refused'))
 
+    def test_software_that_is_not_web_facing_is_not_followed(self):
+        """An SSH server an older version guessed (and a person confirmed): a WAF cannot shield it, so it leaves the
+        list, its open threat is set aside and its alert handled; a web product's threat stays open."""
+        from jtwafmgr import alerts
+        db = self.app.db
+        db.x("INSERT INTO software(name, version, hosts, kind, source, confirmed, evidence, notes, updated_at, updated_by) "
+             "VALUES ('OpenSSH', '1:9.2p1-2', '[]', 'host', 'guess', 1, 'dpkg: openssh-client', '', 0, 'x')")
+        self.assertNotIn('OpenSSH', [p['name'] for p in software.confirmed(db)])      # never sent to the model
+        ids = {}
+        for cve, product in (('CVE-2026-0001', 'OpenSSH'), ('CVE-2026-0002', 'nginx')):
+            ids[product] = db.x('INSERT INTO intel_threats(cve, product, first_seen, last_seen, last_run, affected, exploited, severity, details) '
+                                "VALUES (?, ?, 0, 0, 0, 'unknown', 1, 'critical', '{}')", (cve, product)).lastrowid
+            alerts.raise_alert(db, self.app.audit, 'intel', 'exploited_vulnerability', 'critical', 'intel:%s:%s' % (cve, product),
+                               {'reason': 'x', 'cve': cve, 'product': product}, notify=False)
+        done = intel.retire_unrelated(self.app, log=lambda *a: None)
+        self.assertEqual(done, [ids['OpenSSH']])
+        st = {r['product']: r['status'] for r in db.q('SELECT product, status FROM intel_threats')}
+        self.assertEqual(st, {'OpenSSH': 'ignored', 'nginx': 'open'})
+        a = {r['dedup']: r['state'] for r in db.q('SELECT dedup, state FROM alerts')}
+        self.assertEqual((a['intel:CVE-2026-0001:OpenSSH'], a['intel:CVE-2026-0002:nginx']), ('handled', 'open'))
+        self.assertIsNone(db.one("SELECT 1 FROM software WHERE name='OpenSSH'"))
+        self.assertIsNotNone(db.one("SELECT 1 FROM software WHERE name='nginx'"))
+        self.assertEqual(intel.retire_unrelated(self.app, log=lambda *a: None), [])      # once
+        # a person's own entry of the same kind stays theirs
+        db.x("INSERT INTO software(name, version, hosts, kind, source, confirmed, evidence, notes, updated_at, updated_by) "
+             "VALUES ('OpenSSH', '9.2', '[]', 'host', 'person', 1, '', '', 0, 'alice')")
+        self.assertIn('OpenSSH', [p['name'] for p in software.confirmed(db)])
+
     def test_no_confirmed_software(self):
         self.app.db.x('UPDATE software SET confirmed=0')
         rid = intel.run(self.app, 'manual', log=lambda m: None)

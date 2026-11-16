@@ -62,7 +62,7 @@ export function createDemo(destination) {
     return { now: iso(now), after: 0, high_water_id: id, more: false, collector: { stopped: false }, events: out }
   }
 
-  function snapshot(rng, seconds) {
+  function snapshot(rng, seconds, only) {
     const now = Date.now()
     const W = seconds * 1000, step = W / 30, cell = W / 15
     const since = now - W
@@ -108,11 +108,30 @@ export function createDemo(destination) {
       }
     }
     for (const c of Object.values(countries)) c.sources = Math.max(1, Math.round(c.events ** 0.6))
-    const list = Object.values(countries).sort((a, b) => b.events - a.events)
-    const latest = Array.from({ length: 30 }, (_, k) => event(now - (k + 1) * 1700, null))
+    const blockedOnly = only === 'blocked'
+    if (blockedOnly) {
+      // the blocked events alone: every count keeps its blocked part
+      totals.events = totals.blocked; totals.logged = 0
+      totals.internal = Math.round(totals.internal * BLOCKED_IN)
+      totals.external = totals.blocked - totals.internal
+      totals.unlocated = Math.round(totals.unlocated * BLOCKED_OUT)
+      for (const c of Object.values(countries)) { c.events = c.blocked; c.logged = 0 }
+      for (const m of minutes) m.logged = 0
+      for (const s of Object.values(sites)) {
+        const k = s.events ? s.blocked / s.events : 0
+        s.buckets = s.buckets.map((n) => Math.round(n * k)); s.events = s.blocked; s.logged = 0
+      }
+      delete flow.external.logged; delete flow.internal.logged
+    }
+    const list = Object.values(countries).filter((c) => c.events > 0).sort((a, b) => b.events - a.events)
+    const latest = []
+    for (let k = 1; latest.length < 30 && k < 400; k++) {
+      const e = event(now - k * 1700, null)
+      if (!blockedOnly || e.outcome === 'blocked') latest.push(e)
+    }
     return {
       now: iso(now), window_start: iso(since), window_end: iso(now), window_seconds: seconds, range: rng,
-      step_seconds: Math.round(step / 1000), cell_seconds: Math.round(cell / 1000), node_id: 'demo', high_water_id: id,
+      only: blockedOnly ? 'blocked' : '', step_seconds: Math.round(step / 1000), cell_seconds: Math.round(cell / 1000), node_id: 'demo', high_water_id: id,
       collector: { stopped: false }, totals: { ...totals, countries: list.length }, decided_by: decided, countries: list,
       minutes, latest, destination: destination() || { label: '', lat: 25.03, lon: 121.56 }, flow,
       score_only: Object.entries(score).map(([host, events]) => ({ host, events })).sort((a, b) => b.events - a.events),

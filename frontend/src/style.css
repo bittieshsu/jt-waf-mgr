@@ -666,6 +666,8 @@ table.grid td.nowrap { white-space: nowrap; }
 .dp-btn:hover { border-color: var(--accent); }
 .dp-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
 .datepicker.small .dp-btn { font-size: 13.5px; padding: 3px 26px 3px 7px; min-width: 9em; }
+.dp-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }   /* date and time on one line: the field keeps the height of the others */
+.dp-btn > .icon { flex: none; }
 .dp-value.placeholder { color: var(--muted); }
 .dp-clear { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: none; background: none; color: var(--muted); cursor: pointer; padding: 2px; display: inline-flex; }
 .dp-clear:hover { color: var(--text); }

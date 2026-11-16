@@ -36,6 +36,16 @@ def _load(path=SIGNATURE_FILE):
 
 
 PACKAGES, PACKAGE_PATTERNS, SIGNATURES = _load()
+# The products of this host the threat intelligence follows: web-facing ones only (the web servers, the WAF and the
+# libraries it parses requests with, TLS, the CRS, web applications installed as packages). Anything else on the host
+# (an SSH server, the system's Python, the kernel) is not reached through the sites, so a WAF cannot shield it: it is
+# never guessed, and an entry an older version guessed is dropped. The applications behind the sites are web by
+# definition; an entry a person added stays theirs.
+WEB_PRODUCTS = frozenset(PACKAGES.values()) | {name for _rx, name in PACKAGE_PATTERNS} | {'nginx', 'OWASP CRS'}
+
+
+def web_related(name, kind, source):
+    return kind != 'host' or source == 'person' or name in WEB_PRODUCTS
 _SIGS = [(name, re.compile(rx)) for name, rx in SIGNATURES]
 TAIL = 8 * 1024 * 1024          # read this much of the end of each access log
 MIN_HITS = 3                    # an application needs this many 2xx answers on its paths
@@ -200,9 +210,27 @@ def listing(db):
 
 
 def confirmed(db):
-    """What the LLM may see: product and version, nothing about the sites."""
+    """What the LLM may see: product and version, nothing about the sites; web-facing software only."""
     return [{'name': r['name'], 'version': r['version'] or 'unknown'}
-            for r in db.q('SELECT name, version FROM software WHERE confirmed=1 ORDER BY name')]
+            for r in db.q('SELECT name, version, kind, source FROM software WHERE confirmed=1 ORDER BY name')
+            if web_related(r['name'], r['kind'], r['source'])]
+
+
+def followed(db, name):
+    """Whether a product is one the threat intelligence follows (web-facing), whatever its confirmation."""
+    if name in WEB_PRODUCTS:
+        return True
+    r = db.one('SELECT kind, source FROM software WHERE name=?', (name,))
+    return bool(r) and web_related(name, r['kind'], r['source'])
+
+
+def prune_unrelated(db):
+    """Drop what an older version guessed on the host that is not web-facing (confirmed or not). Returns the names."""
+    gone = [r['name'] for r in db.q("SELECT name, kind, source FROM software WHERE source='guess'")
+            if not web_related(r['name'], r['kind'], r['source'])]
+    for n in gone:
+        db.x("DELETE FROM software WHERE name=? AND source='guess'", (n,))
+    return gone
 
 
 def refresh(app, actor):
@@ -220,6 +248,7 @@ def refresh(app, actor):
         if r['name'] not in names:
             db.x('DELETE FROM software WHERE id=?', (r['id'],))
             removed += 1
+    removed += len(prune_unrelated(db))
     for g in found:
         r = db.one('SELECT * FROM software WHERE name=?', (g['name'],))
         if not r:

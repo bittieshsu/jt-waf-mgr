@@ -5,7 +5,7 @@
      Enter picks, Escape closes. -->
 <template>
   <div class="datepicker" :class="{ open, small }">
-    <button ref="btn" type="button" class="dp-btn" :id="id" :disabled="disabled" :aria-label="ariaLabel || null"
+    <button ref="btn" type="button" class="dp-btn" :id="id" :disabled="disabled" :aria-label="ariaLabel || null" :title="modelValue ? display : null"
             aria-haspopup="dialog" :aria-expanded="open ? 'true' : 'false'" @click.prevent.stop="toggle" @keydown.down.prevent="show">
       <Icon name="calendar" />
       <span class="dp-value" :class="{ placeholder: !modelValue }">{{ modelValue ? display : (placeholder || t('date.choose')) }}</span>
