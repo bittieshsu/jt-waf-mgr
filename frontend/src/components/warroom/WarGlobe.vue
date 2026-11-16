@@ -150,7 +150,7 @@ function ringAt(x, y, r, colour, width, alpha) {
 function draw() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, w, h)
-  const R = Math.min(w, h) * 0.43 * zoom, ox = w / 2, oy = h / 2
+  const R = Math.min(w, h) * 0.46 * zoom, ox = w / 2, oy = h / 2
   V = { R, ox, oy, cy: Math.cos(yaw * RAD), sy: Math.sin(yaw * RAD), cp: Math.cos(pitch * RAD), sp: Math.sin(pitch * RAD) }
   const font = Math.max(11, Math.round(R * 0.04))
 
@@ -384,7 +384,7 @@ function move(e) {
     return
   }
   if (!drag) return
-  const k = 90 / Math.max(60, Math.min(w, h) * 0.43 * zoom)      // about a quarter turn for a drag across the radius
+  const k = 90 / Math.max(60, Math.min(w, h) * 0.46 * zoom)      // about a quarter turn for a drag across the radius
   yaw = drag.yaw - (e.clientX - drag.x) * k
   pitch = Math.max(-80, Math.min(80, drag.pitch + (e.clientY - drag.y) * k))
   const now = performance.now()

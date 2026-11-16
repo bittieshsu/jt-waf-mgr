@@ -21,7 +21,7 @@
         <button type="button" class="wr-btn" :class="{ on: rotating }" :aria-pressed="rotating ? 'true' : 'false'" :title="t('war.rotate')" @click="rotating = !rotating"><Icon name="refresh" /><span class="wr-lbl">{{ t('war.rotate') }}</span></button>
         <button type="button" class="wr-btn" :class="{ on: paused }" :aria-pressed="paused ? 'true' : 'false'" :title="t(paused ? 'war.resume' : 'war.pause')" @click="paused = !paused"><Icon :name="paused ? 'run' : 'timer'" /><span class="wr-lbl">{{ t(paused ? 'war.resume' : 'war.pause') }}</span></button>
         <button type="button" class="wr-btn" :class="{ on: frozen }" :aria-pressed="frozen ? 'true' : 'false'" :title="t(frozen ? 'war.unfreeze' : 'war.freeze')" @click="toggleFreeze"><Icon :name="frozen ? 'unlock' : 'lock'" /><span class="wr-lbl">{{ t(frozen ? 'war.unfreeze' : 'war.freeze') }}</span></button>
-        <button type="button" class="wr-btn wr-demobtn" :class="{ on: demo }" :aria-pressed="demo ? 'true' : 'false'" :title="demo ? stateHint : t('war.demo')" @click="demo = !demo"><span v-if="demo" class="wr-dot st-demo" aria-hidden="true"></span><Icon name="test" /><span class="wr-lbl">{{ t('war.demo') }}</span></button>
+        <button type="button" class="wr-btn wr-demobtn" :class="{ on: demo }" :aria-pressed="demo ? 'true' : 'false'" :title="demo ? t('war.demo_banner') + ' ' + t('war.demo_exit_hint') : t('war.demo')" @click="demo = !demo"><span v-if="demo" class="wr-dot st-demo" aria-hidden="true"></span><Icon name="test" /><span :class="{ 'wr-lbl': !demo }">{{ t(demo ? 'war.demo_on' : 'war.demo') }}</span></button>
         <button type="button" class="wr-btn wr-keybtn" :aria-pressed="showHelp ? 'true' : 'false'" :aria-label="t('war.keys_hint')" :title="t('war.keys_hint')" @click="showHelp = !showHelp"><Icon name="keys" />H</button>
         <button type="button" class="wr-btn" :class="{ on: isFull }" :aria-pressed="isFull ? 'true' : 'false'" :title="t('war.fullscreen')" @click="fullscreen"><Icon :name="isFull ? 'fullscreen_exit' : 'fullscreen'" /><span class="wr-lbl">{{ t('war.fullscreen') }}</span></button>
       </div>
@@ -29,9 +29,8 @@
     <nav class="wr-tabs" role="tablist" :aria-label="t('war.title')">
       <button v-for="(p, i) in PAGES" :key="p" type="button" class="wr-tab" role="tab" :aria-selected="page === i ? 'true' : 'false'" :class="{ on: page === i }" @click="go(i)">{{ t('war.page.' + p) }}</button>
     </nav>
-    <div v-if="demo" class="wr-demo" role="status"><Icon name="test" /><b>{{ t('war.demo_banner') }}</b>
-      <span v-if="demoNote" class="wr-demonote">{{ t('war.demo_no_link') }}</span>
-      <button type="button" class="wr-btn small" @click="demo = false"><Icon name="close" />{{ t('war.demo_exit') }}</button></div>
+    <!-- demo mode says so on its button (top right); a link clicked in it says why nothing opens, for a moment -->
+    <div v-if="demo && demoNote" class="wr-demonote" role="status"><Icon name="test" />{{ t('war.demo_no_link') }}</div>
 
     <div v-if="expired" class="wr-msg" role="alert">
       <p>{{ t('war.expired') }}</p>
@@ -97,7 +96,7 @@
         </section>
       </div>
 
-      <div v-else class="wr-grid">
+      <div v-else class="wr-grid" :class="{ 'no-pulse': PAGES[page] !== 'atlas' }">
         <section v-if="PAGES[page] === 'flow'" class="wr-card wr-map">
           <div class="wr-card-h"><h2><Icon name="change" />{{ t('war.flow_title') }}</h2><span class="wr-sub">{{ t('war.flow_unit') }}</span></div>
           <div class="wr-mapbox"><WarFlow :flow="flow" :labels="flowLabels" :columns="[t('war.col.source'), t('war.col.decision'), t('war.col.outcome')]"
@@ -132,16 +131,17 @@
                       :reduced="reduced" :focus="picked" :label="t('war.map_title')" :describe="describe" @pick="pick" />
             <WarGlobe v-else ref="globe" :sources="countries" :batches="batches" :destination="globeDest" :paused="paused || frozen || state === 'offline'"
                       :reduced="reduced" :focus="picked" :spin="spin" :label="t('war.globe_title')" :describe="describe" @pick="pick" />
+            <!-- the globe's controls: a column on its right edge, icons only (names in the tooltips) -->
+            <div v-if="PAGES[page] === 'globe'" class="wr-globectl" role="toolbar" :aria-label="t('war.globe_title')">
+              <button type="button" class="wr-btn" :aria-label="t('war.zoom_in')" :title="t('war.zoom_in') + ' (+)'" @click="globe && globe.zoomBy(1.25)"><Icon name="zoom_in" /></button>
+              <button type="button" class="wr-btn" :aria-label="t('war.zoom_out')" :title="t('war.zoom_out') + ' (−)'" @click="globe && globe.zoomBy(1 / 1.25)"><Icon name="zoom_out" /></button>
+              <button type="button" class="wr-btn" :aria-label="t('war.zoom_reset')" :title="t('war.zoom_reset') + ' (0)'" @click="globe && globe.zoomReset()"><Icon name="refresh" /></button>
+              <button type="button" class="wr-btn" :disabled="!dest" :aria-label="t('war.center')" :title="t('war.center') + ' (C)'" @click="centerUs"><Icon name="center" /></button>
+              <button type="button" class="wr-btn" :class="{ on: !spin }" :aria-label="t(spin ? 'war.stop_spin' : 'war.start_spin')" :title="t(spin ? 'war.stop_spin' : 'war.start_spin') + ' (S)'" @click="spin = !spin"><Icon :name="spin ? 'timer' : 'run'" /></button>
+            </div>
           </div>
           <div class="wr-card-f">
             <span class="wr-legend"><i class="lg-b"></i>{{ t('war.k.blocked') }}<i class="lg-l"></i>{{ t('war.k.logged') }}</span>
-            <span v-if="PAGES[page] === 'globe'" class="wr-globectl">
-              <button type="button" class="wr-btn small wr-iconbtn" :aria-label="t('war.zoom_out')" :title="t('war.zoom_out')" @click="globe && globe.zoomBy(1 / 1.25)"><Icon name="zoom_out" /></button>
-              <button type="button" class="wr-btn small wr-iconbtn" :aria-label="t('war.zoom_in')" :title="t('war.zoom_in')" @click="globe && globe.zoomBy(1.25)"><Icon name="zoom_in" /></button>
-              <button type="button" class="wr-btn small" :disabled="!dest" @click="centerUs"><Icon name="center" />{{ t('war.center') }}</button>
-              <button type="button" class="wr-btn small" @click="globe && globe.zoomReset()"><Icon name="refresh" />{{ t('war.zoom_reset') }}</button>
-              <button type="button" class="wr-btn small" @click="spin = !spin"><Icon :name="spin ? 'timer' : 'refresh'" />{{ t(spin ? 'war.stop_spin' : 'war.start_spin') }}</button>
-            </span>
             <span class="wr-sub">{{ t('war.geo_note') }}</span>
           </div>
         </section>
@@ -184,7 +184,8 @@
           <p class="wr-foot">{{ t('war.internal_n', { n: fmtNum(totals.internal) }) }} · {{ t('war.unlocated_n', { n: fmtNum(totals.unlocated) }) }}</p>
         </section>
 
-        <section class="wr-card wr-pulse">
+        <!-- the event intensity is the map page's: the other pages give its row to their main card -->
+        <section v-if="PAGES[page] === 'atlas'" class="wr-card wr-pulse">
           <div class="wr-card-h"><h2><Icon name="timer" />{{ t('war.intensity') }}</h2><span class="wr-sub">{{ stepSec === 60 ? t('war.per_minute', { n: fmtNum(peak) }) : t('war.per_bucket', { b: span(stepSec), n: fmtNum(peak) }) }}</span></div>
           <TransitionGroup tag="div" name="wr-colmv" class="wr-bars" role="img" :aria-label="t('war.intensity')">
             <div v-for="m in minutes" :key="m.t" class="wr-col" :title="fmtAxis(m.t) + ' · ' + fmtNum(m.blocked + m.logged)">
@@ -735,9 +736,10 @@ onBeforeUnmount(() => {
 }
 .wr-onlybtn.on { border-color: var(--b); color: var(--b); }
 /* the globe's controls: one height, square icon-only buttons, a gap between them */
-.wr-globectl { display: inline-flex; align-items: center; gap: 8px; }
-.wr-globectl .wr-btn { height: 32px; box-sizing: border-box; padding: 0 12px; font-size: 13px; }
-.wr-globectl .wr-iconbtn { width: 32px; padding: 0; justify-content: center; }
+.wr-mapbox > .wr-globectl { inset: auto; right: 6px; top: 50%; transform: translateY(-50%); width: auto; height: auto; z-index: 2;
+  display: flex; flex-direction: column; gap: 8px; }
+.wr-globectl .wr-btn { width: 38px; height: 38px; padding: 0; justify-content: center; box-sizing: border-box; }
+.wr-globectl .wr-btn:disabled { opacity: .45; cursor: default; }
 .wr-keybtn { font-family: var(--mono, monospace); font-weight: 600; }
 .wr-help { position: fixed; z-index: 40; right: 32px; bottom: 56px; width: min(620px, calc(100vw - 32px)); max-height: calc(100vh - 120px); overflow: auto;
   padding: 22px 26px; border: 1px solid #3a6463; border-radius: 12px; background: rgba(7, 22, 24, .97); box-shadow: 0 18px 50px rgba(0, 0, 0, .5); cursor: pointer; }
@@ -748,12 +750,14 @@ onBeforeUnmount(() => {
 .wr-help kbd { font-family: var(--mono, monospace); font-size: 13px; min-width: 28px; text-align: center; padding: 2px 8px; border: 1px solid #3a6463;
   border-bottom-width: 2px; border-radius: 5px; background: rgba(12, 40, 42, .9); color: #e8f1ec; }
 .wr-help-dash { color: var(--muted); }
-.wr-demobtn.on { border-color: #f5b13d; color: #f5b13d; }
-.wr-demo { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 10px; padding: 8px 14px; border: 1px solid #f5b13d;
-  border-radius: 8px; color: #ffe2a8; background: repeating-linear-gradient(135deg, rgba(245, 177, 61, .16) 0 14px, rgba(245, 177, 61, .06) 14px 28px); }
-.wr-demo b { font-weight: 600; }
-.wr-demo .wr-btn { margin-left: auto; }
-.wr-demonote { color: #fff; }
+/* demo mode on: the button is the sign (amber, filled, a pulsing dot), no banner taking room */
+.wr-ctl > .wr-btn.wr-demobtn.on { border-color: #f5b13d; background: #f5b13d; color: #1b1405; font-weight: 700; box-shadow: 0 0 14px rgba(245, 177, 61, .45); }
+.wr-demobtn.on .wr-dot { background: #1b1405; box-shadow: none; animation: wr-pulse 1.4s ease-in-out infinite; }
+@keyframes wr-pulse { 50% { opacity: .25; } }
+.wr.reduced .wr-demobtn.on .wr-dot { animation: none; }
+@media (prefers-reduced-motion: reduce) { .wr-demobtn.on .wr-dot { animation: none; } }
+.wr-demonote { position: fixed; z-index: 45; top: 64px; right: 28px; display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  border: 1px solid #f5b13d; border-radius: 8px; background: rgba(27, 20, 5, .95); color: #ffe2a8; font-size: 14px; }
 .st-demo { border-color: #f5b13d; color: #ffe2a8; }
 .st-demo .wr-dot, .wr-dot.st-demo { background: #f5b13d; box-shadow: 0 0 8px #f5b13d; }
 .wr-range :deep(.sb-btn) { padding: 6px 10px; border: 1px solid #3a6463; border-radius: 6px; background: rgba(12, 40, 42, .8); color: #e8f1ec; font-size: 14px; }
@@ -798,6 +802,7 @@ onBeforeUnmount(() => {
 .wr-kpis .k-logged b { color: var(--l); }
 .wr-grid { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(280px, 1fr); grid-template-rows: minmax(340px, 1fr) auto; gap: 14px; flex: 1 0 auto; }
 .wr-pulse { grid-column: 1; }
+.wr-grid.no-pulse > .wr-map { grid-row: 1 / span 2; }
 .wr-latest { grid-column: 2; }
 @media (max-width: 1100px) { .wr-grid { grid-template-columns: minmax(0, 1fr); } .wr-pulse, .wr-latest { grid-column: 1; } }
 .wr-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }

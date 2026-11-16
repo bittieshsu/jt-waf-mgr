@@ -527,15 +527,15 @@ async function audit(page, where) {
   // 0.4.66: demo mode: made-up attacks in the browser, a banner all the time, links do not open
   await page.locator('.wr-demobtn').click();
   await page.waitForTimeout(6000);
-  ok(/[?&]demo=1\b/.test(page.url()) && (await page.locator('.wr-demo').count()) === 1, 'war room: demo mode, with its banner');
+  ok(/[?&]demo=1\b/.test(page.url()) && (await page.locator('.wr-demobtn.on').count()) === 1 && (await page.locator('.wr-demo').count()) === 0, 'war room: demo mode, shown on its button');
   await page.locator('.wr-tabs button').nth(0).click(); await page.waitForTimeout(800);
   ok(Number((await page.locator('.wr-kpis .rn .sr-only').first().textContent()).replace(/\D/g, '')) > 100, 'war room: demo numbers');
   await page.screenshot({ path: path.join(SHOTS, 'warroom-demo.png') });
   const pagesBefore = page.context().pages().length;
   await page.locator('.wr-events a').first().click(); await page.waitForTimeout(500);
   ok(page.context().pages().length === pagesBefore && (await page.locator('.wr-demonote').count()) === 1, 'war room: demo links do not open');
-  await page.locator('.wr-demo .wr-btn').click(); await page.waitForTimeout(1000);
-  ok(!/[?&]demo=/.test(page.url()) && (await page.locator('.wr-demo').count()) === 0, 'war room: out of the demo');
+  await page.locator('.wr-demobtn').click(); await page.waitForTimeout(1000);
+  ok(!/[?&]demo=/.test(page.url()) && (await page.locator('.wr-demobtn.on').count()) === 0, 'war room: out of the demo');
   await page.locator('.wr-tabs button').nth(1).click(); await page.waitForTimeout(500);
   // the war room for README and Pages, in each language (the board is dark whatever the theme)
   for (const [L, pre] of [['en', 'en'], ['ja', 'ja'], ['zh-TW', 'light']]) {

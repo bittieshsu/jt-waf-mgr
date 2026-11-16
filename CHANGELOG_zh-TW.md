@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.4.73 (2026-11-16)
+
+- 戰情室：拿掉示範模式的橫幅；示範時由標題列按鈕表示 (琥珀色實心、「示範模式中」加上閃動的圓點；提示說明畫面是模擬資料，按一下離開示範)；示範時點連結，右上角會短暫提示。事件強度卡片只在地圖頁顯示，其他畫面的主要卡片佔用那一列 (地球大很多)。地球的控制按鈕改成右側直排的圖示 (名稱與熱鍵在提示裡)，地球本身也稍微放大。
+
 ## 0.4.72 (2026-11-16)
 
 - 威脅情報：每次搜尋前，向站台後面的應用程式讀取它們自己回報的版本 (經本機 nginx 發一個請求，驗證憑證)：Nextcloud、Zulip、Odoo、Grafana、Open WebUI、WordPress、draw.io (已在實際安裝上驗證)，以及 ownCloud Infinite Scale、Gitea / Forgejo、Rocket.Chat、Mattermost、Jenkins、Matrix (Synapse)、Seafile、Harbor、Mastodon、Collabora Online、LibreNMS (需要它的 API 權杖，新的只寫設定)。人工填的版本不會被覆寫；之前讀到的版本會跟著升級更新 (記稽核)。威脅情報頁與專案網站 (運作原理 → 軟體版本) 列出哪些應用程式會回報版本，以及其他的要怎麼在主機上查。存取記錄也能認出 Univention Corporate Server。

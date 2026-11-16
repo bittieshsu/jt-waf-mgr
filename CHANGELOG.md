@@ -2,6 +2,14 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.73 (2026-11-16)
+
+- War room: no demo banner taking a row; in demo mode the top bar's button is the sign (amber, filled, "Demo on" with
+  a pulsing dot; its tooltip says the board is made-up data, a click leaves the demo); a link clicked in demo mode says
+  so for a moment at the top right. The event intensity card is on the map page only: on the other pages their main
+  card takes its row (the globe is much larger). The globe's controls are a column of icons on its right edge (names
+  and keys in the tooltips), and the globe itself is a little larger.
+
 ## 0.4.72 (2026-11-16)
 
 - Threat intelligence: the versions of the applications behind the sites are read from the applications themselves
