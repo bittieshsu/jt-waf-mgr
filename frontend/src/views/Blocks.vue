@@ -200,7 +200,7 @@ const uncoveredCols = computed(() => [
 ])
 const cols = computed(() => [
   { key: 'ip', label: t('blocks.ip'), required: true, nowrap: true, text: (r) => r.ip + ' ' + ((r.geo && r.geo.cc) || '') },
-  { key: 'sites', label: t('blocks.sites'), class: 'c-hosts', value: (r) => ((r.sites || [])[0] || {}).host || '', text: (r) => (r.sites || []).map((x) => x.host).join(' ') },
+  { key: 'sites', label: t('blocks.sites'), hint: t('blocks.sites_hint'), class: 'c-hosts', value: (r) => ((r.sites || [])[0] || {}).host || '', text: (r) => (r.sites || []).map((x) => x.host).join(' ') },
   { key: 'source', label: t('blocks.source'), text: (r) => r.source + ' ' + r.created_by },
   { key: 'reason', label: t('blocks.reason') },
   { key: 'created_at', label: t('blocks.since'), nowrap: true, text: (r) => fmtShortTime(r.created_at) },

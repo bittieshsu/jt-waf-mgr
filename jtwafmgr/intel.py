@@ -99,7 +99,8 @@ Rules:
 - Report only vulnerabilities you found evidence for, each with its CVE or GHSA id and https references. Never
   invent ids, versions or references. If nothing relevant is new, return an empty list.
 - "affected": "yes" only if the listed version is inside the affected range; "no" if it is outside; "unknown" if
-  the version is unknown or the range unclear.
+  the version is unknown or the range unclear. Several versions on one line ("10.1.20, 10.1.21") mean the product
+  runs in several places: "yes" if any of them is inside the range.
 - "preconditions": what the vulnerability needs besides the version, as the advisory or the distribution's tracker
   says (an operating system, a C library such as musl, a build or configuration option, an enabled module, exposure to
   the internet); empty if nothing. Distribution trackers often list every package
@@ -803,8 +804,7 @@ def propose_patches(app, run_id, ask=None, log=print, session=None):
         if t.get('attack_vector') not in ('url', 'header') or not t.get('request_pattern') or not (
                 r['exploited'] or r['severity'] in ('critical', 'high')):
             continue
-        sw = db.one('SELECT hosts FROM software WHERE name=?', (r['product'],))
-        hosts = [h for h in json.loads(sw['hosts'] or '[]')] if sw else []
+        hosts = software.hosts_of(db, r['product'])          # every entry of the product (two servers: both sites)
         user = ('Vulnerability: %s in %s (our version %s)\nSummary: %s\nAffected versions: %s\nWhere: %s\n'
                 'What the attack request looks like: %s\nReferences: %s' % (
                     t.get('id'), r['product'], t.get('our_version') or 'unknown', t.get('summary'), t.get('affected_versions'),
@@ -847,9 +847,10 @@ def remind_removal(app):
     for r in db.q("SELECT t.*, c.rule_id, c.state FROM intel_threats t JOIN changes c ON c.id=t.patch_change_id "
                   "WHERE c.state='applied'"):
         t = json.loads(r['details'] or '{}')
-        sw = db.one('SELECT version FROM software WHERE name=? AND confirmed=1', (r['product'],))
-        if not sw or not known_version(t.get('our_version')) or sw['version'] == t['our_version']:
+        now_v = software.versions_of(db, r['product'])           # all its entries, as the search saw them
+        if not now_v or not known_version(t.get('our_version')) or now_v == t['our_version']:
             continue
+        sw = {'version': now_v}
         alerts.raise_alert(db, app.audit, 'intel', 'other', 'warning', 'intel-remove:%s:%s' % (r['cve'], r['product']),
                            {'reason': '%s is now %s (was %s when the virtual patch for %s was written): check that the update '
                                       'fixes it, then remove rule %s.' % (r['product'], sw['version'], t['our_version'], r['cve'],

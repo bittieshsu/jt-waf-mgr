@@ -221,18 +221,51 @@ def listing(db):
 
 
 def confirmed(db):
-    """What the LLM may see: product and version, nothing about the sites; web-facing software only."""
-    return [{'name': r['name'], 'version': r['version'] or 'unknown'}
-            for r in db.q('SELECT name, version, kind, source FROM software WHERE confirmed=1 ORDER BY name')
-            if web_related(r['name'], r['kind'], r['source'])]
+    """What the LLM may see: product and version, nothing about the sites; web-facing software only. A product
+    listed more than once (two servers on different versions) is one line with every version."""
+    out = {}
+    for r in db.q('SELECT name, version, kind, source FROM software WHERE confirmed=1 ORDER BY name, id'):
+        if web_related(r['name'], r['kind'], r['source']):
+            out.setdefault(r['name'], []).append(r['version'] or 'unknown')
+    return [{'name': n, 'version': join_versions(v)} for n, v in out.items()]
+
+
+def join_versions(versions):
+    """Several versions of one product, oldest-looking first, each once: "10.1.20, 10.1.21"."""
+    seen = []
+    for v in versions:
+        if v not in seen:
+            seen.append(v)
+    known = sorted((v for v in seen if v != 'unknown'), key=_vkey)
+    return ', '.join(known + (['unknown'] if 'unknown' in seen else [])) or 'unknown'
+
+
+def _vkey(v):
+    return [(0, int(x), '') if x.isdigit() else (1, 0, x) for x in re.split(r'[.+~:-]', v)]
+
+
+def versions_of(db, name):
+    """The confirmed version line of one product, as confirmed() gives it ('' when it is not listed)."""
+    vs = [r['version'] or 'unknown' for r in db.q('SELECT version FROM software WHERE name=? AND confirmed=1 ORDER BY id',
+                                                     (name,))]
+    return join_versions(vs) if vs else ''
+
+
+def hosts_of(db, name):
+    """Every site a product is listed for (all its entries)."""
+    out = []
+    for r in db.q('SELECT hosts FROM software WHERE name=? ORDER BY id', (name,)):
+        for h in json.loads(r['hosts'] or '[]'):
+            if h not in out:
+                out.append(h)
+    return out
 
 
 def followed(db, name):
     """Whether a product is one the threat intelligence follows (web-facing), whatever its confirmation."""
     if name in WEB_PRODUCTS:
         return True
-    r = db.one('SELECT kind, source FROM software WHERE name=?', (name,))
-    return bool(r) and web_related(name, r['kind'], r['source'])
+    return any(web_related(name, r['kind'], r['source']) for r in db.q('SELECT kind, source FROM software WHERE name=?', (name,)))
 
 
 def prune_unrelated(db):
@@ -363,7 +396,10 @@ def refresh(app, actor):
             removed += 1
     removed += len(prune_unrelated(db))
     for g in found:
-        r = db.one('SELECT * FROM software WHERE name=?', (g['name'],))
+        rows = db.q('SELECT * FROM software WHERE name=? ORDER BY id', (g['name'],))
+        if any(x['source'] == 'person' for x in rows):
+            continue                # a person keeps this product's entries (one or several): the guess leaves them
+        r = rows[0] if rows else None
         if not r:
             db.x('INSERT INTO software(name, version, hosts, kind, source, confirmed, evidence, notes, updated_at, updated_by) '
                  "VALUES (?,?,?,?, 'guess', 0, ?, '', ?, ?)",
@@ -409,8 +445,7 @@ def save(db, actor, name, version, hosts=None, notes='', confirmed_flag=True, si
     notes = util.clip(str(notes or ''), 300)
     now = util.now()
     if sid is None:
-        if db.one('SELECT 1 FROM software WHERE name=?', (name,)):
-            raise SoftwareError('exists', 'already in the list')
+        _same(db, name, hosts, None)
         cur = db.x('INSERT INTO software(name, version, hosts, kind, source, confirmed, evidence, notes, updated_at, updated_by) '
                    "VALUES (?,?,?, 'site', 'person', ?, '', ?, ?, ?)",
                    (name, version, json.dumps(hosts), 1 if confirmed_flag else 0, notes, now, actor))
@@ -420,6 +455,7 @@ def save(db, actor, name, version, hosts=None, notes='', confirmed_flag=True, si
     r = db.one('SELECT * FROM software WHERE id=?', (int(sid),))
     if not r:
         raise SoftwareError('not_found')
+    _same(db, name, hosts or json.loads(r['hosts'] or '[]'), r['id'])
     if r['source'] == 'guess' and r['name'] != name:
         # a person renamed a guess (Exchange -> Z-Push): the old name is not guessed again
         _set_dismissed(db, dismissed_names(db) + [r['name']])
@@ -427,6 +463,18 @@ def save(db, actor, name, version, hosts=None, notes='', confirmed_flag=True, si
          'WHERE id=?', (name, version, json.dumps(hosts or json.loads(r['hosts'] or '[]')), notes,
                         1 if confirmed_flag else 0, now, actor, r['id']))
     return r['id']
+
+
+def _same(db, name, hosts, sid):
+    """One product may be listed again for other sites (two servers on different versions): every entry of the
+    same name then names its sites, and no site is in two of them."""
+    for r in db.q('SELECT id, hosts, kind FROM software WHERE name=? AND id IS NOT ?', (name, sid)):
+        theirs = set(json.loads(r['hosts'] or '[]'))
+        if r['kind'] == 'host' or not theirs or not hosts:
+            raise SoftwareError('exists', 'already in the list: to list it again, give every entry of it its own sites')
+        if theirs & set(hosts):
+            raise SoftwareError('exists', 'already in the list for %s: each entry of the same product has its own sites'
+                                % ', '.join(sorted(theirs & set(hosts))[:3]))
 
 
 DISMISSED_KEY = 'software.dismissed'

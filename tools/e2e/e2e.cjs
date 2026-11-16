@@ -272,7 +272,7 @@ async function audit(page, where) {
   // threat intelligence: a threat opens under its row
   await page.goto(base + '/intel', { waitUntil: 'networkidle' });
   await page.locator('#intel-threats tbody tr, .datatable tbody tr').first().click();
-  ok(await page.locator('tr.dt-expand .thdetail').count() === 1, 'intel: threat details open under the row');
+  ok(await page.locator('tr.dt-expand .thd').count() === 1, 'intel: threat details open under the row');
   // system check: the background parts are all there
   await page.goto(base + '/admin/system', { waitUntil: 'networkidle' });
   const sysText = await page.locator('main').innerText();

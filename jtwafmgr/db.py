@@ -439,6 +439,28 @@ SCHEMA = [
     """,
     # 15: hourly event counts kept by triggers (rollup.py), so dashboards do not scan every event of the window
     lambda c: _rollup().create(c),
+    # 16: one product may be listed more than once (two Zimbra servers on different versions): the name is no
+    # longer unique; software.save() refuses the same name for the same sites instead
+    """
+    CREATE TABLE software_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        version TEXT NOT NULL DEFAULT '',
+        hosts TEXT NOT NULL DEFAULT '[]',
+        kind TEXT NOT NULL DEFAULT 'site',
+        source TEXT NOT NULL DEFAULT 'guess',
+        confirmed INTEGER NOT NULL DEFAULT 0,
+        evidence TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        updated_at REAL NOT NULL,
+        updated_by TEXT NOT NULL DEFAULT ''
+    );
+    INSERT INTO software_new(id, name, version, hosts, kind, source, confirmed, evidence, notes, updated_at, updated_by)
+        SELECT id, name, version, hosts, kind, source, confirmed, evidence, notes, updated_at, updated_by FROM software;
+    DROP TABLE software;
+    ALTER TABLE software_new RENAME TO software;
+    CREATE INDEX software_name ON software(name);
+    """,
 ]
 
 

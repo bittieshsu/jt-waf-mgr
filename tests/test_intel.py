@@ -723,6 +723,15 @@ class TestIntelApi(unittest.TestCase):
         sid = obj['software'][0]['id']
         self.assertTrue(obj['software'][0]['confirmed'])
         self.assertEqual(c.req('POST', '/api/v1/intel/software', {'name': 'Grafana', 'version': '1'})[0], 409)
+        # the same product on another server, another version: its own entry, its own sites (never the same site twice)
+        st, obj, _ = c.req('POST', '/api/v1/intel/software', {'name': 'Grafana', 'version': '10.4.1', 'hosts': ['mon2.example.com']})
+        self.assertEqual(st, 201, obj)
+        self.assertEqual(c.req('POST', '/api/v1/intel/software', {'name': 'Grafana', 'version': '9', 'hosts': ['mon2.example.com']})[0], 409)
+        self.assertEqual([p for p in software.confirmed(self.app.db) if p['name'] == 'Grafana'],
+                         [{'name': 'Grafana', 'version': '10.4.1, 11.2.0'}])        # one line, every version, no sites
+        self.assertEqual(software.hosts_of(self.app.db, 'Grafana'), ['mon.example.com', 'mon2.example.com'])
+        g2 = [x for x in c.req('GET', '/api/v1/intel')[1]['software'] if x['name'] == 'Grafana' and x['version'] == '10.4.1'][0]
+        self.assertEqual(c.req('DELETE', '/api/v1/intel/software/%d' % g2['id'])[0], 200)
         self.assertEqual(c.req('POST', '/api/v1/intel/software', {'name': 'x<y', 'version': '1'})[0], 400)
         st, obj, _ = c.req('PATCH', '/api/v1/intel/software/%d' % sid, {'version': '11.3.0', 'confirmed': False})
         self.assertEqual((st, obj['software'][0]['version'], obj['software'][0]['confirmed']), (200, '11.3.0', False))

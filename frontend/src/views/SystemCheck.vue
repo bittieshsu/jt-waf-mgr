@@ -45,11 +45,16 @@
                 <HashText v-if="isHash(v)" :value="v" :len="16" />
                 <span v-else-if="typeof v === 'boolean'" class="badge" :class="boolClass(it.key, k, v)">{{ v ? t('common.yes') : t('common.no') }}</span>
                 <span v-else-if="v === null || v === undefined || v === ''" class="muted">—</span>
-                <span v-else-if="Array.isArray(v)" class="mono small breakall">{{ v.length ? v.map((x) => safeText(typeof x === 'object' ? JSON.stringify(x) : x, 300)).join(', ') : '—' }}</span>
+                <!-- a list: one chip per item, the line breaks between items (never inside a name); a long list
+                     shows its first items and a button for the rest -->
+                <span v-else-if="Array.isArray(v)" class="chips">
+                  <span v-for="(x, i) in (openList[it.key + k] ? v : v.slice(0, LIST_MAX))" :key="i" class="chip mono">{{ safeText(typeof x === 'object' ? JSON.stringify(x) : x, 300) }}</span>
+                  <button v-if="v.length > LIST_MAX" type="button" class="btn tiny ghost" @click="openList[it.key + k] = !openList[it.key + k]"><Icon :name="openList[it.key + k] ? 'collapse' : 'expand'" />{{ openList[it.key + k] ? t('syscheck.less') : t('syscheck.more_n', { n: v.length - LIST_MAX }) }}</button>
+                </span>
                 <span v-else-if="k === 'size'" class="mono">{{ fmtBytes(v) }}</span>
-                <span v-else-if="TIME_KEYS.includes(k)" class="mono">{{ fmtMinute(v) }}</span>
+                <span v-else-if="TIME_KEYS.includes(k)" class="mono nowrap">{{ fmtMinute(v) }}</span>
                 <span v-else-if="typeof v === 'object'" class="mono small breakall">{{ safeText(JSON.stringify(v), 400) }}</span>
-                <span v-else class="mono breakall">{{ safeText(v, 300) }}</span>
+                <span v-else class="mono"><template v-for="(seg, i) in segs(safeText(v, 300))" :key="i">{{ seg }}<wbr></template></span>
               </dd>
             </template>
           </dl>
@@ -259,6 +264,10 @@ function shownDetails(it) {
   }
   return out
 }
+// a long value (a path, a model name) may break after / - _ . , : only, not in the middle of a word
+function segs(s) { return String(s).split(/(?<=[/\-_.,:])/) }
+const LIST_MAX = 8
+const openList = reactive({})
 function isHash(v) { return typeof v === 'string' && /^[0-9a-f]{64}$/.test(v) }
 function boolClass(key, k, v) {
   // true is good for most flags; for these, true means a problem

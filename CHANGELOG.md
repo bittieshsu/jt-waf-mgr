@@ -2,6 +2,21 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.75 (2026-11-16)
+
+- Threat intelligence: one product can be listed more than once (two Zimbra servers on different versions), each
+  entry with its own sites (a site in one entry only). The search sees one line per product with every version
+  ("10.1.20, 10.1.21") and counts it as affected when any of them is; never the sites. A refused entry says why under
+  the form, and the sites field says how to give several (commas or spaces). Database schema 16.
+- Threat intelligence: an opened threat reads better: the summary first, then three panels (versions and the fix with
+  the version here, the attack and the precaution rule, exploitation with the full conditions), the sources as one
+  line each, the buttons at the end.
+- System check: lists show one chip per item (a long one opens with "N more"), long values break only at / - _ . and
+  never inside a word, times stay on one line; "generated_at" has a name.
+- Changes: the "approve the selected" row lines up (check box, note, button at the end).
+- Temporary IP blocks: the "Sites tried" heading explains ×N (the address's WAF events on that site in the 7 days up to
+  the block); a table heading can carry such a note.
+
 ## 0.4.74 (2026-11-16)
 
 - Threat intelligence alerts are worded in the notification and interface language: an alert keeps the CVE, the

@@ -50,7 +50,7 @@
       <table ref="tbl" class="grid" :class="{ fixedcols: hasWidths }" :style="hasWidths ? { width: tableWidth + 'px' } : null">
         <thead>
           <tr>
-            <th v-for="c in visibleCols" :key="c.key" :class="[c.align, { sortable: c.sortable !== false }]" :data-col="c.key"
+            <th v-for="c in visibleCols" :key="c.key" :class="[c.align, { sortable: c.sortable !== false }]" :data-col="c.key" :title="c.hint || null"
                 :style="widths[c.key] ? { width: widths[c.key] + 'px' } : null"
                 :aria-sort="sortKey === c.key ? (sortDir > 0 ? 'ascending' : 'descending') : null">
               <button v-if="c.sortable !== false" type="button" class="dt-sort" @click="sortBy(c)">

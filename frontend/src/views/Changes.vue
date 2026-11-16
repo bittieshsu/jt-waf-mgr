@@ -194,7 +194,10 @@ refreshPending(true)
 
 <style scoped>
 .guide { display: flex; flex-direction: column; gap: 12px; }
-.batchbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.batchbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding-top: 12px; padding-bottom: 12px; }
+.batchbar label.check { margin: 0; }                   /* the global label.check has a top margin: here it sits on the row */
+.batchbar .btn { margin-left: auto; }                    /* the action at the end of the row, the hint next to the check box */
+.batchbar [role="status"] { flex-basis: 100%; text-align: right; }
 .states { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; align-items: baseline; }
 .states dt { white-space: nowrap; }
 .states dd { margin: 0; color: var(--muted); }

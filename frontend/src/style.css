@@ -494,7 +494,9 @@ table.grid tbody tr.dt-expand:hover td { background: var(--panel-2); }
 .checkcard.cs-info > .cardhead:first-child { box-shadow: inset 4px 0 0 var(--border-strong); }
 .checkcard > .cardhead h2 { font-size: 1.02em; }
 .checkcard > p.muted.small { margin: 0 0 8px; }
-.checkcard dl.kv { grid-template-columns: minmax(7em, max-content) minmax(0, 1fr); gap: 4px 12px; margin: 6px 0 0; }
+.checkcard dl.kv { grid-template-columns: minmax(6.5em, 10em) minmax(0, 1fr); gap: 6px 14px; margin: 6px 0 0; align-items: baseline; }
+.checkcard dl.kv dd .chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.checkcard dl.kv dd .chip { margin: 0; color: var(--text); white-space: nowrap; }
 .checkcard dl.kv dt { color: var(--muted); font-size: .9em; }
 .checkcard dl.kv dd { margin: 0; overflow-wrap: anywhere; }
 .checkcard .itemchart { margin: 4px 0 6px; }

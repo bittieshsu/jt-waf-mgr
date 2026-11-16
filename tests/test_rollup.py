@@ -76,10 +76,17 @@ class TestRollup(unittest.TestCase):
             self.assertEqual(self.stored(t), self.scan(t), t)
 
     def both(self, **q):
-        api.OVERVIEW_ROLLUP = False
-        raw = api._overview(self.app, Req(self.app, **q))
-        api.OVERVIEW_ROLLUP = True
-        fast = api._overview(self.app, Req(self.app, **q))
+        # one clock for both answers: a window that ends a second later is not the same window (an occasional failure
+        # when the two calls straddled a second)
+        real, t = util.now, util.now()
+        util.now = lambda: t
+        try:
+            api.OVERVIEW_ROLLUP = False
+            raw = api._overview(self.app, Req(self.app, **q))
+            api.OVERVIEW_ROLLUP = True
+            fast = api._overview(self.app, Req(self.app, **q))
+        finally:
+            util.now = real
         return norm(raw), norm(fast)
 
     def test_triggers_follow_inserts_updates_and_deletes(self):
