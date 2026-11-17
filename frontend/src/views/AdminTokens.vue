@@ -30,7 +30,7 @@
       <div v-if="secret" class="alert success">
         <p>{{ t('tokens.secret_once') }}</p>
         <CopyText :value="secret" />
-        <button class="btn small ghost" type="button" @click="secret = ''"><Icon name="dismiss" />{{ t('common.dismiss') }}</button>
+        <div class="secret-acts"><button class="btn small ghost" type="button" @click="secret = ''"><Icon name="dismiss" />{{ t('common.dismiss') }}</button></div>
       </div>
     </section>
     <section class="card">
@@ -167,3 +167,7 @@ async function revoke(tk) {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.secret-acts { margin-top: 10px; }
+</style>

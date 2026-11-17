@@ -74,7 +74,12 @@ class TempEnv:
              'auth': {'password_min_classes': 0, 'password_history': 0, 'dormant_days': 0},
              'integrity': {'anchor_file': os.path.join(self.dir, 'anchors.jsonl')},
              'backup': {'dir': os.path.join(self.dir, 'backups')},
-             'managed': {'apply_state': os.path.join(self.dir, 'apply-state')},
+             # every place the apply program and the jobs read or write: never the host's own (the unit tests also
+             # run on the production host as root, release gate G10 -- a request in the real spool is applied there)
+             'managed': {'apply_state': os.path.join(self.dir, 'apply-state'), 'spool': os.path.join(self.dir, 'spool'),
+                         'dir': os.path.join(self.dir, 'managed'), 'sandbox_dir': os.path.join(self.dir, 'sandbox')},
+             'blocks': {'file': os.path.join(self.dir, 'nginx-jt', 'blocked-ips.conf')},
+             'crs': {'dir': os.path.join(self.dir, 'crs')},
              # never the development host's own nginx logs
              'traffic': {'logs': [os.path.join(self.dir, 'traffic', '*access.log')]},
              'evidence': {'access_logs': [os.path.join(self.dir, 'nginx', '*access.log')]},

@@ -282,10 +282,11 @@ class TestApi(unittest.TestCase):
         st, obj, _ = c.req('GET', '/api/v1/health')
         self.assertEqual(st, 200)
         checks = {x['name']: x for x in obj['checks']}
-        self.assertEqual(checks['modsecurity']['status'], 'warning')        # the fixture is DetectionOnly
+        # the fixture's engine is DetectionOnly: a warning unless rules switch blocking on (test_health covers that)
+        self.assertIn(checks['modsecurity']['status'], ('ok', 'warning'))
         self.assertEqual(checks['collector']['status'], 'ok')
-        self.assertIn(obj['status'], ('warning', 'critical'))
-        self.assertIn('modsecurity', obj['problems'])
+        self.assertIn(obj['status'], ('ok', 'warning', 'critical'))
+        self.assertEqual(obj['problems'], [c['name'] for c in obj['checks'] if c['status'] != 'ok'])
         self.assertEqual(obj['metrics']['pending_changes'], 0)
 
     def test_lookup(self):

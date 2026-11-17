@@ -5,6 +5,7 @@ checks already keep and never runs `nginx -t`, a full hash of the program or the
 Each check: ok | warning | critical, with a short English message (the plugin words it in its own language by
 the check's name). The overall status is the worst one.
 """
+import re
 import time
 
 from . import __version__, util
@@ -58,19 +59,36 @@ def _nginx(app):
     return _check('nginx', OK if up else CRITICAL, 'running' if up else 'not running', pid_file=pf)
 
 
+def _switches_on(m):
+    """Rules that turn blocking on for the request they match (ctl:ruleEngine=On): an engine set to detection only
+    then still refuses what these rules pick (confident blocks, the score refusal for outside sources)."""
+    n = 0
+    for r in m.rules:
+        acts = list(r.all_actions()) if hasattr(r, 'all_actions') else (getattr(r, 'actions', None) or [])
+        for k, v in acts:            # every element of a chain: the switch is often on the last one
+            if k == 'ctl' and re.match(r'(?i)\s*ruleEngine\s*=\s*On\b', str(v)):
+                n += 1
+                break
+    return n
+
+
 def _modsecurity(app):
     _, m = app.site.load()
     c = m.crs_status()
     mode = c.get('engine_mode')
+    on = _switches_on(m) if mode == 'DetectionOnly' else 0
     if mode == 'On':
         st, msg = OK, 'blocking'
+    elif mode == 'DetectionOnly' and on:
+        st, msg = OK, 'blocking through rules (engine set to detection only)'
     elif mode == 'DetectionOnly':
         st, msg = WARNING, 'detection only: nothing is blocked'
     else:
         st, msg = CRITICAL, 'engine off' if mode == 'Off' else 'no ModSecurity configuration found'
     if st == OK and not c.get('rule_count'):
         st, msg = WARNING, 'no CRS rules loaded'
-    return _check('modsecurity', st, msg, engine_mode=mode, crs_version=c.get('version'), rule_count=c.get('rule_count'))
+    return _check('modsecurity', st, msg, engine_mode=mode, crs_version=c.get('version'), rule_count=c.get('rule_count'),
+                  blocking_rules=on or None)
 
 
 def _managed(app):

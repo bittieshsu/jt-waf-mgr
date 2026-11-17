@@ -141,6 +141,7 @@ class TestCrsApplier(_Keys, unittest.TestCase):
         r.update(kw)
         return r
 
+    @unittest.skipUnless(os.geteuid() == 0, 'the apply program only takes a root-owned CRS directory: run as root')
     def test_install_and_rollback(self):
         st = self.stage(self.cfg['crs']['dir'])
         res = self.ap.crs_switch(self.ap.check_crs(self.req(st)))

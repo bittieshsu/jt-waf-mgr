@@ -320,3 +320,28 @@ class TestVersionList(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestNoSystemPaths(unittest.TestCase):
+    """The unit tests run on the production host as root (gate G10): no configuration a test builds may point at the
+    host's own spool, managed files or block list (a request in the real spool is applied to the real nginx)."""
+
+    def test_defaults_moved_and_temp_env_contained(self):
+        from jtwafmgr import config
+        from tests import SYSTEM_PREFIXES
+        from tests.helpers import TempEnv
+
+        def paths(d, out):
+            for v in d.values():
+                if isinstance(v, dict):
+                    paths(v, out)
+                elif isinstance(v, str) and v.startswith('/'):
+                    out.append(v)
+            return out
+        bad = [p for p in paths(config.DEFAULTS, []) if p.startswith(SYSTEM_PREFIXES)]
+        self.assertEqual(bad, [])
+        env = TempEnv()
+        self.addCleanup(env.cleanup)
+        for key in ('spool', 'dir', 'sandbox_dir', 'apply_state'):
+            self.assertTrue(env.cfg['managed'][key].startswith(env.dir), key)
+        self.assertTrue(env.cfg['blocks']['file'].startswith(env.dir))

@@ -53,6 +53,18 @@ class TestHealth(unittest.TestCase):
         self.app.db.x("INSERT INTO config_snapshots(ts, digest, cause, files) VALUES (strftime('%s','now'), 'd', 'outside', '{}')")
         self.assertEqual(self.by_name(health.health(self.app))['config_changes']['status'], 'warning')
 
+    def test_detection_only_engine_with_rules_that_switch_blocking_on(self):
+        from types import SimpleNamespace as NS
+        m = NS(rules=[NS(actions=[('id', '10205'), ('ctl', 'ruleEngine=On'), ('deny', '')])], crs_status=lambda: {
+            'engine_mode': 'DetectionOnly', 'rule_count': 600, 'version': '4.30.0'})
+        orig = self.app.site.load
+        self.addCleanup(setattr, self.app.site, 'load', orig)
+        self.app.site.load = lambda: (None, m)
+        c = health._modsecurity(self.app)
+        self.assertEqual((c['status'], c['blocking_rules']), ('ok', 1))
+        m.rules = [NS(actions=[('id', '10150'), ('ctl', 'ruleRemoveById=942100')])]
+        self.assertEqual(health._modsecurity(self.app)['status'], 'warning')
+
     def test_analyst_two_failures(self):
         self.app.cfg['analyst']['enabled'] = True
         for err in ('http_502: x', 'http_502: y'):

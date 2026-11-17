@@ -2,6 +2,12 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.83 (2026-11-17)
+
+- Health API: an engine set to detection only with rules that switch blocking on for what they match (confident blocks, the score refusal for outside sources) is fine ("blocking through rules"), no longer "detection only: nothing is blocked".
+- Tests: every system path of a test configuration (the apply spool, the managed rule files, the IP block list, the database...) points at a temporary directory, with a test that checks it. A test wrote an IP block list request into the default spool: when the unit tests ran as root on a production host (release gate G10), its block list was replaced by the test entries for about a minute until put back.
+- API tokens: the "Close" button of the new-token box keeps its distance from the token field.
+
 ## 0.4.82 (2026-11-17)
 
 - Pause the WAF (troubleshooting, Admin → Pause the WAF): when a site misbehaves, stop refusing on every site or on one site for a while to see whether the WAF causes it. 1, 3, 12 or 24 hours or until resumed (a daily reminder while it lasts); it ends by itself. "Resume everything" removes only the pause; every other rule stays as it was.
