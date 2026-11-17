@@ -275,6 +275,14 @@ class TestApi(unittest.TestCase):
         st, obj, _ = c.req('GET', '/api/v1/status')
         self.assertEqual(obj['engine_mode'], 'DetectionOnly')
         self.assertEqual(obj['collector']['events_total'], 3)
+        st, obj, _ = c.req('GET', '/api/v1/health')
+        self.assertEqual(st, 200)
+        checks = {x['name']: x for x in obj['checks']}
+        self.assertEqual(checks['modsecurity']['status'], 'warning')        # the fixture is DetectionOnly
+        self.assertEqual(checks['collector']['status'], 'ok')
+        self.assertIn(obj['status'], ('warning', 'critical'))
+        self.assertIn('modsecurity', obj['problems'])
+        self.assertEqual(obj['metrics']['pending_changes'], 0)
 
     def test_lookup(self):
         c = Client(self.port)

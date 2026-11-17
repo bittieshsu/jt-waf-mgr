@@ -10,6 +10,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 import preflight  # noqa: E402
 
 FORBIDDEN_LINES = (re.compile(r'^Claude-Session:', re.M),)
+# GitHub closes an issue by itself when a pushed commit says "fixes #12"; the user replies to and closes issues
+# (2026-11-17). Name them "GitHub issue #12" instead.
+CLOSING = re.compile(r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:[\w.-]+/[\w.-]+)?#\d+', re.I)
 
 
 def problems(text):
@@ -17,6 +20,8 @@ def problems(text):
     for rx in FORBIDDEN_LINES:
         if rx.search(text):
             out.append('contains a "%s" line' % rx.pattern.strip('^:'))
+    if CLOSING.search(text):
+        out.append('would close a GitHub issue ("%s"); write "GitHub issue #N" instead' % CLOSING.search(text).group(0))
     low = text.lower()
     deny = preflight.load_denylist(required=True)
     if deny is None:

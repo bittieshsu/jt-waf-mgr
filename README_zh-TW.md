@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.79
+# jt-waf-mgr v0.4.80
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -132,7 +132,7 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # 發行檔的固定位置
-V=0.4.79; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.80; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # 發行檔、簽章與公鑰
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -327,7 +327,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新版本一樣解開到 current
-V=0.4.79; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.80; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # 只做所有檢查，不改任何東西

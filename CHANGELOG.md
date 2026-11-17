@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.80 (2026-11-17)
+
+- New `GET /api/v1/health` (API token scope `status:read`): whether the WAF works, for a monitoring system. Always 200; `status` is `ok`, `warning` or `critical`. It checks the nginx master process, ModSecurity in blocking mode, managed rule files changed outside jt-waf-mgr, the last apply, the event collector still reading the audit log, the IP block list loaded, program integrity, the audit chain, outside configuration changes in the last 24 hours and repeated event analysis failures, plus numbers for graphs. It uses the results the background checks keep and is cheap to ask every minute. The LibreNMS / Nagios plugin `check_jt_waf_mgr` (jt-lnms-plugins) reads it.
+- The rule list opens on all sources (it opened on the site rules only, so OWASP CRS seemed missing); "All sources" is first in the source menu.
+
 ## 0.4.79 (2026-11-17)
 
 - Token limits for the first-tier LLM as well: Settings → first-tier LLM has a daily and a monthly token limit for the scheduled event analysis and the single-event AI analysis together, 0 (no limit) by default. When one is used up the scheduled analysis uses the program rules only (outside probes for secret or configuration files still get confident blocks proposed) and single-event AI analysis answers "limit reached", until the next day or month; a limit used up during a run leaves the rest of the candidates unjudged that time. The event analysis page shows today's and this month's use.

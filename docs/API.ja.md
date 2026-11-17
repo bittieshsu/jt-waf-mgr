@@ -49,7 +49,7 @@
 
 トークンには次のスコープを 1 つ以上付けます。これ以外はありません。
 
-- `status:read`：`GET /status`。
+- `status:read`：`GET /status`、`GET /health`。
 - `events:read`：イベント、イベント統計、タイムライン、概要、NDJSON エクスポート。
 - `rules:read`：ルール、ルールのヒット、サイト（vhost）、CRS の状態と更新、WAF の判定モデル、管理対象ルールファイル。
 - `lookups:read`：IP 検索と GeoIP 検索。
@@ -153,6 +153,28 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/status
  "collector": {"running": true, "error": null, "last_event_at": "2026-11-13T15:13:27+08:00", "lag_seconds": 0,
                "parse_errors": 0, "oversized": 0, "insert_errors": 0, "events_total": 1234, "...": "..."},
  "nginx": {"version": "1.22.1", "module_mismatch": null}}
+```
+
+**`GET /health`**：スコープ `status:read`。監視システム向けに WAF が正常に動作しているかを返します (LibreNMS / Nagios
+プラグイン `check_jt_waf_mgr` が読みます)。常に HTTP 200 で、`status` はすべてのチェックのうち最も悪いもの
+(`ok`、`warning`、`critical`) です。バックグラウンドのチェック結果を使うので、毎分問い合わせても負荷はありません。
+チェック項目：`nginx` (pid ファイルからマスタープロセス)、`modsecurity` (`On` は正常、`DetectionOnly` は警告、オフ
+または見つからない場合は重大)、`managed_rules` (管理ファイルが外部で変更された：重大)、`last_apply` (24 時間以内に
+適用失敗：警告)、`collector` (5 分間監査記録を読んでいない：重大)、`ip_blocks`、`program_integrity`、`audit_chain`、
+`config_changes` (24 時間以内に外部で変更：警告)、`analyst` (直近 2 回とも失敗：警告)。`metrics` はグラフ用の数値です。
+
+```sh
+curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
+```
+```json
+{"status": "warning", "version": "0.4.80", "node_id": "waf1", "checked_at": "2026-11-17T20:00:00+08:00",
+ "problems": ["ip_blocks"],
+ "checks": [{"name": "nginx", "status": "ok", "message": "running", "pid_file": "/run/nginx.pid"},
+            {"name": "modsecurity", "status": "ok", "message": "blocking", "engine_mode": "On", "rule_count": 631},
+            {"name": "ip_blocks", "status": "warning", "message": "the list file differs from the active blocks"},
+            "..."],
+ "metrics": {"events_1h": 12, "blocked_1h": 9, "blocked_24h": 240, "last_event_age_seconds": 85,
+             "ip_blocks_active": 3, "open_alerts": 1, "pending_changes": 0}}
 ```
 
 ### 4.2 イベント

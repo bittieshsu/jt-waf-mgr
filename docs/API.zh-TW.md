@@ -41,7 +41,7 @@
 
 權杖可以有下列一個或多個 scope，沒有其他種類。
 
-- `status:read`：`GET /status`。
+- `status:read`：`GET /status`、`GET /health`。
 - `events:read`：事件、事件統計、時間軸、總覽、NDJSON 匯出。
 - `rules:read`：規則、規則命中、站台（vhost）、CRS 狀態與更新、WAF 判斷流程、受管理規則檔。
 - `lookups:read`：IP 查詢與 GeoIP 查詢。
@@ -140,6 +140,27 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/status
  "collector": {"running": true, "error": null, "last_event_at": "2026-11-13T15:13:27+08:00", "lag_seconds": 0,
                "parse_errors": 0, "oversized": 0, "insert_errors": 0, "events_total": 1234, "...": "..."},
  "nginx": {"version": "1.22.1", "module_mismatch": null}}
+```
+
+**`GET /health`**：scope `status:read`。給監控系統看 WAF 是否正常運作 (LibreNMS / Nagios 外掛 `check_jt_waf_mgr`
+讀的就是它)。一律回 HTTP 200，`status` 是所有檢查中最差的：`ok`、`warning` 或 `critical`。只用背景檢查已有的結果，
+每分鐘問一次也沒負擔。檢查項目：`nginx` (依 pid 檔看主程序)、`modsecurity` (`On` 正常，`DetectionOnly` 警告，關閉或
+找不到是嚴重)、`managed_rules` (受管理檔案被外部修改：嚴重)、`last_apply` (24 小時內套用失敗：警告)、`collector`
+(5 分鐘沒讀稽核記錄：嚴重)、`ip_blocks`、`program_integrity`、`audit_chain`、`config_changes` (24 小時內被外部修改：
+警告)、`analyst` (最近兩次都失敗：警告)。`metrics` 是給圖表用的數字。
+
+```sh
+curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
+```
+```json
+{"status": "warning", "version": "0.4.80", "node_id": "waf1", "checked_at": "2026-11-17T20:00:00+08:00",
+ "problems": ["ip_blocks"],
+ "checks": [{"name": "nginx", "status": "ok", "message": "running", "pid_file": "/run/nginx.pid"},
+            {"name": "modsecurity", "status": "ok", "message": "blocking", "engine_mode": "On", "rule_count": 631},
+            {"name": "ip_blocks", "status": "warning", "message": "the list file differs from the active blocks"},
+            "..."],
+ "metrics": {"events_1h": 12, "blocked_1h": 9, "blocked_24h": 240, "last_event_age_seconds": 85,
+             "ip_blocks_active": 3, "open_alerts": 1, "pending_changes": 0}}
 ```
 
 ### 4.2 事件

@@ -134,8 +134,10 @@ class TestFiles(Base):
 class TestText(Base):
     def test_messages_and_release_notes(self):
         self.assertEqual(scan_text.problems('jt-waf-mgr 1.2.3: a fix\n\nOn app.example.com.\n\n' + COAUTHOR), [])
-        for bad in (SESSION, 'from ' + PRIV_IP, 'mail ' + MAILBOX, KEY, 'the %s box' % SECRET_NAME):
+        for bad in (SESSION, 'from ' + PRIV_IP, 'mail ' + MAILBOX, KEY, 'the %s box' % SECRET_NAME,
+                    'Fixes #1', 'closes: #12', 'resolved owner/repo#3'):
             self.assertTrue(scan_text.problems('subject\n\n' + bad + '\n'), bad)
+        self.assertEqual(scan_text.problems('a fix (GitHub issue #1)\n\n' + COAUTHOR), [])     # naming it is fine
         self.assertEqual(preflight.failures, [])                 # the checks leave no failure behind
 
     def test_commit_msg_hook(self):

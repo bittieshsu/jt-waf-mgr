@@ -275,6 +275,12 @@ def status(app, req):
     })
 
 
+def health(app, req):
+    """Whether the WAF works, for a monitoring system (health.py). Always 200: the answer is in "status"."""
+    from .. import health as _health
+    return json_response(200, _health.health(app))
+
+
 def _group(app, col, since, until, limit=15, extra_where='', args=()):
     rows = app.db.q(
         'SELECT %s AS k, SUM(outcome=\'blocked\') AS b, SUM(outcome=\'logged\') AS l FROM events '
@@ -1686,6 +1692,7 @@ def register(router):
     R('POST', V + '/auth/totp/enable', totp_enable, 'session')
     R('POST', V + '/auth/totp/disable', totp_disable, 'session')
     R('GET', V + '/status', status, viewer('status:read'))
+    R('GET', V + '/health', health, viewer('status:read'))
     R('GET', V + '/overview', overview, viewer('events:read'))
     R('GET', V + '/events', events, viewer('events:read'))
     R('GET', V + '/events/stats', event_stats, viewer('events:read'))

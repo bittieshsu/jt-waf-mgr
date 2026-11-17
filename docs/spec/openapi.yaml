@@ -206,6 +206,12 @@ paths:
       responses:
         '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Status'}}}}
         default: {$ref: '#/components/responses/Error'}
+  /health:
+    get:
+      summary: Whether the WAF works, for monitoring (scope status:read); always 200, see status
+      responses:
+        '200': {description: 'OK: status is ok, warning or critical; checks[] and metrics', content: {application/json: {schema: {type: object}}}}
+        default: {$ref: '#/components/responses/Error'}
   /events:
     get:
       summary: List events (scope events:read)

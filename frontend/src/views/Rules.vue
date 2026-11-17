@@ -115,7 +115,7 @@ import HBars from '../components/charts/HBars.vue'
 import { hasRole } from '../store.js'
 import RuleToggle from '../components/RuleToggle.vue'
 
-const SOURCES = ['local', 'vhost_inline', 'crs', 'plugin', 'base', 'all']
+const SOURCES = ['all', 'local', 'crs', 'plugin', 'vhost_inline', 'base']
 const CATEGORIES = ['exclusion', 'confident_block', 'system', 'redaction', 'plugin_toggle', 'other']
 const FAMILIES = ['protocol', 'lfi', 'rfi', 'rce', 'php', 'generic', 'xss', 'sqli', 'session', 'java', 'scanner', 'method', 'data_leak', 'other']
 const STATES = ['on', 'partial', 'off', 'inactive']
@@ -126,7 +126,7 @@ const STATE_BADGE = { on: 'ok', partial: 'warn', off: 'blocked', inactive: 'logg
 const STATE_ICON = { on: 'check', partial: 'warning', off: 'hide', inactive: 'timer' }
 const route = useRoute()
 const router = useRouter()
-const f = reactive({ source: 'local', author: '', category: '', family: '', state: '', q: '' })
+const f = reactive({ source: 'all', author: '', category: '', family: '', state: '', q: '' })
 const authors = ref([])
 const summary = ref([])
 const items = ref([])
@@ -246,13 +246,13 @@ function shortFile(p) {
 
 const { dirty, fieldClass } = useFilterState(f, () => {
   const q = route.query
-  return { source: SOURCES.includes(q.source) ? q.source : 'local', category: typeof q.category === 'string' ? q.category : '',
+  return { source: SOURCES.includes(q.source) ? q.source : 'all', category: typeof q.category === 'string' ? q.category : '',
     family: typeof q.family === 'string' ? q.family : '', state: STATES.includes(q.state) ? q.state : '',
     author: AUTHORS.includes(q.author) ? q.author : '', q: typeof q.q === 'string' ? q.q : '' }
-}, { source: 'local' })
+}, { source: 'all' })
 function fromQuery() {
   const q = route.query
-  f.source = SOURCES.includes(q.source) ? q.source : 'local'
+  f.source = SOURCES.includes(q.source) ? q.source : 'all'
   f.category = typeof q.category === 'string' ? q.category : ''
   f.family = typeof q.family === 'string' ? q.family : ''
   f.state = STATES.includes(q.state) ? q.state : ''
@@ -279,7 +279,7 @@ async function load(fresh) {
 
 function apply() {
   const q = {}
-  if (f.source !== 'local') q.source = f.source
+  if (f.source !== 'all') q.source = f.source
   if (f.category && f.source !== 'crs') q.category = f.category
   if (f.family && f.source === 'crs') q.family = f.family
   if (f.state) q.state = f.state

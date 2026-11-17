@@ -630,7 +630,7 @@ async function audit(page, where) {
   ok((await page.locator('.coreg tbody tr').count()) === 5 && (await page.locator('.cosets tbody tr').count()) >= 1,
      'country block: the registries and the lists in use in Settings');
   // several rules at once: tick, "switch off" opens the change form with its preview (or why it cannot)
-  await page.goto(base + '/rules', { waitUntil: 'networkidle' });
+  await page.goto(base + '/rules?source=local', { waitUntil: 'networkidle' });
   await page.locator('input.rowsel').first().check();
   ok((await page.locator('.selbar').innerText()).includes('1'), 'rules: a ticked rule is counted');
   await page.locator('.selbar button.danger').click();

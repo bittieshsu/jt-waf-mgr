@@ -51,7 +51,7 @@ All examples use made-up values: `waf.example.com`, addresses from 192.0.2.0/24,
 
 A token has one or more of these scopes. There are no others.
 
-- `status:read`: `GET /status`.
+- `status:read`: `GET /status`, `GET /health`.
 - `events:read`: events, event statistics, timeline, overview, NDJSON export.
 - `rules:read`: rules, rule hits, sites (vhosts), CRS status and updates, the WAF decision model, managed rule files.
 - `lookups:read`: IP lookup and GeoIP lookup.
@@ -155,6 +155,28 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/status
  "collector": {"running": true, "error": null, "last_event_at": "2026-11-13T15:13:27+08:00", "lag_seconds": 0,
                "parse_errors": 0, "oversized": 0, "insert_errors": 0, "events_total": 1234, "...": "..."},
  "nginx": {"version": "1.22.1", "module_mismatch": null}}
+```
+
+**`GET /health`**: scope `status:read`. Whether the WAF works, for a monitoring system (the LibreNMS / Nagios plugin
+`check_jt_waf_mgr` reads it). Always HTTP 200; `status` is the worst of the checks: `ok`, `warning` or `critical`.
+It uses the results the background checks keep and is cheap to ask every minute. Checks: `nginx` (the master process
+from its pid file), `modsecurity` (`On` ok, `DetectionOnly` warning, off or missing critical), `managed_rules` (files
+changed outside jt-waf-mgr: critical), `last_apply` (failed in the last 24 hours: warning), `collector` (not reading the
+audit log for 5 minutes: critical), `ip_blocks`, `program_integrity`, `audit_chain`, `config_changes` (changed outside
+in the last 24 hours: warning), `analyst` (the last two runs failed: warning). `metrics` are numbers for graphs.
+
+```sh
+curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
+```
+```json
+{"status": "warning", "version": "0.4.80", "node_id": "waf1", "checked_at": "2026-11-17T20:00:00+08:00",
+ "problems": ["ip_blocks"],
+ "checks": [{"name": "nginx", "status": "ok", "message": "running", "pid_file": "/run/nginx.pid"},
+            {"name": "modsecurity", "status": "ok", "message": "blocking", "engine_mode": "On", "rule_count": 631},
+            {"name": "ip_blocks", "status": "warning", "message": "the list file differs from the active blocks"},
+            "..."],
+ "metrics": {"events_1h": 12, "blocked_1h": 9, "blocked_24h": 240, "last_event_age_seconds": 85,
+             "ip_blocks_active": 3, "open_alerts": 1, "pending_changes": 0}}
 ```
 
 ### 4.2 Events
