@@ -9,7 +9,7 @@ User=root
 Environment=PYTHONPATH=/usr/lib/jt-waf-mgr
 Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=/usr/bin/python3 -m jtwafmgr.apply --config /etc/jt-waf-mgr/config.toml
-TimeoutStartSec=900
+TimeoutStartSec=3600
 NoNewPrivileges=yes
 ProtectHome=yes
 PrivateTmp=yes

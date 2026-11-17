@@ -202,6 +202,9 @@ the next nginx package with the waiting module (`check.state`: `ready`, `no_modu
 (built with `deploy/build-modsecurity-module.sh`) is an upload of `kind` `nginxmod` named
 `ngx_http_modsecurity_module.so`; `finish` takes `description` (the `module.json` the script writes) or
 `nginx_package` (the package version it is for).
+`POST /nginx/update/propose` (admin, `reason`) proposes the update (or finishing an interrupted one) as a change of op
+`nginx` once the check is `ready`; approving it takes an admin's one-time code and a note. `POST /nginx/hold` (admin)
+holds the nginx package (apt-mark hold by the apply program).
 
 ### 4.2 Events
 

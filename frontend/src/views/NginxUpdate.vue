@@ -42,6 +42,24 @@
           </div>
         </div>
         <p v-if="advice" class="alert" :class="advice.cls">{{ advice.text }}</p>
+        <div v-if="c.state === 'untrusted'" class="alert warn breakall">{{ t('ngup.untrusted') }}
+          <CodeBlock :code="TRUST_CMD" lang="shell" small />
+          <div class="small">{{ t('ngup.uploaded_sha') }} <span class="mono">{{ safeText(c.module_sha256, 64) }}</span></div></div>
+        <div v-if="isAdmin && canHold" class="actions">
+          <button type="button" class="btn small" :disabled="busy" @click="holdNginx"><Icon name="lock" />{{ t('ngup.hold') }}</button>
+          <span class="muted small">{{ t('ngup.hold_hint') }}</span>
+        </div>
+        <div v-if="d.open_change" class="alert info">{{ t('ngup.open_change', { id: d.open_change }) }}
+          <RouterLink :to="'/changes/' + d.open_change">{{ t('toggle.open_change') }}</RouterLink></div>
+        <div v-else-if="isAdmin && ready" class="crsswitch">
+          <label class="field"><span>{{ t('crsupd.reason') }}</span>
+            <textarea v-model="reason" rows="2" maxlength="2000" class="w-lg" :placeholder="t('ngup.reason_hint')"></textarea></label>
+          <div class="actions">
+            <button type="button" class="btn small primary" :disabled="busy || reason.trim().length < 5" @click="propose">
+              <Icon name="change" />{{ c.mode === 'finish' ? t('ngup.propose_finish', { v: c.target }) : t('ngup.propose', { from: d.installed, v: c.target }) }}</button>
+          </div>
+          <p class="muted small">{{ t('ngup.propose_hint') }}</p>
+        </div>
         <p v-if="msg" class="muted small" role="status">{{ msg }}</p>
       </section>
       <section v-if="d.hand_built.length || d.waiting.length" class="card">
@@ -57,9 +75,9 @@
         </div>
         <ul v-if="d.waiting.length" class="plainlist">
           <li v-for="w in d.waiting" :key="w.for"><span class="mono">{{ safeText(w.for, 70) }}</span>
+            <span class="badge gapl" :class="w.trusted ? 'b-ok' : 'b-warn'">{{ w.trusted ? t('ngup.trusted') : t('ngup.st.untrusted') }}</span>
             <span class="muted small">{{ [w.os, w.libmodsecurity, w.uploaded_by && t('ngup.uploaded_by', { who: w.uploaded_by, at: fmtMinute(w.uploaded_at) })].filter(Boolean).map((x) => safeText(x, 120)).join(' · ') }}</span></li>
         </ul>
-        <p class="muted small">{{ t('ngup.next_release') }}</p>
       </section>
       <ErrorBox :error="opError" />
     </template>
@@ -87,8 +105,27 @@ const soFile = ref(null)
 const jsonFile = ref(null)
 const isAdmin = computed(() => hasRole('admin'))
 const c = computed(() => (d.value && d.value.check) || {})
+const ready = computed(() => c.value.state === 'ready' && !!c.value.target)
+const canHold = computed(() => d.value && d.value.package && d.value.held === false && d.value.hand_built.length > 0)
+const reason = ref('')
+async function propose() {
+  busy.value = true
+  opError.value = null
+  try {
+    const r = await post('/nginx/update/propose', { reason: reason.value.trim() })
+    reason.value = ''
+    msg.value = t('ngup.proposed', { id: r.change_id })
+    await load()
+  } catch (e) { opError.value = e } finally { busy.value = false }
+}
+async function holdNginx() {
+  busy.value = true
+  opError.value = null
+  try { await post('/nginx/hold', {}); msg.value = t('ngup.hold_requested') } catch (e) { opError.value = e } finally { busy.value = false }
+}
+const TRUST_CMD = 'sudo jt-waf-mgr nginx-module-trust ngx_http_modsecurity_module.so --sha256 <SHA-256>'
 const STATE_CLS = { ready: 'b-ok', current: 'b-ok', packaged: 'b-ok', no_module: 'b-warn', failed: 'b-blocked', error: 'b-blocked',
-  other_hand_built: 'b-warn', running: 'b-int', unsupported: 'b-logged' }
+  other_hand_built: 'b-warn', running: 'b-int', unsupported: 'b-logged', untrusted: 'b-warn', unsupported_packaging: 'b-logged' }
 const buildCmd = computed(() => {
   const v = d.value && d.value.update ? d.value.candidate : ''
   return 'sudo ./deploy/build-modsecurity-module.sh' + (v ? '      # ' + t('ngup.cmd_note', { v }) : '')
@@ -97,7 +134,7 @@ const buildCmd = computed(() => {
 const advice = computed(() => {
   const x = d.value
   if (!x) return null
-  if (x.level === 'critical') return { cls: 'error', text: t('ngup.adv.broken') }
+  if (x.level === 'critical') return { cls: 'error', text: ready.value ? t('ngup.adv.finish_ready', { v: c.value.target }) : t('ngup.adv.broken') }
   if (!x.update) return x.hand_built.length && !x.held ? { cls: 'warn', text: t('ngup.adv.hold') } : null
   const s = c.value.state
   if (s === 'ready' && c.value.candidate === x.candidate) return { cls: 'success', text: t('ngup.adv.ready', { v: x.candidate }) }

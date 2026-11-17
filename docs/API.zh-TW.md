@@ -183,6 +183,8 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 `POST /nginx/update/check` (管理者) 要求立即檢查。給下一版 nginx 的模組 (用 `deploy/build-modsecurity-module.sh`
 編譯) 以 `kind` 為 `nginxmod`、名稱 `ngx_http_modsecurity_module.so` 上傳；`finish` 帶 `description` (腳本產生的
 `module.json`) 或 `nginx_package` (模組對應的套件版本)。
+檢查結果為 `ready` 後，`POST /nginx/update/propose` (管理者，帶 `reason`) 提出更新 (或完成中斷的更新)，為 op `nginx`
+的變更；核准要管理者的一次性密碼與說明。`POST /nginx/hold` (管理者) 鎖定 nginx 套件 (由套用程式執行 apt-mark hold)。
 
 ### 4.2 事件
 

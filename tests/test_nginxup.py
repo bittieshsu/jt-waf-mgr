@@ -30,10 +30,19 @@ class Base(unittest.TestCase):
         self.addCleanup(self.env.cleanup)
         self.app = App(self.env.cfg)
         self.addCleanup(self.app.stop)
-        saved = (nginxmod.modules, nginxmod.update_risk, nginxup._download, nginxup.try_module)
+        saved = (nginxmod.modules, nginxmod.update_risk, nginxup._download, nginxup.try_module, nginxmod.load_test)
         self.addCleanup(lambda: (setattr(nginxmod, 'modules', saved[0]), setattr(nginxmod, 'update_risk', saved[1]),
-                                 setattr(nginxup, '_download', saved[2]), setattr(nginxup, 'try_module', saved[3])))
+                                 setattr(nginxup, '_download', saved[2]), setattr(nginxup, 'try_module', saved[3]),
+                                 setattr(nginxmod, 'load_test', saved[4])))
         nginxmod.modules = lambda app: ([MOD], False)
+        self.loads = True
+        nginxmod.load_test = lambda nginx_bin, mods: {'ok': self.loads}
+        from jtwafmgr import nginxswap
+        saved2 = (nginxswap.trusted_modules, nginxup._single_package)
+        self.addCleanup(lambda: (setattr(nginxswap, 'trusted_modules', saved2[0]), setattr(nginxup, '_single_package', saved2[1])))
+        self.trusted = {hashlib.sha256(b'\x7fELF module').hexdigest()}
+        nginxswap.trusted_modules = lambda path=None: self.trusted
+        nginxup._single_package = lambda pkg, version: True
         self.tried = []
 
     def risk(self, **kw):
@@ -44,15 +53,25 @@ class Base(unittest.TestCase):
         nginxmod.update_risk = lambda nginx_bin, mods: r
 
     def fake_package(self, ok=True):
-        def download(pkg, version, work, root):
-            os.makedirs(os.path.join(root, 'usr', 'sbin'), exist_ok=True)
-            with open(os.path.join(root, 'usr', 'sbin', 'nginx'), 'w') as fh:
-                fh.write('fake %s %s' % (pkg, version))
-            return 'f' * 64, None
+        self.downloads = []
+
+        def download(pkg, version, work, root=None):
+            self.downloads.append((pkg, version))
+            deb = os.path.join(work, '%s_%s_amd64.deb' % (pkg, version))
+            with open(deb, 'w') as fh:
+                fh.write('deb %s %s' % (pkg, version))
+            if root:
+                os.makedirs(os.path.join(root, 'usr', 'sbin'), exist_ok=True)
+                if pkg == 'nginx':
+                    with open(os.path.join(root, 'usr', 'sbin', 'nginx'), 'w') as fh:
+                        fh.write('fake %s %s' % (pkg, version))
+            return deb, 'f' * 64, None
 
         def try_module(nginx_bin, module, others=()):
-            with open(nginx_bin) as fh:
-                text = fh.read()
+            text = nginx_bin
+            if os.path.isfile(nginx_bin):
+                with open(nginx_bin) as fh:
+                    text = fh.read()
             self.tried.append((text, nginxup.sha256_file(module), list(others)))
             return (True, 'loaded; refused the test request (403), passed an ordinary one (200)') if ok else \
                 (False, 'nginx -t: module "..." version 1030006 instead of 1030007')
@@ -91,6 +110,9 @@ class TestRun(Base):
         st = nginxup.run(self.app, log=lambda m: None)
         self.assertEqual((st['state'], st['module_sha256'], st['candidate']), ('ready', sha, '1.30.7-1~bookworm'))
         self.assertEqual(self.tried[0][0], 'fake nginx 1.30.7-1~bookworm')    # the new package's nginx, not the running one
+        self.assertEqual((st['mode'], st['target']), ('update', '1.30.7-1~bookworm'))
+        self.assertEqual(sorted(os.listdir(os.path.join(nginxup.base(self.env.cfg), 'debs'))),     # new and the way back
+                         ['nginx_1.30.6-1~bookworm_amd64.deb', 'nginx_1.30.7-1~bookworm_amd64.deb'])
         self.assertFalse(os.path.exists(os.path.join(nginxup.base(self.env.cfg), nginxup.REQUEST)))
 
     def test_failed_and_mismatched(self):
@@ -106,25 +128,33 @@ class TestRun(Base):
         self.assertEqual(st['state'], 'failed')
         self.assertIn('SHA-256', st['error'])
 
-    def test_packaged_modules_at_their_new_version(self):
+    def test_unsupported_packaging_and_trust(self):
         other = '/usr/lib/nginx/modules/ngx_http_geoip_module.so'
         self.risk(modules=[{'path': MOD, 'package': None, 'follows': False},
                            {'path': other, 'package': 'nginx-module-geoip', 'installed': '1.30.6-1', 'candidate': '1.30.7-1'}])
         self.fake_package()
         self.put_module()
-        got = []
-        dl = nginxup._download
+        self.assertEqual(nginxup.run(self.app, log=lambda m: None)['state'], 'unsupported_packaging')
+        self.risk()
+        nginxup._single_package = lambda pkg, version: False                 # Debian's nginx + nginx-common
+        self.assertEqual(nginxup.run(self.app, log=lambda m: None)['state'], 'unsupported_packaging')
+        nginxup._single_package = lambda pkg, version: True
+        self.trusted.clear()
+        st = nginxup.run(self.app, log=lambda m: None)
+        self.assertEqual(st['state'], 'untrusted')                            # nothing downloaded or tried
+        self.assertEqual((self.downloads, self.tried), ([], []))
 
-        def download(pkg, version, work, root):
-            got.append((pkg, version))
-            if pkg == 'nginx-module-geoip':
-                os.makedirs(os.path.join(root, os.path.dirname(other).lstrip('/')), exist_ok=True)
-                open(os.path.join(root, other.lstrip('/')), 'w').close()
-            return dl(pkg, version, work, root)
-        nginxup._download = download
-        self.assertEqual(nginxup.run(self.app, log=lambda m: None)['state'], 'ready')
-        self.assertEqual(got, [('nginx', '1.30.7-1~bookworm'), ('nginx-module-geoip', '1.30.7-1')])
-        self.assertTrue(self.tried[0][2][0].endswith(other) and self.tried[0][2][0] != other)
+    def test_finish_an_update_already_installed(self):
+        # nginx was updated, the module left behind: nginx -t fails; the module for the installed nginx finishes it
+        self.risk(update=False, installed='1.30.7-1~bookworm', candidate='1.30.7-1~bookworm')
+        self.loads = False
+        self.fake_package()
+        self.assertEqual(nginxup.run(self.app, log=lambda m: None)['state'], 'no_module')
+        self.put_module()
+        st = nginxup.run(self.app, log=lambda m: None)
+        self.assertEqual((st['state'], st['mode'], st['target']), ('ready', 'finish', '1.30.7-1~bookworm'))
+        self.assertEqual(self.downloads, [])                              # the installed nginx itself is tried
+        self.assertEqual(self.tried[-1][0], self.env.cfg['paths']['nginx_bin'])
 
     def test_module_dir_names(self):
         for bad in ('', '../x', '1.0/../../etc', 'a b', 'x' * 80):
@@ -165,8 +195,12 @@ class TestApi(Base):
         self.assertEqual((meta['uploaded_by'], meta['os'], 'extra' in meta), ('boss', 'debian-12', False))
         self.assertTrue(os.path.exists(os.path.join(nginxup.base(self.env.cfg), nginxup.REQUEST)))
         self.fake_package()
+        st = nginxup.run(self.app, log=lambda m: None)
+        self.assertEqual(st['state'], 'untrusted')                     # uploaded through the web: root has not trusted it
+        self.trusted.add(hashlib.sha256(data).hexdigest())
         nginxup.run(self.app, log=lambda m: None)
         st = json.loads(api_nginxup.update_status(self.app, Req()).body)
+        self.assertTrue(st['waiting'][0]['trusted'])
         self.assertEqual(st['check']['state'], 'ready')
         self.assertEqual(st['waiting'][0]['for'], '1.30.7-1~bookworm')
         api_nginxup.update_check(self.app, Req())

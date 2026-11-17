@@ -200,6 +200,9 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 (`deploy/build-modsecurity-module.sh` でビルド) は `kind` `nginxmod`、名前 `ngx_http_modsecurity_module.so` で
 アップロードし、`finish` に `description` (スクリプトが出力する `module.json`) か `nginx_package` (対象のパッケージ
 バージョン) を渡します。
+確認結果が `ready` になったら、`POST /nginx/update/propose` (管理者、`reason`) で更新 (または中断された更新の完了) を
+op `nginx` の変更として提案します。承認には管理者のワンタイムコードと説明が必要です。`POST /nginx/hold` (管理者) は
+nginx パッケージを固定します (適用プログラムが apt-mark hold を実行)。
 
 ### 4.2 イベント
 

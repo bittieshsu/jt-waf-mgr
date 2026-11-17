@@ -268,6 +268,19 @@ def cmd_hub_sync(args):
     return 1 if st.get('state') == 'error' else 0
 
 
+def cmd_nginx_module_trust(args):
+    """Root on the host: the only way a module becomes usable for an nginx update (the web service cannot do it)."""
+    from . import nginxswap
+    cfg = config_mod.load(args.config if os.path.exists(args.config) or args.config != config_mod.DEFAULT_PATH else None)
+    try:
+        h = nginxswap.trust(args.file, args.sha256, cfg['managed']['apply_state'], args.note or os.path.basename(args.file))
+    except (nginxswap.SwapFail, OSError) as e:
+        print('error: %s' % (getattr(e, 'summary', None) or e), file=sys.stderr)
+        return 1
+    print('trusted %s (%s)' % (args.file, h))
+    return 0
+
+
 def cmd_nginx_update_check(args):
     """Run by jt-waf-mgr-nginxup.service (daily timer, "check now" or a module upload); also usable by hand."""
     from . import nginxup
@@ -409,6 +422,10 @@ def main(argv=None):
     gu = sub.add_parser('geoip-update', help='download the GeoIP databases now (normally run by its own unit)')
     gu.add_argument('--force', action='store_true', help='even when the files are recent')
     sub.add_parser('dns-check', help='ask the DNS servers about the site names and look up PTR names now (normally run by its own unit)')
+    nt = sub.add_parser('nginx-module-trust', help='root: trust a ModSecurity module file for nginx updates (adds its SHA-256 to /etc/jt-waf-mgr/trusted-modules.sha256)')
+    nt.add_argument('file')
+    nt.add_argument('--sha256', required=True, help='the SHA-256 the build script printed (the file must have exactly this one)')
+    nt.add_argument('--note', default='')
     sub.add_parser('nginx-update-check', help='get ready for the next nginx update now: try the waiting ModSecurity module with it (normally run by its own unit)')
     sub.add_parser('hub-sync', help='read the CrowdSec Hub virtual patching rules now (normally run by its own unit)')
     cu = sub.add_parser('countries-update', help='download the registries\' country lists now (normally run by its own unit)')
@@ -435,7 +452,7 @@ def main(argv=None):
     try:
         return {'serve': cmd_serve, 'user': cmd_user, 'import': cmd_import, 'check': cmd_check,
                 'integrity': cmd_integrity, 'verify-release': cmd_verify_release, 'audit-verify': cmd_audit_verify,
-                'backup': cmd_backup, 'geoip-update': cmd_geoip_update, 'countries-update': cmd_countries_update, 'hub-sync': cmd_hub_sync, 'nginx-update-check': cmd_nginx_update_check, 'dns-check': cmd_dns_check, 'crs-update': cmd_crs_update, 'geoip': cmd_geoip, 'analyst-run': cmd_analyst_run, 'intel-run': cmd_intel_run, 'notify-run': cmd_notify_run,
+                'backup': cmd_backup, 'geoip-update': cmd_geoip_update, 'countries-update': cmd_countries_update, 'hub-sync': cmd_hub_sync, 'nginx-update-check': cmd_nginx_update_check, 'nginx-module-trust': cmd_nginx_module_trust, 'dns-check': cmd_dns_check, 'crs-update': cmd_crs_update, 'geoip': cmd_geoip, 'analyst-run': cmd_analyst_run, 'intel-run': cmd_intel_run, 'notify-run': cmd_notify_run,
                 'config-check': cmd_config_check, 'migrate': cmd_migrate, 'doctor': cmd_doctor}[args.cmd](args)
     except config_mod.ConfigError as e:
         print('configuration error: %s' % e, file=sys.stderr)

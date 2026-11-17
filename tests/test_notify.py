@@ -363,7 +363,8 @@ class TestHardening(NotifyBase):
 class TestDailyReport(NotifyBase):
     def test_once_a_day_after_the_hour(self):
         self.webhook(report_hour=0)
-        now = time.time()
+        lt = time.localtime()
+        now = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, 12, 0, 0, 0, 0, -1))   # noon: now + 60 is the same day
         for i, (outcome, host) in enumerate((('blocked', 'app.example.com'), ('logged', 'app.example.com'), ('logged', 'shop.example.com'))):
             self.app.db.x("INSERT INTO events(node_id, unique_id, ts, host, method, path, query, src_ip, origin, status, outcome, "
                           "decided_by, rule_ids, local_rule_ids, families, message, matches) VALUES ('waf1', ?, ?, ?, 'GET', '/x', '', "

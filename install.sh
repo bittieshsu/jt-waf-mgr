@@ -174,7 +174,8 @@ for u in jt-waf-mgr.service jt-waf-mgr-apply.service jt-waf-mgr-apply.path \
          jt-waf-mgr-dns.service jt-waf-mgr-dns.timer jt-waf-mgr-dns.path \
          jt-waf-mgr-intel.service jt-waf-mgr-intel.timer jt-waf-mgr-intel.path \
          jt-waf-mgr-hub.service jt-waf-mgr-hub.timer jt-waf-mgr-hub.path \
-         jt-waf-mgr-nginxup.service jt-waf-mgr-nginxup.timer jt-waf-mgr-nginxup.path; do
+         jt-waf-mgr-nginxup.service jt-waf-mgr-nginxup.timer jt-waf-mgr-nginxup.path \
+         jt-waf-mgr-nginxswap.service; do
     cp "$SRC/deploy/$u" "$UNIT_DIR/$u"
     chmod 644 "$UNIT_DIR/$u"
 done

@@ -144,6 +144,13 @@ def try_module(nginx_bin, module, other_modules=()):
             return False, 'the module did not refuse (got %s for the test request, %s for an ordinary one)' % (refused, ordinary)
         return True, 'loaded; refused the test request (403), passed an ordinary one (200)'
     finally:
+        if not pid:
+            try:                    # started late: the pid file shows up after the wait above
+                time.sleep(0.5)
+                with open(os.path.join(d, 'nginx.pid')) as fh:
+                    pid = int(fh.read().strip())
+            except (OSError, ValueError):
+                pass
         if pid:
             try:
                 os.kill(pid, 15)
@@ -169,22 +176,32 @@ def run(app, log=print, now=None):
     try:
         mods, _ = nginxmod.modules(app)
         up = nginxmod.update_risk(cfg['paths']['nginx_bin'], mods)
+        loads = nginxmod.load_test(cfg['paths']['nginx_bin'], mods).get('ok')
         st.update(installed=up.get('installed'), candidate=up.get('candidate'), package=up.get('nginx_package'),
                   held=up.get('held'), supported=up.get('supported'))
+        others = [m for m in up.get('hand_built') or [] if 'modsecurity' not in os.path.basename(m).lower()]
         if not up.get('supported') or not up.get('nginx_package'):
             st.update(state='unsupported')
+        elif loads is False and up.get('hand_built') and not others:
+            # nginx was updated and the module left behind: the running nginx is still the old program, the next
+            # restart fails. Finish it with a module for the installed nginx.
+            st.update(mode='finish', target=up['installed'])
+            st.update(_prepare(cfg, up, 'finish', [], log))
         elif not up.get('update'):
             st.update(state='current')
         elif not up.get('hand_built'):
             # packaged modules: the package system brings them with nginx (nginxmod tells when it would not)
             st.update(state='packaged', risk=up.get('risk'))
+        elif [x for x in up['modules'] if x.get('package')] or not _single_package(up['nginx_package'], up['candidate']):
+            # packaged modules next to the hand-built one, or an nginx that needs sibling packages of the same version
+            # (Debian's nginx + nginx-common): the update would need the whole set; not supported
+            st.update(state='unsupported_packaging')
+        elif others:
+            # only the ModSecurity module is prepared here; another module built by hand needs the same care
+            st.update(state='other_hand_built', modules_by_hand=others)
         else:
-            others = [m for m in up['hand_built'] if 'modsecurity' not in os.path.basename(m).lower()]
-            if others:
-                # only the ModSecurity module is prepared here; another module built by hand needs the same care
-                st.update(state='other_hand_built', modules_by_hand=others)
-            else:
-                st.update(_prepare(cfg, up, [x for x in up['modules'] if x.get('package')], log))
+            st.update(mode='update', target=up['candidate'])
+            st.update(_prepare(cfg, up, 'update', [], log))
     except Exception as e:      # noqa: BLE001 -- reported; tried again next time
         st.update(state='error', error=('%s: %s' % (type(e).__name__, e))[:300])
     _write_status(cfg, st)
@@ -192,24 +209,61 @@ def run(app, log=print, now=None):
     return st
 
 
-def _download(pkg, version, work, root):
-    """apt-get download one package (not installed) and unpack it under root. Returns (sha256, error)."""
+def _single_package(pkg, version):
+    from .nginxswap import single_package
+    return single_package(pkg, version)
+
+
+def index_sha256(pkg, version):
+    """The SHA-256 apt's signed index gives for one package version of this host's architecture (the root program
+    checks it again itself)."""
+    from .nginxswap import arch, index_sha256 as idx
+    return idx(pkg, version, arch())
+
+
+def _download(pkg, version, work, root=None):
+    """apt-get download one package (not installed) into work; unpack it under root when given.
+    Returns (path, sha256, error)."""
     d = tempfile.mkdtemp(dir=work)
     rc, out = _run(['apt-get', 'download', '%s=%s' % (pkg, version)], cwd=d, timeout=600)
     debs = glob.glob(os.path.join(d, '*.deb'))
     if rc != 0 or len(debs) != 1:
-        return None, 'cannot download %s %s: %s' % (pkg, version, util.clip(out.strip(), 200))
-    rc, out = _run(['dpkg-deb', '-x', debs[0], root], cwd=d)
-    if rc != 0:
-        return None, 'cannot unpack %s: %s' % (os.path.basename(debs[0]), util.clip(out.strip(), 200))
-    return sha256_file(debs[0]), None
+        return None, None, 'cannot download %s %s: %s' % (pkg, version, util.clip(out.strip(), 200))
+    sha = sha256_file(debs[0])
+    want = index_sha256(pkg, version)
+    if not want or sha != want:
+        return None, None, '%s %s does not match apt\'s index (SHA-256)' % (pkg, version)
+    if root:
+        rc, out = _run(['dpkg-deb', '-x', debs[0], root], cwd=d)
+        if rc != 0:
+            return None, None, 'cannot unpack %s: %s' % (os.path.basename(debs[0]), util.clip(out.strip(), 200))
+    return debs[0], sha, None
 
 
-def _prepare(cfg, up, packaged, log):
-    """Download the candidate nginx package (and the candidates of the packaged modules that go with it), then try
-    the module waiting for it in that new nginx."""
-    pkg, cand = up['nginx_package'], up['candidate']
-    mdir = module_dir(cfg, cand)
+def _keep_debs(cfg, paths):
+    """Keep the packages the root program takes (new and previous) in debs/; nothing else."""
+    d = os.path.join(base(cfg), 'debs')
+    os.makedirs(d, mode=0o750, exist_ok=True)
+    names = set()
+    for p in paths:
+        tmp = os.path.join(d, '.%s.tmp' % os.path.basename(p))
+        shutil.copyfile(p, tmp)
+        os.replace(tmp, os.path.join(d, os.path.basename(p)))     # never a half-written package for the root program
+        names.add(os.path.basename(p))
+    for n in os.listdir(d):
+        if n not in names:
+            try:
+                os.unlink(os.path.join(d, n))
+            except OSError:
+                pass
+
+
+def _prepare(cfg, up, mode, packaged, log):
+    """Try the module waiting for the target nginx: the candidate package's nginx (update; with the candidates of the
+    packaged modules that go with it), or the installed one (finish)."""
+    pkg = up['nginx_package']
+    target = up['candidate'] if mode == 'update' else up['installed']
+    mdir = module_dir(cfg, target)
     mod = os.path.join(mdir, MODULE_NAME)
     if not os.path.isfile(mod):
         return {'state': 'no_module', 'module_dir': mdir}
@@ -222,25 +276,38 @@ def _prepare(cfg, up, packaged, log):
     sha = sha256_file(mod)
     if meta.get('sha256') and meta['sha256'] != sha:
         return {'state': 'failed', 'error': 'the module does not match its description (SHA-256)', 'module_sha256': sha}
-    work = tempfile.mkdtemp(prefix='jtwaf-nginxup-pkg-')
-    try:
-        root = os.path.join(work, 'root')
-        deb_sha, err = _download(pkg, cand, work, root)
-        nginx_new = os.path.join(root, 'usr', 'sbin', 'nginx')
-        if err or not os.path.isfile(nginx_new):
-            return {'state': 'error', 'error': err or 'no usr/sbin/nginx in the %s package' % pkg}
-        others = []
-        for x in packaged:
-            if x.get('candidate') and x['candidate'] != x.get('installed'):
-                _, err = _download(x['package'], x['candidate'], work, root)
-                if err:
-                    return {'state': 'error', 'error': err}
-            new = os.path.join(root, os.path.realpath(x['path']).lstrip('/'))
-            others.append(new if os.path.isfile(new) else x['path'])
-        ok, detail = try_module(nginx_new, mod, others)
-        log('nginxup: %s %s: %s' % (pkg, cand, detail))
-        return {'state': 'ready' if ok else 'failed', 'module_sha256': sha, 'package_sha256': deb_sha,
-                'module': {k: meta.get(k) for k in ('os', 'arch', 'connector', 'libmodsecurity', 'built_at', 'source', 'nginx_package')},
-                'detail' if ok else 'error': detail, 'verified_at': util.iso(time.time()) if ok else None}
-    finally:
-        shutil.rmtree(work, ignore_errors=True)
+    from .nginxswap import trusted_modules
+    if sha not in trusted_modules():
+        # root loads only a module root itself trusts; nothing is downloaded or tried until then
+        return {'state': 'untrusted', 'module_sha256': sha}
+    out = {'module_sha256': sha, 'package_sha256': None,
+           'module': {k: meta.get(k) for k in ('os', 'arch', 'connector', 'libmodsecurity', 'built_at', 'source', 'nginx_package')}}
+    if mode == 'finish':
+        ok, detail = try_module(cfg['paths']['nginx_bin'], mod)
+    else:
+        work = tempfile.mkdtemp(prefix='jtwaf-nginxup-pkg-')
+        try:
+            root = os.path.join(work, 'root')
+            new_deb, out['package_sha256'], err = _download(pkg, target, work, root)
+            nginx_new = os.path.join(root, 'usr', 'sbin', 'nginx')
+            if err or not os.path.isfile(nginx_new):
+                return dict(out, state='error', error=err or 'no usr/sbin/nginx in the %s package' % pkg)
+            old_deb, _, err = _download(pkg, up['installed'], work)
+            if err:
+                return dict(out, state='error', error='the way back: ' + err)
+            others = []
+            for x in packaged:
+                if x.get('candidate') and x['candidate'] != x.get('installed'):
+                    _, _, err = _download(x['package'], x['candidate'], work, root)
+                    if err:
+                        return dict(out, state='error', error=err)
+                new = os.path.join(root, os.path.realpath(x['path']).lstrip('/'))
+                others.append(new if os.path.isfile(new) else x['path'])
+            ok, detail = try_module(nginx_new, mod, others)
+            if ok:
+                _keep_debs(cfg, [new_deb, old_deb])
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+    log('nginxup: %s %s (%s): %s' % (pkg, target, mode, detail))
+    return dict(out, state='ready' if ok else 'failed', **{'detail' if ok else 'error': detail},
+                verified_at=util.iso(time.time()) if ok else None)

@@ -135,7 +135,8 @@ restore_from() {  # <backup dir>
              jt-waf-mgr-dns.path jt-waf-mgr-dns.timer jt-waf-mgr-dns.service \
              jt-waf-mgr-intel.path jt-waf-mgr-intel.timer jt-waf-mgr-intel.service \
              jt-waf-mgr-hub.path jt-waf-mgr-hub.timer jt-waf-mgr-hub.service \
-             jt-waf-mgr-nginxup.path jt-waf-mgr-nginxup.timer jt-waf-mgr-nginxup.service; do
+             jt-waf-mgr-nginxup.path jt-waf-mgr-nginxup.timer jt-waf-mgr-nginxup.service \
+             jt-waf-mgr-nginxswap.service; do
         if ! tar -tf "$B/files.tar" | grep -qx "etc/systemd/system/$u" && [ -e "${ROOT:-}/etc/systemd/system/$u" ]; then
             $SYSTEMCTL disable --now "$u" >/dev/null 2>&1 || true
             rm -f "${ROOT:-}/etc/systemd/system/$u"
@@ -250,7 +251,7 @@ echo "$OLD" > "$B/version.old"; echo "$NEW" > "$B/version.new"; echo "$APPLY_ARM
                etc/systemd/system/jt-waf-mgr-intel.path etc/systemd/system/jt-waf-mgr-hub.service \
                etc/systemd/system/jt-waf-mgr-hub.timer etc/systemd/system/jt-waf-mgr-hub.path \
                etc/systemd/system/jt-waf-mgr-nginxup.service etc/systemd/system/jt-waf-mgr-nginxup.timer \
-               etc/systemd/system/jt-waf-mgr-nginxup.path; do [ -e "$p" ] && echo "$p"; done) )
+               etc/systemd/system/jt-waf-mgr-nginxup.path etc/systemd/system/jt-waf-mgr-nginxswap.service; do [ -e "$p" ] && echo "$p"; done) )
 python3 -I -c "
 import sqlite3, sys
 src = sqlite3.connect('file:$DB?mode=ro', uri=True)

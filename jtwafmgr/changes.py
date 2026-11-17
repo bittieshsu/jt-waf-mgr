@@ -618,6 +618,96 @@ class Workflow:
         self._wake.set()
         return cid
 
+    # --- nginx update (nginxup.py checks it, nginxswap.py does it as root) -------------------------------------------
+    def propose_nginx(self, reason, actor, role=None):
+        """Update nginx (or finish an update someone installed) with the module the nginxup job verified for exactly
+        that package: approved by an admin (never automatic), done by the root program without stopping nginx."""
+        from . import nginxup
+        if role != 'admin':
+            raise ChangeError('forbidden', 403)
+        reason = (reason or '').strip()
+        if not reason or len(reason) > 2000:
+            raise ChangeError('reason_required')
+        open_ = self.db.one("SELECT id FROM changes WHERE op='nginx' AND state NOT IN (%s)" % ','.join('?' * len(FINAL)), FINAL)
+        if open_:
+            raise ChangeError('nginx_change_pending', 409, change_id=open_[0])
+        st = nginxup.read_status(self.cfg)
+        if st.get('state') != 'ready' or not st.get('target'):
+            raise ChangeError('nginx_not_ready', 409, state=st.get('state'))
+        spec = {k: st.get(k) for k in ('mode', 'package', 'target', 'installed', 'module_sha256', 'package_sha256')}
+        spec['module_path'] = os.path.join(nginxup.module_dir(self.cfg, st['target']), nginxup.MODULE_NAME)
+        t = util.now()
+        with self.db.tx() as c:
+            cid = c.execute('INSERT INTO changes(op, kind, spec, direction, state, reason, proposed_by, created_at, updated_at) '
+                            "VALUES ('nginx', 'system', ?, 'neutral', 'checking', ?, ?, ?, ?)",
+                            (json.dumps(spec), reason, actor, t, t)).lastrowid
+        self.log(cid, actor, 'proposed', summarize('system', spec, 'nginx'))
+        self.app.audit.log('change.proposed', actor, 'user', None, 'ok', change_id=cid, op='nginx', mode=spec['mode'],
+                           nginx_from=spec['installed'], nginx_to=spec['target'])
+        self._wake.set()
+        return cid
+
+    def _nginx_checks(self, cid, r):
+        """The verification is the nginxup job's: still ready for the same package and the same module file."""
+        from . import nginxup
+        spec = json.loads(r['spec'])
+        st = nginxup.read_status(self.cfg)
+        checks = {'started_at': util.iso(util.now())}
+        same = st.get('state') == 'ready' and all(st.get(k) == spec.get(k) for k in ('mode', 'package', 'target', 'module_sha256', 'package_sha256'))
+        try:
+            same = same and nginxup.sha256_file(spec['module_path']) == spec['module_sha256']
+        except OSError:
+            same = False
+        checks['static'] = {'ok': same, 'verified_at': st.get('verified_at'), 'detail': st.get('detail') or st.get('error')}
+        checks['finished_at'] = util.iso(util.now())
+        if not same:
+            self._finish_checks(cid, checks, 'failed', 'the verified module or package changed since; check again and propose again')
+            return
+        self._finish_checks(cid, checks, 'pending_approval', None)
+
+    def _send_nginx(self, cid, r):
+        spec = json.loads(r['spec'])
+        self._write_request({'request_id': 'nginx-c%d' % cid, 'action': 'nginx_update', 'change_id': cid,
+                             'mode': spec['mode'], 'package': spec['package'], 'version': spec['target'],
+                             'module_sha256': spec['module_sha256'], 'health_urls': self.setting('health.urls')})
+        self._state(cid, 'applying')
+        self.log(cid, 'system', 'apply_requested', summarize('system', spec, 'nginx'))
+
+    def _handle_nginx_result(self, res, r):
+        cid = r['id']
+        ok = res.get('result') == 'ok'
+        summary = str(res.get('summary', ''))[:1000]
+        spec = json.loads(r['spec'])
+        if ok:          # the module question is settled: earlier alerts close (before any new one below is raised)
+            self.db.x("UPDATE alerts SET state='handled', handled_by='system', handled_at=?, note=? WHERE kind='nginx_module' "
+                      "AND state='open'", (util.now(), 'nginx updated with a verified module (change #%d)' % cid))
+        for flag, why in (('half', 'update_half_done'), ('not_held', 'hold_lost')):
+            if res.get(flag):
+                # the previous package could not go back (the new program and its module stay), or the hold mark is
+                # gone: a person has to look now
+                from . import alerts
+                alerts.raise_alert(self.db, self.app.audit, 'system', 'nginx_module', 'critical', 'nginx_module:%s:%d' % (why, cid),
+                                   {'reason': why, 'installed': spec.get('installed'), 'candidate': spec.get('target'),
+                                    'package': spec.get('package'), 'change_id': cid, 'error': summary[:500]})
+        self._state(cid, 'applied' if ok else 'apply_failed', None if ok else summary)
+        self.log(cid, 'system', 'applied' if ok else 'apply_failed', summary)
+        if ok:
+            from . import nginxup
+            nginxup.request_check(self.cfg)        # the new state of things
+        self.app.audit.log('change.applied' if ok else 'change.apply_failed', 'system', 'system', None,
+                           'ok' if ok else 'failed', severity=None if ok else 'crit', change_id=cid, op='nginx',
+                           summary=summary[:300])
+
+    def request_nginx_hold(self, actor):
+        """Hold the nginx package (apt-mark hold, by the root program): a system update then leaves nginx alone."""
+        from . import nginxmod
+        up = nginxmod.update_risk(self.cfg['paths']['nginx_bin'], [])
+        if not up.get('nginx_package'):
+            raise ChangeError('nginx_not_packaged', 409)
+        rid = 'hold-%d' % int(util.now() * 1000)
+        self._write_request({'request_id': rid, 'action': 'nginx_hold', 'package': up['nginx_package']})
+        return rid
+
     # --- ModSecurity on / off for one site (sitewaf.py) -------------------------------------------------------------
     def propose_site_waf(self, mode, host, reason, actor, role=None, kind='waf'):
         """Switch ModSecurity on (tightening) or off (loosening) for one site: one marked include line in each of its
@@ -857,6 +947,8 @@ class Workflow:
             return self._crs_checks(cid, r)
         if r['op'] == 'site_waf':
             return self._site_checks(cid, r)
+        if r['op'] == 'nginx':
+            return self._nginx_checks(cid, r)
         checks = {'started_at': util.iso(util.now())}
         cur = self.managed.current_version()
         base = cur['version'] if cur else 0
@@ -1043,8 +1135,17 @@ class Workflow:
         r = self.get(cid)
         if r['state'] != 'pending_approval':
             raise ChangeError('invalid_state', 409, state=r['state'])
-        if r['op'] == 'adopt' and user['role'] != 'admin':
+        if r['op'] in ('adopt', 'nginx') and user['role'] != 'admin':
             raise ChangeError('forbidden', 403)
+        if r['op'] == 'nginx':
+            # nginx itself changes: a fresh one-time code and a written reason, whoever proposed it
+            from .auth import AuthError
+            try:
+                self.app.auth.step_up(user['username'], totp or '', 'change.approve_nginx')
+            except AuthError as e:
+                raise ChangeError(e.code, e.status)
+            if len((note or '').strip()) < 10:
+                raise ChangeError('note_required')
         # a change proposed through an API token belongs to the person who created that token
         own = (r['proposed_by'] == user['username'] and r['proposed_via'] == 'user') or \
             (r['proposed_via'] == 'api' and r['proposed_owner'] == user['username'])
@@ -1133,7 +1234,7 @@ class Workflow:
         r = self.get(cid)
         cur = self.managed.current_version()
         base = cur['version'] if cur else 0
-        if r['op'] not in ('adopt', 'crs', 'site_waf') and (r['base_version'] or 0) != base:   # no rule files in these
+        if r['op'] not in ('adopt', 'crs', 'site_waf', 'nginx') and (r['base_version'] or 0) != base:   # no rule files in these
             # another change was applied meanwhile: check again against the new base
             self._state(cid, 'checking')
             self.log(cid, 'system', 'stale', 'version %s applied since the checks; checking again' % base)
@@ -1163,6 +1264,8 @@ class Workflow:
             return self._send_crs(cid, r)
         if r['op'] == 'site_waf':
             return self._send_site(cid, r)
+        if r['op'] == 'nginx':
+            return self._send_nginx(cid, r)
         cur = self.managed.current_version()
         version = self._next_version()
         if r['op'] != 'adopt':
@@ -1299,6 +1402,14 @@ class Workflow:
                         pass
 
     def _handle_result(self, res):
+        if res.get('action') == 'nginx_hold':
+            ok = res.get('result') == 'ok'
+            self.app.audit.log('nginx.held' if ok else 'nginx.hold_failed', 'system', 'system', None, 'ok' if ok else 'failed',
+                               package=str(res.get('package') or '')[:60], summary=str(res.get('summary') or '')[:300])
+            if ok:
+                from . import nginxup
+                nginxup.request_check(self.cfg)
+            return
         if res.get('action') == 'blocks':
             if getattr(self.app, 'blocks', None) is not None:
                 self.app.blocks.handle_result(res)
@@ -1316,6 +1427,10 @@ class Workflow:
         if res.get('action') == 'site_waf':
             if r and r['op'] == 'site_waf' and r['state'] == 'applying':
                 self._handle_site_result(res, r)
+            return
+        if res.get('action') == 'nginx_update':
+            if r and r['op'] == 'nginx' and r['state'] == 'applying':
+                self._handle_nginx_result(res, r)
             return
         v = self.db.one('SELECT * FROM versions WHERE version=?', (version,))
         if not r or not v:
@@ -1528,6 +1643,10 @@ def _check_tests(tests):
 
 
 def summarize(kind, spec, op):
+    if op == 'nginx':
+        if spec.get('mode') == 'finish':
+            return 'nginx %s: finish the update with a verified ModSecurity module' % spec.get('target')
+        return 'nginx %s -> %s with a verified ModSecurity module' % (spec.get('installed'), spec.get('target'))
     if op == 'crs':
         if spec.get('mode') == 'first_install':
             return 'OWASP CRS %s: first installation' % spec.get('to')

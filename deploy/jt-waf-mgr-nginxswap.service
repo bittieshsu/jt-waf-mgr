@@ -1,0 +1,33 @@
+[Unit]
+Description=jt-waf-mgr: install a verified nginx update with its verified ModSecurity module, without stopping nginx
+Documentation=file:///usr/lib/jt-waf-mgr/README.md
+# Started only by the apply program (jt-waf-mgr-apply.service) after an admin approved an nginx update and the apply
+# program checked the module and both packages again as root (the packages against apt's signed index). It reads only
+# the request the apply program wrote into its own root-only directory. dpkg must write /usr, /etc and /var/lib/dpkg,
+# so this unit is not read-only like the apply program; it has no network (the packages are already here).
+
+[Service]
+# a stop (time limit) signals only the Python program, which puts things back between steps; dpkg is never cut off
+KillMode=mixed
+TimeoutStopSec=900
+Type=oneshot
+User=root
+Environment=PYTHONPATH=/usr/lib/jt-waf-mgr
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -m jtwafmgr.nginxswap --config /etc/jt-waf-mgr/config.toml
+TimeoutStartSec=1800
+StateDirectory=jt-waf-mgr-apply
+StateDirectoryMode=0700
+UMask=0022
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+# the health checks go to this host's nginx only
+IPAddressDeny=any
+IPAddressAllow=localhost

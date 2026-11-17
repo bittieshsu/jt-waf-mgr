@@ -87,6 +87,8 @@ class Applier:
             return self.check_countries(req)
         if isinstance(req, dict) and req.get('action') == 'site_waf':
             return self.check_site_waf(req)
+        if isinstance(req, dict) and req.get('action') in ('nginx_update', 'nginx_hold'):
+            return self.check_nginx(req)
         if not isinstance(req, dict) or req.get('action') != 'apply':
             raise Fail('request', 'unknown action')
         if not isinstance(req.get('version'), int) or not isinstance(req.get('change_id'), int):
@@ -822,6 +824,84 @@ class Applier:
         return {'result': 'ok', 'summary': '; '.join(log), 'files': files, 'snippet_created': made_snip,
                 'site': {'host': p['host'], 'mode': req['mode'], 'kind': kind, 'blocks': [[b['file'], b['line']] for b in p['blocks']]}}
 
+    # --- nginx update and hold (nginxswap.py) -------------------------------------------------------------------------
+    def nginxup_dir(self):
+        """The nginxup job's directory (the service user's): modules/<version>/ and debs/. Read, never trusted."""
+        return os.path.join(os.path.dirname(os.path.abspath(self.cfg['paths']['db'])), 'nginxup')
+
+    def check_nginx(self, req):
+        from . import nginxswap
+        try:
+            if req['action'] == 'nginx_hold':
+                # only ever the package that owns nginx, worked out here (a request cannot hold anything else)
+                pkg = nginxswap.owner(self.nginx)
+                if not pkg or req.get('package') != pkg:
+                    raise nginxswap.SwapFail('request', 'not the package nginx comes from')
+                return req
+            nginxswap.check_request(req)
+        except nginxswap.SwapFail as e:
+            raise Fail(e.step, e.summary)
+        return req
+
+    def swap_busy(self):
+        """An nginx update still running (its unit, or its lock held)."""
+        import fcntl
+        from . import nginxswap
+        rc, out = run(['systemctl', 'is-active', nginxswap.UNIT], 30)
+        if (out or '').strip() in ('active', 'activating', 'deactivating'):
+            return True
+        p = os.path.join(nginxswap.work_dir(self.state), 'swap.lock')
+        if not os.path.exists(p):
+            return False
+        with open(p, 'a') as fh:
+            try:
+                fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                return True
+            fcntl.flock(fh, fcntl.LOCK_UN)
+        return False
+
+    def stored_health_urls(self):
+        """The health URLs people set (settings table), read by root itself; unreadable: refuse."""
+        import sqlite3
+        import urllib.parse
+        from . import nginxswap
+        db = self.cfg['paths']['db']
+        try:
+            con = sqlite3.connect('file:%s?mode=ro' % urllib.parse.quote(db), uri=True, timeout=10)
+            try:
+                row = con.execute("SELECT value FROM settings WHERE key='health.urls'").fetchone()
+            finally:
+                con.close()
+            urls = json.loads(row[0]) if row else []
+        except (sqlite3.Error, ValueError) as e:
+            raise Fail('validate', 'cannot read the health URLs: %s' % clean(str(e), 200))
+        if not isinstance(urls, list) or not all(
+                isinstance(u, str) and re.fullmatch(r'https?://[a-z0-9.-]+(?::\d{1,5})?/\S{0,500}', u) for u in urls):
+            raise Fail('validate', 'the stored health URLs do not parse')
+        return urls[:nginxswap.MAX_HEALTH]
+
+    def test_config_ok(self):
+        return run([self.nginx, '-t'], 120)[0] == 0
+
+    def nginx_hold(self, req):
+        rc, out = run(['apt-mark', 'hold', req['package']], 60)
+        if rc != 0:
+            raise Fail('hold', 'apt-mark hold failed: ' + clean(out, 300))
+        return {'result': 'ok', 'summary': '%s held' % req['package']}
+
+    def nginx_update(self, req):
+        from . import nginxswap, nginxup
+        t0 = time.time()
+        log = []
+        try:
+            out = nginxswap.prepare(self, req, self.nginxup_dir(), nginxup.try_module, log)
+        except nginxswap.SwapFail as e:
+            raise Fail(e.step, e.summary, log=log, half=bool(getattr(e, 'half', False)),
+                       not_held=bool(getattr(e, 'not_held', False)))
+        return {'result': 'ok', 'step': 'done', 'summary': '; '.join(log), 'backup': out.get('backup'),
+                'previous': out.get('previous'), 'not_held': bool(out.get('not_held')), 'seconds': round(time.time() - t0, 1)}
+
     def crs_switch(self, req):
         from . import crsupdate
         crs, to = req['crs_path'].rstrip('/'), req['to']
@@ -1008,6 +1088,12 @@ class Applier:
                 elif req.get('action') == 'site_waf':
                     res.update(action='site_waf', change_id=req['change_id'])
                     res.update(self.site_waf_write(req))
+                elif req.get('action') == 'nginx_update':
+                    res.update(action='nginx_update', change_id=req['change_id'])
+                    res.update(self.nginx_update(req))
+                elif req.get('action') == 'nginx_hold':
+                    res.update(action='nginx_hold', package=req['package'])
+                    res.update(self.nginx_hold(req))
                 else:
                     res.update(version=req['version'], change_id=req['change_id'])
                     res.update(self.apply(req))
@@ -1019,6 +1105,11 @@ class Applier:
                 res.update(action='blocks')
             if base.startswith('countries-'):
                 res.update(action='countries')
+            mn = re.match(r'nginx-c(\d+)$', base)
+            if mn:
+                res.update(action='nginx_update', change_id=int(mn.group(1)))
+            if base.startswith('hold-'):
+                res.update(action='nginx_hold')
             ms = re.match(r'site-c(\d+)$', base)
             if ms:
                 res.update(action='site_waf', change_id=int(ms.group(1)))

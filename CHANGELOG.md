@@ -2,6 +2,15 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.89 (2026-11-18)
+
+- nginx updates, approved by an admin: once a module passed with the next nginx, the nginx updates page proposes the update as a change; approving it takes an admin's one-time code and a note. The apply program checks again as root: the module's SHA-256, both the new and the current package against the SHA-256 in apt's signed index (files the service user downloaded are not trusted for themselves), and the module once more with the new nginx. A dedicated unit, jt-waf-mgr-nginxswap (no network), then puts the module in place, installs the package with `dpkg -i` and upgrades nginx live (no interruption); the new master must run the new program, `nginx -t` must pass and the health URLs must answer as before, else the previous module and package go back. nginx is held again afterwards.
+- Finishing an interrupted update: when nginx was updated and the module left behind (the old program still running, `nginx -t` failing, the next restart would fail), upload a module for the installed nginx; once it passes, propose finishing the update (module in place, live upgrade).
+- Hold nginx button (apt-mark hold by the apply program).
+- A module is used only once root trusts it: done by itself when the build script runs as root on the host; for a module built elsewhere, put the file on the host and run `sudo jt-waf-mgr nginx-module-trust FILE --sha256 <SHA-256 from the build output>`. Root copies the module into its own directory, checks the SHA-256 and uses only that copy for the update; root's re-test of the module runs as nobody.
+- Only a single nginx package is supported (nginx.org packages); with packaged modules, or an nginx that needs other packages of the same version (Debian's nginx-common), the page shows packaging not supported.
+- `build-modsecurity-module.sh` takes a package version (such as 1.30.7-1~bookworm).
+
 ## 0.4.88 (2026-11-18)
 
 - nginx updates verified before they happen (new page Admin → nginx updates): when a newer nginx is available and the ModSecurity module is built by hand, a separate background job (jt-waf-mgr-nginxup, daily or on request) downloads the new nginx package (not installed), unpacks it, loads the waiting new module into that nginx on a local port and checks that a test request is refused (403) and an ordinary one passes (200); only then it shows ready to update. Packaged modules are tried at their new versions too; other modules built by hand are reported.
