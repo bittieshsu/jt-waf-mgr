@@ -107,6 +107,10 @@ function kindText(r) { return tOr('alerts.kind.' + r.kind, r.kind) }
 const MSGS = ['intel_urgent', 'intel_check', 'intel_patch', 'intel_remove']
 function reasonText(r) {
   const d = r.details || {}
+  if (r.kind === 'nginx_module') {
+    return t('nginxmod.alert.' + (d.reason || 'ok'), { installed: String(d.installed || d.nginx_version || ''), candidate: String(d.candidate || ''),
+      package: String(d.package || 'nginx') })
+  }
   if (!MSGS.includes(d.msg)) return d.reason || ''
   const ver = String(d.sw_version || '').trim()
   const product = String(d.product || '')

@@ -240,7 +240,14 @@ def staged_upload(app, log=print, now=None, keyfile=None, fpr=None):
     cfg = app.cfg
     now = now or time.time()
     d = cfg['crs']['dir']
-    up = os.path.join(d, UPLOAD_DIR)
+    if os.path.isdir(os.path.join(d, UPLOAD_DIR)):
+        # taken out of the folder the web service writes: an upload arriving meanwhile is the next run's
+        mine = os.path.join(d, '.upload-taken-%d' % os.getpid())
+        shutil.rmtree(mine, ignore_errors=True)
+        os.rename(os.path.join(d, UPLOAD_DIR), mine)
+        up = mine
+    else:
+        up = os.path.join(d, UPLOAD_DIR)
     names = sorted(os.listdir(up)) if os.path.isdir(up) else []
     tars = [n for n in names if UPLOAD_NAME.match(n)]
     if not tars:

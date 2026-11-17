@@ -266,9 +266,10 @@ def download(log=print, fetch=_fetch, have=None):
     paths = [e['path'] for e in tree.get('tree') or [] if e.get('type') == 'blob' and _wanted(e.get('path') or '')]
     if len(paths) > MAX_FILES:
         raise ValueError('too many files')
-    files = {}
-    for p in paths:
-        files[p] = fetch(RAW % (sha, urllib.parse.quote(p)), MAX_FILE)
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(4) as ex:       # a few at a time: about half a minute, not two
+        got = list(ex.map(lambda p: fetch(RAW % (sha, urllib.parse.quote(p)), MAX_FILE), paths))
+    files = dict(zip(paths, got))
     log('hub: %d files from commit %s' % (len(files), sha[:12]))
     return files, sha, 'github'
 
@@ -300,6 +301,13 @@ def from_archive(data, name=''):
             raise ValueError('archive unpacks too large')
         files[rel] = read()
     if data[:4] == b'PK\x03\x04':
+        # the entry count from the end record, before zipfile reads the whole directory into memory
+        eocd = data.rfind(b'PK\x05\x06', max(0, len(data) - 65558))
+        if eocd < 0 or len(data) < eocd + 22:
+            raise ValueError('not a readable zip archive')
+        total = int.from_bytes(data[eocd + 10:eocd + 12], 'little')
+        if total == 0xFFFF or data.rfind(b'PK\x06\x06') >= 0 or total > MAX_MEMBERS:
+            raise ValueError('too many entries in the archive')
         with zipfile.ZipFile(io.BytesIO(data)) as z:
             if len(z.infolist()) > MAX_MEMBERS:
                 raise ValueError('too many entries in the archive')
@@ -410,12 +418,20 @@ def marker(cfg):
         pass
 
 
-def request_sync(cfg):
-    """Called by the web service: the path unit starts the job."""
+def request_sync(cfg, why='sync'):
+    """Called by the web service: the path unit starts the job. why: 'sync' (download now; the page asks only while
+    the sync is switched on) or 'upload' (read the uploaded archive; never a reason to download)."""
     d = hub_dir(cfg)
     os.makedirs(d, mode=0o750, exist_ok=True)
-    with open(os.path.join(d, REQUEST), 'w') as fh:
-        fh.write(util.iso(time.time()))
+    p = os.path.join(d, REQUEST)
+    old = ''
+    try:
+        with open(p) as fh:
+            old = fh.read(64)
+    except OSError:
+        pass
+    with open(p, 'w') as fh:
+        fh.write('sync' if why == 'sync' or old.startswith('sync') else 'upload')
 
 
 def run(cfg, log=print, fetch=_fetch, now=None):
@@ -424,21 +440,30 @@ def run(cfg, log=print, fetch=_fetch, now=None):
     status."""
     d = hub_dir(cfg)
     os.makedirs(d, mode=0o750, exist_ok=True)
-    asked = os.path.exists(os.path.join(d, REQUEST))       # "sync now" (the web service asks only while switched on)
+    try:
+        with open(os.path.join(d, REQUEST)) as fh:
+            asked = fh.read(64).startswith('sync')      # "sync now" (an upload's request never downloads)
+    except OSError:
+        asked = False
     try:
         os.unlink(os.path.join(d, REQUEST))
     except OSError:
         pass
     status = {'at': util.iso(now or time.time())}
+    # the page shows that it is working (the request file is gone by now)
+    _write_json(os.path.join(d, 'status.json'), dict(read_status(cfg), state='running', started_at=status['at']))
     up = os.path.join(d, UPLOAD_DIR)
     waiting = sorted(os.listdir(up)) if os.path.isdir(up) else []
     try:
         if waiting:
-            name = waiting[-1]
+            waiting.sort(key=lambda n: os.path.getmtime(os.path.join(up, n)))
+            name = waiting[-1]                              # the newest; the others are reported as skipped
             with open(os.path.join(up, name), 'rb') as fh:
                 data = fh.read(MAX_ARCHIVE + 1)
             for n in waiting:
                 os.unlink(os.path.join(up, n))
+            if len(waiting) > 1:
+                status['skipped_uploads'] = waiting[:-1][:10]
             files, sha, source = from_archive(data, name)
         elif asked or os.path.exists(os.path.join(d, ENABLED)):
             # the web service keeps the marker from Settings (config.toml alone does not switch the download on)

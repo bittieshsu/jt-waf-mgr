@@ -2,6 +2,15 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.85 (2026-11-17)
+
+- nginx and the ModSecurity module (so an nginx update never takes the WAF away):
+  - Every 6 hours the production load_module modules are loaded once with a throwaway configuration (`nginx -t` as the service user, never the production configuration) to see that the installed nginx loads them; a module that does not load is a critical alert.
+  - From the package lists apt already has (nothing downloaded): when nginx has a newer version but the ModSecurity module package wants another nginx-abi, or the module is built by hand and nginx is not held, an alert says so with the `apt-mark hold` way out. Debian / Ubuntu only; elsewhere it says it cannot tell.
+  - The system check has "nginx and the ModSecurity module"; the health API has `nginx_module` (seen by the LibreNMS plugin).
+- CrowdSec virtual patching rules: the page shows a running sync and refreshes by itself; four files at a time (about half a minute for a first sync); a sync started by an upload never reaches the internet while the sync is off; with several uploads waiting the newest is read; a zip's entry count is checked before its directory is read; YAML values starting with "- " are refused; space between the source card's buttons and the fields above.
+- CRS uploads: the upload folder is renamed to a private one first; an upload arriving meanwhile waits for the next run.
+
 ## 0.4.84 (2026-11-17)
 
 - CrowdSec virtual patching rules (Rules → CrowdSec virtual patches, phase 1: review):

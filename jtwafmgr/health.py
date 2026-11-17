@@ -186,7 +186,19 @@ def _paused(app):
     return _check('waf_pause', OK, 'not paused')
 
 
-CHECKS = (_nginx, _modsecurity, _paused, _managed, _last_apply, _collector, _blocks, _program, _chain, _outside, _analyst)
+def _nginx_module(app):
+    from . import nginxmod
+    st = nginxmod.status(app)
+    lvl, why = nginxmod.level(st)
+    msg = {'ok': 'loads; the next update keeps it', 'module_does_not_load': 'nginx cannot load the ModSecurity module',
+           'no_modsecurity_module': 'no ModSecurity module loaded', 'update_would_break': 'an nginx update would leave the ModSecurity module behind',
+           'not_held': 'nginx is not held but the ModSecurity module is built by hand'}[why]
+    up = st.get('update') or {}
+    return _check('nginx_module', {'ok': OK, 'warning': WARNING, 'critical': CRITICAL}[lvl], msg,
+                  candidate=up.get('candidate') if up.get('update') else None)
+
+
+CHECKS = (_nginx, _modsecurity, _nginx_module, _paused, _managed, _last_apply, _collector, _blocks, _program, _chain, _outside, _analyst)
 
 
 def metrics(app):

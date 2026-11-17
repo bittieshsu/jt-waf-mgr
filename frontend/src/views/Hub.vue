@@ -44,8 +44,8 @@
           <button type="button" class="btn primary" :disabled="busy || !data.enabled || data.requested" :title="data.enabled ? '' : t('hub.sync_off_hint')" @click="syncNow"><Icon name="refresh" />{{ t('hub.sync_now') }}</button>
           <label class="btn ghost filebtn"><Icon name="upload" />{{ t('hub.upload') }}
             <input type="file" accept=".zip,.tar.gz,.tgz,application/zip,application/gzip" :disabled="busy" @change="upload"></label>
-          <span class="muted small">{{ t('hub.upload_hint') }}</span>
         </div>
+        <p v-if="isAdmin" class="muted small uphint">{{ t('hub.upload_hint') }}</p>
         <p v-if="progress" class="small" role="status"><Icon name="timer" /> {{ progress }}</p>
         <ErrorBox :error="actionError" />
       </section>
@@ -182,12 +182,14 @@ async function upload(ev) {
 }
 let timer = null
 onMounted(() => { load(); timer = setInterval(() => { if (data.value && data.value.requested) load() }, 5000) })
+// "sync now" / an upload: keep looking until the job has answered
 onUnmounted(() => clearInterval(timer))
 </script>
 
 <style scoped>
 .hubtiles { margin: 0 0 14px; }
-.hubacts { align-items: center; flex-wrap: wrap; }
+.hubacts { align-items: center; flex-wrap: wrap; margin-top: 14px; }
+.uphint { margin: 8px 0 0; }
 .filebtn { position: relative; overflow: hidden; }
 .filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .hubdetail { display: flex; flex-direction: column; gap: 8px; }

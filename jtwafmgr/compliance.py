@@ -63,6 +63,7 @@ class Monitor:
                     ('config', 60 * ic['config_check_minutes'], self.check_config),
                     ('accounts', 3600, self.check_accounts),
                     ('db', 86400, self.check_db),
+                    ('nginx_module', 6 * 3600, self.check_nginx_module),
                     ('backup', 600, self.maybe_backup)):
                 if self._stop.is_set():
                     break
@@ -75,6 +76,23 @@ class Monitor:
 
     def stop(self):
         self._stop.set()
+
+    def check_nginx_module(self):
+        """Whether nginx loads its ModSecurity module now, and whether the next system update would leave it behind
+        (nginxmod.py): an alert while it is so -- the moment to act is before the update, not after the WAF is gone."""
+        from . import alerts, nginxmod
+        st = nginxmod.status(self.app, force=True)
+        lvl, why = nginxmod.level(st)
+        if lvl == 'ok':
+            return st
+        up = st.get('update') or {}
+        alerts.raise_alert(self.app.db, self.audit, 'system', 'nginx_module', 'critical' if lvl == 'critical' else 'warning',
+                           'nginx_module:%s:%s' % (why, up.get('candidate') or st.get('nginx_version') or ''),
+                           {'reason': why, 'nginx_version': st.get('nginx_version'), 'installed': up.get('installed'),
+                            'candidate': up.get('candidate'), 'package': up.get('nginx_package'), 'held': up.get('held'),
+                            'hand_built': up.get('hand_built') or [], 'error': (st.get('load') or {}).get('error')},
+                           link='/admin/system')
+        return st
 
     def _alert(self, key, action, ok, **details):
         """Audit row on a change of state, and a reminder every 12 hours while it stays failed."""
@@ -685,7 +703,7 @@ def system_check(app):
     out.append(_item('accounts', 'warn' if no_totp or stale_temp or admins == 0 else 'ok', active=len(rows),
                      admins=admins, without_totp=no_totp, locked=locked, temporary_password_unused=stale_temp))
 
-    for fn in (_check_modsecurity, _check_jobs, _check_crs, _check_analyst, _check_intel, _check_blocks, _check_countries, _check_dns,
+    for fn in (_check_modsecurity, _check_nginx_module, _check_jobs, _check_crs, _check_analyst, _check_intel, _check_blocks, _check_countries, _check_dns,
                _check_health, _check_changes, _check_tokens, _check_traffic, _check_logrotate):
         try:
             it = fn(app)
@@ -735,6 +753,18 @@ def _check_modsecurity(app):
                  crs_version=c.get('version'), rule_count=c.get('rule_count'), paranoia_level=c.get('paranoia_level'),
                  inbound_threshold=c.get('inbound_threshold'), request_body_access=c.get('request_body_access'),
                  audit_format=audit.get('format'), audit_engine=audit.get('engine'), warnings=w)
+
+
+def _check_nginx_module(app):
+    from . import nginxmod
+    st = nginxmod.status(app)
+    lvl, why = nginxmod.level(st)
+    up = st.get('update') or {}
+    return _item('nginx_module', {'ok': 'ok', 'warning': 'warn', 'critical': 'fail'}[lvl], reason=why,
+                 nginx_version=st.get('nginx_version'), modules=st.get('modules'), loads=(st.get('load') or {}).get('ok'),
+                 error=(st.get('load') or {}).get('error'), package=up.get('nginx_package'), installed=up.get('installed'),
+                 candidate=up.get('candidate'), held=up.get('held'), hand_built=up.get('hand_built'),
+                 supported=up.get('supported'), checked_at=st.get('checked_at'))
 
 
 def _check_jobs(app):

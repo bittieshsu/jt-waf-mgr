@@ -51,6 +51,7 @@
                   <span v-for="(x, i) in (openList[it.key + k] ? v : v.slice(0, LIST_MAX))" :key="i" class="chip mono">{{ safeText(typeof x === 'object' ? JSON.stringify(x) : x, 300) }}</span>
                   <button v-if="v.length > LIST_MAX" type="button" class="btn tiny ghost" @click="openList[it.key + k] = !openList[it.key + k]"><Icon :name="openList[it.key + k] ? 'collapse' : 'expand'" />{{ openList[it.key + k] ? t('syscheck.less') : t('syscheck.more_n', { n: v.length - LIST_MAX }) }}</button>
                 </span>
+                <span v-else-if="k === 'reason' && it.key === 'nginx_module'">{{ t('nginxmod.why.' + v) }}</span>
                 <span v-else-if="k === 'size'" class="mono">{{ fmtBytes(v) }}</span>
                 <span v-else-if="TIME_KEYS.includes(k)" class="mono nowrap">{{ fmtMinute(v) }}</span>
                 <span v-else-if="typeof v === 'object'" class="mono small breakall">{{ safeText(JSON.stringify(v), 400) }}</span>

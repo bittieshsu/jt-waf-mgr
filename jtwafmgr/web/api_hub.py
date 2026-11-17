@@ -45,7 +45,7 @@ def hub_status(app, req):
         'enabled': bool(app.cfg['hub']['enabled']), 'status': st, 'commit': idx.get('commit'), 'source': idx.get('source'),
         'synced_at': idx.get('synced_at'), 'previous_commit': idx.get('previous_commit'), 'counts': idx.get('counts') or {},
         'removed': idx.get('removed') or [], 'license_sha256': idx.get('license_sha256'),
-        'requested': os.path.exists(os.path.join(hub.hub_dir(app.cfg), hub.REQUEST)),
+        'requested': os.path.exists(os.path.join(hub.hub_dir(app.cfg), hub.REQUEST)) or st.get('state') == 'running',
         'related_count': sum(1 for r in rules if r['related']), 'rules': rules})
 
 
@@ -120,7 +120,7 @@ def upload_finish(app, req):
             dest = os.path.join(hub.hub_dir(app.cfg), hub.UPLOAD_DIR)
             os.makedirs(dest, mode=0o750, exist_ok=True)
             shutil.move(path, os.path.join(dest, meta['name']))
-            hub.request_sync(app.cfg)
+            hub.request_sync(app.cfg, 'upload')
         else:
             from .. import crsupdate
             if not crsupdate.UPLOAD_NAME.match(meta['name']):

@@ -2,6 +2,15 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.4.85 (2026-11-17)
+
+- nginx 與 ModSecurity 模組相容性 (避免 nginx 更新後 WAF 失效)：
+  - 每 6 小時用暫存設定實際載入一次正式的 load_module 模組 (以服務帳號執行 `nginx -t`，不碰正式設定)，確認目前的 nginx 載得起來；載不起來是嚴重警示。
+  - 讀 apt 已有的可更新清單 (不連外)：nginx 有新版、但 ModSecurity 模組套件要求的 nginx-abi 對不上，或模組是手動編譯的且 nginx 沒有鎖定時，發警示並寫出 `apt-mark hold` 的做法。只支援 Debian / Ubuntu，其他系統標示無法判斷。
+  - 系統檢查新增「nginx 與 ModSecurity 模組」，健康檢查 API 新增 `nginx_module` (LibreNMS 外掛會看到)。
+- CrowdSec 虛擬修補規則：同步進行中頁面會顯示「同步中」並自動更新；一次下載四個檔案，第一次同步約半分鐘；上傳觸發的同步在自動同步關閉時不會連外；多個上傳同時在等時取最新的；zip 在讀入目錄前先檢查項目數；YAML 以 `- ` 開頭的值一律拒絕；來源與同步卡片的按鈕與上方欄位留出間距。
+- CRS 上傳：處理時先把上傳資料夾改名成私有資料夾，處理期間的新上傳留給下一次。
+
 ## 0.4.84 (2026-11-17)
 
 - CrowdSec 虛擬修補規則 (規則 → CrowdSec 虛擬修補規則，第一期：檢視)：

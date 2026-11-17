@@ -171,6 +171,24 @@ class TestArchive(unittest.TestCase):
         with self.assertRaises(ValueError):
             hub.from_archive(_zip({'README.md': b'x'}))                               # not the hub
 
+    def test_round_two_review(self):
+        # a zip announcing more entries than allowed is refused before its directory is read
+        data = bytearray(_zip({'appsec-rules/a.yaml': ZIMBRA}))
+        e = data.rfind(b'PK\x05\x06')
+        data[e + 10:e + 12] = (hub.MAX_MEMBERS + 1).to_bytes(2, 'little') if hub.MAX_MEMBERS + 1 < 0xFFFF else b'\xff\xff'
+        with self.assertRaises(ValueError):
+            hub.from_archive(bytes(data))
+        for bad in (b'v: - x\n', b'v: -\n'):
+            with self.assertRaises(miniyaml.YamlError):
+                miniyaml.loads(bad)
+        # an upload's request never downloads, even with the sync off
+        env = TempEnv()
+        self.addCleanup(env.cleanup)
+        hub.request_sync(env.cfg, 'upload')
+        calls = []
+        st = hub.run(env.cfg, log=lambda m: None, fetch=lambda *a, **k: calls.append(a) or b'{}')
+        self.assertEqual((st['state'], calls), ('off', []))
+
     def test_run_with_an_upload_and_the_index(self):
         env = TempEnv()
         self.addCleanup(env.cleanup)

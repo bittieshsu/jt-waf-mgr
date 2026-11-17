@@ -94,7 +94,7 @@ def _scalar(s, line):
         return _unescape(s[1:-1], line)
     # a plain scalar that YAML could read differently (a ": " or " #" inside, a leading sign or indicator):
     # refused rather than guessed
-    if re.search(r': | #|\t', s) or s[0] in '+%@`|>?:,' or s.endswith(':'):
+    if re.search(r': | #|\t', s) or s[0] in '+%@`|>?:,' or s.endswith(':') or s == '-' or s.startswith('- '):
         raise YamlError(line, 'ambiguous plain value; quote it')
     if _INT.match(s):
         return int(s)

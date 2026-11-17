@@ -865,6 +865,7 @@ table.grid th { background: var(--head-bg); }
 .kvgroups dl.kv { grid-template-columns: 7.5em minmax(0, 1fr); gap: 0 14px; margin: 0; }
 .kvpanel dl.kv > dt, .kvpanel dl.kv > dd { padding: 8px 0; border-top: 1px solid var(--border); }
 .kvpanel dl.kv > dt:first-of-type, .kvpanel dl.kv > dd:first-of-type { border-top: none; }
+.kvgroups + .actions, .kvgroups + div > .actions { margin-top: 14px; }
 @media (max-width: 900px) { .kvgroups { grid-template-columns: minmax(0, 1fr); } }
 .tile.t-ok { background: var(--ok-bg); border-top-color: var(--ok); }
 .tile.t-warn { background: var(--warn-bg); border-top-color: var(--warn); }
