@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.78 (2026-11-17)
+
+- Sandbox: when nginx loads dynamic modules with a relative path (the Debian and Ubuntu package default, e.g. `load_module modules/ndk_http_module.so;`), the sandbox looked for them in its own temporary directory and could not start, so every change, CRS installation and CRS update "failed the sandbox test". Relative paths are now made absolute with the prefix nginx was built with (`--prefix` in `nginx -V`); the configuration does not need changing. The configuration fingerprint uses the same absolute paths. (GitHub issue #1)
+
 ## 0.4.77 (2026-11-17)
 
 - Event analysis: when the local LLM server (or a gateway in front of it) answers 502, 503 or 504 or cannot be reached for a moment, the batch is tried again after 20 and then 60 seconds, up to 3 tries (before: one immediate retry); while waiting, the progress shows when the next try comes. A try that failed only after a long wait (a timeout) is not repeated.

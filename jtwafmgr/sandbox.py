@@ -36,6 +36,31 @@ class SandboxError(Exception):
     pass
 
 
+_PREFIX = {}
+
+
+def nginx_prefix(nginx_bin):
+    """The prefix the nginx program was built with (`nginx -V`, --prefix=): a relative load_module path is relative
+    to it (Debian and Ubuntu packages: `load_module modules/x.so;` with the prefix /usr/share/nginx). None when it
+    cannot be told. Kept per program file (path, size, time)."""
+    try:
+        st = os.stat(nginx_bin)
+    except OSError:
+        return None
+    key = (nginx_bin, st.st_size, st.st_mtime_ns)
+    if key not in _PREFIX:
+        p = None
+        try:
+            r = subprocess.run([nginx_bin, '-V'], capture_output=True, text=True, timeout=10, errors='replace')
+            out = (r.stderr or '') + (r.stdout or '')
+            m = re.search(r'--prefix=(\S+)', out)
+            p = m.group(1) if m else ('/usr/local/nginx' if 'configure arguments:' in out else None)   # nginx's default
+        except (OSError, subprocess.SubprocessError):
+            pass
+        _PREFIX[key] = p
+    return _PREFIX[key]
+
+
 class Sandbox:
     def __init__(self, cfg, site):
         self.cfg = cfg
@@ -67,8 +92,20 @@ class Sandbox:
 
     # --- configuration ----------------------------------------------------------------------
     def _modules(self):
+        """The production load_module paths, absolute: the sandbox nginx runs with its own prefix (-p), so a relative
+        path would be looked up inside the sandbox directory."""
         n, _ = self.site.load()
-        return [d.args[0] for d, ctx in walk(n.tree) if d.name == 'load_module' and d.args and not ctx]
+        out, pre = [], None
+        for d, ctx in walk(n.tree):
+            if d.name != 'load_module' or not d.args or ctx:
+                continue
+            p = d.args[0]
+            if not os.path.isabs(p):
+                pre = pre or nginx_prefix(self.nginx)
+                if pre:
+                    p = os.path.normpath(os.path.join(pre, p))
+            out.append(p)
+        return out
 
     def build(self, root, replace, crs_swap=None, crs_add=None):
         # crs_add: (main file, anchor Include or None, [Include paths]) -- a first CRS installation: the paths go

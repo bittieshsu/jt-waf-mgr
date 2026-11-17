@@ -731,6 +731,38 @@ class TestSandboxBuild(unittest.TestCase):
         finally:
             env.cleanup()
 
+    def test_relative_load_module_paths_use_the_nginx_prefix(self):
+        """Debian and Ubuntu: `load_module modules/x.so;` is relative to nginx's built-in prefix, not to the
+        sandbox's -p directory (GitHub issue #1)."""
+        from jtwafmgr import sandbox
+        env = TempEnv(managed={'sandbox_dir': ''})
+        self.addCleanup(env.cleanup)
+        site = os.path.join(env.dir, 'site')
+        shutil.copytree(FIXTURE_SITE, site, symlinks=True)
+        with open(os.path.join(site, 'nginx.conf')) as fh:
+            conf = fh.read()
+        with open(os.path.join(site, 'nginx.conf'), 'w') as fh:
+            fh.write('load_module modules/ndk_http_module.so;\nload_module /opt/mods/ngx_http_modsecurity_module.so;\n' + conf)
+        fake = os.path.join(env.dir, 'nginx')
+        with open(fake, 'w') as fh:
+            fh.write('#!/bin/sh\necho "configure arguments: --with-cc-opt=-O2 --prefix=/usr/share/nginx --conf-path=/etc/nginx/nginx.conf" >&2\n')
+        os.chmod(fake, 0o755)
+        env.cfg['paths']['nginx_conf'] = os.path.join(site, 'nginx.conf')
+        env.cfg['paths']['nginx_bin'] = fake
+        app = App(env.cfg)
+        self.addCleanup(app.stop)
+        sb = app.workflow.sandbox
+        self.assertEqual(sb._modules(), ['/usr/share/nginx/modules/ndk_http_module.so', '/opt/mods/ngx_http_modsecurity_module.so'])
+        root = tempfile.mkdtemp(dir=env.dir)
+        sb.build(root, {})
+        nc = rd(os.path.join(root, 'conf', 'nginx.conf'))
+        self.assertIn('load_module /usr/share/nginx/modules/ndk_http_module.so;', nc)
+        self.assertEqual(sandbox.nginx_prefix('/nonexistent/nginx'), None)
+        with open(fake, 'w') as fh:            # built without --prefix: nginx's own default
+            fh.write('#!/bin/sh\necho "configure arguments: --with-http_ssl_module" >&2\n')
+        os.utime(fake, ns=(1, 1))
+        self.assertEqual(sandbox.nginx_prefix(fake), '/usr/local/nginx')
+
     def test_evaluate(self):
         from jtwafmgr.sandbox import evaluate
         env = TempEnv()
