@@ -23,9 +23,14 @@ def strip_thinking(text):
 
 
 class LLMError(Exception):
-    def __init__(self, code, detail=''):
+    def __init__(self, code, detail='', info=None):
         super().__init__(code)
         self.code, self.detail = code, str(detail)[:300]
+        self.info = info or {}      # what went wrong, for the run's error log: never the key or the request
+
+
+LOG_HEADERS = ('server', 'via', 'content-type', 'content-length', 'retry-after', 'x-request-id', 'cf-ray', 'date')
+LOG_BODY = 1500
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -58,21 +63,43 @@ class Client:
             headers['Content-Type'] = 'application/json'
         req = urllib.request.Request(self.base + path, data=data, headers=headers, method=method)
         opener = urllib.request.build_opener(_NoRedirect())
+        t0 = time.time()
+        to = timeout or self.timeout
+        info = {'method': method, 'url': self.base + path, 'timeout': to, 'request_bytes': len(data or b'')}
+
+        def done(**k):
+            info.update(k, seconds=round(time.time() - t0, 1))
+            return self._scrub(info)
         try:
-            with opener.open(req, timeout=timeout or self.timeout) as r:
+            with opener.open(req, timeout=to) as r:
                 raw = r.read(MAX_RESPONSE + 1)
+                status, rh = r.status, r.headers
         except urllib.error.HTTPError as e:
             code = {401: 'unauthorized', 403: 'unauthorized', 404: 'not_found'}.get(e.code, 'http_%d' % e.code)
+            try:
+                body = e.read(LOG_BODY + 1)
+            except OSError:
+                body = b''
+            hdr = {k: v for k, v in (e.headers or {}).items() if k.lower() in LOG_HEADERS}
             e.close()
-            raise LLMError(code, e.reason)
+            raise LLMError(code, e.reason, done(status=e.code, reason=str(e.reason)[:200], headers=hdr,
+                                                body=body[:LOG_BODY].decode('utf-8', 'replace')))
         except (urllib.error.URLError, OSError) as e:
-            raise LLMError('unreachable', getattr(e, 'reason', e))
+            why = getattr(e, 'reason', e)
+            raise LLMError('unreachable', why, done(error='%s: %s' % (type(why).__name__, str(why)[:300])))
         if len(raw) > MAX_RESPONSE:
-            raise LLMError('response_too_large')
+            raise LLMError('response_too_large', '', done(status=status, bytes=len(raw)))
         try:
             return json.loads(raw.decode('utf-8', 'replace'))
         except ValueError:
-            raise LLMError('bad_response', raw[:200])
+            raise LLMError('bad_response', raw[:200], done(status=status, body=raw[:LOG_BODY].decode('utf-8', 'replace'),
+                                                           headers={k: v for k, v in rh.items() if k.lower() in LOG_HEADERS}))
+
+    def _scrub(self, d):
+        """The API key never reaches a log, even when a server echoes it back."""
+        if not self.key or len(self.key) < 4:
+            return d
+        return json.loads(json.dumps(d, ensure_ascii=False).replace(self.key, '[key]'))
 
     def models(self):
         d = self._call('GET', '/models', timeout=15)
@@ -98,7 +125,9 @@ class Client:
         try:
             text = d['choices'][0]['message']['content'] or ''
         except (KeyError, IndexError, TypeError):
-            raise LLMError('bad_response', json.dumps(d)[:200])
+            raise LLMError('bad_response', json.dumps(d)[:200],
+                           self._scrub({'method': 'POST', 'url': self.base + '/chat/completions', 'seconds': round(time.time() - t, 1),
+                                        'body': json.dumps(d, ensure_ascii=False)[:LOG_BODY]}))
         return text, d.get('usage') or {}, round(time.time() - t, 1)
 
     def test(self):

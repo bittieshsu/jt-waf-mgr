@@ -944,6 +944,12 @@ def rules(app, req):
         key = (d['family'] or 'other') if src == 'crs' else (d['category'] or 'other')
         c = summary.setdefault(key, {'key': key, 'on': 0, 'off': 0, 'partial': 0, 'inactive': 0})
         c[d['state']] += 1
+    # the tiles at the top: the whole source, before the other filters
+    since = util.now() - 30 * 86400
+    hit = {r[0]: r[1] for r in app.db.q('SELECT rule_id, COUNT(*) FROM event_rules WHERE ts>=? GROUP BY rule_id', (since,))}
+    ids = {d['id'] for d in rows if d['id'] is not None}
+    totals = {'rules': len(rows), **{k: sum(c[k] for c in summary.values()) for k in RULE_STATES},
+              'hit_rules_30d': sum(1 for i in ids if hit.get(i)), 'hits_30d': sum(hit.get(i, 0) for i in ids)}
     out = []
     for d in rows:
         if cat and d['category'] != cat or fam and (d['family'] or 'other') != fam or state and d['state'] != state:
@@ -970,6 +976,7 @@ def rules(app, req):
     nxt = str(start + limit) if start + limit < len(out) else None
     return json_response(200, {'items': page, 'next_cursor': nxt, 'total': len(out),
                                'summary': sorted(summary.values(), key=lambda c: -sum(c[k] for k in RULE_STATES)),
+                               'totals': totals,
                                'authors': [{'key': k, 'n': authors[k]} for k in RULE_AUTHORS if authors.get(k)]})
 
 

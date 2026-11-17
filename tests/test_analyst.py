@@ -755,6 +755,10 @@ class TestBatches(AnalystBase):
         self.srv.reply = lambda body: (502, 'bad gateway')
         out = analyst.run(self.app, force=True, log=self.logs.append, trigger='timer')
         self.assertTrue(out['error'].startswith('http_502'), out)
+        log = json.loads(self.last_run()['error_log'])               # every try, as it happened, without the key
+        self.assertEqual([(x['attempt'], x['status'], x['code']) for x in log], [(1, 502, 'http_502'), (2, 502, 'http_502'), (3, 502, 'http_502')])
+        self.assertTrue(log[0]['url'].endswith('/chat/completions'))
+        self.assertNotIn(KEY, self.last_run()['error_log'])
         self.assertIsNone(told())                                   # the run before was fine: not told
         analyst.run(self.app, force=True, log=self.logs.append, trigger='timer')
         self.assertEqual(told(), 'analyst.failed')                  # twice in a row: told

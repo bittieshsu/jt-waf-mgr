@@ -20,8 +20,8 @@
         <p v-else-if="st.over_budget" class="alert warn">{{ t('intel.over_budget') }}</p>
         <p v-if="!st.confirmed_software" class="alert warn">{{ t('intel.no_software') }}</p>
         <!-- two groups side by side: the model and its searching, the structured sources -->
-        <div class="intel-groups">
-          <div class="intel-panel">
+        <div class="kvgroups">
+          <div class="kvpanel">
             <h3><Icon name="ai" />{{ t('intel.g_model') }}</h3>
             <dl class="kv">
               <dt>{{ t('intel.provider') }}</dt><dd>{{ t('intel.provider_v.' + st.provider) }}<span v-if="st.model" class="mono small gapl">{{ st.model }}</span>
@@ -35,7 +35,7 @@
               <dt>{{ t('intel.tokens') }}</dt><dd>{{ t('intel.tokens_v', { d: fmtNum(st.tokens.day), dl: st.daily_tokens ? fmtNum(st.daily_tokens) : '∞', m: fmtNum(st.tokens.month), ml: st.monthly_tokens ? fmtNum(st.monthly_tokens) : '∞' }) }}</dd>
             </dl>
           </div>
-          <div class="intel-panel">
+          <div class="kvpanel">
             <h3><Icon name="list" />{{ t('intel.g_sources') }}</h3>
             <dl class="kv">
               <template v-for="x in sources" :key="x.key">
@@ -44,6 +44,10 @@
               </template>
             </dl>
           </div>
+        </div>
+        <div v-if="tokenData.length" class="tokchart">
+          <h3 class="charthead">{{ t('tokens.chart_title') }}<span class="muted small gapl">{{ t('tokens.chart_limit', { d: st.daily_tokens ? fmtNum(st.daily_tokens) : '∞' }) }}</span></h3>
+          <TimeBars :data="tokenData" :series="tokenSeries" :bucket-seconds="86400" :label="t('tokens.chart_title')" />
         </div>
       </section>
 
@@ -213,6 +217,7 @@ import ErrorBox from '../components/ErrorBox.vue'
 import Loading from '../components/Loading.vue'
 import DataTable from '../components/DataTable.vue'
 import TruncText from '../components/TruncText.vue'
+import TimeBars from '../components/charts/TimeBars.vue'
 
 const data = ref(null)
 const error = ref(null)
@@ -223,6 +228,8 @@ const openRun = ref(null)
 const isApprover = computed(() => hasRole('approver'))
 const isAdmin = computed(() => hasRole('admin'))
 const st = computed(() => data.value && data.value.status)
+const tokenData = computed(() => ((st.value && st.value.tokens_daily) || []).map((x) => ({ t: x.day + 'T00:00:00', tokens: x.tokens })))
+const tokenSeries = computed(() => [{ key: 'tokens', label: t('tokens.s_intel'), tone: 's1' }])
 // the structured sources: on or off, and what that means now
 const sources = computed(() => {
   const s = st.value || {}
@@ -352,14 +359,8 @@ onMounted(() => { load(); loadSources() })
 </script>
 
 <style scoped>
+.tokchart { margin-top: 14px; }
 /* the second-tier card: two panels of one width, a row per line with a thin rule between */
-.intel-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.intel-panel { border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px 4px; min-width: 0; }
-.intel-panel h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 2px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
-.intel-groups dl.kv { grid-template-columns: 7.5em minmax(0, 1fr); gap: 0 14px; margin: 0; }
-.intel-panel dl.kv > dt, .intel-panel dl.kv > dd { padding: 8px 0; border-top: 1px solid var(--border); }
-.intel-panel dl.kv > dt:first-of-type, .intel-panel dl.kv > dd:first-of-type { border-top: none; }
-@media (max-width: 900px) { .intel-groups { grid-template-columns: minmax(0, 1fr); } }
 /* an expanded threat: lead paragraph, three panels side by side (one column on narrow screens), sources, buttons */
 .thd { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 2px; }
 .thd-lead { margin: 0; max-width: 120ch; line-height: 1.6; }

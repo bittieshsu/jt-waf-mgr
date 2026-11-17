@@ -167,6 +167,29 @@ def tokens_used(db, now=None):
     return {'day': sum(t for at, t in rows if at >= day), 'month': sum(t for _, t in rows)}
 
 
+def tokens_daily(db, days=30, now=None):
+    """[{day, analysis, event}] for the last `days` local days, oldest first (the chart on the analysis page)."""
+    now = now or util.now()
+    lt = time.localtime(now)
+    first = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday - days + 1, 0, 0, 0, 0, 0, -1))
+    out = {}
+    for i in range(days):
+        out[time.strftime('%Y-%m-%d', time.localtime(first + i * 86400 + 7200))] = {'analysis': 0, 'event': 0}
+
+    def add(at, n, k):
+        d = out.get(time.strftime('%Y-%m-%d', time.localtime(at)))
+        if d is not None:
+            d[k] += n
+    for r in db.q('SELECT started_at, usage FROM analyst_runs WHERE started_at>=?', (first,)):
+        add(r['started_at'], _total(r['usage']), 'analysis')
+    for r in db.q('SELECT started_at, details FROM event_analyses WHERE started_at>=?', (first,)):
+        try:
+            add(r['started_at'], _total((json.loads(r['details'] or '{}') or {}).get('usage')), 'event')
+        except (ValueError, AttributeError):
+            pass
+    return [dict(day=k, **v) for k, v in out.items()]
+
+
 def over_budget(cfg, db):
     """'daily_tokens' / 'monthly_tokens' when that limit is used up, else None."""
     c, used = cfg['llm'], tokens_used(db)
@@ -910,27 +933,32 @@ def run(app, force=False, log=print, trigger=None):
     run_id = db.x('INSERT INTO analyst_runs(node_id, started_at, trigger, window_hours, model) VALUES (?,?,?,?,?)',
                   (cfg['node']['id'], now, trigger, a['window_hours'], client.model if client.use else RULES_MODEL)).lastrowid
     st = {'candidates': [], 'verdicts': [], 'proposals': [], 'skipped': [], 'alerts': [], 'events_scanned': 0, 'conflicts': set(),
-          'conflict_dirs': set(), 'usage': {}, 'error': None,
+          'conflict_dirs': set(), 'usage': {}, 'error': None, 'error_log': [],
           'reply': '', 'llm_seconds': None, 'prompt_chars': 0, 'run_id': run_id}
     progress(cfg, run_id, 'start')
     try:
         _analyse(app, client, a, st, log)
     except llm.LLMError as e:
         st['error'] = '%s: %s' % (e.code, e.detail) if e.detail else e.code
+        if e.info:
+            st['error_log'].append(dict(e.info, code=e.code, detail=e.detail, at=util.iso(util.now())))
     except Exception as e:     # fail closed: record, propose nothing more
         traceback.print_exc()
         st['error'] = 'internal_error: %s' % type(e).__name__
+        st['error_log'].append({'code': 'internal_error', 'detail': '%s: %s' % (type(e).__name__, util.clip(str(e), 300)),
+                                'at': util.iso(util.now())})
     key = client.key
 
     def scrub(s):
         return s.replace(key, '[key]') if key and len(key) >= 4 and isinstance(s, str) else s
     err = scrub(st['error'])
     db.x('UPDATE analyst_runs SET finished_at=?, llm_seconds=?, prompt_chars=?, candidates=?, verdicts=?, proposals=?, '
-         'skipped=?, usage=?, error=?, reply_excerpt=?, alerts=?, events_scanned=? WHERE id=?',
+         'skipped=?, usage=?, error=?, reply_excerpt=?, alerts=?, events_scanned=?, error_log=? WHERE id=?',
          (util.now(), st['llm_seconds'], st['prompt_chars'], scrub(json.dumps(st['candidates'], ensure_ascii=False)),
           scrub(json.dumps(st['verdicts'], ensure_ascii=False)), json.dumps(st['proposals']),
           scrub(json.dumps(st['skipped'], ensure_ascii=False)), json.dumps(st['usage'])[:2000], err,
-          scrub(st['reply'][:REPLY_EXCERPT]), scrub(json.dumps(st['alerts'], ensure_ascii=False)), st['events_scanned'], run_id))
+          scrub(st['reply'][:REPLY_EXCERPT]), scrub(json.dumps(st['alerts'], ensure_ascii=False)), st['events_scanned'],
+          scrub(json.dumps(st['error_log'][-30:], ensure_ascii=False)), run_id))
     # one scheduled run that hit a passing LLM-server error: the next run usually works, so tell people only when
     # the run before failed as well (or when someone asked for this run)
     quiet = bool(err and trigger == 'timer' and transient(err)
@@ -1035,6 +1063,8 @@ def _analyse(app, client, a, st, log):
         if budget is not None and usage_sum.get('total_tokens', 0) >= budget:
             # the token limit ran out during this run: the rest gets no verdict (nothing is proposed for it)
             failed.append('token_limit')
+            st['error_log'].append({'batch': n, 'batches': len(batches), 'code': 'token_limit', 'at': util.iso(util.now()),
+                                    'detail': 'token limit reached (llm.daily_tokens / llm.monthly_tokens)'})
             continue
         msgs = build_messages(bc, a['window_hours'], bf)
         st['prompt_chars'] += sum(len(m['content']) for m in msgs)
@@ -1048,6 +1078,8 @@ def _analyse(app, client, a, st, log):
                                                 json_mode=True, schema=schema)
                 break
             except llm.LLMError as e:
+                st['error_log'].append(dict(e.info, batch=n, batches=len(batches), attempt=attempt + 1, at=util.iso(util.now()),
+                                            code=e.code, detail=e.detail))
                 if (attempt == len(RETRY_WAITS) or e.code not in TRANSIENT
                         or time.monotonic() - t0 > RETRY_IF_FAILED_WITHIN):
                     failed.append('%s: %s' % (e.code, e.detail) if e.detail else e.code)
@@ -1065,6 +1097,8 @@ def _analyse(app, client, a, st, log):
             v1, ig1, al1 = parse_verdicts(text, {c['id'] for c in bc} | {c['id'] for c in bf}, with_alerts=True)
         except llm.LLMError as e:
             failed.append(e.code)
+            st['error_log'].append({'batch': n, 'batches': len(batches), 'code': e.code, 'detail': e.detail,
+                                    'at': util.iso(util.now()), 'body': (text or '')[:llm.LOG_BODY]})
             continue
         verdicts.update(v1)
         ignored += ig1
@@ -1288,7 +1322,8 @@ def run_detail(app, r):
         cands.append(c)
     d.update(candidates=cands, proposal_list=props, skipped_list=skipped, prompt_chars=r['prompt_chars'],
              alert_list=_loads(r['alerts'] if 'alerts' in r.keys() else None, []),
-             usage=_loads(r['usage'], {}), reply_excerpt=r['reply_excerpt'])
+             usage=_loads(r['usage'], {}), reply_excerpt=r['reply_excerpt'],
+             error_log=_loads(r['error_log'], []) if 'error_log' in r.keys() else [])
     d['candidate_count'] = len(cands)
     return d
 
@@ -1305,7 +1340,7 @@ def status(app):
             'ready': why is None, 'not_ready_reason': why, 'model': c.model, 'key_set': bool(c.key),
             'mode': 'llm' if llm_ready(cfg) is None and not over_budget(cfg, app.db) else 'rules_only',
             'llm_not_ready_reason': llm_ready(cfg) or over_budget(cfg, app.db),
-            'tokens': tokens_used(app.db), 'daily_tokens': cfg['llm'].get('daily_tokens') or 0,
+            'tokens': tokens_used(app.db), 'tokens_daily': tokens_daily(app.db), 'daily_tokens': cfg['llm'].get('daily_tokens') or 0,
             'monthly_tokens': cfg['llm'].get('monthly_tokens') or 0,
             'interval_minutes': a['interval_minutes'], 'window_hours': a['window_hours'], 'max_proposals': a['max_proposals'],
             'min_events': a['min_events'], 'min_sources': a['min_sources'], 'min_confidence': MIN_CONFIDENCE,

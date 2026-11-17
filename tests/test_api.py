@@ -259,6 +259,10 @@ class TestApi(unittest.TestCase):
         self.assertEqual(by[10203], 'site')               # a site rule jt-waf-mgr does not manage
         authors = {a['key']: a['n'] for a in obj['authors']}
         self.assertEqual(sum(authors.values()), obj['total'])
+        tot = obj['totals']                                       # the tiles: the whole source
+        self.assertEqual(tot['rules'], obj['total'])
+        self.assertEqual(tot['on'] + tot['partial'] + tot['off'] + tot['inactive'], tot['rules'])
+        self.assertGreaterEqual(tot['hits_30d'], tot['hit_rules_30d'])
         st, obj, _ = c.req('GET', '/api/v1/rules?source=all&author=owasp_crs')
         self.assertTrue(obj['items'] and all(r['author'] == 'owasp_crs' for r in obj['items']))
         self.assertEqual(c.req('GET', '/api/v1/rules?author=nobody')[0], 400)

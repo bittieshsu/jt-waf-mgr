@@ -2,6 +2,16 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.81 (2026-11-17)
+
+- A failed event analysis says why and keeps a detailed error log: the cause and what to do for each kind of error (502/503/504, unreachable, timeout, key refused, model missing, malformed answer, token limit...), and every try can be opened: time, batch, HTTP status, server headers and the start of the answer (the API key is always masked). Database schema 17.
+- Token charts: the event analysis and threat intelligence pages show the tokens used per day for 30 days (the analysis page split into scheduled analysis and single-event AI analysis).
+- Stat tiles at the top of the rule list: rules, on, partly off, off, not in effect, rules hit in 30 days and their hits (for the source chosen).
+- The "Sites" column of the rule list keeps a readable width; site names no longer wrap a letter at a time.
+- The event analysis status card in two groups (analysis and LLM, schedule and thresholds), laid out like the threat intelligence page; the rule page has a card title and two groups.
+- Table columns whose values open the right-click menu show a small funnel by the heading, and the cell shows it under the pointer.
+- The "formatted / raw" switch and the "Copy" button of a rule's text have the same height.
+
 ## 0.4.80 (2026-11-17)
 
 - New `GET /api/v1/health` (API token scope `status:read`): whether the WAF works, for a monitoring system. Always 200; `status` is `ok`, `warning` or `critical`. It checks the nginx master process, ModSecurity in blocking mode, managed rule files changed outside jt-waf-mgr, the last apply, the event collector still reading the audit log, the IP block list loaded, program integrity, the audit chain, outside configuration changes in the last 24 hours and repeated event analysis failures, plus numbers for graphs. It uses the results the background checks keep and is cheap to ask every minute. The LibreNMS / Nagios plugin `check_jt_waf_mgr` (jt-lnms-plugins) reads it.

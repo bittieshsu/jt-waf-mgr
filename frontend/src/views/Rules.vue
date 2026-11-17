@@ -5,6 +5,13 @@
       <button type="button" class="btn small ghost" :class="{ on: showGuide }" :aria-pressed="showGuide ? 'true' : 'false'" @click="toggleGuide"><Icon name="help" />{{ t('guide.how') }}</button>
       <RouterLink class="btn small" to="/managed"><Icon name="list" />{{ t('nav.managed') }}</RouterLink>
     </div>
+    <div v-if="ruleTotals" class="tiles ruletiles">
+      <div v-for="st in statTiles" :key="st.key" class="tile stat" :class="st.cls">
+        <div class="tl"><Icon :name="st.icon" />{{ st.label }}</div>
+        <div class="tv">{{ fmtNum(st.value) }}</div>
+        <div class="ts"><span class="tsub">{{ st.sub }}</span></div>
+      </div>
+    </div>
     <FlowSteps v-if="showGuide" :title="t('guide.rule.title')" :steps="flow" :note="t('guide.rule.note')" />
     <form class="filters" @submit.prevent="apply">
       <div class="field" :class="fieldClass('source')"><label for="rules-f-source">{{ t('rules.source') }}</label>
@@ -129,6 +136,19 @@ const router = useRouter()
 const f = reactive({ source: 'all', author: '', category: '', family: '', state: '', q: '' })
 const authors = ref([])
 const summary = ref([])
+const ruleTotals = ref(null)
+const statTiles = computed(() => {
+  const x = ruleTotals.value || {}
+  const src = t('source.' + f.source)
+  return [
+    { key: 'rules', icon: 'list', label: t('rules.tile.total'), value: x.rules, sub: src, cls: 't-events' },
+    { key: 'on', icon: 'check', label: t('rulestate.on'), value: x.on, sub: t('rules.tile.on_sub'), cls: 't-ok' },
+    { key: 'partial', icon: 'warning', label: t('rulestate.partial'), value: x.partial, sub: t('rules.tile.partial_sub'), cls: 't-warn' },
+    { key: 'off', icon: 'hide', label: t('rulestate.off'), value: x.off, sub: t('rules.tile.off_sub'), cls: 't-blocked' },
+    { key: 'inactive', icon: 'timer', label: t('rulestate.inactive'), value: x.inactive, sub: t('rules.tile.inactive_sub'), cls: 't-logged' },
+    { key: 'hit', icon: 'chart', label: t('rules.tile.hit'), value: x.hit_rules_30d, sub: t('rules.tile.hit_sub', { n: fmtNum(x.hits_30d || 0) }), cls: 't-ext' },
+  ]
+})
 const items = ref([])
 const cursor = ref(null)
 const loading = ref(false)
@@ -268,7 +288,7 @@ async function load(fresh) {
     if (!fresh && cursor.value) p.cursor = cursor.value
     const data = await get('/rules', p)
     items.value = fresh ? data.items : items.value.concat(data.items)
-    if (fresh) { summary.value = data.summary || []; authors.value = data.authors || [] }
+    if (fresh) { summary.value = data.summary || []; authors.value = data.authors || []; ruleTotals.value = data.totals || null }
     cursor.value = data.next_cursor || null
   } catch (e) {
     error.value = e
@@ -295,6 +315,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.ruletiles { margin: 0 0 14px; }
 .selbar { position: sticky; top: 60px; z-index: 5; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 10px;
   padding: 8px 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow, none); }
 .groupacts { margin-top: 10px; align-items: center; }

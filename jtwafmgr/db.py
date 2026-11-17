@@ -461,7 +461,15 @@ SCHEMA = [
     ALTER TABLE software_new RENAME TO software;
     CREATE INDEX software_name ON software(name);
     """,
+    # 17: a failed event analysis keeps what happened on each try (status, server, the start of the answer)
+    lambda c: _add_column(c, 'analyst_runs', 'error_log', "TEXT NOT NULL DEFAULT '[]'"),
 ]
+
+
+def _add_column(c, table, column, decl):
+    """ALTER TABLE ... ADD COLUMN, once (a migration run again over a newer database leaves it as it is)."""
+    if column not in [r[1] for r in c.execute('PRAGMA table_info(%s)' % table)]:
+        c.execute('ALTER TABLE %s ADD COLUMN %s %s' % (table, column, decl))
 
 
 def _rollup():

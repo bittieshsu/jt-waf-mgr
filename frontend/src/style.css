@@ -305,10 +305,11 @@ table.grid td.empty, .empty { color: var(--muted); text-align: center; padding: 
 /* the filling column keeps a readable width: a wide neighbour no longer squeezes it to one letter a line */
 .tablewrap td.c-fill > * { min-width: 220px; }
 /* site names and host patterns: at most about 280px, longer ones wrap */
-.tablewrap td.c-hosts { max-width: 280px; }
+.tablewrap td.c-hosts { min-width: 11em; max-width: 280px; }
+.tablewrap td.c-hosts > .muted { white-space: nowrap; }
 /* a long nginx line (location pattern, if condition): wraps inside its column instead of running past it */
 .wrapline { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
-.tablewrap td.c-hosts .chip.host, .tablewrap td.c-hosts .chip.host .trunc { white-space: normal; word-break: break-all; overflow-wrap: anywhere; }
+.tablewrap td.c-hosts .chip.host, .tablewrap td.c-hosts .chip.host .trunc { white-space: normal; word-break: normal; overflow-wrap: anywhere; }
 .tablewrap td.c-kind { min-width: 11em; }
 .tablewrap td.c-fill .trunc, .tablewrap td.c-fill .trunc:not([style*="max-width"]):not(.open) { max-width: 100%; display: block; }
 .tablewrap td.c-fill .breakall { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -723,6 +724,13 @@ td .geotag { display: flex; margin-top: 2px; }
 td .pickval + .geotag { margin-top: 2px; }
 .c-src .pickval .badge { margin-left: 4px; }
 /* a filterable value (FilterValue.vue): the value opens its page; the small funnel (or a right-click) opens the menu */
+/* a table column whose values open the value menu on a right-click: a small funnel after the heading, and the cell
+   shows it can be used when the pointer is on it (columns of counts have no menu, so no funnel) */
+.dt-menumark { display: inline-flex; margin-left: 3px; color: var(--muted); opacity: .75; }
+.dt-menumark .icon { width: .8em; height: .8em; }
+td.dt-menu { cursor: context-menu; }
+td.dt-menu:hover { box-shadow: inset 0 -2px 0 var(--accent); }
+td.dt-menu a, td.dt-menu button, td.dt-menu input { cursor: pointer; }
 .fv { display: inline-flex; align-items: center; gap: 2px; min-width: 0; max-width: 100%; vertical-align: middle; }
 .fv-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fv-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 0; margin: 0;
@@ -844,6 +852,16 @@ table.grid th { background: var(--head-bg); }
 .tile.t-logged { background: var(--logged-bg); }
 .tile.t-ext { background: var(--ext-bg); border-top-color: var(--ext); }
 .tile.t-int { background: var(--int-bg); border-top-color: var(--int); }
+/* a status card in two grouped panels side by side (threat intelligence, event analysis): one column when narrow */
+.kvgroups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.kvpanel { border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px 4px; min-width: 0; }
+.kvpanel h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 2px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.kvgroups dl.kv { grid-template-columns: 7.5em minmax(0, 1fr); gap: 0 14px; margin: 0; }
+.kvpanel dl.kv > dt, .kvpanel dl.kv > dd { padding: 8px 0; border-top: 1px solid var(--border); }
+.kvpanel dl.kv > dt:first-of-type, .kvpanel dl.kv > dd:first-of-type { border-top: none; }
+@media (max-width: 900px) { .kvgroups { grid-template-columns: minmax(0, 1fr); } }
+.tile.t-ok { background: var(--ok-bg); border-top-color: var(--ok); }
+.tile.t-warn { background: var(--warn-bg); border-top-color: var(--warn); }
 .stat-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
 .stat-spark { width: 55%; max-width: 140px; height: 34px; flex: none; overflow: visible; outline: none; }
 .stat-spark:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

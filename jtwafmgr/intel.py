@@ -962,6 +962,19 @@ def tokens_used(db, now=None):
     return {'day': db.one(q, (day,))[0], 'month': db.one(q, (month,))[0]}
 
 
+def tokens_daily(db, days=30, now=None):
+    """[{day, tokens}] for the last `days` local days, oldest first (the chart on the threat intelligence page)."""
+    now = now or util.now()
+    lt = time.localtime(now)
+    first = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday - days + 1, 0, 0, 0, 0, 0, -1))
+    out = {time.strftime('%Y-%m-%d', time.localtime(first + i * 86400 + 7200)): 0 for i in range(days)}
+    for r in db.q('SELECT started_at, tokens_in + tokens_out n FROM intel_runs WHERE started_at>=?', (first,)):
+        k = time.strftime('%Y-%m-%d', time.localtime(r['started_at']))
+        if k in out:
+            out[k] += r['n'] or 0
+    return [{'day': k, 'tokens': v} for k, v in out.items()]
+
+
 def over_budget(cfg, db):
     c, used = cfg['intel'], tokens_used(db)
     if c['daily_tokens'] and used['day'] >= c['daily_tokens']:
@@ -1008,7 +1021,7 @@ def status(app):
             'provider': c['provider'], 'model': (c['model'] or ANTHROPIC_MODEL) if c['provider'] == 'anthropic' else openai_target(cfg)[1],
             'uses_first_tier': c['provider'] == 'openai' and not c['url'],
             'search': c['search'], 'interval_hours': c['interval_hours'], 'days': c['days'],
-            'tokens': tokens_used(db), 'daily_tokens': c['daily_tokens'], 'monthly_tokens': c['monthly_tokens'],
+            'tokens': tokens_used(db), 'tokens_daily': tokens_daily(db), 'daily_tokens': c['daily_tokens'], 'monthly_tokens': c['monthly_tokens'],
             'over_budget': over_budget(cfg, db), 'requested': os.path.exists(request_file(cfg)),
             'confirmed_software': len(software.confirmed(db)),
             'kev': __import__('jtwafmgr.kev', fromlist=['status']).status(cfg),

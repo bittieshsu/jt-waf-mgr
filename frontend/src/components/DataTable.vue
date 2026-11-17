@@ -54,7 +54,7 @@
                 :style="widths[c.key] ? { width: widths[c.key] + 'px' } : null"
                 :aria-sort="sortKey === c.key ? (sortDir > 0 ? 'ascending' : 'descending') : null">
               <button v-if="c.sortable !== false" type="button" class="dt-sort" @click="sortBy(c)">
-                {{ c.label }}<Icon :name="sortKey === c.key ? (sortDir > 0 ? 'sortUp' : 'sortDown') : 'sort'" class="dt-sorticon" :class="{ on: sortKey === c.key }" />
+                {{ c.label }}<span v-if="menuable(c) && c.label" class="dt-menumark" :title="t('table.menu_hint')"><Icon name="filter" /></span><Icon :name="sortKey === c.key ? (sortDir > 0 ? 'sortUp' : 'sortDown') : 'sort'" class="dt-sorticon" :class="{ on: sortKey === c.key }" />
               </button>
               <template v-else><slot :name="'head-' + c.key" :col="c">{{ c.label }}</slot></template>
               <!-- drag (or arrow keys) to set the column's width; a double click gives every column its own width back -->
@@ -78,7 +78,7 @@
           <tr :class="[rowClass ? rowClass(r) : null, { clickable: clickable, 'dt-open': isExpanded(r, i) }]"
               :tabindex="clickable ? 0 : null" @click="clickable && $emit('row-click', r, $event)"
               @keydown.enter="clickable && $emit('row-click', r, $event)">
-            <td v-for="c in visibleCols" :key="c.key" :class="[c.align, c.class, { nowrap: c.nowrap }]" @contextmenu="cellMenu($event, c, r)">
+            <td v-for="c in visibleCols" :key="c.key" :class="[c.align, c.class, { nowrap: c.nowrap, 'dt-menu': menuable(c) }]" @contextmenu="cellMenu($event, c, r)">
               <slot :name="'cell-' + c.key" :row="r" :value="valueOf(c, r)">{{ plain(valueOf(c, r)) }}</slot>
             </td>
           </tr>

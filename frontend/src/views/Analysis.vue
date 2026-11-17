@@ -25,27 +25,41 @@
       <div v-if="st.ready && st.mode === 'rules_only'" class="alert info">
         <Icon name="info" /> {{ ['daily_tokens', 'monthly_tokens'].includes(st.llm_not_ready_reason) ? t('analysis.rules_only_' + st.llm_not_ready_reason) : t('analysis.rules_only') }}
       </div>
-      <dl class="kv two">
-        <dt>{{ t('analysis.enabled') }}</dt>
-        <dd><span class="badge" :class="st.enabled ? 'b-ok' : 'b-logged'">{{ st.enabled ? t('analysis.on') : t('analysis.off') }}</span></dd>
-        <dt>{{ t('analysis.llm') }}</dt>
-        <dd><span class="badge" :class="st.llm_enabled ? 'b-ok' : 'b-logged'">{{ st.llm_enabled ? t('analysis.on') : t('analysis.off') }}</span>
-          <span class="badge" :class="st.configured ? 'b-ok' : 'b-warn'">{{ st.configured ? t('analysis.configured') : t('analysis.not_configured') }}</span></dd>
-        <dt>{{ t('analysis.model') }}</dt><dd class="mono">{{ safeText(st.model, 120) || '—' }}</dd>
-        <dt>{{ t('analysis.key') }}</dt><dd>{{ st.key_set ? t('analysis.set') : t('analysis.not_set') }}</dd>
-        <dt>{{ t('analysis.tokens') }}</dt><dd>{{ t('analysis.tokens_v', { d: fmtNum(st.tokens ? st.tokens.day : 0), dl: st.daily_tokens ? fmtNum(st.daily_tokens) : '∞', m: fmtNum(st.tokens ? st.tokens.month : 0), ml: st.monthly_tokens ? fmtNum(st.monthly_tokens) : '∞' }) }}</dd>
-        <dt>{{ t('analysis.schedule') }}</dt><dd>{{ t('analysis.schedule_v', { every: everyText(st.interval_minutes), w: st.window_hours }) }}</dd>
-        <dt>{{ t('analysis.thresholds') }}</dt><dd>{{ t('analysis.thresholds_v', { e: st.min_events, s: st.min_sources, c: st.max_candidates }) }}</dd>
-        <dt>{{ t('analysis.proposal_rules') }}</dt><dd>{{ t('analysis.proposal_rules_v', { c: st.min_confidence, m: st.max_proposals }) }}</dd>
-        <dt>{{ t('analysis.next_run') }}</dt>
-        <dd>{{ st.next_due ? t('analysis.next_run_v', { at: fmtMinute(st.next_due) }) : '—' }}
-          <span v-if="st.running" class="badge b-int">{{ t('analysis.running') }}</span>
-          <span v-else-if="st.requested" class="badge b-int">{{ t('analysis.requested') }}</span></dd>
-        <dt>{{ t('analysis.last_run') }}</dt>
-        <dd><template v-if="st.last_run"><RouterLink :to="'/analysis/' + st.last_run.id">{{ fmtMinute(st.last_run.started_at) }}</RouterLink>
-          <span class="badge" :class="st.last_run.error ? 'b-blocked' : 'b-ok'">{{ st.last_run.error ? t('analysis.failed') : t('analysis.ok') }}</span></template>
-          <template v-else>{{ t('analysis.never') }}</template></dd>
-      </dl>
+      <div class="kvgroups">
+        <div class="kvpanel">
+          <h3><Icon name="server" />{{ t('analysis.g_llm') }}</h3>
+          <dl class="kv">
+            <dt>{{ t('analysis.enabled') }}</dt>
+            <dd><span class="badge" :class="st.enabled ? 'b-ok' : 'b-logged'">{{ st.enabled ? t('analysis.on') : t('analysis.off') }}</span></dd>
+            <dt>{{ t('analysis.llm') }}</dt>
+            <dd><span class="badge" :class="st.llm_enabled ? 'b-ok' : 'b-logged'">{{ st.llm_enabled ? t('analysis.on') : t('analysis.off') }}</span>
+              <span class="badge gapl" :class="st.configured ? 'b-ok' : 'b-warn'">{{ st.configured ? t('analysis.configured') : t('analysis.not_configured') }}</span></dd>
+            <dt>{{ t('analysis.model') }}</dt><dd class="mono">{{ safeText(st.model, 120) || '—' }}</dd>
+            <dt>{{ t('analysis.key') }}</dt><dd>{{ st.key_set ? t('analysis.set') : t('analysis.not_set') }}</dd>
+            <dt>{{ t('analysis.tokens') }}</dt><dd>{{ t('analysis.tokens_v', { d: fmtNum(st.tokens ? st.tokens.day : 0), dl: st.daily_tokens ? fmtNum(st.daily_tokens) : '∞', m: fmtNum(st.tokens ? st.tokens.month : 0), ml: st.monthly_tokens ? fmtNum(st.monthly_tokens) : '∞' }) }}</dd>
+          </dl>
+        </div>
+        <div class="kvpanel">
+          <h3><Icon name="timer" />{{ t('analysis.g_schedule') }}</h3>
+          <dl class="kv">
+            <dt>{{ t('analysis.schedule') }}</dt><dd>{{ t('analysis.schedule_v', { every: everyText(st.interval_minutes), w: st.window_hours }) }}</dd>
+            <dt>{{ t('analysis.thresholds') }}</dt><dd>{{ t('analysis.thresholds_v', { e: st.min_events, s: st.min_sources, c: st.max_candidates }) }}</dd>
+            <dt>{{ t('analysis.proposal_rules') }}</dt><dd>{{ t('analysis.proposal_rules_v', { c: st.min_confidence, m: st.max_proposals }) }}</dd>
+            <dt>{{ t('analysis.next_run') }}</dt>
+            <dd>{{ st.next_due ? t('analysis.next_run_v', { at: fmtMinute(st.next_due) }) : '—' }}
+              <span v-if="st.running" class="badge b-int gapl">{{ t('analysis.running') }}</span>
+              <span v-else-if="st.requested" class="badge b-int gapl">{{ t('analysis.requested') }}</span></dd>
+            <dt>{{ t('analysis.last_run') }}</dt>
+            <dd><template v-if="st.last_run"><RouterLink :to="'/analysis/' + st.last_run.id">{{ fmtMinute(st.last_run.started_at) }}</RouterLink>
+              <span class="badge gapl" :class="st.last_run.error ? 'b-blocked' : 'b-ok'">{{ st.last_run.error ? t('analysis.failed') : t('analysis.ok') }}</span></template>
+              <template v-else>{{ t('analysis.never') }}</template></dd>
+          </dl>
+        </div>
+      </div>
+      <div v-if="tokenData.length" class="tokchart">
+        <h3 class="charthead">{{ t('tokens.chart_title') }}<span class="muted small gapl">{{ t('tokens.chart_limit', { d: st.daily_tokens ? fmtNum(st.daily_tokens) : '∞' }) }}</span></h3>
+        <TimeBars :data="tokenData" :series="tokenSeries" :bucket-seconds="86400" :label="t('tokens.chart_title')" />
+      </div>
       <div class="actions">
         <button v-if="isAdmin" type="button" class="btn primary" :disabled="busy || !st.ready || st.running || st.requested" @click="runNow"><Icon name="run" />{{ t('analysis.run_now') }}</button>
         <RouterLink v-if="isAdmin" class="btn ghost" :to="{ path: '/admin/settings', hash: st && st.configured ? '#uiset-analyst' : '#uiset-llm' }"><Icon name="settings" />{{ t('analysis.open_settings') }}</RouterLink>
@@ -120,7 +134,14 @@
         <p class="muted small">{{ t('analysis.run_meta', { at: fmtMinute(sel.started_at), model: safeText(sel.model, 60) || '—', secs: sel.llm_seconds ?? '—', chars: fmtNum(sel.prompt_chars || 0) }) }}
           <template v-if="sel.usage && sel.usage.prompt_tokens"> · {{ t('analysis.tokens', { p: fmtNum(sel.usage.prompt_tokens), c: fmtNum(sel.usage.completion_tokens || 0) }) }}</template></p>
         <FlowSteps compact :steps="runSteps" />
-        <p v-if="sel.error" class="alert error"><Icon name="alert" /> {{ t('analysis.run_error', { error: safeText(sel.error, 300) }) }}</p>
+        <div v-if="sel.error" class="alert error runerr">
+          <p><Icon name="alert" /> {{ t('analysis.run_error', { error: safeText(sel.error, 300) }) }}</p>
+          <p class="small">{{ errExplain(sel.error) }}</p>
+          <details v-if="sel.error_log && sel.error_log.length" class="errlog">
+            <summary>{{ t('analysis.error_log', { n: sel.error_log.length }) }}</summary>
+            <CodeBlock small :code="errLogText(sel.error_log)" />
+          </details>
+        </div>
         <p class="muted small"><Icon name="info" /> {{ t('analysis.untrusted_note') }}</p>
         <div v-if="sel.candidates.length" class="chartgrid">
           <div><h3 class="charthead">{{ t('chart.analysis.verdicts') }}</h3><SegBar :parts="verdictParts(sel.verdicts)" :label="t('chart.analysis.verdicts')" /></div>
@@ -243,6 +264,7 @@ import FlowSteps from '../components/FlowSteps.vue'
 import SegBar from '../components/charts/SegBar.vue'
 import HBars from '../components/charts/HBars.vue'
 import TimeBars from '../components/charts/TimeBars.vue'
+import CodeBlock from '../components/CodeBlock.vue'
 
 const props = defineProps({ id: { type: String, default: '' } })
 const router = useRouter()
@@ -253,6 +275,36 @@ const VTONE = { attack_probe: 's2', legitimate: 's1', false_positive: 's1', atta
 const VCLS = { attack_probe: 'b-blocked', legitimate: 'b-ok', false_positive: 'b-int', attack: 'b-blocked', unsure: 'b-warn', invalid: 'b-logged' }
 
 const st = ref(null)
+// a failed run: what the error means, then every try as it happened (status, server, the start of the answer)
+const ERR_CODES = ['http_502', 'http_503', 'http_504', 'http_500', 'unreachable', 'unauthorized', 'not_found', 'model_not_found',
+  'bad_response', 'bad_json', 'bad_reply', 'token_limit', 'internal_error', 'response_too_large', 'not_configured']
+function errCode(e) {
+  const s = String(e || '')
+  const m = s.startsWith('partial:') ? s.match(/\(([a-z0-9_]+)/) : s.match(/^([a-z0-9_]+)/)
+  return m ? m[1] : ''
+}
+function errExplain(e) {
+  const c = errCode(e)
+  const timedOut = c === 'unreachable' && /timed out|timeout/i.test(String(e))
+  return t('analysis.err.' + (timedOut ? 'timeout' : ERR_CODES.includes(c) ? c : 'other'))
+}
+function errLogText(log) {
+  return log.map((x) => {
+    const head = '[' + (x.at ? fmtShortTime(x.at) : '—') + ']' + (x.batch ? ' batch ' + x.batch + '/' + (x.batches || '?') : '')
+      + (x.attempt ? ', try ' + x.attempt : '') + ' — ' + (x.code || '?') + (x.seconds != null ? ' (' + x.seconds + ' s)' : '')
+    const lines = [head]
+    if (x.url) lines.push('  ' + (x.method || '') + ' ' + x.url + (x.timeout ? '  timeout ' + x.timeout + ' s' : '') + (x.request_bytes ? '  request ' + x.request_bytes + ' bytes' : ''))
+    if (x.status) lines.push('  HTTP ' + x.status + (x.reason ? ' ' + x.reason : ''))
+    for (const [k, v] of Object.entries(x.headers || {})) lines.push('  ' + k + ': ' + v)
+    if (x.error) lines.push('  ' + x.error)
+    if (x.detail && !x.status && !x.error) lines.push('  ' + x.detail)
+    if (x.body) lines.push('  response: ' + String(x.body).replace(/\s+/g, ' ').slice(0, 1500))
+    return lines.join('\n')
+  }).join('\n\n')
+}
+// tokens per day, 30 days: the scheduled analysis and the single-event analysis stacked
+const tokenData = computed(() => ((st.value && st.value.tokens_daily) || []).map((x) => ({ t: x.day + 'T00:00:00', analysis: x.analysis, event: x.event })))
+const tokenSeries = computed(() => [{ key: 'analysis', label: t('tokens.s_analysis'), tone: 's1' }, { key: 'event', label: t('tokens.s_event'), tone: 's3' }])
 const runs = ref([])
 const cursor = ref(null)
 const loading = ref(false)
@@ -537,6 +589,11 @@ onMounted(reload)
 </script>
 
 <style scoped>
+.runerr p { margin: 0 0 4px; }
+.errlog { margin-top: 6px; }
+.errlog summary { cursor: pointer; font-weight: 600; }
+.errlog :deep(pre) { max-height: 360px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tokchart { margin-top: 14px; }
 .chartgrid .wide { grid-column: 1 / -1; }
 .sumlead { margin: 0 0 10px; display: flex; flex-wrap: wrap; gap: 4px 0; align-items: center; }
 .sumlead > .badge { margin-left: 8px; }

@@ -102,8 +102,10 @@ async function copy() {
 
 <style scoped>
 .ruletext { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.rt-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-.rt-bar .seg button { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; font-size: 13px; }
+.rt-bar { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px 10px; }
+/* the view switch and the copy button: one height, side by side */
+.rt-bar .seg { align-self: stretch; }
+.rt-bar .seg button, .rt-bar > .btn { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 10px; font-size: 13px; line-height: 1.2; box-sizing: border-box; }
 pre.rt { word-break: normal; overflow-wrap: anywhere; line-height: 1.55; }
 pre.rt .rl { display: block; min-height: 1.55em; }
 pre.rt .lc { display: block; }

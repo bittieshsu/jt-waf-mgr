@@ -9,23 +9,34 @@
     <template v-if="rule">
       <FlowSteps :title="t('guide.rule.title')" :steps="flow" :note="t('guide.rule.note')" />
       <section class="card">
-        <dl class="kv two">
-          <dt>{{ t('rules.directive') }}</dt><dd class="mono">{{ safeText(rule.directive, 40) }}</dd>
-          <dt>{{ t('prov.title') }}</dt><dd><ProvenanceTag :p="rule.provenance" /></dd>
-          <dt>{{ t('rules.source') }}</dt><dd>{{ t('source.' + (rule.source || 'local')) }}
-            <span v-if="!rule.managed" class="chip tag">{{ t('rules.unmanaged') }}</span></dd>
-          <dt>{{ t('rules.category') }}</dt><dd>{{ t('category.' + (rule.category || 'other')) }}</dd>
-          <dt>{{ t('rule.phase') }}</dt><dd class="mono">{{ rule.phase ?? '—' }}</dd>
-          <dt>{{ t('rule.action') }}</dt><dd class="mono">{{ safeText(rule.disruptive, 20) || '—' }}</dd>
-          <dt>{{ t('rule.severity') }}</dt><dd>{{ safeText(rule.severity, 20) || '—' }}</dd>
-          <dt>{{ t('rule.message') }}</dt><dd>{{ safeText(rule.msg, 500) || '—' }}</dd>
-          <dt>{{ t('rule.hosts') }}</dt><dd><span v-for="h in rule.hosts || []" :key="h" class="chip host">{{ safeText(h, 120) }}</span><template v-if="!(rule.hosts || []).length">{{ t('rules.global') }}</template></dd>
-          <dt>{{ t('rules.location') }}</dt><dd class="mono breakall">{{ safeText(rule.file, 500) }}:{{ rule.line }}</dd>
-          <dt>{{ t('rule.tags') }}</dt><dd><span v-for="tg in rule.tags || []" :key="tg" class="chip tag">{{ safeText(tg, 80) }}</span><template v-if="!(rule.tags || []).length">—</template></dd>
-          <dt>{{ t('rule.hits_7d') }}</dt><dd class="mono">{{ fmtNum(rule.hits_7d) }}</dd>
-          <dt>{{ t('rule.hits_30d') }}</dt><dd class="mono">{{ fmtNum(rule.hits_30d) }}</dd>
-          <dt>{{ t('rule.last_hit') }}</dt><dd>{{ fmtTime(rule.last_hit) }}</dd>
-        </dl>
+        <h2><Icon name="shield" /> {{ t('rule.card_title') }}</h2>
+        <div class="kvgroups">
+          <div class="kvpanel">
+            <h3><Icon name="list" />{{ t('rule.g_what') }}</h3>
+            <dl class="kv">
+              <dt>{{ t('rule.message') }}</dt><dd>{{ safeText(rule.msg, 500) || '—' }}</dd>
+              <dt>{{ t('rules.category') }}</dt><dd>{{ t('category.' + (rule.category || 'other')) }}</dd>
+              <dt>{{ t('rule.action') }}</dt><dd class="mono">{{ safeText(rule.disruptive, 20) || '—' }}</dd>
+              <dt>{{ t('rule.severity') }}</dt><dd>{{ safeText(rule.severity, 20) || '—' }}</dd>
+              <dt>{{ t('rule.phase') }}</dt><dd class="mono">{{ rule.phase ?? '—' }}</dd>
+              <dt>{{ t('rules.directive') }}</dt><dd class="mono">{{ safeText(rule.directive, 40) }}</dd>
+              <dt>{{ t('rule.tags') }}</dt><dd><span v-for="tg in rule.tags || []" :key="tg" class="chip tag">{{ safeText(tg, 80) }}</span><template v-if="!(rule.tags || []).length">—</template></dd>
+            </dl>
+          </div>
+          <div class="kvpanel">
+            <h3><Icon name="info" />{{ t('rule.g_where') }}</h3>
+            <dl class="kv">
+              <dt>{{ t('prov.title') }}</dt><dd><ProvenanceTag :p="rule.provenance" /></dd>
+              <dt>{{ t('rules.source') }}</dt><dd>{{ t('source.' + (rule.source || 'local')) }}
+                <span v-if="!rule.managed" class="chip tag gapl">{{ t('rules.unmanaged') }}</span></dd>
+              <dt>{{ t('rule.hosts') }}</dt><dd><span v-for="h in rule.hosts || []" :key="h" class="chip host">{{ safeText(h, 120) }}</span><template v-if="!(rule.hosts || []).length">{{ t('rules.global') }}</template></dd>
+              <dt>{{ t('rules.location') }}</dt><dd class="mono breakall">{{ safeText(rule.file, 500) }}:{{ rule.line }}</dd>
+              <dt>{{ t('rule.hits_7d') }}</dt><dd class="mono">{{ fmtNum(rule.hits_7d) }}</dd>
+              <dt>{{ t('rule.hits_30d') }}</dt><dd class="mono">{{ fmtNum(rule.hits_30d) }}</dd>
+              <dt>{{ t('rule.last_hit') }}</dt><dd>{{ fmtTime(rule.last_hit) }}</dd>
+            </dl>
+          </div>
+        </div>
         <div class="actions">
           <RouterLink class="btn small" :to="{ path: '/events', query: { rule_id: rule.id } }"><Icon name="list" />{{ t('rule.view_events') }}</RouterLink>
           <RouterLink v-if="canPropose" class="btn small" :to="{ path: '/changes/new', query: { kind: 'exclusion' } }"><Icon name="add" />{{ t('guide.rule.propose') }}</RouterLink>
