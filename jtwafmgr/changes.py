@@ -159,6 +159,10 @@ class Workflow:
                 raise ChangeError('no_effect')
         if kind not in rulegen.KINDS:
             raise ChangeError('invalid_kind')
+        if kind == 'pause':
+            # the pause rules are the pause switch's alone (pause.py: an administrator, a one-time code, an audit
+            # record and a notification); never through the ordinary change requests
+            raise ChangeError('pause_reserved', 403)
         if kind == 'raw' and (via != 'user' or role != 'admin') and op in ('add', 'modify'):
             raise ChangeError('raw_admin_only', 403)
         rule_id = item['rule_id'] if item else None
@@ -181,6 +185,8 @@ class Workflow:
                 raise ChangeError('invalid_spec', 422, field=e.field, reason=e.code, **e.details)
             if kind == 'country':
                 self._country_ready(spec)
+            if op == 'add' and spec.get('before_rule_id') in rulegen.pause_ids(self.cfg):
+                raise ChangeError('invalid_spec', 422, field='before_rule_id', reason='pause_reserved')
             if op == 'add' and spec.get('before_rule_id'):
                 pl = spec.get('placement', 'before')
                 if not any(it['rule_id'] == spec['before_rule_id'] and it['placement'] == pl
@@ -882,6 +888,16 @@ class Workflow:
             checks['static'] = {'ok': False, 'error': getattr(e, 'code', str(e)), 'details': getattr(e, 'details', {})}
             self._finish_checks(cid, checks, 'failed', 'static check failed')
             return
+        if self._is_pause(r):
+            # the troubleshooting switch (pause.py): the administrator who asked for it with a fresh one-time code is
+            # the approval; no evidence or sandbox run (both would show what the switch is for: nothing refused)
+            checks.update(evidence={'ok': True, 'skipped': 'WAF pause'}, sandbox={'ok': True, 'skipped': 'WAF pause'},
+                          finished_at=util.iso(util.now()))
+            self.db.x('UPDATE changes SET base_version=?, checks=? WHERE id=?', (base, json.dumps(checks, ensure_ascii=False), cid))
+            self.log(cid, 'system', 'checks_passed', 'static check (WAF pause)')
+            self.log(cid, r['proposed_by'], 'approved', 'WAF pause switch')
+            self._queue_apply(cid, r['proposed_by'])
+            return
         # evidence
         try:
             ev = self.evidence.check(r) if self.evidence else {'ok': True, 'skipped': 'not available'}
@@ -895,8 +911,11 @@ class Workflow:
                 if r['op'] == 'adopt':
                     sb = self.sandbox.run_equivalence(files, self.managed, self.equivalence_requests())
                 else:
-                    sb = self.sandbox.run_change(r, files, json.loads(r['tests'] or '[]'), self.managed, self.samples(),
-                                                 items)
+                    # while the WAF is paused, the sandbox still tests the rules as they work unpaused
+                    sb_items = [it for it in items if it.get('kind') != 'pause']
+                    sb_files = Managed.render(sb_items, base + 1) if len(sb_items) != len(items) else files
+                    sb = self.sandbox.run_change(r, sb_files, json.loads(r['tests'] or '[]'), self.managed, self.samples(),
+                                                 sb_items)
             except Exception as e:
                 traceback.print_exc()
                 sb = {'ok': False, 'error': 'sandbox_error: %s' % type(e).__name__}
@@ -1211,6 +1230,10 @@ class Workflow:
         if cur and cur['version'] == version and not (overwrite_drift and disk['drift']):
             raise ChangeError('already_current', 409)
         data = json.loads(v['files'])
+        # the WAF pause is not part of what a rollback restores: the pause rules stay as they are now (a rollback must
+        # neither end a pause behind the pause page's back nor bring an old one back without its one-time code)
+        now_pause = _plain([it for it in self.managed.items(include_deleted=True) if it['kind'] == 'pause'])
+        data['items'] = [it for it in data['items'] if it.get('kind') != 'pause'] + now_pause
         new_version = self._next_version()
         t = util.now()
         with self.db.tx() as c:
@@ -1252,6 +1275,22 @@ class Workflow:
                 continue
             try:
                 self._handle_result(res)
+            except Exception as e:      # noqa: BLE001 -- the change must not stay "applying" (it would hold every other)
+                traceback.print_exc()
+                try:
+                    cid = int(res.get('change_id') or 0)
+                    if cid and self.db.one("SELECT 1 FROM changes WHERE id=? AND state='applying'", (cid,)):
+                        why = ('result not recorded (%s): the apply program may have written the files; check the '
+                               'versions page and roll back with "overwrite" if the files differ' % type(e).__name__)
+                        self._state(cid, 'apply_failed', why)
+                        self.app.audit.log('change.result_error', 'system', 'system', None, 'error', severity='crit',
+                                           change_id=cid, error=type(e).__name__)
+                        r = self.get(cid)
+                        if self._is_pause(r):
+                            from . import pause
+                            pause.applied(self.app, r, False, why)
+                except Exception:   # noqa: BLE001
+                    traceback.print_exc()
             finally:
                 for suffix in ('.result', '.req'):
                     try:
@@ -1314,6 +1353,9 @@ class Workflow:
                               'applied_version>? AND applied_version<? AND id<>?', (util.now(), to, version, cid))
             if r['op'] == 'adopt':
                 self.managed.set_setting('managed.adopted_version', version, r['proposed_by'])
+            if self._is_pause(r):
+                from . import pause
+                pause.applied(self.app, r, True)
             self.log(cid, 'apply', 'applied', summary)
             self.app.audit.log('change.applied', r['proposed_by'], 'user', None, 'ok', change_id=cid, version=version,
                                direction=r['direction'], kind=r['kind'], op=r['op'], rule_id=r['rule_id'])
@@ -1325,6 +1367,9 @@ class Workflow:
         else:
             self.db.x("UPDATE versions SET state='failed', result=? WHERE version=?", (json.dumps(res), version))
             self._state(cid, 'apply_failed', summary or res.get('result'))
+            if self._is_pause(r):
+                from . import pause
+                pause.applied(self.app, r, False, summary or res.get('result'))
             self.log(cid, 'apply', 'apply_failed', summary)
             self.app.audit.log('change.apply_failed', r['proposed_by'], 'user', None, 'error', change_id=cid,
                                version=version, step=res.get('step'))
@@ -1332,10 +1377,20 @@ class Workflow:
 
     # --- worker ---------------------------------------------------------------------------
     def run(self):
+        last_expiry = 0.0
         while not self._stop.is_set():
             try:
                 self.collect_results()
-                for row in self.db.q("SELECT id FROM changes WHERE state='checking' ORDER BY id"):
+                self._pause_first()
+                if time.time() - last_expiry > 20:          # a WAF pause that has run out ends by itself
+                    last_expiry = time.time()
+                    try:
+                        from . import pause
+                        pause.expire(self.app)
+                    except Exception:       # noqa: BLE001 -- tried again on the next round
+                        traceback.print_exc()
+                for row in self.db.q("SELECT id FROM changes WHERE state='checking' ORDER BY kind='pause' DESC, id"):
+                    self._pause_first()
                     self.run_checks(row[0])
                     # an evidence check can take minutes: take an apply result in between, or the version applied
                     # meanwhile stays "pending" and the managed files look drifted until every check is done
@@ -1343,7 +1398,7 @@ class Workflow:
                     if self._stop.is_set():
                         break
                 if not self.db.one("SELECT 1 FROM changes WHERE state='applying'"):
-                    nxt = self.db.one("SELECT id FROM changes WHERE state='approved' ORDER BY id LIMIT 1")
+                    nxt = self.db.one("SELECT id FROM changes WHERE state='approved' ORDER BY kind='pause' DESC, id LIMIT 1")
                     if nxt:
                         r = self.get(nxt[0])
                         cur = self.managed.current_version()
@@ -1356,6 +1411,21 @@ class Workflow:
                 traceback.print_exc()
             self._wake.wait(2)
             self._wake.clear()
+
+    def _is_pause(self, r):
+        """A change pause.py made: only the two pause rules, nothing else."""
+        if r['kind'] != 'pause' or r['op'] != 'bundle' or r['proposed_via'] != 'user':
+            return False
+        spec = json.loads(r['spec'] or '{}')
+        ops = spec.get('ops') or []
+        return bool(spec.get('pause') is True and ops and all(o.get('kind') == 'pause' and o.get('rule_id') in rulegen.pause_ids(self.cfg)
+                                                               for o in ops))
+
+    def _pause_first(self):
+        """A WAF pause or resume does not wait behind other changes' evidence checks (minutes each)."""
+        for row in self.db.q("SELECT id FROM changes WHERE state='checking' AND kind='pause' ORDER BY id"):
+            self.run_checks(row[0])
+            self.collect_results()
 
     def stop(self):
         self._stop.set()

@@ -1,6 +1,6 @@
 import Guide from './views/Guide.vue'
 import { createRouter, createWebHistory } from 'vue-router'
-import { state, hasRole, refreshPending, refreshAlerts } from './store.js'
+import { state, hasRole, refreshPending, refreshAlerts, refreshPause } from './store.js'
 
 import Login from './views/Login.vue'
 import ChangePassword from './views/ChangePassword.vue'
@@ -66,6 +66,7 @@ const routes = [
   { path: '/admin/users', name: 'admin-users', component: AdminUsers, meta: { role: 'admin' } },
   { path: '/admin/users/review', name: 'users-review', component: UsersReview, meta: { role: 'admin' } },
   { path: '/admin/system', name: 'admin-system', component: SystemCheck, meta: { role: 'admin' } },
+  { path: '/waf/pause', name: 'waf-pause', component: () => import('./views/WafPause.vue') },
   { path: '/admin/compliance', name: 'admin-compliance', component: Compliance, meta: { role: 'admin' } },
   { path: '/analysis', name: 'analysis', component: Analysis },
   { path: '/reviews', name: 'reviews', component: Reviews },
@@ -117,6 +118,7 @@ router.beforeEach((to) => {
 router.afterEach((to, from) => {
   refreshPending(false)
   refreshAlerts(false)
+  refreshPause(false)
   // the last sign-in notice stays for the landing page and one more navigation
   if (state.lastLogin && to.fullPath !== from.fullPath && !to.meta.bare) {
     state.lastLogin.navs = (state.lastLogin.navs || 0) + 1

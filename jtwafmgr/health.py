@@ -157,7 +157,18 @@ def _analyst(app):
     return _check('analyst', OK, 'ok', enabled=True)
 
 
-CHECKS = (_nginx, _modsecurity, _managed, _last_apply, _collector, _blocks, _program, _chain, _outside, _analyst)
+def _paused(app):
+    from . import pause
+    st = pause.state(app.workflow)
+    if st['all']:
+        return _check('waf_pause', WARNING, 'paused on every site (detection only)', until=st['all'].get('until_at'))
+    if st['sites']:
+        return _check('waf_pause', WARNING, 'paused on %d site(s) (detection only)' % len(st['sites']),
+                      sites=[x['host'] for x in st['sites']][:50])
+    return _check('waf_pause', OK, 'not paused')
+
+
+CHECKS = (_nginx, _modsecurity, _paused, _managed, _last_apply, _collector, _blocks, _program, _chain, _outside, _analyst)
 
 
 def metrics(app):

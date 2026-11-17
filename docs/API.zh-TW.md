@@ -41,7 +41,7 @@
 
 權杖可以有下列一個或多個 scope，沒有其他種類。
 
-- `status:read`：`GET /status`、`GET /health`。
+- `status:read`：`GET /status`、`GET /health`、`GET /waf/pause`。
 - `events:read`：事件、事件統計、時間軸、總覽、NDJSON 匯出。
 - `rules:read`：規則、規則命中、站台（vhost）、CRS 狀態與更新、WAF 判斷流程、受管理規則檔。
 - `lookups:read`：IP 查詢與 GeoIP 查詢。
@@ -162,6 +162,11 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
  "metrics": {"events_1h": 12, "blocked_1h": 9, "blocked_24h": 240, "last_event_age_seconds": 85,
              "ip_blocks_active": 3, "open_alerts": 1, "pending_changes": 0}}
 ```
+
+**`GET /waf/pause`**：scope `status:read`。WAF 是否為了排查而暫停 (ModSecurity 只偵測)：`active`、`all` (全部
+站台：`since_at`、`until_at` 或 null＝直到手動恢復、`left_seconds`、`by`、`reason`)、`sites` (各站台，含 `host`)、
+`busy` (暫停或恢復套用中)。暫停 (`POST /waf/pause`) 與恢復 (`POST /waf/pause/resume`) 只能從網頁登入操作：管理者加
+一次性密碼才能暫停，核准者可以恢復；API 權杖永遠不能暫停。
 
 ### 4.2 事件
 

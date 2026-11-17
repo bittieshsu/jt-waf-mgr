@@ -52,6 +52,8 @@ DEFAULTS = {
         'exclusion_range': [10100, 10199],
         'confident_range': [10200, 10296],
         'country_range': [10300, 10399],
+        # the two rules of the troubleshooting switch (pause.py): every site, the listed sites
+        'pause_ids': [10090, 10091],
         # Rule(s) adding a critical score for a confident match so that CRS's 949110 decides.
         'score_rule_ids': [10298],
         # Rules that turn the engine on for "external over the CRS threshold" (nolog).

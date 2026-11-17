@@ -68,6 +68,11 @@ EVENTS = {
     'intel.failed': ('analysis', 'warning', True),
     'backup.failed': ('system', 'critical', True),
     'system.version_changed': ('system', 'info', True),
+    'waf.paused': ('system', 'critical', True),
+    'waf.resumed': ('system', 'warning', True),
+    'waf.still_paused': ('system', 'warning', True),
+    'waf.pause_apply_failed': ('system', 'critical', True),
+    'change.result_error': ('changes', 'critical', True),
     'user.created': ('accounts', 'info', False),
     'token.created': ('accounts', 'info', False),
     'settings.changed': ('system', 'info', False),
@@ -99,6 +104,11 @@ TEXT = {
         'analyst.failed': '事件分析執行失敗',
         'backup.failed': '資料庫備份失敗',
         'system.version_changed': 'jt-waf-mgr 版本變更：{previous} → {current}',
+        'waf.paused': 'WAF 已暫停 (只偵測、不封鎖)：{what}',
+        'waf.resumed': 'WAF 已恢復：{what}',
+        'waf.still_paused': '提醒：WAF 仍在暫停中 (只偵測、不封鎖)：{what}',
+        'waf.pause_apply_failed': 'WAF 暫停或恢復沒有套用成功：{what}',
+        'change.result_error': '變更 #{change_id} 的套用結果無法記錄：檔案可能已寫入，請檢查版本頁',
         'user.created': '新增帳號',
         'token.created': '新增 API 權杖',
         'settings.changed': '設定已變更',
@@ -154,7 +164,7 @@ TEXT = {
         'notify.test_text': '這是 jt-waf-mgr 的測試通知，收到表示這個管道設定正確。',
         'open': '前往檢視',
         'f.change': '變更', 'f.kind': '類型', 'f.direction': '方向', 'f.rule': '規則', 'f.by': '提出者',
-        'f.reason': '理由', 'f.user': '帳號', 'f.src_ip': '來源', 'f.failures': '失敗次數', 'f.minutes': '鎖定分鐘',
+        'f.until': '到期', 'f.until_resumed': '直到手動恢復', 'f.reason': '理由', 'f.user': '帳號', 'f.src_ip': '來源', 'f.failures': '失敗次數', 'f.minutes': '鎖定分鐘',
         'f.purpose': '用途', 'f.files': '檔案', 'f.cause': '來源判斷', 'f.problem': '問題', 'f.step': '失敗步驟',
         'f.version': '版本', 'f.run': '分析', 'f.proposals': '提案', 'f.error': '錯誤', 'f.file': '檔案',
         'f.key': '設定', 'f.target': '對象', 'f.alert': '警示', 'f.severity': '嚴重度', 'f.path': '路徑',
@@ -187,6 +197,11 @@ TEXT = {
         'analyst.failed': 'Event analysis failed',
         'backup.failed': 'Database backup failed',
         'system.version_changed': 'jt-waf-mgr version changed: {previous} → {current}',
+        'waf.paused': 'WAF paused (detects only, refuses nothing): {what}',
+        'waf.resumed': 'WAF resumed: {what}',
+        'waf.still_paused': 'Reminder: the WAF is still paused (detects only, refuses nothing): {what}',
+        'waf.pause_apply_failed': 'A WAF pause or resume was not applied: {what}',
+        'change.result_error': 'The apply result of change #{change_id} was not recorded: the files may be written; check the versions page',
         'user.created': 'Account created',
         'token.created': 'API token created',
         'settings.changed': 'Setting changed',
@@ -242,7 +257,7 @@ TEXT = {
         'notify.test_text': 'This is a test notification from jt-waf-mgr: this channel is set up correctly.',
         'open': 'Open',
         'f.change': 'Change', 'f.kind': 'Kind', 'f.direction': 'Direction', 'f.rule': 'Rule', 'f.by': 'Proposed by',
-        'f.reason': 'Reason', 'f.user': 'Account', 'f.src_ip': 'Source', 'f.failures': 'Failures',
+        'f.until': 'Until', 'f.until_resumed': 'until resumed', 'f.reason': 'Reason', 'f.user': 'Account', 'f.src_ip': 'Source', 'f.failures': 'Failures',
         'f.minutes': 'Locked minutes', 'f.purpose': 'Purpose', 'f.files': 'Files', 'f.cause': 'Cause',
         'f.problem': 'Problem', 'f.step': 'Failed step', 'f.version': 'Version', 'f.run': 'Run',
         'f.proposals': 'Proposals', 'f.error': 'Error', 'f.file': 'File', 'f.key': 'Setting', 'f.target': 'Target',
@@ -276,6 +291,11 @@ TEXT = {
         'analyst.failed': 'イベント分析に失敗しました',
         'backup.failed': 'データベースのバックアップに失敗しました',
         'system.version_changed': 'jt-waf-mgr のバージョン変更：{previous} → {current}',
+        'waf.paused': 'WAF を一時停止しました (検知のみ、ブロックしません)：{what}',
+        'waf.resumed': 'WAF を再開しました：{what}',
+        'waf.still_paused': 'お知らせ：WAF はまだ一時停止中です (検知のみ、ブロックしません)：{what}',
+        'waf.pause_apply_failed': 'WAF の一時停止または再開を適用できませんでした：{what}',
+        'change.result_error': '変更 #{change_id} の適用結果を記録できませんでした：ファイルは書き込まれている可能性があります。バージョンページを確認してください',
         'user.created': 'アカウントを作成しました',
         'token.created': 'API トークンを作成しました',
         'settings.changed': '設定が変更されました',
@@ -331,7 +351,7 @@ TEXT = {
         'notify.test_text': 'jt-waf-mgr からのテスト通知です。このチャネルは正しく設定されています。',
         'open': '表示する',
         'f.change': '変更', 'f.kind': '種類', 'f.direction': '方向', 'f.rule': 'ルール', 'f.by': '提案者',
-        'f.reason': '理由', 'f.user': 'アカウント', 'f.src_ip': '送信元', 'f.failures': '失敗回数',
+        'f.until': '終了', 'f.until_resumed': '手動で再開するまで', 'f.reason': '理由', 'f.user': 'アカウント', 'f.src_ip': '送信元', 'f.failures': '失敗回数',
         'f.minutes': 'ロック（分）', 'f.purpose': '用途', 'f.files': 'ファイル', 'f.cause': '原因判定',
         'f.problem': '問題', 'f.step': '失敗した手順', 'f.version': 'バージョン', 'f.run': '分析',
         'f.proposals': '提案', 'f.error': 'エラー', 'f.file': 'ファイル', 'f.key': '設定', 'f.target': '対象',
@@ -629,6 +649,20 @@ def render(db, cfg, event, d):
     elif event == 'backup.failed':
         facts += [(L('f.file'), d.get('file')), (L('f.error'), d.get('error'))]
         path = '/admin/system'
+    elif event in ('waf.paused', 'waf.resumed', 'waf.still_paused', 'waf.pause_apply_failed'):
+        what = d.get('host') if d.get('scope') == 'site' else d.get('what')
+        kw['what'] = _v(what or ('*' if d.get('scope') == 'all' else '?'), 120)
+        if d.get('until'):
+            facts.append((L('f.until'), d['until']))
+        elif event == 'waf.paused':
+            facts.append((L('f.until'), L('f.until_resumed')))
+        if d.get('reason'):
+            facts.append((L('f.reason'), d['reason']))
+        if d.get('error'):
+            facts.append((L('f.error'), d['error']))
+        if d.get('change_id'):
+            facts.append((L('f.change'), '#%s' % d['change_id']))
+        path = '/waf/pause'
     elif event == 'system.version_changed':
         kw.update(previous=_v(d.get('previous'), 40), current=_v(d.get('current'), 40))
         facts.append((L('f.node'), cfg['node']['id']))
@@ -781,6 +815,12 @@ SAMPLES = {
     'analyst.failed': {'run_id': 15, 'error': 'unreachable: timed out'},
     'backup.failed': {'file': '/var/backups/jt-waf-mgr/jt-waf-mgr-20260101-030000.db', 'error': 'No space left on device'},
     'system.version_changed': {'previous': '0.4.8', 'current': '0.4.9'},
+    'waf.paused': {'scope': 'site', 'host': 'app.example.com', 'until': '2026-11-17T21:00:00+08:00', 'reason': 'checking an upload error',
+                   'change_id': 42},
+    'waf.resumed': {'what': 'everything', 'change_id': 43},
+    'waf.still_paused': {'what': 'app.example.com', 'reason': 'checking an upload error'},
+    'change.result_error': {'change_id': 45, 'error': 'OperationalError'},
+    'waf.pause_apply_failed': {'what': 'everything', 'error': 'health check: app.example.com 200 -> 502', 'change_id': 44},
     'user.created': {'_actor': 'admin', 'target': 'bob'},
     'token.created': {'_actor': 'admin', 'name': 'siem-reader'},
     'settings.changed': {'_actor': 'admin', 'key': 'notify.remind_hours'},

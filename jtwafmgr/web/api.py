@@ -1207,6 +1207,51 @@ def crs_updates(app, req):
                                'status': st})
 
 
+def waf_pause_status(app, req):
+    from .. import pause
+    return json_response(200, dict(pause.state(app.workflow), match=pause.match_mode(app)))
+
+
+def waf_pause_start(app, req):
+    """Admin, a fresh one-time code and a reason: ModSecurity only detects on every site or on one site, for 1, 3, 12 or
+    24 hours or until resumed (pause.py)."""
+    from .. import pause
+    b = req.body()
+    scope = b.get('scope')
+    hours = b.get('hours')
+    if scope not in ('all', 'site') or not isinstance(hours, int) or isinstance(hours, bool):
+        raise ApiError(400, 'bad_request', 'scope: all or site; hours: 1, 3, 12, 24 or 0 (until resumed)')
+    from ..auth import AuthError
+    try:
+        app.auth.step_up(req.user['username'], str(b.get('totp') or ''), 'waf.pause', req.client_ip)
+    except AuthError as e:
+        app.audit.log('waf.pause_denied', req.user['username'], src_ip=req.client_ip, result='denied', reason=e.code)
+        raise ApiError(e.status, e.code)
+    try:
+        cid = pause.start(app, scope, b.get('host'), hours, b.get('reason'), req.user['username'])
+    except ChangeError as e:
+        raise _change_error(e)
+    # the request; "waf.paused" (with the notification) follows when the apply program has put it in force
+    app.audit.log('waf.pause_requested', req.user['username'], 'user', req.client_ip, 'ok', change_id=cid, scope=scope,
+                  host=b.get('host') if scope == 'site' else None, hours=hours)
+    return json_response(202, dict(pause.state(app.workflow), match=pause.match_mode(app), change_id=cid))
+
+
+def waf_pause_resume(app, req):
+    """Approver: put the WAF back (a tightening): one site (host), or everything (all: true)."""
+    from .. import pause
+    b = req.body()
+    try:
+        cid = pause.resume(app, req.user['username'], host=b.get('host') or None, all_=bool(b.get('all')),
+                           reason=str(b.get('reason') or '')[:300])
+    except ChangeError as e:
+        raise _change_error(e)
+    if cid:
+        app.audit.log('waf.resume_requested', req.user['username'], 'user', req.client_ip, 'ok', change_id=cid,
+                      host=b.get('host') or None, all=bool(b.get('all')))
+    return json_response(202, dict(pause.state(app.workflow), match=pause.match_mode(app), change_id=cid))
+
+
 def crs_check(app, req):
     """Admin: ask jt-waf-mgr-crs.service to check for a release now (it runs when the request file appears)."""
     from .. import crsupdate
@@ -1715,6 +1760,9 @@ def register(router):
     R('GET', V + '/traffic', traffic_report, viewer('events:read'))
     R('GET', V + '/crs/updates', crs_updates, viewer('rules:read'))
     R('POST', V + '/crs/updates/check', crs_check, ('admin',))
+    R('GET', V + '/waf/pause', waf_pause_status, viewer('status:read'))
+    R('POST', V + '/waf/pause', waf_pause_start, ('admin',))
+    R('POST', V + '/waf/pause/resume', waf_pause_resume, ('role', 'approver', None))
     R('POST', V + '/crs/updates/propose', crs_propose, ('role', 'approver', None))
     R('GET', V + '/waf/model', waf_model, viewer('rules:read'))
     R('GET', V + '/lookups/ip/{ip}', lookup_ip, viewer('lookups:read'))

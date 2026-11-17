@@ -101,7 +101,14 @@ const ticks = computed(() => {
   if (!daily.value && n > 48) {
     // hourly buckets over several days: one date label at each local midnight (every k-th day when there are many)
     const mid = []
-    for (let i = 0; i < n; i++) { const dt = new Date(props.data[i].t); if (!isNaN(dt) && dt.getHours() === 0) mid.push(i) }
+    // the first bucket of each day only (buckets shorter than an hour put several in the midnight hour)
+    let seen = ''
+    for (let i = 0; i < n; i++) {
+      const dt = new Date(props.data[i].t)
+      if (isNaN(dt) || dt.getHours() !== 0) continue
+      const day = dt.toDateString()
+      if (day !== seen) { mid.push(i); seen = day }
+    }
     if (mid.length) {
       const k = Math.max(1, Math.ceil(mid.length / 8))
       return mid.filter((_, j) => j % k === 0).map((i) => ({ x: PADL + i * slot.value, label: fmtDay(props.data[i].t) }))
@@ -113,6 +120,7 @@ const ticks = computed(() => {
     const dt = new Date(props.data[i].t)
     if (isNaN(dt)) continue
     const label = daily.value || n > 48 ? fmtDay(props.data[i].t) : String(dt.getHours()).padStart(2, '0') + ':00'
+    if (out.length && out[out.length - 1].label === label) continue      // never the same label twice in a row
     out.push({ x: PADL + i * slot.value + slot.value / 2, label })
   }
   return out

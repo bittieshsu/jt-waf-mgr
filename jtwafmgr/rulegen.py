@@ -24,7 +24,7 @@ import sys
 
 from .modsecconf import logical_lines, split_actions, split_args
 
-KINDS = ('exclusion', 'confident_block', 'redaction', 'plugin', 'raw', 'country')
+KINDS = ('exclusion', 'confident_block', 'redaction', 'plugin', 'raw', 'country', 'pause')
 EXCLUSION_ACTIONS = ('remove_target_by_id', 'remove_target_by_tag', 'remove_rule', 'remove_tag', 'score_only',
                      'body_processor')
 BLOCK_TARGETS = {
@@ -68,6 +68,7 @@ FORBIDDEN = [
     (re.compile(r'@(?!(?:pm|ipMatch)FromFile\b)\w*FromFile\b', re.I), 'operators reading files'),
     (re.compile(r'@inspectFile\b', re.I), '@inspectFile'),
 ]
+PAUSE_ENGINE = re.compile(r'ctl:\s*ruleEngine\s*=\s*DetectionOnly', re.I)
 DATA_FILE_OP = re.compile(r'@(?:pm|ipMatch)FromFile\s+([^\s"\']+)', re.I)
 DATA_FILE_DIRS = ('/etc/nginx/modsec/', '/etc/modsecurity/', '/usr/share/modsecurity-crs/')
 
@@ -265,7 +266,80 @@ def build(kind, spec, rule_id, cfg):
         return _raw(spec, rule_id, cfg)
     if kind == 'country':
         return _country(spec, rule_id, cfg)
+    if kind == 'pause':
+        return _pause(spec, rule_id, cfg)
     raise SpecError('kind', 'unknown_kind')
+
+
+PAUSE_ACTION = 'ctl:ruleEngine=DetectionOnly'
+PAUSE_IDS = (10090, 10091)
+
+
+def pause_ids(cfg=None):
+    ids = (cfg['waf'].get('pause_ids') if cfg is not None else None) or PAUSE_IDS
+    return int(ids[0]), int(ids[1])
+
+
+def pause_removals(cfg):
+    """The rule id ranges a pause takes out of the request: the whole local range except the exclusions (they keep
+    CRS's own false positives out of the log, and keep secrets out of it) and the pause rules themselves. A paused site's
+    blocks switch the engine back on with ctl:ruleEngine=On (confident blocks, country limits, the CRS score refusal on
+    a DetectionOnly engine), so detection only is not enough on its own."""
+    lo, hi = cfg['waf']['local_range']
+    keep = [tuple(cfg['waf']['exclusion_range'])] + [(i, i) for i in pause_ids(cfg)]
+    out, cur = [], lo
+    for a, b in sorted(keep):
+        if a > cur:
+            out.append((cur, min(a - 1, hi)))
+        cur = max(cur, b + 1)
+    if cur <= hi:
+        out.append((cur, hi))
+    return ','.join('ctl:ruleRemoveById=%d-%d' % (a, b) for a, b in out if a <= b)
+
+
+def _pause(spec, rid, cfg):
+    """The troubleshooting switch (pause.py): ModSecurity only detects -- logs, never refuses -- for every site
+    (scope all) or for the listed sites. With nothing paused the rule stays as a no-op, so its id and place at the top
+    of the file stay the same and resuming is one plain edit."""
+    scope = spec.get('scope')
+    if scope not in ('all', 'sites'):
+        raise SpecError('scope', 'invalid_scope')
+    if rid not in pause_ids(cfg):
+        raise SpecError('rule_id', 'not_a_pause_id')
+    first = {'first': True}
+    elo, ehi = cfg['waf']['exclusion_range']
+    extra = sorted({int(i) for i in spec.get('also_remove') or [] if isinstance(i, int) and not isinstance(i, bool)
+                    and elo <= i <= ehi})[:100]
+    off = PAUSE_ACTION + ',' + pause_removals(cfg) + ''.join(',ctl:ruleRemoveById=%d' % i for i in extra)
+    first = dict(first, also_remove=extra) if extra else first
+    if scope == 'all':
+        on = bool(spec.get('active'))
+        keep = {k: spec.get(k) for k in ('since', 'until', 'by', 'reason') if on and spec.get(k) is not None}
+        text = 'SecAction "id:%d,phase:1,pass,nolog%s"' % (rid, ',' + off if on else '')
+        return dict(first, scope='all', active=on, **keep), text, 'before'
+    sites, seen = [], set()
+    for s in spec.get('sites') or []:
+        h = str((s or {}).get('host') or '').strip().lower().rstrip('.')
+        if not HOST_RE.match(h) or h.startswith('*.') or h in seen:
+            raise SpecError('host', 'invalid_host', host=h[:100])
+        seen.add(h)
+        sites.append(dict({k: s.get(k) for k in ('since', 'until', 'by', 'reason') if s.get(k) is not None}, host=h))
+    if len(sites) > 200:
+        raise SpecError('sites', 'too_many')
+    match = spec.get('match') or 'host'
+    if match not in ('txid', 'host'):
+        raise SpecError('match', 'invalid_match')
+    if not sites:
+        return dict(first, scope='sites', sites=[], match=match), 'SecAction "id:%d,phase:1,pass,nolog"' % rid, 'before'
+    alt = '(?:%s)' % '|'.join(re.escape(s['host']).replace('\\-', '-') for s in sites)
+    if match == 'txid':
+        # the transaction id is nginx's "$host-$request_id": the site nginx chose, also for a request line with a full
+        # URL (whose Host header can name another site)
+        cond = ('UNIQUE_ID', '@rx ^%s\\.?-[0-9a-f]{32}$' % alt, 't:none,t:lowercase')
+    else:
+        cond = ('REQUEST_HEADERS:Host', '@rx ' + HOST_RX_FMT % alt, 't:none,t:lowercase')
+    text = _chain([cond], 'id:%d,phase:1,pass,nolog' % rid, off)
+    return dict(first, scope='sites', sites=sites, match=match), text, 'before'
 
 
 def never_list(cfg):
@@ -446,6 +520,11 @@ def check_raw_text(text, allow_ids=None, cfg=None):
         raise SpecError('text', 'empty')
     if len(text) > 20000 or '\x00' in text:
         raise SpecError('text', 'too_long')
+    if PAUSE_ENGINE.search(text):
+        # switching the engine to detection only is the pause switch's alone (and it has its own two rule ids)
+        ids = [int(x) for x in re.findall(r'\bid\s*:\s*(\d+)', text)]
+        if not ids or any(i not in pause_ids(cfg) for i in ids):
+            raise SpecError('text', 'forbidden', what='ctl:ruleEngine=DetectionOnly')
     for rx, what in FORBIDDEN:
         if rx.search(text):
             raise SpecError('text', 'forbidden', what=what)
@@ -461,24 +540,41 @@ def check_raw_text(text, allow_ids=None, cfg=None):
             raise SpecError('text', 'directive_not_allowed', directive=words[0][:40])
         if words[0] in ('SecRule', 'SecAction'):
             acts = split_actions(words[-1]) if len(words) > (3 if words[0] == 'SecRule' else 1) else []
+            own, removes = [], []
             for k, v in acts:
                 if k == 'id':
                     try:
-                        ids.append(int(v.strip("'\"")))
+                        own.append(int(v.strip("'\"")))
                     except ValueError:
                         raise SpecError('text', 'invalid_id')
                 if k == 'ctl' and re.match(r'(?i)rule(?:Remove(?:ById|ByTag)|RemoveTarget\w*)=', v) and cfg is not None:
-                    tgt = v.split('=', 1)[1].split(';')[0]
-                    sysids = set(cfg['waf']['fallback_rule_ids']) | set(cfg['waf']['score_rule_ids'])
-                    if tgt.isdigit() and int(tgt) in sysids:
-                        raise SpecError('text', 'removes_system_rule', rule_id=int(tgt))
+                    removes.append(v.split('=', 1)[1].split(';')[0])
+            ids += own
+            # the system rules (the score refusal and its fallback) are never taken out -- a range ("10200-19999")
+            # counts too; only the pause switch's own rules take its ranges out, for the request they pause
+            if removes and not (own and all(i in pause_ids(cfg) for i in own)):
+                hit = _removed_system(removes, cfg)
+                if hit is not None:
+                    raise SpecError('text', 'removes_system_rule', rule_id=hit)
         if words[0] == 'SecRuleRemoveById' and cfg is not None:
-            sysids = set(cfg['waf']['fallback_rule_ids']) | set(cfg['waf']['score_rule_ids'])
-            for w in words[1:]:
-                for p in w.split(','):
-                    if p.strip().isdigit() and int(p) in sysids:
-                        raise SpecError('text', 'removes_system_rule', rule_id=int(p))
+            hit = _removed_system([p for w in words[1:] for p in w.split(',')], cfg)
+            if hit is not None:
+                raise SpecError('text', 'removes_system_rule', rule_id=hit)
     return ids
+
+
+def _removed_system(targets, cfg):
+    """The first system rule id a list of rule-removal targets ("10299", "10200-19999") takes out, or None."""
+    sysids = set(cfg['waf']['fallback_rule_ids']) | set(cfg['waf']['score_rule_ids'])
+    for tgt in targets:
+        m = re.fullmatch(r'\s*(\d+)\s*(?:-\s*(\d+)\s*)?', tgt or '')
+        if not m:
+            continue
+        a, b = int(m.group(1)), int(m.group(2) or m.group(1))
+        for i in sorted(sysids):
+            if a <= i <= b:
+                return i
+    return None
 
 
 def _raw(spec, rid, cfg):
@@ -487,6 +583,9 @@ def _raw(spec, rid, cfg):
     if placement not in ('before', 'after'):
         raise SpecError('placement', 'invalid_placement')
     ids = check_raw_text(text, cfg=cfg)
+    if any(i in pause_ids(cfg) for i in ids):
+        # the pause switch's two ids: a rule of its own there would be a pause nobody sees, and would block the switch
+        raise SpecError('rule_id', 'pause_reserved')
     lo, hi = cfg['waf']['local_range']
     for i in ids:
         if not lo <= i <= hi:

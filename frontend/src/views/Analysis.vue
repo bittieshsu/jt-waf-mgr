@@ -102,7 +102,7 @@
 
     <section v-if="runs.length" class="card">
       <h2><Icon name="history" /> {{ t('analysis.runs') }} <span class="count">{{ runs.length }}</span></h2>
-      <div class="chartgrid">
+      <div class="chartgrid halves">
         <div><h3 class="charthead">{{ t('chart.analysis.verdicts') }}</h3><SegBar :parts="verdictParts(allVerdicts)" :label="t('chart.analysis.verdicts')" /></div>
         <div><h3 class="charthead">{{ t('chart.analysis.families') }}</h3><HBars :items="familyItems(allFamilies)" :series="candSeries" /></div>
         <div class="wide"><h3 class="charthead">{{ t('chart.analysis.runs') }}</h3><TimeBars :data="runBars" :series="runSeries" :label="t('chart.analysis.runs')" /></div>

@@ -47,6 +47,15 @@ export async function refreshPending(force) {
 
 // Open alerts (nav badge): same rhythm as the pending changes.
 export const alertCount = reactive({ open: 0, critical: 0, at: 0 })
+// a WAF pause (troubleshooting switch): every page shows it while it lasts
+export const wafPause = reactive({ data: null, at: 0 })
+export async function refreshPause(force) {
+  if (!state.user || state.user.must_change_password || state.user.totp_setup_required) return
+  const now = Date.now()
+  if (!force && now - wafPause.at < 15000) return
+  wafPause.at = now
+  try { wafPause.data = await get('/waf/pause') } catch { /* keep the last value */ }
+}
 
 export async function refreshAlerts(force) {
   if (!state.user || state.user.must_change_password || state.user.totp_setup_required) return

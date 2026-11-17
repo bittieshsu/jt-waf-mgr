@@ -51,7 +51,7 @@ All examples use made-up values: `waf.example.com`, addresses from 192.0.2.0/24,
 
 A token has one or more of these scopes. There are no others.
 
-- `status:read`: `GET /status`, `GET /health`.
+- `status:read`: `GET /status`, `GET /health`, `GET /waf/pause`.
 - `events:read`: events, event statistics, timeline, overview, NDJSON export.
 - `rules:read`: rules, rule hits, sites (vhosts), CRS status and updates, the WAF decision model, managed rule files.
 - `lookups:read`: IP lookup and GeoIP lookup.
@@ -178,6 +178,12 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
  "metrics": {"events_1h": 12, "blocked_1h": 9, "blocked_24h": 240, "last_event_age_seconds": 85,
              "ip_blocks_active": 3, "open_alerts": 1, "pending_changes": 0}}
 ```
+
+**`GET /waf/pause`**: scope `status:read`. Whether the WAF is paused for troubleshooting (ModSecurity detecting
+only): `active`, `all` (every site: `since_at`, `until_at` or null = until resumed, `left_seconds`, `by`, `reason`),
+`sites` (the same per site, with `host`), `busy` (a pause or resume being applied). Pausing (`POST /waf/pause`) and
+resuming (`POST /waf/pause/resume`) are session-only: an administrator with a fresh one-time code pauses, an approver
+resumes; an API token can never pause.
 
 ### 4.2 Events
 

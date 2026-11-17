@@ -212,6 +212,12 @@ paths:
       responses:
         '200': {description: 'OK: status is ok, warning or critical; checks[] and metrics', content: {application/json: {schema: {type: object}}}}
         default: {$ref: '#/components/responses/Error'}
+  /waf/pause:
+    get:
+      summary: Whether the WAF is paused for troubleshooting (scope status:read); pausing and resuming are session-only
+      responses:
+        '200': {description: 'active, all, sites, busy', content: {application/json: {schema: {type: object}}}}
+        default: {$ref: '#/components/responses/Error'}
   /events:
     get:
       summary: List events (scope events:read)

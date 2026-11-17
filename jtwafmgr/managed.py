@@ -161,7 +161,7 @@ class Managed:
         out = {}
         for p in PLACEMENTS:
             parts = []
-            for it in sorted((x for x in items if x['placement'] == p), key=lambda x: x['position']):
+            for it in sorted((x for x in items if x['placement'] == p), key=lambda x: (0 if _first(x) else 1, x['position'])):
                 if it.get('deleted') or not it.get('enabled', 1):
                     continue
                 block = '\n'.join(x for x in (it.get('comment') or '', it.get('text') or '') if x)
@@ -205,6 +205,8 @@ class Managed:
         lo, hi = self.range_for(kind)
         used = [i for i in list(self.occupied_ids()) + list(extra or ()) if lo <= i <= hi]
         n = (max(used) + 1) if used else lo   # never reuse an id, not even a deleted one
+        while n in (self.cfg['waf'].get('pause_ids') or ()):   # held for the pause switch
+            n += 1
         if n > hi:
             raise ValueError('id_range_full')
         return n
@@ -310,6 +312,8 @@ class Managed:
             pl = new_item['placement']
             same = [x for x in items if x['placement'] == pl]
             pos = max([x['position'] for x in same] or [0.0]) + 1.0
+            if (new_item.get('spec') or {}).get('first'):          # the pause switch: above every other rule
+                pos = min([x['position'] for x in same] or [2.0]) - 1.0
             before = (new_item.get('spec') or {}).get('before_rule_id')
             if before:
                 anchor = next((x for x in same if x.get('rule_id') == before and not x.get('deleted')), None)
@@ -341,3 +345,14 @@ class Managed:
         else:
             raise ValueError('invalid_op')
         return items, target
+
+
+def _first(it):
+    """The pause switch's rules come first in their file, whatever the stored positions say."""
+    spec = it.get('spec')
+    if isinstance(spec, str):
+        try:
+            spec = json.loads(spec)
+        except ValueError:
+            return False
+    return bool(isinstance(spec, dict) and spec.get('first') and it.get('kind') == 'pause')

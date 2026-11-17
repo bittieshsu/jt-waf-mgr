@@ -82,6 +82,15 @@
         <span>{{ t('app.new_version', { version: safeText(newVersion, 20) }) }}</span>
         <button type="button" class="btn small primary" @click="reloadPage"><Icon name="refresh" />{{ t('app.reload') }}</button>
       </div>
+      <!-- the WAF is paused (troubleshooting): on every page while it lasts, with the way back -->
+      <div v-if="!bare && pauseOn" class="alert error wafpaused" role="status">
+        <Icon name="warning" />
+        <span><strong>{{ t('pause.banner_title') }}</strong> {{ pauseText }}</span>
+        <span class="wp-acts">
+          <RouterLink class="btn small" to="/waf/pause"><Icon name="settings" />{{ t('pause.manage') }}</RouterLink>
+          <button v-if="hasRole('approver')" type="button" class="btn small primary" :disabled="resuming || !!wafPause.data.busy" @click="resumeAll"><Icon name="refresh" />{{ t('pause.resume_all') }}</button>
+        </span>
+      </div>
       <div v-if="!bare && state.lastLogin" class="alert lastlogin" :class="state.lastLogin.failed_since > 0 ? 'warn' : 'info'" role="status">
         <span v-if="state.lastLogin.at">{{ t('lastlogin.at', { at: fmtMinute(state.lastLogin.at), ip: safeText(state.lastLogin.ip || '—', 45) }) }}</span>
         <span v-else>{{ t('lastlogin.first') }}</span>
@@ -105,7 +114,7 @@
 <script setup>
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { state, hasRole, clearSession, pending, refreshPending, alertCount, refreshAlerts } from './store.js'
+import { state, hasRole, clearSession, pending, refreshPending, alertCount, refreshAlerts, wafPause, refreshPause } from './store.js'
 import { startCardFold, relabelCardFold } from './cardFold.js'
 import { get, post } from './api.js'
 import { t, lang } from './i18n.js'
@@ -162,6 +171,7 @@ const navGroups = computed(() => [
     { to: '/admin/tokens', label: t('nav.tokens'), icon: 'key' },
     { to: '/admin/audit', label: t('nav.audit'), icon: 'page' },
     { to: '/admin/system', label: t('nav.system'), icon: 'verify' },
+    { to: '/waf/pause', label: t('nav.waf_pause'), icon: 'warning' },
     { to: '/admin/compliance', label: t('nav.compliance'), icon: 'report' },
     { to: '/admin/notify', label: t('nav.notify'), icon: 'notify' },
     { to: '/admin/settings', label: t('nav.settings'), icon: 'settings' },
@@ -263,9 +273,30 @@ async function checkVersion() {
 function onVisible() { if (document.visibilityState === 'visible') checkVersion() }
 function reloadPage() { window.location.reload() }
 
+const pauseOn = computed(() => !!(wafPause.data && wafPause.data.active))
+function leftText(x) {
+  if (!x || !x.until_at) return t('pause.until_resumed')
+  const s = Math.max(0, x.left_seconds || 0)
+  return s >= 3600 ? t('pause.left_h', { h: Math.floor(s / 3600), m: Math.floor((s % 3600) / 60) }) : t('pause.left_m', { m: Math.max(1, Math.ceil(s / 60)) })
+}
+const pauseText = computed(() => {
+  const d = wafPause.data
+  if (!d) return ''
+  if (d.all) return t('pause.banner_all', { left: leftText(d.all) })
+  return t('pause.banner_sites', { n: d.sites.length, hosts: d.sites.slice(0, 3).map((x) => safeText(x.host, 80)).join(', ') + (d.sites.length > 3 ? ' …' : '') })
+})
+const resuming = ref(false)
+async function resumeAll() {
+  resuming.value = true
+  try { await post('/waf/pause/resume', { all: true }) } catch { /* the pause page shows why */ } finally {
+    resuming.value = false
+    refreshPause(true)
+  }
+}
+
 let timer = null
 onMounted(() => {
-  timer = setInterval(() => { refreshPending(true); refreshAlerts(true); if (++ticks % 5 === 0) checkVersion() }, 60000)
+  timer = setInterval(() => { refreshPending(true); refreshAlerts(true); refreshPause(true); if (++ticks % 5 === 0) checkVersion() }, 60000)
   document.addEventListener('visibilitychange', onVisible)
   startCardFold()
   document.addEventListener('pointerdown', onDocDown, true)

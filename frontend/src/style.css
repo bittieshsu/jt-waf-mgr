@@ -465,6 +465,9 @@ pre.diff .dh { color: var(--muted); font-weight: 600; }
 .lastlogin { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
 .lastlogin .btn { margin-left: auto; }
 .newver { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+/* the WAF is paused: a strong band on every page, the way back at its right */
+.wafpaused { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; border: 2px solid var(--blocked); font-size: 14.5px; }
+.wafpaused .wp-acts { margin-left: auto; display: inline-flex; gap: 8px; }
 .newver .btn { margin-left: auto; }
 /* login and other pages without the top bar: the notice sits right above the login box, as wide as it */
 .bare .newver { max-width: 380px; margin: 6vh auto 0; flex-direction: column; align-items: stretch; }
@@ -657,6 +660,9 @@ table.grid td.nowrap { white-space: nowrap; }
 .flowsteps.compact .fs-box { padding: 5px 8px; }
 .fs-note { display: flex; gap: 6px; align-items: flex-start; margin: 10px 0 0; font-size: 13px; color: var(--muted); }
 .themeswitch button { padding: 3px 8px; }
+/* two charts that share the row evenly (no empty columns to their right) */
+.chartgrid.halves { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 760px) { .chartgrid.halves { grid-template-columns: minmax(0, 1fr); } }
 .chartgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 12px 20px; margin-bottom: 14px; }
 .charthead { font-size: 13.5px; font-weight: 600; color: var(--muted); margin: 0 0 6px; }
 .brand { display: inline-flex; align-items: center; gap: 7px; }

@@ -49,7 +49,7 @@
 
 トークンには次のスコープを 1 つ以上付けます。これ以外はありません。
 
-- `status:read`：`GET /status`、`GET /health`。
+- `status:read`：`GET /status`、`GET /health`、`GET /waf/pause`。
 - `events:read`：イベント、イベント統計、タイムライン、概要、NDJSON エクスポート。
 - `rules:read`：ルール、ルールのヒット、サイト（vhost）、CRS の状態と更新、WAF の判定モデル、管理対象ルールファイル。
 - `lookups:read`：IP 検索と GeoIP 検索。
@@ -176,6 +176,12 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
  "metrics": {"events_1h": 12, "blocked_1h": 9, "blocked_24h": 240, "last_event_age_seconds": 85,
              "ip_blocks_active": 3, "open_alerts": 1, "pending_changes": 0}}
 ```
+
+**`GET /waf/pause`**：スコープ `status:read`。切り分けのために WAF を一時停止しているか (ModSecurity は検知のみ)：
+`active`、`all` (すべてのサイト：`since_at`、`until_at` または null＝手動で再開するまで、`left_seconds`、`by`、
+`reason`)、`sites` (サイトごと、`host` 付き)、`busy` (一時停止または再開を適用中)。一時停止 (`POST /waf/pause`) と
+再開 (`POST /waf/pause/resume`) はログインしたセッションのみ：管理者がワンタイムコード付きで一時停止し、承認者が
+再開できます。API トークンでは一時停止できません。
 
 ### 4.2 イベント
 

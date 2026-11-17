@@ -2,6 +2,17 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.82 (2026-11-17)
+
+- Pause the WAF (troubleshooting, Admin → Pause the WAF): when a site misbehaves, stop refusing on every site or on one site for a while to see whether the WAF causes it. 1, 3, 12 or 24 hours or until resumed (a daily reminder while it lasts); it ends by itself. "Resume everything" removes only the pause; every other rule stays as it was.
+  - While paused: this system's confident blocks, country limits and other own rules do not run; CRS only detects and still logs events; exclusions and masking stay. The IP block list and nginx's own limits stay in force.
+  - Pausing takes an administrator, a fresh one-time code and a reason; approvers can resume. API tokens cannot pause, and ordinary changes cannot touch the pause rules. In effect in about a second (no sandbox run, no second person), each time a version like any change; "paused" / "resumed" is logged and notified once in force, a failure gets an urgent notification.
+  - One site is matched by the site nginx chose (the ModSecurity transaction id `$host-$request_id`), which a full URL in the request line cannot hide; without that setting, the Host header, with a warning on the page.
+  - A red band with the time left on every page; the health API reports a warning; other changes are tested in the sandbox as without the pause; a rollback leaves the pause as it is.
+- An apply result that cannot be recorded marks the change as failed with an urgent notification (it no longer stays "applying", holding every later change).
+- Only the pause rules may use `ctl:ruleEngine=DetectionOnly`; no other rule may take their ids or go above them; a rule-removal range (e.g. `10200-19999`) that covers the system score-refusal rules is refused.
+- The run history charts of the event analysis share the row; the time axis no longer repeats a date.
+
 ## 0.4.81 (2026-11-17)
 
 - A failed event analysis says why and keeps a detailed error log: the cause and what to do for each kind of error (502/503/504, unreachable, timeout, key refused, model missing, malformed answer, token limit...), and every try can be opened: time, batch, HTTP status, server headers and the start of the answer (the API key is always masked). Database schema 17.
