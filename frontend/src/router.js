@@ -67,6 +67,7 @@ const routes = [
   { path: '/admin/users/review', name: 'users-review', component: UsersReview, meta: { role: 'admin' } },
   { path: '/admin/system', name: 'admin-system', component: SystemCheck, meta: { role: 'admin' } },
   { path: '/waf/pause', name: 'waf-pause', component: () => import('./views/WafPause.vue') },
+  { path: '/crowdsec', name: 'crowdsec', component: () => import('./views/Hub.vue') },
   { path: '/admin/compliance', name: 'admin-compliance', component: Compliance, meta: { role: 'admin' } },
   { path: '/analysis', name: 'analysis', component: Analysis },
   { path: '/reviews', name: 'reviews', component: Reviews },

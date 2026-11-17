@@ -185,6 +185,16 @@ only): `active`, `all` (every site: `since_at`, `until_at` or null = until resum
 resuming (`POST /waf/pause/resume`) are session-only: an administrator with a fresh one-time code pauses, an approver
 resumes; an API token can never pause.
 
+**`GET /hub`**: scope `rules:read`. The CrowdSec virtual patching rules (from the CrowdSec Hub, MIT licence) as
+read and converted on this host: `commit`, `source` (`github` or the uploaded archive), `synced_at`, `counts`
+(`total`, `convertible`, `unsupported`) and `rules` (`name`, `label`, `description`, `cves`, `ok`, `reason` when not
+convertible, `change` since the last sync, `related`: the confirmed software the rule names). `GET /hub/rule?name=`
+adds the upstream text (`yaml`, shown as text only) and the converted ModSecurity rule (`text`); `GET /hub/license`
+the hub's LICENSE of that commit. `POST /hub/sync` (admin) asks for a sync now. Uploads (an archive of the hub, or a
+CRS release and its signature) go in parts of up to 600 KB: `POST /uploads` (admin: `kind` `hub` or `crs`, `name`,
+`size`, `sha256`), `POST /uploads/{id}/chunk` (`index`, base64 `data`), `POST /uploads/{id}/finish` (for a CRS release
+also `asc`, the signature text); the size and SHA-256 are checked before the job reads the file.
+
 ### 4.2 Events
 
 **`GET /events`**: scope `events:read`. Events, newest first. Parameters (all optional):

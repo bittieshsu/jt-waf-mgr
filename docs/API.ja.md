@@ -183,6 +183,16 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 再開 (`POST /waf/pause/resume`) はログインしたセッションのみ：管理者がワンタイムコード付きで一時停止し、承認者が
 再開できます。API トークンでは一時停止できません。
 
+**`GET /hub`**：スコープ `rules:read`。CrowdSec 仮想パッチルール (CrowdSec Hub、MIT ライセンス) をこのホストで
+読み込み変換した結果：`commit`、`source` (`github` またはアップロードしたアーカイブ)、`synced_at`、`counts`
+(`total`、`convertible`、`unsupported`)、`rules` (`name`、`label`、`description`、`cves`、`ok`、変換できない場合の
+`reason`、前回の同期からの `change`、`related`：ルールが言及する確認済みソフトウェア)。`GET /hub/rule?name=` は元の
+ルール (`yaml`、テキストとしてのみ表示) と変換後の ModSecurity ルール (`text`) を含み、`GET /hub/license` は同じ commit
+の LICENSE です。`POST /hub/sync` (管理者) で今すぐ同期します。アップロード (Hub のアーカイブ、または CRS リリースと
+署名) は最大 600 KB ずつ分割して送ります：`POST /uploads` (管理者：`kind` は `hub` か `crs`、`name`、`size`、
+`sha256`)、`POST /uploads/{id}/chunk` (`index`、base64 の `data`)、`POST /uploads/{id}/finish` (CRS リリースは
+署名テキスト `asc` も)。処理前にサイズと SHA-256 を照合します。
+
 ### 4.2 イベント
 
 **`GET /events`**：スコープ `events:read`。イベントの一覧、新しい順。パラメーター（すべて任意）：

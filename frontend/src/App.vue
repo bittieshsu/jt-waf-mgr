@@ -160,6 +160,7 @@ const navGroups = computed(() => [
     { to: '/vhosts', label: t('nav.vhosts'), icon: 'server' },
     { to: '/countries', label: t('nav.countries'), icon: 'globe' },
     { to: '/crs', label: t('nav.crs'), icon: 'code' },
+    { to: '/crowdsec', label: t('nav.crowdsec'), icon: 'shield' },
     { to: '/waf', label: t('waf.title'), icon: 'verify' },
   ] },
   { key: 'changes', label: t('nav.g_changes'), icon: 'change', badge: pending.count || 0, badgeTitle: t('nav.pending_approval'), items: [

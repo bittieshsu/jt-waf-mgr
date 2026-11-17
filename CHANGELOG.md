@@ -2,6 +2,18 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.84 (2026-11-17)
+
+- CrowdSec virtual patching rules (Rules → CrowdSec virtual patches, phase 1: review):
+  - The appsec rules and the LICENSE of one commit of crowdsecurity/hub on GitHub (MIT licence, about 0.2 MB) are read and converted into ModSecurity rules on this host, by their own job jt-waf-mgr-hub once a day (switched on in Settings; nothing is fetched again while the commit is the same) or with "Sync now"; the web service never reaches the internet.
+  - Only rules whose conditions keep their exact meaning are converted ("and" as a chain, "or" as several rules); the others are listed as "not supported yet" with the reason, and a rule never loses part of its conditions. Of the hub's 243 rules today, 230 convert, all checked with `nginx -t` on nginx + ModSecurity.
+  - Stat tiles, the rules that name this site's software (the confirmed list of threat intelligence), what is new or changed; each rule shows the upstream text and the converted rule. The MIT licence of the same commit is kept and can be shown.
+  - A host that cannot reach the internet can upload a hub archive (GitHub's "Download ZIP" or a tar.gz); only appsec-rules and LICENSE are read.
+  - Proposing a rule as a change for the sites comes in the next version.
+- Offline CRS: a host that cannot reach GitHub can upload the release and its .asc signature on the CRS page; it is checked against the CRS release key and staged, then compared in the sandbox and approved as usual.
+- Hub rule files are read only by the built-in restricted YAML reader: ambiguous forms, overlong lines and deep nesting are refused, never guessed; every converted line must have a fixed shape, and names and descriptions keep only safe characters.
+- Uploads are sent in parts (the web service and nginx take requests of up to 1 MB) and checked for size and SHA-256; the web service only stores the file, the jobs unpack and verify it.
+
 ## 0.4.83 (2026-11-17)
 
 - Health API: an engine set to detection only with rules that switch blocking on for what they match (confident blocks, the score refusal for outside sources) is fine ("blocking through rules"), no longer "detection only: nothing is blocked".

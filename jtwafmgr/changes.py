@@ -1389,6 +1389,8 @@ class Workflow:
                         pause.expire(self.app)
                     except Exception:       # noqa: BLE001 -- tried again on the next round
                         traceback.print_exc()
+                    from . import hub
+                    hub.marker(self.cfg)        # the CrowdSec rules job downloads only while switched on
                 for row in self.db.q("SELECT id FROM changes WHERE state='checking' ORDER BY kind='pause' DESC, id"):
                     self._pause_first()
                     self.run_checks(row[0])

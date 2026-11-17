@@ -80,6 +80,7 @@ class TempEnv:
                          'dir': os.path.join(self.dir, 'managed'), 'sandbox_dir': os.path.join(self.dir, 'sandbox')},
              'blocks': {'file': os.path.join(self.dir, 'nginx-jt', 'blocked-ips.conf')},
              'crs': {'dir': os.path.join(self.dir, 'crs')},
+             'hub': {'dir': os.path.join(self.dir, 'hub')},
              # never the development host's own nginx logs
              'traffic': {'logs': [os.path.join(self.dir, 'traffic', '*access.log')]},
              'evidence': {'access_logs': [os.path.join(self.dir, 'nginx', '*access.log')]},

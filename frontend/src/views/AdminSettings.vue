@@ -4,7 +4,7 @@
     <WorkflowSettings :key="'c1-' + gen" />
     <RegressionSamples :key="'c2-' + gen" />
     <GeoipSettings @saved="load" :key="'c3-' + gen" />
-    <UiSettings :groups="['llm', 'intel', 'analyst', 'review', 'warroom', 'traffic', 'blocks', 'network']" @saved="load" :key="'c4-' + gen" />
+    <UiSettings :groups="['llm', 'intel', 'hub', 'analyst', 'review', 'warroom', 'traffic', 'blocks', 'network']" @saved="load" :key="'c4-' + gen" />
     <CountrySettings @saved="load" :key="'c5-' + gen" />
     <DnsSettings @saved="load" :key="'c6-' + gen" />
     <SyslogDestinations :key="'c7-' + gen" />

@@ -230,6 +230,75 @@ def external_updater():
     return None
 
 
+UPLOAD_DIR = 'upload'
+UPLOAD_NAME = re.compile(r'^coreruleset-(\d+\.\d+\.\d+)(?:-minimal)?\.tar\.gz$')
+
+
+def staged_upload(app, log=print, now=None, keyfile=None, fpr=None):
+    """A release an administrator uploaded (a host that cannot reach GitHub): the same signature check against the
+    CRS release key and the same staging as a downloaded one. Returns the status, or None when nothing waits."""
+    cfg = app.cfg
+    now = now or time.time()
+    d = cfg['crs']['dir']
+    up = os.path.join(d, UPLOAD_DIR)
+    names = sorted(os.listdir(up)) if os.path.isdir(up) else []
+    tars = [n for n in names if UPLOAD_NAME.match(n)]
+    if not tars:
+        if names:
+            shutil.rmtree(up, ignore_errors=True)
+        return None
+    name = tars[-1]
+    ver = UPLOAD_NAME.match(name).group(1)
+    st = dict(read_status(cfg), checked_at=util.iso(now))
+    loc = location(app.site)
+    work = tempfile.mkdtemp(prefix='.upload-', dir=d)
+    try:
+        if not os.path.exists(os.path.join(up, name + '.asc')):
+            raise ValueError('the signature file %s.asc is missing' % name)
+        # a private copy first: what is checked is what is used (the upload folder can change meanwhile)
+        tb, asc = os.path.join(work, name), os.path.join(work, name + '.asc')
+        shutil.copyfile(os.path.join(up, name), tb)
+        shutil.copyfile(os.path.join(up, name + '.asc'), asc)
+        if not verify(tb, asc, keyfile, fpr):
+            app.audit.log('crs.signature_bad', 'crs-update', 'system', None, 'failed', severity='crit', version=ver, source='upload')
+            raise ValueError('the signature of %s is not valid or not by the CRS release key' % name)
+        if loc and loc.get('version') and vtuple(ver) <= vtuple(loc['version']):
+            raise ValueError('%s is not newer than the installed %s' % (ver, loc['version']))
+        with open(tb, 'rb') as fh:
+            tsha = hashlib.sha256(fh.read()).hexdigest()
+        stage = os.path.join(d, 'stage')
+        shutil.rmtree(stage, ignore_errors=True)
+        os.makedirs(stage, mode=0o750)
+        try:
+            top = safe_extract(tb, stage, 'coreruleset-%s' % ver)
+            path = os.path.join(stage, 'crs-%s' % ver)
+            os.rename(top, path)
+            shutil.copy(asc, os.path.join(stage, name + '.asc'))
+            shutil.copy(tb, os.path.join(stage, name))
+        except Exception:
+            shutil.rmtree(stage, ignore_errors=True)
+            raise
+        if vstr(installed_version(path)) != ver:
+            shutil.rmtree(stage, ignore_errors=True)
+            raise ValueError('the rules in %s say another version' % name)
+        files = manifest(path)
+        st.update(state='ready', error=None, installed=loc['version'] if loc else None, first_install=loc is None,
+                  staged={'version': ver, 'path': path, 'tarball': name, 'tarball_sha256': tsha, 'source': 'upload',
+                          'manifest_sha256': hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest(),
+                          'files': len(files), 'verified_at': util.iso(now)})
+        app.audit.log('crs.staged', 'crs-update', 'system', None, 'ok', severity='warning', version=ver, source='upload',
+                      installed=loc['version'] if loc else None, tarball_sha256=tsha)
+        log('crs: uploaded %s staged' % ver)
+    except Exception as e:      # noqa: BLE001 -- a bad upload leaves nothing staged; the page shows why
+        st.update(state='error', error='uploaded release: %s' % str(e)[:200])
+        log('crs: ' + st['error'])
+    finally:
+        shutil.rmtree(up, ignore_errors=True)
+        shutil.rmtree(work, ignore_errors=True)
+    _write_status(cfg, st)
+    return st
+
+
 def run(app, force=False, log=print, api=API, now=None, keyfile=None, fpr=None):
     """One check. Returns the status written to status.json."""
     cfg = app.cfg
@@ -240,6 +309,9 @@ def run(app, force=False, log=print, api=API, now=None, keyfile=None, fpr=None):
         os.unlink(os.path.join(d, REQUEST))
     except OSError:
         pass
+    up = staged_upload(app, log, now, keyfile, fpr)
+    if up is not None:
+        return up
     st = {'checked_at': util.iso(now), 'managed': bool(cfg['crs']['manage']), 'wait_days': cfg['crs']['wait_days'],
           'external_updater': external_updater()}
     if not cfg['crs']['manage'] and not force:

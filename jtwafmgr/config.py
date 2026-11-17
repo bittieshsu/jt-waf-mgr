@@ -54,6 +54,8 @@ DEFAULTS = {
         'country_range': [10300, 10399],
         # the two rules of the troubleshooting switch (pause.py): every site, the listed sites
         'pause_ids': [10090, 10091],
+        # CrowdSec virtual patching rules (hub.py), when proposed as changes
+        'hub_range': [10400, 10999],
         # Rule(s) adding a critical score for a confident match so that CRS's 949110 decides.
         'score_rule_ids': [10298],
         # Rules that turn the engine on for "external over the CRS threshold" (nolog).
@@ -190,6 +192,13 @@ DEFAULTS = {
         'days': 30,                    # look for vulnerabilities published or updated in this many days
         'daily_tokens': 400000,        # 0: no limit
         'monthly_tokens': 6000000,
+    },
+    'hub': {
+        # CrowdSec virtual patching rules (hub.py, jt-waf-mgr-hub.service): the CrowdSec Hub's appsec-rules (MIT) of one
+        # commit, read and converted into ModSecurity rules on this host; the page lists them, proposing one is a change.
+        # Off: nothing is downloaded (an uploaded archive is still read).
+        'enabled': False,
+        'dir': '/var/lib/jt-waf-mgr/hub',
     },
     'warroom': {
         # the war room board (/warroom): where the events arrive on the maps (the WAF's public location, shown as
@@ -379,7 +388,7 @@ class Config:
         self.internal_networks = _networks(data['network']['internal'], 'network.internal')
         self.known_scanners = _networks(data['network']['known_scanners'], 'network.known_scanners')
         self.trusted_proxies = _networks(data['server']['trusted_proxies'], 'server.trusted_proxies')
-        for key in ('local_range', 'system_range', 'exclusion_range', 'confident_range', 'country_range'):
+        for key in ('local_range', 'system_range', 'exclusion_range', 'confident_range', 'country_range', 'hub_range'):
             r = data['waf'][key]
             if len(r) != 2 or not all(isinstance(x, int) for x in r) or r[0] > r[1]:
                 raise ConfigError('waf.%s must be [low, high]' % key)
@@ -429,6 +438,12 @@ class Config:
         if not (lo <= cr[0] and cr[1] <= hi) or any(not (cr[1] < data['waf'][k][0] or cr[0] > data['waf'][k][1])
                                                    for k in ('system_range', 'exclusion_range', 'confident_range')):
             raise ConfigError('waf.country_range: inside local_range, apart from the other ranges')
+        hr = data['waf']['hub_range']
+        if not (lo <= hr[0] and hr[1] <= hi) or any(not (hr[1] < data['waf'][k][0] or hr[0] > data['waf'][k][1])
+                                                   for k in ('system_range', 'exclusion_range', 'confident_range', 'country_range')):
+            raise ConfigError('waf.hub_range: inside local_range, apart from the other ranges')
+        if not (isinstance(data['hub']['dir'], str) and data['hub']['dir'].startswith('/') and '..' not in data['hub']['dir']):
+            raise ConfigError('hub.dir: an absolute path')
         bl = data['blocks']
         for k, lo, hi in (('max_active', 1, 20000), ('max_per_token', 1, 20000), ('token_per_hour', 1, 100000),
                           ('min_ttl', 10, 86400), ('default_ttl', 10, 30 * 86400), ('api_max_ttl', 60, 30 * 86400),

@@ -122,7 +122,8 @@ restore_from() {  # <backup dir>
              jt-waf-mgr-notify.service jt-waf-mgr-analyst.service jt-waf-mgr-crs.path jt-waf-mgr-crs.timer \
              jt-waf-mgr-crs.service jt-waf-mgr-countries.path jt-waf-mgr-countries.timer \
              jt-waf-mgr-countries.service jt-waf-mgr-dns.path jt-waf-mgr-dns.timer \
-             jt-waf-mgr-dns.service jt-waf-mgr-intel.path jt-waf-mgr-intel.timer jt-waf-mgr-intel.service; do $SYSTEMCTL stop "$u" 2>/dev/null || true; done
+             jt-waf-mgr-dns.service jt-waf-mgr-intel.path jt-waf-mgr-intel.timer jt-waf-mgr-intel.service \
+             jt-waf-mgr-hub.path jt-waf-mgr-hub.timer jt-waf-mgr-hub.service; do $SYSTEMCTL stop "$u" 2>/dev/null || true; done
     $SYSTEMCTL stop jt-waf-mgr.service 2>/dev/null || true
     rm -rf "$LIB/jtwafmgr" "$LIB/release" "$LIB/LICENSE"
     tar -C "${ROOT:-/}" -xf "$B/files.tar"
@@ -131,7 +132,8 @@ restore_from() {  # <backup dir>
              jt-waf-mgr-crs.path jt-waf-mgr-crs.timer jt-waf-mgr-crs.service \
              jt-waf-mgr-countries.path jt-waf-mgr-countries.timer jt-waf-mgr-countries.service \
              jt-waf-mgr-dns.path jt-waf-mgr-dns.timer jt-waf-mgr-dns.service \
-             jt-waf-mgr-intel.path jt-waf-mgr-intel.timer jt-waf-mgr-intel.service; do
+             jt-waf-mgr-intel.path jt-waf-mgr-intel.timer jt-waf-mgr-intel.service \
+             jt-waf-mgr-hub.path jt-waf-mgr-hub.timer jt-waf-mgr-hub.service; do
         if ! tar -tf "$B/files.tar" | grep -qx "etc/systemd/system/$u" && [ -e "${ROOT:-}/etc/systemd/system/$u" ]; then
             $SYSTEMCTL disable --now "$u" >/dev/null 2>&1 || true
             rm -f "${ROOT:-}/etc/systemd/system/$u"
@@ -155,7 +157,8 @@ restore_from() {  # <backup dir>
     if [ "$(cat "$B/apply.armed")" = 1 ]; then $SYSTEMCTL start jt-waf-mgr-apply.path || true; fi
     for u in jt-waf-mgr-analyst.timer jt-waf-mgr-analyst.path jt-waf-mgr-notify.timer jt-waf-mgr-notify.path \
              jt-waf-mgr-crs.timer jt-waf-mgr-crs.path jt-waf-mgr-countries.timer jt-waf-mgr-countries.path \
-             jt-waf-mgr-dns.timer jt-waf-mgr-dns.path jt-waf-mgr-intel.timer jt-waf-mgr-intel.path; do
+             jt-waf-mgr-dns.timer jt-waf-mgr-dns.path jt-waf-mgr-intel.timer jt-waf-mgr-intel.path \
+             jt-waf-mgr-hub.timer jt-waf-mgr-hub.path; do
         if [ -e "${ROOT:-}/etc/systemd/system/$u" ]; then $SYSTEMCTL start "$u" 2>/dev/null || true; fi
     done
 }
@@ -242,7 +245,8 @@ echo "$OLD" > "$B/version.old"; echo "$NEW" > "$B/version.new"; echo "$APPLY_ARM
                etc/systemd/system/jt-waf-mgr-countries.path etc/systemd/system/jt-waf-mgr-dns.service \
                etc/systemd/system/jt-waf-mgr-dns.timer etc/systemd/system/jt-waf-mgr-dns.path \
                etc/systemd/system/jt-waf-mgr-intel.service etc/systemd/system/jt-waf-mgr-intel.timer \
-               etc/systemd/system/jt-waf-mgr-intel.path; do [ -e "$p" ] && echo "$p"; done) )
+               etc/systemd/system/jt-waf-mgr-intel.path etc/systemd/system/jt-waf-mgr-hub.service \
+               etc/systemd/system/jt-waf-mgr-hub.timer etc/systemd/system/jt-waf-mgr-hub.path; do [ -e "$p" ] && echo "$p"; done) )
 python3 -I -c "
 import sqlite3, sys
 src = sqlite3.connect('file:$DB?mode=ro', uri=True)

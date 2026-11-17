@@ -192,3 +192,36 @@ class TestCrsUpdate(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestCrsUpload(TestCrsUpdate):
+    """A release an administrator uploaded (no GitHub from this host): the same signature check and staging."""
+
+    def put(self, version, signer='gpg', asc=True):
+        name = 'coreruleset-%s-minimal.tar.gz' % version
+        up = os.path.join(self.env.cfg['crs']['dir'], crsupdate.UPLOAD_DIR)
+        os.makedirs(up, exist_ok=True)
+        tb = tarball(version)
+        with open(os.path.join(up, name), 'wb') as fh:
+            fh.write(tb)
+        if asc:
+            with open(os.path.join(up, name + '.asc'), 'wb') as fh:
+                fh.write(gpg(os.path.join(self.tmp, signer), '--armor', '--detach-sign', inp=tb).stdout)
+
+    def test_staged_from_an_upload(self):
+        self.manage(True)
+        self.put('4.31.0')
+        st = self.check()
+        self.assertEqual((st['state'], st['staged']['version'], st['staged']['source']), ('ready', '4.31.0', 'upload'))
+        self.assertFalse(os.path.exists(os.path.join(self.env.cfg['crs']['dir'], crsupdate.UPLOAD_DIR)))
+
+    def test_bad_or_missing_signature(self):
+        self.manage(True)
+        self.put('4.31.0', signer='gpg2')
+        st = self.check()
+        self.assertEqual(st['state'], 'error')
+        self.assertIn('signature', st['error'])
+        self.put('4.31.0', asc=False)
+        self.assertIn('.asc', self.check()['error'])
+        self.put('4.0.0')                                   # older than the installed one
+        self.assertIn('not newer', self.check()['error'])

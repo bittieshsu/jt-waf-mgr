@@ -146,6 +146,7 @@ if [ -z "$ROOT" ]; then
     install -d -m 750 -o jtwaf -g jtwaf "$VAR/geoip"
     install -d -m 750 -o jtwaf -g jtwaf "$VAR/crs"
     install -d -m 750 -o jtwaf -g jtwaf "$VAR/countries"
+    install -d -m 750 -o jtwaf -g jtwaf "$VAR/hub"
     install -d -m 750 -o jtwaf -g jtwaf "$VAR/dns"
     # GeoIP license key: alone in its own file, readable by root and the jtwaf group only
     KEY="$ETC/maxmind-license.key"
@@ -171,7 +172,8 @@ for u in jt-waf-mgr.service jt-waf-mgr-apply.service jt-waf-mgr-apply.path \
          jt-waf-mgr-crs.service jt-waf-mgr-crs.timer jt-waf-mgr-crs.path \
          jt-waf-mgr-countries.service jt-waf-mgr-countries.timer jt-waf-mgr-countries.path \
          jt-waf-mgr-dns.service jt-waf-mgr-dns.timer jt-waf-mgr-dns.path \
-         jt-waf-mgr-intel.service jt-waf-mgr-intel.timer jt-waf-mgr-intel.path; do
+         jt-waf-mgr-intel.service jt-waf-mgr-intel.timer jt-waf-mgr-intel.path \
+         jt-waf-mgr-hub.service jt-waf-mgr-hub.timer jt-waf-mgr-hub.path; do
     cp "$SRC/deploy/$u" "$UNIT_DIR/$u"
     chmod 644 "$UNIT_DIR/$u"
 done
@@ -241,6 +243,9 @@ systemctl enable --now jt-waf-mgr-dns.timer jt-waf-mgr-dns.path >/dev/null
 # Threat intelligence (second-tier LLM): a one-shot job (hourly timer + "search now"); it searches only once it is
 # switched on and configured in Settings, and only for the software list a person confirmed.
 systemctl enable --now jt-waf-mgr-intel.timer jt-waf-mgr-intel.path >/dev/null
+# CrowdSec virtual patching rules: a sandboxed one-shot job (daily timer + "sync now" / an upload on the page); it
+# downloads nothing until it is switched on in Settings (an uploaded archive is read either way).
+systemctl enable --now jt-waf-mgr-hub.timer jt-waf-mgr-hub.path >/dev/null
 # The apply program writes nginx configuration: it is armed only on request (--enable-apply),
 # normally right before the adoption step.
 if [ "$ENABLE_APPLY" = 1 ]; then

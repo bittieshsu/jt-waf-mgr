@@ -48,6 +48,15 @@
           </div>
         </div>
         <p v-if="checkMsg" class="muted small" role="status">{{ checkMsg }}</p>
+        <!-- a host that cannot reach GitHub: the release and its signature from elsewhere, checked the same way -->
+        <div v-if="isAdmin" class="crsupload">
+          <span class="muted small">{{ t('crsupd.upload_hint') }}</span>
+          <label class="btn small ghost filebtn"><Icon name="upload" />{{ tarFile ? safeText(tarFile.name, 60) : t('crsupd.pick_tar') }}
+            <input type="file" accept=".tar.gz,application/gzip" :disabled="busy" @change="tarFile = $event.target.files[0] || null"></label>
+          <label class="btn small ghost filebtn"><Icon name="key" />{{ ascFile ? safeText(ascFile.name, 60) : t('crsupd.pick_asc') }}
+            <input type="file" accept=".asc" :disabled="busy" @change="ascFile = $event.target.files[0] || null"></label>
+          <button type="button" class="btn small" :disabled="busy || !tarFile || !ascFile || !upd.manage" @click="uploadRelease"><Icon name="upload" />{{ t('crsupd.upload') }}</button>
+        </div>
         <dl class="kv crskv">
           <template v-if="upd.location"><dt>{{ t('crsupd.location') }}</dt>
             <dd class="mono small breakall">{{ safeText(upd.location.path, 200) }}<template v-if="upd.location.link"><span class="muted"> → </span>{{ safeText(upd.location.target, 200) }}</template></dd></template>
@@ -141,6 +150,7 @@ import FlowSteps from '../components/FlowSteps.vue'
 import Meter from '../components/charts/Meter.vue'
 import HBars from '../components/charts/HBars.vue'
 import { tOr } from '../i18n.js'
+import { uploadInParts } from '../upload.js'
 
 const crs = ref(null)
 const error = ref(null)
@@ -220,6 +230,19 @@ async function setManage(on) {
   updError.value = null
   try { await patch('/settings/ui', { 'crs.manage': on }); await loadUpd() } catch (e) { updError.value = e } finally { busy.value = false }
 }
+const tarFile = ref(null)
+const ascFile = ref(null)
+async function uploadRelease() {
+  busy.value = true
+  updError.value = null
+  try {
+    const asc = await ascFile.value.text()
+    await uploadInParts('crs', tarFile.value, { asc }, (sent, total) => { checkMsg.value = t('crsupd.uploading', { p: Math.round((sent / total) * 100) }) })
+    checkMsg.value = t('crsupd.uploaded')
+    tarFile.value = ascFile.value = null
+    setTimeout(loadUpd, 8000)
+  } catch (e) { updError.value = e; checkMsg.value = '' } finally { busy.value = false }
+}
 async function checkNow() {
   busy.value = true
   updError.value = null
@@ -234,6 +257,9 @@ onMounted(async () => {
 
 <style scoped>
 .crsupd .kv dd > div { margin-top: 4px; }
+.crsupload { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+.filebtn { position: relative; overflow: hidden; }
+.filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .crshead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 12px 14px; margin-bottom: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); }
 .crsver { display: flex; align-items: center; gap: 10px; }
 .crsver .v { font-size: 22px; font-variant-numeric: tabular-nums; }

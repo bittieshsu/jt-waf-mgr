@@ -645,6 +645,7 @@ AUDIT_EXEMPT = {
     'logout': 'audited inline when a session exists',
     'system_check_run': 'audited',
     'backup_now': 'audited by Monitor.backup',
+    'upload_chunk': 'one piece of an upload: the start and the end of every upload are audited (name, size, SHA-256)',
 }
 
 

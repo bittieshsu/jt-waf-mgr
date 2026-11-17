@@ -1,0 +1,48 @@
+[Unit]
+Description=jt-waf-mgr: read and convert the CrowdSec Hub virtual patching rules (download or uploaded archive)
+Documentation=file:///usr/lib/jt-waf-mgr/README.md
+After=network-online.target
+Wants=network-online.target
+# The web service never reaches the internet and never unpacks an upload; only this short-lived job does, and it
+# can only write its own directory. It takes appsec-rules/ and LICENSE of one commit (about 0.2 MB) and nothing else.
+
+[Service]
+# background work: below nginx and below the web interface when the host is busy
+Nice=10
+CPUWeight=20
+IOWeight=20
+Type=oneshot
+User=jtwaf
+Group=jtwaf
+Environment=PYTHONPATH=/usr/lib/jt-waf-mgr
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -P -m jtwafmgr --config /etc/jt-waf-mgr/config.toml hub-sync
+TimeoutStartSec=10min
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/jt-waf-mgr/hub
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+UMask=0027
+MemoryMax=512M
+CPUQuota=50%

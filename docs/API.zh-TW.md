@@ -168,6 +168,15 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 `busy` (暫停或恢復套用中)。暫停 (`POST /waf/pause`) 與恢復 (`POST /waf/pause/resume`) 只能從網頁登入操作：管理者加
 一次性密碼才能暫停，核准者可以恢復；API 權杖永遠不能暫停。
 
+**`GET /hub`**：scope `rules:read`。CrowdSec 虛擬修補規則 (來自 CrowdSec Hub，MIT 授權) 在本機讀取與轉換的
+結果：`commit`、`source` (`github` 或上傳的壓縮檔)、`synced_at`、`counts` (`total`、`convertible`、`unsupported`)
+與 `rules` (`name`、`label`、`description`、`cves`、`ok`、無法轉換時的 `reason`、與上次同步相比的 `change`、
+`related`：規則提到的已確認軟體)。`GET /hub/rule?name=` 另含上游原文 (`yaml`，只以文字顯示) 與轉出的 ModSecurity
+規則 (`text`)；`GET /hub/license` 是同一個 commit 的 LICENSE。`POST /hub/sync` (管理者) 要求立即同步。上傳 (hub
+壓縮檔，或 CRS 發行檔與簽章) 分段送出，每段最多 600 KB：`POST /uploads` (管理者：`kind` 為 `hub` 或 `crs`、
+`name`、`size`、`sha256`)、`POST /uploads/{id}/chunk` (`index`、base64 的 `data`)、`POST /uploads/{id}/finish`
+(CRS 發行檔另帶簽章文字 `asc`)；處理前會先核對大小與 SHA-256。
+
 ### 4.2 事件
 
 **`GET /events`**：scope `events:read`。事件清單，新的在前。參數（全部選填）：
