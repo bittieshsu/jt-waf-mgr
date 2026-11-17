@@ -176,17 +176,27 @@ class Managed:
         return out
 
     # --- rule ids -------------------------------------------------------------------------
-    def occupied_ids(self):
+    def occupied_ids(self, exclude_start=None):
         ids = set()
         if self.site is not None:
             _, m = self.site.load()
             ids.update(r.id for r in m.rules if r.id is not None)
         ids.update(r[0] for r in self.db.q('SELECT rule_id FROM managed_rules WHERE rule_id IS NOT NULL'))
         ids.update(r[0] for r in self.db.q('SELECT rule_id FROM changes WHERE rule_id IS NOT NULL'))
+        # a CrowdSec rule is one item with a run of ids (one ModSecurity rule per "or" branch of the hub's rule)
+        for rid, n in self.db.q("SELECT rule_id, json_extract(spec, '$.rule_count') FROM managed_rules WHERE kind='crowdsec' "
+                                "AND rule_id IS NOT NULL UNION ALL SELECT rule_id, json_extract(spec, '$.rule_count') FROM changes "
+                                "WHERE kind='crowdsec' AND rule_id IS NOT NULL"):
+            if rid != exclude_start:
+                ids.update(id_run(rid, {'rule_count': n}))
+        if exclude_start is not None:
+            ids.discard(exclude_start)
         # a bundle keeps the ids of its operations in its spec: reserved the same way, never handed out again
         for (spec,) in self.db.q("SELECT spec FROM changes WHERE op='bundle'"):
             try:
-                ids.update(b['rule_id'] for b in json.loads(spec).get('ops', []) if isinstance(b.get('rule_id'), int))
+                for b in json.loads(spec).get('ops', []):
+                    if isinstance(b.get('rule_id'), int) and b['rule_id'] != exclude_start:
+                        ids.update(id_run(b['rule_id'], b.get('spec')) if b.get('kind') == 'crowdsec' else (b['rule_id'],))
             except (ValueError, AttributeError, TypeError):
                 continue
         return ids
@@ -199,7 +209,16 @@ class Managed:
             return w['country_range']
         if kind == 'plugin':
             return w['system_range']
+        if kind == 'crowdsec':
+            return w['hub_range']
         return w['exclusion_range']
+
+    def next_rule_ids(self, kind, count, extra=()):
+        """The first of `count` free ids in a row (a CrowdSec rule takes one per "or" branch)."""
+        n = self.next_rule_id(kind, extra)
+        if n + count - 1 > self.range_for(kind)[1]:
+            raise ValueError('id_range_full')
+        return n
 
     def next_rule_id(self, kind, extra=()):
         lo, hi = self.range_for(kind)
@@ -345,6 +364,16 @@ class Managed:
         else:
             raise ValueError('invalid_op')
         return items, target
+
+
+def id_run(rule_id, spec):
+    """The ids a CrowdSec item takes: rule_id .. rule_id + rule_count - 1."""
+    try:
+        spec = json.loads(spec) if isinstance(spec, str) else spec
+        n = int((spec or {}).get('rule_count') or 1)
+    except (ValueError, TypeError, AttributeError):
+        n = 1
+    return range(rule_id, rule_id + max(1, min(n, 64)))
 
 
 def _first(it):

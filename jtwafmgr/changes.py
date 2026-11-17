@@ -11,6 +11,7 @@ production configuration plus the change). Loosening always needs a person's app
 can propose but never approve. Applying is done by the separate root program (apply.py): this
 side only writes a request into the spool directory and reads the result back.
 """
+import base64
 import collections
 import datetime
 import hashlib
@@ -23,6 +24,7 @@ import time
 import traceback
 
 from . import rulegen, util
+from . import managed
 from .managed import Managed, sha256
 
 FINAL = ('applied', 'rejected', 'cancelled', 'failed', 'apply_failed', 'rolled_back')
@@ -167,9 +169,24 @@ class Workflow:
             raise ChangeError('raw_admin_only', 403)
         rule_id = item['rule_id'] if item else None
         text = item['text'] if item else ''
+        if kind == 'crowdsec' and op in ('add', 'modify'):
+            spec = self._hub_spec(spec, json.loads(item['spec']) if item else None)
         if op in ('add', 'modify'):
+            if op == 'add' and kind == 'crowdsec':
+                try:
+                    rule_id = self.managed.next_rule_ids(kind, spec['_count'], extra=taken)
+                except ValueError:
+                    raise ChangeError('id_range_full', 409)
+            elif op == 'modify' and kind == 'crowdsec' and spec['_count'] > int(json.loads(item['spec']).get('rule_count') or 1):
+                more = set(range(rule_id, rule_id + spec['_count'])) - set(managed.id_run(rule_id, item['spec']))
+                # the item's own runs (its earlier changes, which may have been longer) are not someone else's
+                if more & (self.managed.occupied_ids(exclude_start=rule_id) | taken) or \
+                        rule_id + spec['_count'] - 1 > self.cfg['waf']['hub_range'][1]:
+                    raise ChangeError('hub_more_rules', 409, rule_id=rule_id)
             if op == 'add':
-                if kind == 'raw':
+                if kind == 'crowdsec':
+                    pass
+                elif kind == 'raw':
                     ids = rulegen.check_raw_text(spec.get('text') or '', cfg=self.cfg)
                     rule_id = ids[0] if ids else None
                     if rule_id is not None and (rule_id in self.managed.occupied_ids() or rule_id in taken):
@@ -179,6 +196,7 @@ class Workflow:
                         rule_id = self.managed.next_rule_id(kind, extra=taken)
                     except ValueError:
                         raise ChangeError('id_range_full', 409)
+            spec.pop('_count', None)
             try:
                 spec, text, _ = rulegen.build(kind, spec, rule_id, self.cfg)
             except rulegen.SpecError as e:
@@ -203,6 +221,73 @@ class Workflow:
                 d = 'loosen'
         return {'op': op, 'kind': kind, 'item_id': item_id if op != 'add' else None, 'rule_id': rule_id, 'spec': spec,
                 'text': text, 'direction': d}
+
+    def _hub_spec(self, spec, old=None):
+        """A CrowdSec rule as proposed: the person names the rule, its sites and sources; the rule file, its hash and
+        commit, the licence and the hub's own test requests come from the synced index (never from the request)."""
+        from . import hub, miniyaml
+        name = spec.get('name') if spec.get('name') is not None else (old or {}).get('name')
+        if old is not None and name != old.get('name'):
+            raise ChangeError('invalid_spec', 422, field='name', reason='name_changed')
+        idx = hub.read_index(self.cfg) or {}
+        r = next((x for x in idx.get('rules') or [] if x.get('name') == name), None)
+        if r is None:
+            raise ChangeError('hub_rule_not_found', 404)
+        if not r.get('ok'):
+            raise ChangeError('hub_not_convertible', 409, reason=r.get('reason'))
+        if not r.get('tests'):
+            # the sandbox must see the hub's own attack requests refused (the converted rule does what the hub's does)
+            raise ChangeError('hub_no_tests', 409, reason=r.get('tests_reason'))
+        raw = r.get('yaml') or ''
+        if hashlib.sha256(raw.encode('utf-8')).hexdigest() != r.get('sha256'):
+            raise ChangeError('hub_rule_unreadable', 409)
+        try:
+            n = len(hub._alternatives(miniyaml.loads(raw.encode('utf-8')))[0])
+        except (miniyaml.YamlError, hub.Unsupported):
+            raise ChangeError('hub_not_convertible', 409)
+        if old is None and any(it['kind'] == 'crowdsec' and json.loads(it['spec'] or '{}').get('name') == name
+                               for it in self.managed.items()):
+            raise ChangeError('hub_rule_in_use', 409)      # one item per rule: change its sites with an update
+        hosts = spec.get('hosts') if spec.get('hosts') is not None else (old or {}).get('hosts')
+        source = spec.get('source') or (old or {}).get('source') or 'external'
+        commit = idx.get('commit') if isinstance(idx.get('commit'), str) else None
+        out = {'name': name, 'yaml': raw, 'sha256': r['sha256'], 'commit': commit, 'hosts': hosts, 'source': source,
+               'note': spec.get('note') if spec.get('note') is not None else (old or {}).get('note', ''),
+               'license': idx.get('license') or '', 'tests': r['tests'], 'fp_warning': bool(r.get('fp_warning')),
+               '_count': n}
+        score = (self.cfg['waf'].get('score_rule_ids') or [None])[0]
+        if score and any(it['rule_id'] == score and it['placement'] == 'before' for it in self.managed.items()):
+            # phase 2, like the hub's rules: before the rule that adds the critical score for a confident match
+            out['before_rule_id'] = score
+        return out
+
+    def _with_hub_tests(self, built, tests):
+        """The hub's own attack requests for each CrowdSec rule of the change: sent to its first site from outside, each
+        must be refused by one of the rule's own ids."""
+        from . import hub
+        added = []
+        for b in built:
+            if b['kind'] != 'crowdsec' or b['op'] not in ('add', 'modify', 'enable'):
+                continue
+            sp = b['spec']
+            host = sp['hosts'][0].replace('*', 'www')
+            ids = list(managed.id_run(b['rule_id'], sp))
+            for t in sp.get('tests') or []:
+                c = {'host': host, 'method': t['method'], 'path': t['path'].replace(hub.TEST_HOST, host),
+                     'headers': {k: v.replace(hub.TEST_HOST, host) for k, v in (t.get('headers') or {}).items()},
+                     'source': 'external', 'expect': 403, 'present_any_rules': ids, 'upstream': sp['name']}
+                if t.get('body_b64'):
+                    raw = base64.b64decode(t['body_b64']).replace(hub.TEST_HOST.encode(), host.encode())
+                    c['body_b64'] = base64.b64encode(raw).decode('ascii')
+                elif t.get('body') is not None:
+                    c['body'] = t['body'].replace(hub.TEST_HOST, host)
+                added.append(c)
+        if not added:
+            return tests
+        if len(tests) + len(added) > 60:
+            raise ChangeError('invalid_tests', reason='at most 60 tests (each CrowdSec rule brings the hub\'s own)')
+        _check_tests(added, internal=True)
+        return tests + added
 
     def _start(self, reason, tests):
         reason = (reason or '').strip()
@@ -260,7 +345,7 @@ class Workflow:
             raise ChangeError('invalid_op')
         reason, tests = self._start(reason, tests)
         b = self._build_op(op, kind, spec, item_id, via, role)
-        tests = self._with_country_tests([b], tests)
+        tests = self._with_hub_tests([b], self._with_country_tests([b], tests))
         return self._insert(b['op'], b['kind'], b['item_id'], b['rule_id'], b['spec'], b['direction'], reason, actor, via,
                             b['text'], tests, owner)
 
@@ -307,13 +392,14 @@ class Workflow:
                 if b['item_id'] in items:
                     raise ChangeError('invalid_bundle', 422, index=i, reason='item_twice')
                 items.add(b['item_id'])
-            if b['op'] == 'add' and b['rule_id'] is not None:
-                taken.add(b['rule_id'])
+            if b['op'] in ('add', 'modify') and b['rule_id'] is not None:
+                # a CrowdSec rule's whole run, also the ids a modified one grows into
+                taken.update(managed.id_run(b['rule_id'], b['spec']) if b['kind'] == 'crowdsec' else (b['rule_id'],))
             built.append(b)
         if sum(1 for b in built if b['kind'] == 'confident_block' and b['op'] in ('add', 'modify', 'enable')) > self.BUNDLE_MAX_BLOCKS:
             raise ChangeError('invalid_bundle', 422, reason='too_many_blocks', limit=self.BUNDLE_MAX_BLOCKS)
         direction = 'tighten' if all(b['direction'] == 'tighten' for b in built) else 'loosen'
-        tests = self._with_country_tests(built, tests)
+        tests = self._with_hub_tests(built, self._with_country_tests(built, tests))
         text = '\n\n'.join('# %s %s %s\n%s' % (b['op'], b['kind'], b['rule_id'] or '', b['text'] or '')
                             for b in built)[:200000]
         spec = {'ops': [{k: b[k] for k in ('op', 'kind', 'item_id', 'rule_id', 'spec', 'direction')} for b in built]}
@@ -956,20 +1042,25 @@ class Workflow:
             items, files, _ = self.build_files(r, base + 1)
             # static: every rule of the resulting files passes the expert-mode checks, one rule at a time
             # (the per-rule limits apply to a rule, not to a whole file); a failure names the rule
+            all_ids = []
             for it in items:
                 if it.get('deleted') or not it.get('enabled', 1) or it.get('kind') == 'comment' or not (it.get('text') or '').strip():
                     continue
-                try:
-                    rulegen.check_raw_text(it['text'], cfg=self.cfg)
-                except rulegen.SpecError as e:
-                    e.details = dict(e.details or {}, rule_id=it.get('rule_id'), placement=it.get('placement'),
-                                     excerpt=(it['text'] or '')[:160])
-                    raise
+                # rule by rule, as the root program checks the file (a CrowdSec item holds one rule per "or" branch)
+                for part in managed.split_items(it['text']):
+                    if not part['text']:
+                        continue
+                    try:
+                        all_ids += rulegen.check_raw_text(part['text'], cfg=self.cfg)
+                    except rulegen.SpecError as e:
+                        e.details = dict(e.details or {}, rule_id=it.get('rule_id'), placement=it.get('placement'),
+                                         excerpt=(part['text'] or '')[:160])
+                        raise
             for p, text in files.items():
                 if len(text) > 4 * 1024 * 1024:
                     raise ChangeError('file_too_large', file=p)
-            ids = [it['rule_id'] for it in items if it.get('rule_id') and not it.get('deleted')]
-            dup = sorted({i for i in ids if ids.count(i) > 1})
+            ids = all_ids
+            dup = sorted(i for i, n in collections.Counter(ids).items() if n > 1)
             if dup:
                 raise ChangeError('duplicate_rule_ids', ids=dup)
             old = Managed.render(self.managed.items(include_deleted=True), base) if r['op'] != 'adopt' else {}
@@ -1081,6 +1172,8 @@ class Workflow:
         urgent = by == 'intel' and self._intel_urgent(cid)
         if r['direction'] != 'tighten' or not on or r['evidence_override']:
             return
+        if r['op'] == 'add' and r['kind'] == 'crowdsec':
+            return self._auto_crowdsec(cid, r, urgent)
         if r['op'] != 'add' or r['kind'] != 'confident_block':
             return
         spec = json.loads(r['spec'])
@@ -1099,6 +1192,27 @@ class Workflow:
             return
         self.log(cid, 'system', 'auto_approved', 'tightening, all checks passed' + (
             '; virtual patch for a vulnerability exploited in the wild (no daily limit)' if urgent else ''))
+        self.app.audit.log('change.approved', 'system', 'system', None, 'ok', change_id=cid, auto=True)
+        self._queue_apply(cid, 'system')
+
+    def _auto_crowdsec(self, cid, r, urgent):
+        """A CrowdSec rule goes in without a person only as the virtual patch of a vulnerability exploited in the wild that
+        affects confirmed software (the threat intelligence proposed it): from outside only, the hub's file not warning
+        about ordinary requests, the hub's own attack requests refused by the rule and the sites' recent requests not."""
+        from . import hub
+        spec = json.loads(r['spec'])
+        if not urgent or r['proposed_by'] != 'intel' or spec.get('source') != 'external' or spec.get('fp_warning'):
+            return
+        if not str(spec.get('name') or '').startswith('crowdsecurity/') or not hub.url_header_only(spec.get('yaml') or ''):
+            # like the confident blocks applied by themselves: only what the URL, the method or a named header shows (the
+            # sites' recent requests checked in the sandbox carry no bodies, cookies or parameters of forms)
+            return
+        sb = json.loads(r['checks'] or '{}').get('sandbox') or {}
+        if not sb.get('ok') or sb.get('skipped') or not any(
+                x.get('origin') == 'upstream' and x.get('ok') for x in sb.get('results') or []):
+            return
+        self.log(cid, 'system', 'auto_approved', 'tightening, all checks passed; virtual patch for a vulnerability exploited '
+                                                 'in the wild (CrowdSec rule, the hub\'s own attack requests refused)')
         self.app.audit.log('change.approved', 'system', 'system', None, 'ok', change_id=cid, auto=True)
         self._queue_apply(cid, 'system')
 
@@ -1613,12 +1727,27 @@ def _diff(old, new):
     return out
 
 
-def _check_tests(tests):
-    if not isinstance(tests, list) or len(tests) > 50:
+def _check_tests(tests, internal=False):
+    """internal: the tests a change brings itself (country rules, the CrowdSec hub's own requests) are checked too, with
+    room for the hub's (more tests, more headers, a binary body); only those may name the rules that must refuse them."""
+    if not isinstance(tests, list) or len(tests) > (60 if internal else 50):
         raise ChangeError('invalid_tests')
     for t in tests:
         if not isinstance(t, dict):
             raise ChangeError('invalid_tests')
+        if not internal and ('present_any_rules' in t or 'upstream' in t or 'body_b64' in t):
+            raise ChangeError('invalid_tests', reason='present_any_rules, upstream and body_b64 are set by the system')
+        if 'present_any_rules' in t and (not isinstance(t['present_any_rules'], list) or not all(
+                isinstance(i, int) and not isinstance(i, bool) for i in t['present_any_rules'])):
+            raise ChangeError('invalid_tests', reason='present_any_rules')
+        if t.get('body_b64') is not None:
+            try:
+                if not isinstance(t['body_b64'], str) or len(base64.b64decode(t['body_b64'], validate=True)) > 65536:
+                    raise ValueError
+            except ValueError:
+                raise ChangeError('invalid_tests', reason='body_b64')
+            if t.get('body') is not None:
+                raise ChangeError('invalid_tests', reason='body and body_b64')
         if t.get('expect') not in (200, 403) or t.get('source') not in ('external', 'internal'):
             raise ChangeError('invalid_tests', reason='expect 200|403, source external|internal')
         if not isinstance(t.get('host'), str) or not isinstance(t.get('path'), str) or not t['path'].startswith('/'):
@@ -1626,7 +1755,7 @@ def _check_tests(tests):
         if len(t['path']) > 2048 or any(ord(ch) < 32 for ch in t['path'] + t['host']):
             raise ChangeError('invalid_tests', reason='path')
         hdr = t.get('headers') or {}
-        if not isinstance(hdr, dict) or len(hdr) > 10 or any(
+        if not isinstance(hdr, dict) or len(hdr) > (20 if internal else 10) or any(
                 not isinstance(k, str) or not isinstance(v, str) or '\n' in k + v or '\r' in k + v for k, v in hdr.items()):
             raise ChangeError('invalid_tests', reason='headers')
         if t.get('src_ip') is not None:
@@ -1682,4 +1811,6 @@ def _summarize(kind, spec, op):
         return ('%s %s' % (scope(), ','.join(spec.get('fields') or []))).strip()[:200]
     if kind == 'plugin':
         return '%s %s' % (spec.get('plugin'), (spec.get('host') or {}).get('value', ''))
+    if kind == 'crowdsec':
+        return ('CrowdSec %s: %s' % (spec.get('name'), ' '.join(spec.get('hosts') or [])))[:200]
     return (spec.get('text') or '').split('\n', 1)[0][:200]

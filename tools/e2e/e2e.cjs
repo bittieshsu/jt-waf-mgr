@@ -629,6 +629,26 @@ async function audit(page, where) {
   await page.waitForSelector('.coreg tbody tr', { timeout: 5000 }).catch(() => {});
   ok((await page.locator('.coreg tbody tr').count()) === 5 && (await page.locator('.cosets tbody tr').count()) >= 1,
      'country block: the registries and the lists in use in Settings');
+  // 0.4.90: CrowdSec rules as changes: the rule in use whose upstream changed, and the form for a related one
+  await page.goto(base + '/crowdsec', { waitUntil: 'networkidle' });
+  const hRow = (n) => page.locator('.datatable tbody tr').filter({ hasText: n }).first();
+  ok((await page.locator('.hubtiles .tile').count()) === 6 && (await hRow('vpatch-nextcloud-upload').locator('.badge', { hasText: '上游有新版' }).count()) === 1,
+     'crowdsec: an "in use" tile; the rule in use shows that the hub changed it');
+  await hRow('vpatch-nextcloud-upload').click();
+  await page.waitForSelector('.hubuse', { timeout: 8000 }).catch(() => {});
+  ok((await page.locator('.hubuse button', { hasText: '提出更新' }).count()) === 1 && (await page.locator('.hubuse button', { hasText: '提出移除' }).count()) === 1,
+     'crowdsec: a rule in use can be updated to the hub\'s version or removed');
+  await hRow('vpatch-nextcloud-upload').click();
+  await hRow('vpatch-keycloak-redirect').click();
+  await page.waitForSelector('.hubuse .hubsites', { timeout: 8000 }).catch(() => {});
+  ok((await page.locator('.hubuse .hubsites .chip', { hasText: 'sso.example.com' }).count()) === 1 &&
+     (await page.locator('.hubuse button', { hasText: '提出變更' }).isDisabled()),
+     'crowdsec: the form names the sites running the software; no proposal without a reason');
+  await page.locator('.hubuse textarea').fill('Keycloak on sso.example.com is affected until it is updated.');
+  await page.screenshot({ path: path.join(SHOTS, 'crowdsec-propose.png'), fullPage: true });
+  await page.locator('.hubuse button', { hasText: '提出變更' }).click();
+  await page.waitForSelector('.hubuse .alert.error', { timeout: 8000 }).catch(() => {});
+  ok((await page.locator('.hubuse .alert.error').count()) === 1, 'crowdsec: proposing reaches the workflow (this environment is not adopted: refused)');
   // several rules at once: tick, "switch off" opens the change form with its preview (or why it cannot)
   await page.goto(base + '/rules?source=local', { waitUntil: 'networkidle' });
   await page.locator('input.rowsel').first().check();

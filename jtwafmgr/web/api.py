@@ -10,6 +10,7 @@ import threading
 import time
 
 from .. import __version__, rollup, util
+from .. import managed as managed_mod
 from ..auth import LANGUAGES, SCOPES_P1, AuthError
 from ..config import ROLES
 from .server import ApiError, Response, json_response
@@ -796,7 +797,11 @@ class _Provenance:
             self.crs_version = None
         mg = app.workflow.managed if getattr(app, 'workflow', None) else None
         self.mdir = os.path.realpath(mg.dir) + os.sep if mg else None
-        self.items = {it['rule_id']: it for it in mg.items()} if mg else {}
+        self.items = {}
+        for it in (mg.items() if mg else []):
+            # a CrowdSec item holds a run of rule ids (one per "or" branch of the hub's rule)
+            for i in (managed_mod.id_run(it['rule_id'], it['spec']) if it['kind'] == 'crowdsec' and it['rule_id'] else (it['rule_id'],)):
+                self.items[i] = it
         self.app = app
         self._changes = {}
         self._plugin_hdr = {}
@@ -842,7 +847,7 @@ class _Provenance:
             return 'jason_tools'
         if ch in ('change', 'person', 'token', 'analyst'):
             it = self.items.get(rid) or {}
-            return 'site' if it.get('kind') == 'raw' else 'jason_tools'
+            return 'site' if it.get('kind') == 'raw' else 'crowdsec' if it.get('kind') == 'crowdsec' else 'jason_tools'
         if ch == 'adopted':
             return self.imported_author
         return 'site'
@@ -875,9 +880,9 @@ class _Provenance:
 
 MANAGED_CHANNELS = ('managed', 'adopted', 'change', 'person', 'token', 'analyst')
 _KIND_CATEGORY = {'exclusion': 'exclusion', 'confident_block': 'confident_block', 'redaction': 'redaction',
-                  'plugin': 'plugin_toggle', 'raw': 'other'}
+                  'plugin': 'plugin_toggle', 'raw': 'other', 'crowdsec': 'confident_block'}
 RULE_STATES = ('on', 'off', 'partial', 'inactive')
-RULE_AUTHORS = ('owasp_crs', 'owasp_crs_plugin', 'third_party', 'modsecurity', 'jason_tools', 'site')
+RULE_AUTHORS = ('owasp_crs', 'owasp_crs_plugin', 'third_party', 'modsecurity', 'jason_tools', 'site', 'crowdsec')
 
 
 def _disabled_managed(app):
@@ -898,7 +903,8 @@ def _disabled_managed(app):
                     'source': 'local', 'managed': True, 'category': _KIND_CATEGORY.get(it['kind'], 'other'),
                     'hosts': [], 'comment': it.get('comment') or '', 'text': it.get('text') or '', 'family': None,
                     'state': 'off', 'state_detail': {'state': 'off', 'managed_item': it['id']},
-                    'provenance': {'channel': 'managed', 'author': 'site' if it['kind'] == 'raw' else 'jason_tools'}})
+                    'provenance': {'channel': 'managed', 'author': 'site' if it['kind'] == 'raw' else
+                                   'crowdsec' if it['kind'] == 'crowdsec' else 'jason_tools'}})
     return out
 
 

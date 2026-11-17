@@ -305,6 +305,13 @@ class Evidence:
             return self.exclusion_impact(spec)
         if r['kind'] == 'country' and r['op'] in ('add', 'modify', 'enable'):
             return self.country_impact(spec)
+        if r['kind'] == 'crowdsec' and r['op'] in ('add', 'modify', 'enable'):
+            # what a hub rule inspects (parameters, headers, bodies) is not in the access logs: the sandbox sends the hub's
+            # own attack requests (each must be refused by the rule) and the sites' recent requests (none may be)
+            return {'ok': True, 'skipped': 'crowdsec_sandbox_only'}
+        if r['op'] in ('disable', 'delete') and r['rule_id'] and r['kind'] == 'crowdsec':
+            from .managed import id_run
+            return self.rule_hits(list(id_run(r['rule_id'], spec)))       # every rule of the item
         if r['op'] in ('disable', 'delete') and r['rule_id']:
             return self.rule_hits(r['rule_id'])
         return {'ok': True, 'skipped': 'no evidence check for this kind of change'}
@@ -498,8 +505,9 @@ class Evidence:
                 'attack_like_samples': samples, 'warning': attack_like > 0}
 
     def rule_hits(self, rule_id, days=30):
-        r = self.db.one("SELECT COUNT(*) n, SUM(outcome='blocked') b FROM event_rules WHERE rule_id=? AND ts>=?",
-                        (rule_id, util.now() - days * 86400))
+        ids = list(rule_id) if isinstance(rule_id, (list, tuple)) else [rule_id]
+        r = self.db.one("SELECT COUNT(*) n, SUM(outcome='blocked') b FROM event_rules WHERE rule_id IN (%s) AND ts>=?"
+                        % ','.join('?' * len(ids)), tuple(ids) + (util.now() - days * 86400,))
         return {'ok': True, 'days': days, 'hits': r['n'] or 0, 'blocked': r['b'] or 0}
 
     # --- regression samples ---------------------------------------------------------------------

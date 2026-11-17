@@ -839,6 +839,85 @@ def propose_patches(app, run_id, ask=None, log=print, session=None):
     return proposed, tin, tout
 
 
+def hub_rule_for(cfg, cve):
+    """The CrowdSec Hub rule for a CVE that can be proposed (converted, with the hub's own attack requests), or None."""
+    from . import hub
+    idx = hub.read_index(cfg) or {}
+    cve = (cve or '').upper()
+    hits = [r for r in idx.get('rules') or [] if cve and cve in (r.get('cves') or []) and r.get('ok') and r.get('tests')]
+    # the hub's own authors first (anyone can add a folder to the hub; a name sorting earlier must not win)
+    return sorted(hits, key=lambda r: (not (r.get('name') or '').startswith('crowdsecurity/'), r.get('name') or ''))[0] if hits else None
+
+
+def propose_hub_patches(app, run_id, log=print):
+    """Open threats without a virtual patch whose CVE has a CrowdSec Hub rule: the hub's rule (written and tested
+    upstream, for any part of the request) is proposed for the product's sites instead of a rule from the model. Exploited
+    in the wild and affecting us: the workflow may apply it at once (apply.auto_tighten_intel); otherwise a person
+    approves. Returns the change ids."""
+    from .changes import ChangeError
+    db = app.db
+    if not app.cfg['hub'].get('enabled'):
+        return []                   # switched off in Settings: an index left from before is not used
+    rows = db.q("SELECT * FROM intel_threats WHERE status='open' AND patch_change_id IS NULL "
+                "AND affected IN ('yes', 'unknown') ORDER BY exploited DESC, id")
+    out = []
+    for r in rows:
+        if len(out) >= PATCH_PER_RUN:
+            break
+        hr = hub_rule_for(app.cfg, r['cve'])
+        if hr is None:
+            continue
+        hosts = software.hosts_of(db, r['product'])
+        if not hosts:
+            continue
+        # a change for this rule still on its way: wait for it (the next run looks again)
+        if db.one("SELECT 1 FROM changes WHERE kind='crowdsec' AND state IN ('checking', 'pending_approval', 'approved', "
+                  "'applying') AND json_extract(spec, '$.name')=?", (hr['name'],)):
+            continue
+        item = next((it for it in app.workflow.managed.items() if it['kind'] == 'crowdsec'
+                     and json.loads(it['spec'] or '{}').get('name') == hr['name']), None)
+        t = json.loads(r['details'] or '{}')
+        if item is not None:
+            have = json.loads(item['spec'])
+            missing = sorted(set(hosts) - set(have.get('hosts') or []))
+            if item['enabled'] and not missing:
+                # in force for every site of the product: that change stands for the threat
+                db.x("UPDATE intel_threats SET patch_change_id=?, patch_note='crowdsec' WHERE id=?",
+                     (item.get('change_id'), r['id']))
+                continue
+            if not item['enabled']:
+                continue            # a person switched it off: not switched on again from here
+            # in force for other sites: the product's sites added (a person approves: a changed rule counts as loosening)
+            try:
+                cid = app.workflow.propose('modify', None, {'hosts': sorted(set(have.get('hosts') or []) | set(hosts))},
+                                           util.clip('Add %s to the CrowdSec rule %s for %s in %s.' % (
+                                               ', '.join(missing), hr['name'], r['cve'], r['product']), 2000),
+                                           'intel', via='api', item_id=item['id'], owner='intel')
+            except ChangeError as e:
+                log('intel: run %d: CrowdSec rule %s: sites not added (%s)' % (run_id, hr['name'], e.code))
+                continue
+            db.x("UPDATE intel_threats SET patch_change_id=?, patch_note='crowdsec' WHERE id=?", (cid, r['id']))
+            out.append(cid)
+            continue
+        reason = util.clip('Virtual patch for %s in %s %s (%s%s): the CrowdSec Hub rule %s (%s), until the software is updated. '
+                           '%s References: %s' % (r['cve'], r['product'], known_version(t.get('our_version')) or '(version not known)',
+                                                  r['severity'] or 'severity not known', ', exploited in the wild' if r['exploited'] else '',
+                                                  hr['name'], hr.get('label') or '', t.get('summary') or '',
+                                                  ' '.join(t.get('references') or [])), 2000)
+        note, cid = 'crowdsec', None
+        try:
+            cid = app.workflow.propose('add', 'crowdsec', {'name': hr['name'], 'hosts': hosts, 'source': 'external'}, reason,
+                                       'intel', via='api', owner='intel')
+        except ChangeError as e:
+            note = 'refused_%s' % ((e.details or {}).get('reason') or e.code)
+            log('intel: run %d: CrowdSec rule %s for %s not proposed (%s)' % (run_id, hr['name'], r['cve'], note))
+            continue                    # the model may still write a narrower rule for it
+        db.x('UPDATE intel_threats SET patch_change_id=?, patch_note=? WHERE id=?', (cid, note, r['id']))
+        out.append(cid)
+        log('intel: run %d: CrowdSec rule %s for %s proposed as change #%d' % (run_id, hr['name'], r['cve'], cid))
+    return out
+
+
 def remind_removal(app):
     """A virtual patch in force whose software a person updated since (another version on the confirmed list): the
     patch may go now -- a warning alert, once per patch. Removing it is an ordinary change a person makes."""
@@ -1203,6 +1282,10 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
     finish(threats=json.dumps(threats, ensure_ascii=False), note=note)
     new, urgent, check = _store(app, rid, threats, util.now())
     if c.get('patches', True):
+        try:
+            propose_hub_patches(app, rid, log=log)
+        except Exception as e:      # noqa: BLE001 -- the model's patches below still run
+            log('intel: run %d: CrowdSec rules stopped: %s' % (rid, getattr(e, 'code', type(e).__name__)))
         try:
             propose_patches(app, rid, ask=patch_ask, log=log, session=session)
         except Exception as e:      # noqa: BLE001 -- the threats are kept; the patches wait for the next run

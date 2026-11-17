@@ -188,7 +188,7 @@ resumes; an API token can never pause.
 **`GET /hub`**: scope `rules:read`. The CrowdSec virtual patching rules (from the CrowdSec Hub, MIT licence) as
 read and converted on this host: `commit`, `source` (`github` or the uploaded archive), `synced_at`, `counts`
 (`total`, `convertible`, `unsupported`) and `rules` (`name`, `label`, `description`, `cves`, `ok`, `reason` when not
-convertible, `change` since the last sync, `related`: the confirmed software the rule names). `GET /hub/rule?name=`
+convertible, `change` since the last sync, `related`: the confirmed software the rule names, `tests`: how many of the hub's attack requests can be replayed, `tests_reason` when none, `fp_warning`: the hub's file warns about ordinary requests, `applied`: the rule in use (`item_id`, `rule_id`, `rule_count`, `hosts`, `upstream` `same` | `changed` | `removed`), `open_change`), `applied_count`, `outdated_count` and `applied_removed` (rules in use the hub no longer has). `GET /hub/rule?name=`
 adds the upstream text (`yaml`, shown as text only) and the converted ModSecurity rule (`text`); `GET /hub/license`
 the hub's LICENSE of that commit. `POST /hub/sync` (admin) asks for a sync now. Uploads (an archive of the hub, or a
 CRS release and its signature) go in parts of up to 600 KB: `POST /uploads` (admin: `kind` `hub` or `crs`, `name`,
@@ -324,7 +324,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
 **`POST /changes`**: scope `changes:propose`. Body:
 
 - `op`: `add` (default), `modify`, `disable`, `enable`, `delete`, or `bundle`.
-- `kind`: for `add`: `confident_block`, `exclusion`, `country`, `redaction`, `plugin` or `raw`.
+- `kind`: for `add`: `confident_block`, `exclusion`, `country`, `redaction`, `plugin`, `raw` or `crowdsec`.
 - `spec`: the fields of the kind (below). `modify` takes the complete new spec.
 - `item_id`: for `modify`, `disable`, `enable`, `delete`: the managed item id (`items[].id` of `GET /managed`).
 - `reason`: required, at most 2000 characters. Shown to the approver.
@@ -398,6 +398,15 @@ by nginx but not visible to ModSecurity: keep a check in nginx where a country l
 **Kinds `redaction` and `plugin`**: `redaction` takes `fields` (up to 30 argument names that are not inspected, so
 never copied into the audit log) and optional `host` / `path`; `plugin` takes `plugin` (the CRS plugin name) and
 `host` (required) to switch a plugin on for one site.
+
+**Kind `crowdsec`** (new in 0.4.90; a CrowdSec Hub rule from `GET /hub`): `{"name": "crowdsecurity/vpatch-CVE-2022-27926",
+"hosts": ["mail.example.com"], "source": "external" | "all"}` (1–20 exact site names; `all` covers internal sources too,
+except the known scanners). The rule file, its hash, the commit, the licence and the hub's own test requests are taken
+from the synced rules, never from the request; a rule must be convertible and come with a test (else 409
+`hub_not_convertible`, `hub_no_tests`, 404 `hub_rule_not_found`). The sandbox sends the hub's attack requests to the
+first site: each must be refused by one of the rule's own ids. `modify` with `spec: {}` takes the hub's current version
+of the same rule (keeping the sites and sources unless given); `delete` removes it. Adding is a tightening; anything else
+a loosening.
 
 **Kind `raw`** (expert mode: SecRule text as written): adding or modifying a raw rule is for an **admin in the web
 interface only**. A token gets 403 `raw_admin_only`. (A token may disable, enable or delete an existing raw item.)

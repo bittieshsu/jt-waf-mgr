@@ -171,7 +171,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 **`GET /hub`**：scope `rules:read`。CrowdSec 虛擬修補規則 (來自 CrowdSec Hub，MIT 授權) 在本機讀取與轉換的
 結果：`commit`、`source` (`github` 或上傳的壓縮檔)、`synced_at`、`counts` (`total`、`convertible`、`unsupported`)
 與 `rules` (`name`、`label`、`description`、`cves`、`ok`、無法轉換時的 `reason`、與上次同步相比的 `change`、
-`related`：規則提到的已確認軟體)。`GET /hub/rule?name=` 另含上游原文 (`yaml`，只以文字顯示) 與轉出的 ModSecurity
+`related`：規則提到的已確認軟體、`tests`：可重送的上游攻擊請求數、沒有時的 `tests_reason`、`fp_warning`：上游檔案註明可能封鎖一般請求、`applied`：套用中的規則 (`item_id`、`rule_id`、`rule_count`、`hosts`、`upstream` 為 `same` | `changed` | `removed`)、`open_change`)，以及 `applied_count`、`outdated_count`、`applied_removed` (套用中但上游已沒有的規則)。`GET /hub/rule?name=` 另含上游原文 (`yaml`，只以文字顯示) 與轉出的 ModSecurity
 規則 (`text`)；`GET /hub/license` 是同一個 commit 的 LICENSE。`POST /hub/sync` (管理者) 要求立即同步。上傳 (hub
 壓縮檔，或 CRS 發行檔與簽章) 分段送出，每段最多 600 KB：`POST /uploads` (管理者：`kind` 為 `hub` 或 `crs`、
 `name`、`size`、`sha256`)、`POST /uploads/{id}/chunk` (`index`、base64 的 `data`)、`POST /uploads/{id}/finish`
@@ -300,7 +300,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
 **`POST /changes`**：scope `changes:propose`。本文：
 
 - `op`：`add`（預設）、`modify`、`disable`、`enable`、`delete` 或 `bundle`。
-- `kind`：`add` 時是 `confident_block`、`exclusion`、`country`、`redaction`、`plugin` 或 `raw`。
+- `kind`：`add` 時是 `confident_block`、`exclusion`、`country`、`redaction`、`plugin`、`raw` 或 `crowdsec`。
 - `spec`：該種類的欄位（見下）。`modify` 要給完整的新 spec。
 - `item_id`：`modify`、`disable`、`enable`、`delete` 時，受管理項目的 id（`GET /managed` 的 `items[].id`）。
 - `reason`：必填，最多 2000 字，會顯示給核准者。
@@ -366,6 +366,13 @@ ModSecurity 看不到這個網址：國家限制若必須擋住這類請求，ng
 
 **種類 `redaction` 與 `plugin`**：`redaction` 用 `fields`（最多 30 個參數名稱，不檢查，因此永遠不會被複製進稽核記錄），
 可加 `host`、`path`；`plugin` 用 `plugin`（CRS 外掛名稱）與必填的 `host`，為單一站台啟用外掛。
+
+**種類 `crowdsec`**（0.4.90 新增；`GET /hub` 裡的 CrowdSec Hub 規則）：`{"name": "crowdsecurity/vpatch-CVE-2022-27926",
+"hosts": ["mail.example.com"], "source": "external" | "all"}`（1–20 個完整站名；`all` 也包含內部來源，但排除已知掃描器）。
+規則檔、雜湊、commit、授權與上游自己的測試請求都取自同步下來的規則，不採用請求送來的內容；規則必須可轉換而且附測試
+（否則 409 `hub_not_convertible`、`hub_no_tests`，404 `hub_rule_not_found`）。沙箱會把上游的攻擊請求送到第一個站台，
+每一個都必須被這條規則自己的編號封鎖。`modify` 帶 `spec: {}` 會改用上游目前版本的同一條規則（站台與來源沒給就沿用）；
+`delete` 移除。新增算加強，其他算放寬。
 
 **種類 `raw`**（專家模式：照原樣寫的 SecRule）：新增或修改專家模式規則**只限管理者在網頁介面上操作**，權杖會得到 403
 `raw_admin_only`。（權杖可以停用、啟用或刪除既有的專家模式項目。）

@@ -186,7 +186,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 **`GET /hub`**：スコープ `rules:read`。CrowdSec 仮想パッチルール (CrowdSec Hub、MIT ライセンス) をこのホストで
 読み込み変換した結果：`commit`、`source` (`github` またはアップロードしたアーカイブ)、`synced_at`、`counts`
 (`total`、`convertible`、`unsupported`)、`rules` (`name`、`label`、`description`、`cves`、`ok`、変換できない場合の
-`reason`、前回の同期からの `change`、`related`：ルールが言及する確認済みソフトウェア)。`GET /hub/rule?name=` は元の
+`reason`、前回の同期からの `change`、`related`：ルールが言及する確認済みソフトウェア、`tests`：再送できる上流の攻撃リクエスト数、ない場合の `tests_reason`、`fp_warning`：上流のファイルが通常のリクエストを遮断しうると注記、`applied`：適用中のルール (`item_id`、`rule_id`、`rule_count`、`hosts`、`upstream` は `same` | `changed` | `removed`)、`open_change`)、`applied_count`、`outdated_count`、`applied_removed` (適用中だが上流にもうないルール)。`GET /hub/rule?name=` は元の
 ルール (`yaml`、テキストとしてのみ表示) と変換後の ModSecurity ルール (`text`) を含み、`GET /hub/license` は同じ commit
 の LICENSE です。`POST /hub/sync` (管理者) で今すぐ同期します。アップロード (Hub のアーカイブ、または CRS リリースと
 署名) は最大 600 KB ずつ分割して送ります：`POST /uploads` (管理者：`kind` は `hub` か `crs`、`name`、`size`、
@@ -320,7 +320,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
 **`POST /changes`**：スコープ `changes:propose`。本文：
 
 - `op`：`add`（デフォルト）、`modify`、`disable`、`enable`、`delete`、`bundle`。
-- `kind`：`add` のとき `confident_block`、`exclusion`、`country`、`redaction`、`plugin`、`raw`。
+- `kind`：`add` のとき `confident_block`、`exclusion`、`country`、`redaction`、`plugin`、`raw`、`crowdsec`。
 - `spec`：種類ごとの項目（下記）。`modify` では新しい spec をすべて渡します。
 - `item_id`：`modify`、`disable`、`enable`、`delete` のとき、管理対象項目の ID（`GET /managed` の `items[].id`）。
 - `reason`：必須、2000 文字まで。承認者に表示されます。
@@ -393,6 +393,14 @@ curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -
 **種類 `redaction` と `plugin`**：`redaction` は `fields`（検査しない引数名、最大 30 個。検査しないので監査記録にも
 コピーされません）と任意の `host`・`path`、`plugin` は `plugin`（CRS プラグイン名）と必須の `host` で、1 つのサイトで
 プラグインを有効にします。
+
+**種類 `crowdsec`**（0.4.90 で追加。`GET /hub` の CrowdSec Hub ルール）：`{"name": "crowdsecurity/vpatch-CVE-2022-27926",
+"hosts": ["mail.example.com"], "source": "external" | "all"}`（1–20 個の完全なサイト名。`all` は既知のスキャナーを除き内部の
+送信元も含む）。ルールファイル、ハッシュ、コミット、ライセンス、上流のテストリクエストは同期済みルールから取り、
+リクエストの内容は使いません。ルールは変換可能でテスト付きである必要があります（そうでなければ 409 `hub_not_convertible`、
+`hub_no_tests`、404 `hub_rule_not_found`）。サンドボックスは上流の攻撃リクエストを最初のサイトに送り、すべてこのルール
+自身の ID で遮断される必要があります。`modify` に `spec: {}` を付けると同じルールの上流の現行版を使います（サイトと送信元は
+指定がなければ引き継ぎ）。`delete` で削除します。追加は強化、それ以外は緩和です。
 
 **種類 `raw`**（エキスパートモード：書いたとおりの SecRule）：エキスパートルールの追加と修正は**管理者が Web 画面で
 行う場合に限られます**。トークンは 403 `raw_admin_only` になります（既存のエキスパート項目の無効化・有効化・削除は

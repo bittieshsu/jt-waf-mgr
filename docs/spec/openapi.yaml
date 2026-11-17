@@ -131,7 +131,7 @@ components:
       type: object
       required: [kind, spec, reason]
       properties:
-        kind: {type: string, enum: [exclusion, confident_block, redaction, plugin]}
+        kind: {type: string, enum: [exclusion, confident_block, redaction, plugin, country, raw, crowdsec]}
         spec: {type: object, additionalProperties: true, description: "fields of the template in SPEC.md 5.3"}
         reason: {type: string, maxLength: 2000}
         evidence_ref: {type: object, properties: {event_ids: {type: array, items: {type: string}}}}

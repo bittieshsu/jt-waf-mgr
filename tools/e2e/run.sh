@@ -34,6 +34,9 @@ dir = "$W/dns"
 internal_servers = ["192.0.2.53"]
 external_servers = ["198.51.100.53"]
 
+[hub]
+dir = "$W/hub"
+
 [countries]
 enabled = true
 dir = "$W/countries"

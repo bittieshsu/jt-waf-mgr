@@ -279,7 +279,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
 
 <div class="hero"><div class="wrap">
   <div>
-    <h1>jt-waf-mgr <span class="ver">v0.4.89</span></h1>
+    <h1>jt-waf-mgr <span class="ver">v0.4.90</span></h1>
     <p class="lead" data-t="lead"></p>
     <div class="btns">
       <a class="btn primary" href="https://github.com/jasoncheng7115/jt-waf-mgr">GitHub</a>
@@ -475,7 +475,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
       <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_dir"></span>
 sudo mkdir -p /opt/jt-waf-mgr-install &amp;&amp; cd /opt/jt-waf-mgr-install
 <span class="c" data-t="c_get"></span>
-V=<span class="v-cur">0.4.89</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=<span class="v-cur">0.4.90</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done
 <span class="c" data-t="c_verify"></span>
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
@@ -511,7 +511,7 @@ sudo nginx -t &amp;&amp; sudo systemctl reload nginx</pre></div>
       <div class="ihead"><span class="ic">↻</span><div><h3 data-t="ub_h"></h3><p data-t="ub_d"></p></div></div>
       <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_udir"></span>
 cd /opt/jt-waf-mgr-install
-V=<span class="v-cur">0.4.89</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=<span class="v-cur">0.4.90</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current &amp;&amp; sudo mkdir current &amp;&amp; sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 &amp;&amp; cd current
 <span class="c" data-t="c_ucheck"></span>
@@ -636,7 +636,7 @@ const T = {
   f1_h: 'Events you can read', f1: 'Blocked and logged requests by site, attack type, source country and network (with a world map drawn in the page, no map service), rule and time. "Blocked only by the CRS score" first: the likely false positives.',
   f2_h: 'Safe rule changes', f2: 'Exclusions, confident blocks, redactions, plugin toggles and expert rules, checked against the access logs and a sandbox, approved, applied by a small root program that restores on failure.',
   f3_h: 'WAF model', f3: 'How a request is decided on your sites, drawn from the live configuration: engine per site, scoring, thresholds, exclusions and blocks.',
-  f15_h: 'Threat intelligence', f15: 'A second LLM looks up new vulnerabilities in the web applications your sites run and writes a virtual patch for those a URL or header gives away, checked like any change; exploited ones are applied at once, with an alert. Only product names, versions and a few host facts leave the host.',
+  f15_h: 'Threat intelligence', f15: 'A second LLM looks up new vulnerabilities in the web applications your sites run and writes a virtual patch for those a URL or header gives away, checked like any change, or proposes the CrowdSec Hub's own rule for it (its attack requests replayed in the sandbox); exploited ones are applied at once, with an alert. Only product names, versions and a few host facts leave the host.',
   f16_h: 'Periodic WAF review', f16: 'Every 3 hours: who may have been blocked by mistake, new internal hits, attacks that got through, what was done automatically, a line per focus site. Sent to your channels.',
   f4_h: 'Self-hosted LLM analysis', f4: 'Your own OpenAI-compatible LLM server reviews recent events on a schedule and proposes narrow blocks and exclusions. The program decides, a person approves.',
   f5_h: 'Alerts to follow up', f5: 'An attack the site may have answered, users hit by a false positive, outside configuration changes, integrity problems: open until handled, reminded until then.',
@@ -841,7 +841,7 @@ const T = {
   f1_h: '看得懂的事件', f1: '封鎖與只記錄的請求，依站台、攻擊類型、來源國家與網路（頁面內繪製的世界地圖，不使用地圖服務）、規則與時間呈現。「只因 CRS 分數被封鎖」排最前面：最可能是誤判。',
   f2_h: '安全的規則變更', f2: '排除、確定封鎖、遮蔽、外掛開關與專家規則，先用存取記錄與沙箱檢查，再經核准，由失敗會自動還原的小型 root 程式套用。',
   f3_h: 'WAF 判斷流程', f3: '依實際設定畫出請求在你的站台上怎麼被判定：各站台引擎、計分、門檻、排除與封鎖。',
-  f15_h: '威脅情報', f15: '第二層 LLM 搜尋你站台用的 Web 應用套件有沒有新漏洞，能從網址或標頭辨識的就寫出預先防護規則，照一般流程檢查；已被利用的立即套用並發警示。只送出產品名稱、版本與少數主機資訊。',
+  f15_h: '威脅情報', f15: '第二層 LLM 搜尋你站台用的 Web 應用套件有沒有新漏洞，能從網址或標頭辨識的就寫出預先防護規則，或提出 CrowdSec Hub 的現成規則 (沙箱重送上游攻擊請求)，照一般流程檢查；已被利用的立即套用並發警示。只送出產品名稱、版本與少數主機資訊。',
   f16_h: 'WAF 定期檢討', f16: '每 3 小時：誰可能被誤封鎖、新的內部命中、沒被封鎖的攻擊、自動處理了什麼、每個重點站台一行。送到你的通知管道。',
   f4_h: '地端 LLM 分析', f4: '你自己的 OpenAI 相容 LLM 伺服器定期檢視事件，提出很窄的封鎖與排除。由程式決定，由人核准。',
   f5_h: '待處理警示', f5: '可能沒被封鎖的攻擊、影響使用者的誤判、設定被外部修改、完整性問題：處理前一直開著，並定期提醒。',
@@ -1046,7 +1046,7 @@ const T = {
   f1_h: '読めるイベント', f1: 'ブロック・記録のみのリクエストを、サイト、攻撃の種類、送信元の国とネットワーク（ページ内で描画する世界地図、地図サービスは不使用）、ルール、時間ごとに表示。「CRS スコアだけでブロック」を先頭に：誤検知の可能性が高いものです。',
   f2_h: '安全なルール変更', f2: '除外、確定ブロック、マスク、プラグイン切替、エキスパートルールを、アクセスログとサンドボックスで確認し、承認後、失敗時に復元する小さな root プログラムが適用。',
   f3_h: 'WAF 判定フロー', f3: '現在の設定から、サイトでリクエストがどう判定されるか（サイトごとのエンジン、スコア、しきい値、除外、ブロック）を図示。',
-  f15_h: '脅威インテリジェンス', f15: '第 2 層の LLM がサイトで使う Web アプリケーションの新しい脆弱性を検索し、URL やヘッダーで見分けられるものには狭い仮想パッチを書いて通常のチェックに通します。悪用済みで未修正なら即時適用と緊急アラート。送るのは製品名、バージョンと少しのホスト情報だけ。',
+  f15_h: '脅威インテリジェンス', f15: '第 2 層の LLM がサイトで使う Web アプリケーションの新しい脆弱性を検索し、URL やヘッダーで見分けられるものには狭い仮想パッチを書くか CrowdSec Hub のルールを提案し(上流の攻撃リクエストをサンドボックスで再送)、通常のチェックに通します。悪用済みで未修正なら即時適用と緊急アラート。送るのは製品名、バージョンと少しのホスト情報だけ。',
   f16_h: 'WAF 定期レビュー', f16: '3 時間ごと:誤ブロックの可能性、新しい内部の一致、通過した攻撃、自動処理の内容、重点サイトごとの 1 行。通知チャネルへ送信。',
   f4_h: 'オンプレミス LLM 分析', f4: '自前の OpenAI 互換 LLM サーバーが定期的にイベントを確認し、狭いブロックと除外を提案。決めるのはプログラム、承認するのは人。',
   f5_h: '対応待ちアラート', f5: '防がれていない可能性のある攻撃、利用者に影響する誤検知、設定の外部変更、完全性の問題：対応されるまで開いたまま、定期的に再通知。',

@@ -24,7 +24,7 @@ import sys
 
 from .modsecconf import logical_lines, split_actions, split_args
 
-KINDS = ('exclusion', 'confident_block', 'redaction', 'plugin', 'raw', 'country', 'pause')
+KINDS = ('exclusion', 'confident_block', 'redaction', 'plugin', 'raw', 'country', 'pause', 'crowdsec')
 EXCLUSION_ACTIONS = ('remove_target_by_id', 'remove_target_by_tag', 'remove_rule', 'remove_tag', 'score_only',
                      'body_processor')
 BLOCK_TARGETS = {
@@ -268,6 +268,8 @@ def build(kind, spec, rule_id, cfg):
         return _country(spec, rule_id, cfg)
     if kind == 'pause':
         return _pause(spec, rule_id, cfg)
+    if kind == 'crowdsec':
+        return _crowdsec(spec, rule_id, cfg, internal)
     raise SpecError('kind', 'unknown_kind')
 
 
@@ -388,6 +390,98 @@ def _country(spec, rid, cfg):
     return norm, text, 'before'
 
 
+CROWDSEC_MAX_HOSTS = 20
+
+
+def _license_lines(text, commit=None):
+    """The hub's LICENSE as comment lines: printable, no backslash (a trailing one would join the next line). Only an MIT
+    licence text is copied (the file comes from the internet: words the expert-mode checks refuse, or anything else, are
+    replaced by where to read it)."""
+    t = text or ''
+    if not (t.lstrip().startswith('MIT License') and 'Permission is hereby granted, free of charge' in t and len(t) <= 4000) or \
+            any(rx.search(t) for rx, _ in FORBIDDEN):
+        return ['# licence: https://github.com/crowdsecurity/hub/blob/%s/LICENSE' % (commit or 'master')]
+    out = []
+    for ln in (text or '').splitlines()[:60]:
+        ln = re.sub(r'[^\x20-\x7e]', '', ln).replace('\\', '/').rstrip()[:200]
+        out.append(('# ' + ln) if ln else '#')
+    return out
+
+
+def _crowdsec(spec, rid, cfg, internal):
+    """A CrowdSec Hub rule (hub.py) for the listed sites: the hub's YAML is kept in the spec and converted again here,
+    so the rule text always follows from what was proposed and approved. The workflow fills yaml, sha256, commit,
+    license and tests from the synced index; only name, hosts, source and note come from the person."""
+    import hashlib
+    from . import hub, miniyaml
+    name = spec.get('name') or ''
+    if not isinstance(name, str) or not hub.NAME_RE.match(name):
+        raise SpecError('name', 'invalid_name')
+    raw = spec.get('yaml')
+    if not isinstance(raw, str) or not raw or len(raw) > hub.MAX_FILE:
+        raise SpecError('yaml', 'invalid_yaml')
+    sha = hashlib.sha256(raw.encode('utf-8')).hexdigest()
+    if spec.get('sha256') != sha:
+        raise SpecError('sha256', 'sha256_mismatch')
+    commit = spec.get('commit')
+    if commit is not None and not (isinstance(commit, str) and re.fullmatch(r'[0-9a-f]{7,40}', commit)):
+        raise SpecError('commit', 'invalid_commit')
+    hosts = spec.get('hosts')
+    if not isinstance(hosts, list) or not 1 <= len(hosts) <= CROWDSEC_MAX_HOSTS:
+        raise SpecError('hosts', 'scope_required', limit=CROWDSEC_MAX_HOSTS)
+    hosts = sorted({str(h).strip().lower() for h in hosts})
+    pats = []
+    for h in hosts:
+        if not HOST_RE.match(h):
+            raise SpecError('hosts', 'invalid_host', host=h[:80])
+        pats.append((re.escape(h).replace('\\*', '[^.]+') if h.startswith('*.') else re.escape(h)).replace('\\-', '-'))
+    # the site named by the Host header OR by the transaction id nginx gives ModSecurity ("$host-$request_id", the site
+    # nginx chose: a full URL in the request line or HTTP/2's :authority cannot hide behind another Host header). Either
+    # one applies the rule (a block: the wider the better); without that transaction id format only the Host header counts
+    head = [('REQUEST_HEADERS:Host|UNIQUE_ID', '@rx ^(?:%s)\\.?(?:(?::[0-9]*)?|-[0-9a-f]{32})$' % '|'.join(pats),
+             't:none,t:lowercase')]
+    source = spec.get('source') or 'external'
+    if source == 'external':
+        tail = [('REMOTE_ADDR', '!@ipMatch ' + internal, 't:none')]
+    elif source == 'all':
+        tail = [('REMOTE_ADDR', '!@ipMatch ' + _ip_list(cfg.known_scanners), 't:none')] if cfg.known_scanners else []
+    else:
+        raise SpecError('source', 'invalid_source')
+    note = _text_ok('note', spec.get('note'), 160)
+    lic = spec.get('license') or ''
+    if not isinstance(lic, str) or len(lic) > 8000:
+        raise SpecError('license', 'invalid_license')
+    try:
+        doc = miniyaml.loads(raw.encode('utf-8'))
+        if not isinstance(doc, dict) or doc.get('name') != name:
+            raise SpecError('yaml', 'name_mismatch')
+        body, n = hub.render(doc, rid, head, tail)
+    except miniyaml.YamlError as e:
+        raise SpecError('yaml', 'invalid_yaml', error=str(e)[:200])
+    except hub.Unsupported as e:
+        raise SpecError('yaml', 'not_convertible', reason=e.why)
+    lo, hi = cfg['waf']['hub_range']
+    if not (lo <= rid and rid + n - 1 <= hi):
+        raise SpecError('rule_id', 'id_range_full')
+    head_lines = ['# CrowdSec Hub appsec rule %s (github.com/crowdsecurity/hub%s, %s sha256 %s)' % (
+                      name, ' commit ' + commit if commit else '', 'appsec-rules file', sha),
+                  '# converted to ModSecurity by jt-waf-mgr for: %s' % ' '.join(hosts)[:300]]
+    if lic:
+        head_lines.append('# The CrowdSec Hub licence (MIT):')
+        head_lines += _license_lines(lic, commit)
+    text = '\n'.join(head_lines) + '\n' + body
+    if len(text) > 64 * 1024:
+        raise SpecError('yaml', 'not_convertible', reason='too_long')
+    tests = spec.get('tests') or []
+    if not isinstance(tests, list) or len(tests) > hub.MAX_TESTS:
+        raise SpecError('tests', 'invalid_tests')
+    norm = {'name': name, 'yaml': raw, 'sha256': sha, 'commit': commit, 'hosts': hosts, 'source': source, 'note': note,
+            'license': lic, 'tests': tests, 'rule_count': n, 'fp_warning': bool(spec.get('fp_warning'))}
+    if spec.get('before_rule_id'):
+        norm['before_rule_id'] = spec['before_rule_id']
+    return norm, text, 'before'
+
+
 def _exclusion(spec, rid, cfg, internal):
     action = spec.get('action', 'remove_target_by_id')
     if action not in EXCLUSION_ACTIONS:
@@ -493,7 +587,11 @@ def _redaction(spec, rid, cfg):
     if not isinstance(fields, list) or not fields or len(fields) > 30 or not all(
             isinstance(f, str) and re.fullmatch(r'[A-Za-z0-9_.\-\[\]]{1,64}', f) for f in fields):
         raise SpecError('fields', 'invalid_fields')
-    ctl = ','.join('ctl:ruleRemoveTargetByTag=OWASP_CRS;ARGS:%s' % f for f in fields)
+    # the CrowdSec Hub's rules (tag crowdsec-hub) look at ARGS_GET / ARGS_POST and a JSON body's json.<name> as well:
+    # those are taken out for them too (tested with libmodsecurity 3.0.9), so a redacted field is never inspected or logged
+    ctl = ','.join('ctl:ruleRemoveTargetByTag=OWASP_CRS;ARGS:%s' % f for f in fields) + ',' + ','.join(
+        'ctl:ruleRemoveTargetByTag=crowdsec-hub;%s' % t for f in fields
+        for t in ('ARGS_GET:%s' % f, 'ARGS_POST:%s' % f, 'ARGS:json.%s' % f))
     host, path = _host_cond(spec.get('host')), _path_cond(spec.get('path'))
     conds = [c for c in (host, path) if c]
     if conds:
@@ -657,7 +755,7 @@ def country_modify_direction(old, new, old_text=None, new_text=None):
 
 def direction(op, kind, text=''):
     """SPEC 6.1: tightening vs loosening. Anything unclear counts as loosening."""
-    tightening_kind = kind in ('confident_block', 'country') or (kind == 'raw' and raw_direction(text) == 'tighten')
+    tightening_kind = kind in ('confident_block', 'country', 'crowdsec') or (kind == 'raw' and raw_direction(text) == 'tighten')
     if op == 'add':
         return 'tighten' if tightening_kind else 'loosen'
     if op in ('disable', 'delete'):

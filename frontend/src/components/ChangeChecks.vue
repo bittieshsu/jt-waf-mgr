@@ -21,7 +21,7 @@
       <div v-if="ev" class="checkrow">
         <span class="badge" :class="ev.warning ? 'b-warn' : okCls(ev)">{{ ev.warning ? t('checks.warning') : okText(ev) }}</span>
         <b>{{ t('checks.evidence') }}</b>
-        <span v-if="ev.skipped" class="muted">{{ t('checks.skipped') }}: {{ safeText(ev.skipped, 200) }}</span>
+        <span v-if="ev.skipped" class="muted">{{ t('checks.skipped') }}: {{ tOr('checks.skip.' + ev.skipped, safeText(ev.skipped, 200)) }}</span>
         <span v-if="ev.error" class="muted">{{ safeText(ev.error, 200) }}</span>
       </div>
       <div v-if="ev && ev.bundle" class="checkbody">

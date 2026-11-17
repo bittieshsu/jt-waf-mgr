@@ -201,6 +201,49 @@ _rid = app.db.x("INSERT INTO intel_runs(node_id, started_at, finished_at, trigge
 for t in _th:
     app.db.x('INSERT INTO intel_threats(cve, product, first_seen, last_seen, last_run, affected, exploited, severity, details) VALUES (?,?,?,?,?,?,?,?,?)',
              (t['id'], t['product'], now - 5100, now - 5100, _rid, t['affected'], 1 if t['exploited'] else 0, t['severity'], json.dumps(t)))
+# CrowdSec Hub rules (synthetic files in the hub's format): one to propose for Keycloak, one in use on Nextcloud whose
+# upstream file changed since, one that does not convert, one without a usable test
+from jtwafmgr import hub as _hub, rulegen as _rg  # noqa: E402
+
+
+def _hubrule(name, label, cve, cond):
+    return ('name: example/%s\ndescription: "%s (synthetic)"\nrules:\n%s\nlabels:\n  type: exploit\n  label: "%s"\n'
+            '  classification:\n   - cve.%s\n' % (name, label, cond, label, cve)).encode()
+
+
+_uri = '  - and:\n    - zones:\n      - URI\n      transform:\n      - lowercase\n      match:\n        type: endsWith\n        value: %s\n' \
+       '    - zones:\n      - ARGS\n      variables:\n      - %s\n      match:\n        type: contains\n        value: "%s"'
+_tpl = ('id: x\ninfo:\n  name: x\nhttp:\n  - raw:\n      - |\n        GET %s HTTP/1.1\n        Host: {{Hostname}}\n\n'
+        '    matchers:\n      - type: status\n        status:\n          - 403\n')
+_files = {'LICENSE': b'MIT License\n\nCopyright (c) 2020 crowdsecurity (example)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy (synthetic)\n'}
+for _n, _l, _c, _cond, _t in (
+        ('vpatch-keycloak-redirect', 'Keycloak - Account takeover', 'CVE-2026-90001', _uri % ('/protocol/openid-connect/auth', 'redirect_uri', '://evil'),
+         '/realms/a/protocol/openid-connect/auth?redirect_uri=https://evil.example.net/'),
+        ('vpatch-nextcloud-upload', 'Nextcloud - RCE', 'CVE-2026-90003', _uri % ('/apps/files/ajax/upload.php', 'dir', '../'),
+         '/apps/files/ajax/upload.php?dir=../../config'),
+        ('vpatch-grafana-render', 'Grafana - SSRF', 'CVE-2026-90004', '  - zones:\n      - RESPONSE_BODY\n    match:\n      type: contains\n      value: x', None),
+        ('vpatch-shop-sqli', 'Example Shop - SQL injection', 'CVE-2026-90005', _uri % ('/cart.php', 'id', 'union select'), None)):
+    _files['appsec-rules/crowdsecurity/%s.yaml' % _n] = _hubrule(_n, _l, _c, _cond)
+    if _t:
+        _files['.appsec-tests/%s/config.yaml' % _n] = ('appsec-rules:\n  - ./appsec-rules/crowdsecurity/%s.yaml\nnuclei_template: t.yaml\n' % _n).encode()
+        _files['.appsec-tests/%s/t.yaml' % _n] = (_tpl % _t).encode()
+_old_nc = _files['appsec-rules/crowdsecurity/vpatch-nextcloud-upload.yaml']
+_files['appsec-rules/crowdsecurity/vpatch-nextcloud-upload.yaml'] = _old_nc.replace(b'value: "../"', b'value: ".."')
+os.makedirs(cfg['hub']['dir'], exist_ok=True)
+_idx = _hub.build_index(_files, 'c0ffee0000000000000000000000000000000001', 'github', cfg['waf']['hub_range'][0], now - 3600)
+with open(os.path.join(cfg['hub']['dir'], 'index.json'), 'w') as fh:
+    json.dump(_idx, fh)
+with open(os.path.join(cfg['hub']['dir'], 'status.json'), 'w') as fh:
+    json.dump({'at': util.iso(now - 3600), 'state': 'ok', 'commit': _idx['commit'], 'counts': _idx['counts']}, fh)
+_old = next(r for r in _hub.build_index(dict(_files, **{'appsec-rules/crowdsecurity/vpatch-nextcloud-upload.yaml': _old_nc}),
+                                        'c0ffee0000000000000000000000000000000000', 'github', 10400)['rules']
+            if r['name'] == 'example/vpatch-nextcloud-upload')
+_hspec, _htext, _ = _rg.build('crowdsec', {'name': _old['name'], 'yaml': _old['yaml'], 'sha256': _old['sha256'],
+                                           'commit': 'c0ffee0000000000000000000000000000000000', 'hosts': ['files.example.com'],
+                                           'source': 'external', 'license': _idx['license'], 'tests': _old['tests']}, 10400, app.cfg)
+app.db.x("INSERT INTO managed_rules(rule_id, kind, placement, position, spec, text, comment, enabled, deleted, origin, "
+         "created_by, created_at, updated_at, change_id) VALUES (10400, 'crowdsec', 'before', 950, ?, ?, '', 1, 0, 'created', "
+         "'approver', ?, ?, NULL)", (json.dumps(_hspec), _htext, now - 86400 * 3, now - 86400 * 3))
 # an AI analysis of the first event (made up)
 _e1 = app.db.one('SELECT id FROM events ORDER BY id LIMIT 1')['id']
 app.db.x("INSERT INTO event_analyses(event_id, requested_by, requested_at, lang, started_at, finished_at, model, verdict, confidence, action, details) "

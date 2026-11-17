@@ -3,6 +3,7 @@ candidate change (SPEC 6.3). Its audit log stays in a temporary directory (never
 production log or the SIEM). Client addresses come from X-Forwarded-For, trusted in the sandbox
 only. Runs as the service user; nothing is left behind (processes, files, ports).
 """
+import base64
 import http.client
 import ipaddress
 import json
@@ -311,16 +312,22 @@ http {
             ip = c['src_ip']          # a test from one country (country rules): a public address of that country
         headers = {'Host': c['host'], 'X-Forwarded-For': ip, 'X-JTWAF-Case': str(i),
                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) jt-waf-mgr-sandbox'}
-        headers.update(c.get('headers') or {})
+        for k, v in (c.get('headers') or {}).items():
+            for d in [x for x in headers if x.lower() == k.lower()]:
+                del headers[d]                              # one header per name, whatever its case
+            headers[k] = v
         body = c.get('body')
-        if body is not None and 'Content-Type' not in headers:
+        if c.get('body_b64') is not None:
+            body = base64.b64decode(c['body_b64'])        # a request body that is not text (the CrowdSec hub's tests)
+        if body is not None and not any(k.lower() == 'content-type' for k in headers) and not c.get('upstream'):
+            # (the hub's own request is sent as it was written: without a type when it had none)
             headers['Content-Type'] = 'application/x-www-form-urlencoded'
         try:
             conn = http.client.HTTPConnection('127.0.0.1', port, timeout=30)
             conn.putrequest(c.get('method', 'GET'), c['path'], skip_host=True, skip_accept_encoding=True)
             for k, v in headers.items():
                 conn.putheader(k, v)
-            data = body.encode('utf-8') if isinstance(body, str) else None
+            data = body.encode('utf-8') if isinstance(body, str) else body if isinstance(body, bytes) else None
             if data is not None:
                 conn.putheader('Content-Length', str(len(data)))
             conn.endheaders(data)
@@ -414,9 +421,9 @@ http {
         blocks = self._blocks(r)
         sources = {(b.get('source') or 'external') for b in blocks}
         for t in user_tests:
-            cases.append(dict(t, origin='test'))
+            cases.append(dict(t, origin='upstream' if t.get('upstream') else 'test'))
             # path blocks must survive encoding / case / slash tricks (LESSONS 14)
-            if blocks and t.get('expect') == 403 and t.get('source') == 'external':
+            if blocks and t.get('expect') == 403 and t.get('source') == 'external' and not t.get('upstream'):
                 p, _, q = t['path'].partition('?')
                 variants = {p.upper(), p.replace('/', '//', 1), re.sub(r'[a-z]', lambda x: '%%%02x' % ord(x.group(0)), p, count=1)}
                 for v in sorted(variants - {p}):
@@ -653,6 +660,10 @@ def evaluate(cases, res, cfg):
         for rid in c.get('present_rules') or []:
             if rid not in r['rules']:
                 good, note = False, 'rule %d did not match' % rid
+        anyof = c.get('present_any_rules') or []
+        if anyof and good and not set(anyof) & set(r['rules']):
+            # refused, but not by the rule under test (another rule, the site itself): the rule is not shown to work
+            good, note = False, 'none of rules %s matched' % ','.join(str(i) for i in anyof[:5])
         if exp == 'not403' and c.get('baseline_refused') and st == 403:
             good, note = True, 'already refused by the rules in place'
         ok = ok and good
@@ -665,6 +676,7 @@ def evaluate(cases, res, cfg):
 def _case_view(c):
     return {'origin': c.get('origin', 'test'), 'source': c.get('source', 'external'), 'host': c['host'],
             'method': c.get('method', 'GET'), 'path': util.clip(c['path'], 300),
+            **({'upstream': c['upstream']} if c.get('upstream') else {}),
             **({'src_ip': c['src_ip']} if c.get('src_ip') else {})}
 
 
