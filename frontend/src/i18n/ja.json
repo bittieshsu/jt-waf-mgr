@@ -2906,6 +2906,7 @@
  "syscheck.f.free_mb": "空き（MB）",
  "syscheck.f.full": "完全チェック",
  "syscheck.f.generated_at": "リストの作成日時",
+ "syscheck.f.gpg_missing": "gpg が未インストール (CRS の署名を検証できません：apt install gpg)",
  "syscheck.f.hand_built": "手動ビルドのモジュール",
  "syscheck.f.held": "nginx 固定済み",
  "syscheck.f.in_sync": "データベースと一致",

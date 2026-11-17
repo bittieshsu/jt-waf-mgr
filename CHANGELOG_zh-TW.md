@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.4.87 (2026-11-17)
+
+- CrowdSec 虛擬修補規則：規則欄給足寬度，名稱不再逐段換行；「本站軟體」只比對規則的產品名稱與規則名稱，不再因說明順帶提到其他軟體而誤配 (例如提到 Lua 的 Wing FTP 規則)。
+- CRS：主機沒有安裝 gpg 時，錯誤訊息直接說明要 `apt install gpg`，系統檢查也會提醒 (沒有 gpg 就無法驗證任何 CRS 發行檔的簽章)。
+
 ## 0.4.86 (2026-11-17)
 
 - 沙箱：複製到沙箱的 ModSecurity 設定檔 (主設定檔、要改寫稽核記錄位置的檔案) 裡，用相對路徑指到其他檔案的設定 (`SecUnicodeMapFile unicode.mapping 20127`、`Include`、`SecGeoLookupDb`，以及 `@pmFromFile`、`@ipMatchFromFile` 讀的資料檔) 會被解析到沙箱目錄而失敗；現在一律換成相對於原設定檔所在目錄的絕對路徑，原本的設定不用動。用 Ubuntu 26.04 的 nginx＋ModSecurity 實測：沙箱可以啟動，兩條讀相對資料檔的規則都正確封鎖。(GitHub issue #1)

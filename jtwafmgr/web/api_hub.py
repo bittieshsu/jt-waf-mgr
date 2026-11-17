@@ -14,8 +14,11 @@ def _words(s):
 
 
 def _related(rule, products):
-    """The confirmed software a rule's label or description names (every word of the product's name appears)."""
-    text = ' '.join([rule.get('label') or '', rule.get('description') or '', rule.get('name') or '']).lower()
+    """The confirmed software a rule is about: its product (the label before " - ") or its name names every word of the
+    product's name. Not the description: it mentions other software in passing ("an RCE through Lua")."""
+    label = rule.get('label') or ''
+    about = rule.get('product') or (label.split(' - ')[0] if label else '') or (rule.get('description') or '' if not label else '')
+    text = ' '.join([about, (rule.get('name') or '').replace('-', ' ')]).lower()
     have = set(re.findall(r'[a-z0-9]+', text))
     out = []
     for p in products:

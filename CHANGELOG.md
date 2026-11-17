@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.87 (2026-11-17)
+
+- CrowdSec virtual patching rules: the rule column is wide enough for the names; "this site's software" compares only the rule's product and name, no longer the description that may mention other software in passing (a Wing FTP rule that mentions Lua).
+- CRS: without gpg on the host the error says to `apt install gpg`, and the system check warns (no CRS release signature can be checked without it).
+
 ## 0.4.86 (2026-11-17)
 
 - Sandbox: in the ModSecurity files copied into the sandbox (the main file, files whose audit log settings are rewritten), settings that name another file by a relative path (`SecUnicodeMapFile unicode.mapping 20127`, `Include`, `SecGeoLookupDb`, and the data files of `@pmFromFile` / `@ipMatchFromFile`) were looked up in the sandbox directory and failed; they are now made absolute against the directory of the original file, with no change to the configuration. Tested with nginx + ModSecurity on Ubuntu 26.04: the sandbox starts and both rules reading relative data files refuse as they should. (GitHub issue #1)

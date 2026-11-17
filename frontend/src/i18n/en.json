@@ -2906,6 +2906,7 @@
  "syscheck.f.free_mb": "Free (MB)",
  "syscheck.f.full": "Full check",
  "syscheck.f.generated_at": "List date",
+ "syscheck.f.gpg_missing": "gpg not installed (no CRS signature can be checked: apt install gpg)",
  "syscheck.f.hand_built": "Modules built by hand",
  "syscheck.f.held": "nginx held",
  "syscheck.f.in_sync": "Matches the database",

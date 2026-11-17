@@ -136,6 +136,8 @@ def choose(cur, rels, wait_days, now):
 def verify(tarball, asc, keyfile=None, fpr=None):
     """True when asc is a valid signature of tarball made by the pinned primary key (or one of its subkeys)."""
     keyfile, fpr = keyfile or KEY_FILE, (fpr or PINNED_FPR).upper()
+    if not shutil.which('gpg'):
+        raise RuntimeError('gpg is not installed: the CRS release signature cannot be checked (apt install gpg)')
     with tempfile.TemporaryDirectory() as home:
         os.chmod(home, 0o700)
         base = ['gpg', '--homedir', home, '--batch', '--no-tty', '--quiet', '--no-autostart']

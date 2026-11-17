@@ -2906,6 +2906,7 @@
  "syscheck.f.free_mb": "可用（MB）",
  "syscheck.f.full": "完整檢查",
  "syscheck.f.generated_at": "清單產生時間",
+ "syscheck.f.gpg_missing": "沒有安裝 gpg (無法驗證 CRS 簽章，請 apt install gpg)",
  "syscheck.f.hand_built": "手動編譯的模組",
  "syscheck.f.held": "nginx 已鎖定",
  "syscheck.f.in_sync": "與資料庫一致",

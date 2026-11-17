@@ -783,6 +783,10 @@ def _check_crs(app):
     ext = crsupdate.external_updater()
     if not manage:
         return _item('crs', 'info', manage=False, external_updater=ext)
+    import shutil
+    if not shutil.which('gpg'):
+        # without gpg no CRS release (downloaded or uploaded) can be checked, so none is ever staged
+        return _item('crs', 'warn', manage=True, gpg_missing=True, state=st.get('state'), error=st.get('error'))
     age = _age(st.get('checked_at'))
     stale = age is None or age > 3 * 86400
     bad = st.get('state') == 'error' or stale or ext

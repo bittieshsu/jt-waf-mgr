@@ -60,7 +60,7 @@
         <p class="muted small">{{ t('hub.rules_hint') }}</p>
         <DataTable id="hub-rules" :columns="cols" :rows="shown" row-key="name" :page-size="50" :expanded="open" clickable
                    @row-click="(r) => openRule(r)">
-          <template #cell-name="{ row }"><span class="mono small">{{ safeText(row.name.replace(/^crowdsecurity\//, ''), 120) }}</span>
+          <template #cell-name="{ row }"><span class="mono small hubname">{{ safeText(row.name.replace(/^crowdsecurity\//, ''), 120) }}</span>
             <span v-if="row.change === 'new' || row.change === 'changed'" class="badge b-int gapl">{{ t('hub.change.' + row.change) }}</span></template>
           <template #cell-cves="{ row }"><span v-for="c in row.cves.slice(0, 3)" :key="c" class="chip tag mono">{{ safeText(c, 30) }}</span><span v-if="!row.cves.length" class="muted">—</span></template>
           <template #cell-label="{ row }">{{ safeText(row.label || row.description, 160) }}</template>
@@ -188,6 +188,8 @@ onUnmounted(() => clearInterval(timer))
 
 <style scoped>
 .hubtiles { margin: 0 0 14px; }
+.hubname { white-space: nowrap; }
+:deep(td.c-name) { min-width: 17em; }
 .hubacts { align-items: center; flex-wrap: wrap; margin-top: 14px; }
 .uphint { margin: 8px 0 0; }
 .filebtn { position: relative; overflow: hidden; }
