@@ -439,6 +439,7 @@ const liveText = computed(() => {
   if (!st.value.running || !p) return t('analysis.live.queued')
   const secs = Math.max(0, Math.round((Date.now() - Date.parse(p.at)) / 1000))
   const d = p.detail || {}
+  if (p.stage === 'llm' && d.retry) return t('analysis.live.llm_retry_v', { e: d.error || '', w: d.wait || 0, n: d.retry, s: secs })
   return t('analysis.live.' + p.stage + '_v', { c: d.candidates || 0, h: d.window_hours || 0, model: d.model || '', s: secs, a: d.attack || 0, l: d.llm_seconds || 0 })
 })
 function schedule() {

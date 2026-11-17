@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.77 (2026-11-17)
+
+- Event analysis: when the local LLM server (or a gateway in front of it) answers 502, 503 or 504 or cannot be reached for a moment, the batch is tried again after 20 and then 60 seconds, up to 3 tries (before: one immediate retry); while waiting, the progress shows when the next try comes. A try that failed only after a long wait (a timeout) is not repeated.
+- A scheduled run that failed only on such a passing error, right after a run that worked, no longer sends the "Event analysis failed" notification (the run still records the error); two failures in a row, other errors and runs someone asked for are still told at once.
+
 ## 0.4.76 (2026-11-16)
 
 - Threat intelligence, the software list: about 50 more applications tell their version by themselves (Jira,

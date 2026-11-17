@@ -69,6 +69,9 @@ RECON_NAME = re.compile(
     r'|\.(?:git|svn|hg|aws|ssh|docker|vscode|idea|npmrc|pypirc|htpasswd|ds_store)(?:/.*)?)$')
 MAX_ALERTS_PER_KIND = 5                       # per run: a flood of candidates is not a flood of notifications
 BATCH = 15                                    # candidates per LLM request
+TRANSIENT = ('http_502', 'http_503', 'http_504', 'unreachable')   # the LLM server or a gateway in front of it, for a moment
+RETRY_WAITS = (20, 60)                        # seconds before the 2nd and the 3rd try of a batch after a transient error
+RETRY_IF_FAILED_WITHIN = 180                  # a try that failed only after this long (a timeout) is not tried again
 REPLY_EXCERPT = 4000
 SLACK = 60             # the timer wakes the job every 5 minutes (with some jitter); a run is due a minute early
 # Paths a probe regex must never match (besides what rulegen and the evidence check refuse).
@@ -876,6 +879,10 @@ def run(app, force=False, log=print, trigger=None):
           scrub(json.dumps(st['verdicts'], ensure_ascii=False)), json.dumps(st['proposals']),
           scrub(json.dumps(st['skipped'], ensure_ascii=False)), json.dumps(st['usage'])[:2000], err,
           scrub(st['reply'][:REPLY_EXCERPT]), scrub(json.dumps(st['alerts'], ensure_ascii=False)), st['events_scanned'], run_id))
+    # one scheduled run that hit a passing LLM-server error: the next run usually works, so tell people only when
+    # the run before failed as well (or when someone asked for this run)
+    quiet = bool(err and trigger == 'timer' and transient(err)
+                 and not (db.one('SELECT error FROM analyst_runs WHERE id<? ORDER BY id DESC LIMIT 1', (run_id,)) or {'error': 'x'})['error'])
     split = collections.Counter(v['verdict'] or 'invalid' for v in st['verdicts'])
     progress(cfg, run_id, 'error' if err else 'done', candidates=len(st['candidates']), proposals=len(st['proposals']))
     app.audit.log('analyst.run', ACTOR, 'system', None, 'error' if err else 'ok', run_id=run_id,
@@ -884,11 +891,18 @@ def run(app, force=False, log=print, trigger=None):
                   trigger=trigger, candidates=len(st['candidates']), verdicts=dict(split),
                   proposals=[p['change_id'] for p in st['proposals']], skipped=len(st['skipped']),
                   alerts=[x['alert_id'] for x in st['alerts']],
-                  llm_seconds=st['llm_seconds'], error=util.clip(err, 300) if err else None)
+                  llm_seconds=st['llm_seconds'], error=util.clip(err, 300) if err else None,
+                  **({'quiet': True} if quiet else {}))
     log('analyst: run %d: %d candidates, %d proposals%s' % (run_id, len(st['candidates']), len(st['proposals']),
                                                              ', error: ' + err if err else ''))
     return {'ran': True, 'run_id': run_id, 'candidates': len(st['candidates']), 'proposals': [p['change_id'] for p in st['proposals']],
             'error': err}
+
+
+def transient(err):
+    """The run failed only on errors that pass by themselves (every failed batch, or the first one of a partial run)."""
+    e = err[len('partial: '):].split('(', 1)[-1] if err.startswith('partial: ') else err
+    return e.split(':', 1)[0].strip() in TRANSIENT
 
 
 def _analyse(app, client, a, st, log):
@@ -970,15 +984,20 @@ def _analyse(app, client, a, st, log):
         prog('llm', candidates=len(ask_c) + len(ask_f), groups=len(groups), model=client.model[:120], batch=n, batches=len(batches))
         schema = reply_schema([c['id'] for c in bc], [c['id'] for c in bf])
         text = None
-        for attempt in (1, 2):
+        for attempt in range(len(RETRY_WAITS) + 1):
+            t0 = time.monotonic()
             try:
                 text, usage, secs = client.chat(msgs, max_tokens=min(16384, 512 + 320 * (len(bc) + len(bf))), temperature=0,
                                                 json_mode=True, schema=schema)
                 break
             except llm.LLMError as e:
-                if attempt == 2 or e.code not in ('http_502', 'http_503', 'http_504', 'unreachable'):
+                if (attempt == len(RETRY_WAITS) or e.code not in TRANSIENT
+                        or time.monotonic() - t0 > RETRY_IF_FAILED_WITHIN):
                     failed.append('%s: %s' % (e.code, e.detail) if e.detail else e.code)
                     break
+                prog('llm', candidates=len(ask_c) + len(ask_f), groups=len(groups), model=client.model[:120], batch=n,
+                     batches=len(batches), retry=attempt + 2, error=e.code, wait=RETRY_WAITS[attempt])
+                time.sleep(RETRY_WAITS[attempt])
         if text is None:
             continue           # fail closed: these candidates get no verdict, nothing is proposed for them
         st['llm_seconds'] += secs or 0

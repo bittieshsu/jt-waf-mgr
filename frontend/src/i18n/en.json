@@ -116,6 +116,7 @@
  "analysis.live.gather": "Read events",
  "analysis.live.gather_v": "Reading the events of the last {h} h and grouping them by path… ({s} s)",
  "analysis.live.llm": "Self-hosted LLM",
+ "analysis.live.llm_retry_v": "The LLM server did not answer this time ({e}); trying again in {w} seconds (try {n})… ({s} s)",
  "analysis.live.llm_v": "Waiting for {model} to judge {c} path(s)… ({s} s)",
  "analysis.live.propose": "Propose",
  "analysis.live.propose_v": "Proposing blocks for {a} attack probe(s): checks and sandbox… ({s} s)",

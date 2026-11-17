@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.4.77 (2026-11-17)
+
+- 事件分析：地端 LLM 伺服器 (或它前面的閘道) 暫時回 502、503、504 或連不上時，同一批改成等 20 秒、60 秒再試，最多 3 次 (之前立刻重試 1 次就放棄)；等待中進度會顯示「幾秒後第幾次嘗試」。如果一次就等了很久才失敗 (逾時)，不再重試。
+- 排程執行只因這類暫時錯誤失敗、且上一次正常時，不發「事件分析執行失敗」通知 (執行記錄照樣記錯誤)；連續兩次失敗、其他錯誤、或手動要求的執行仍會立即通知。
+
 ## 0.4.76 (2026-11-16)
 
 - 威脅情報軟體清單：再多約 50 種應用程式可以自己回報版本 (Jira、Confluence、Bitbucket、SonarQube、Nexus、Portainer、Immich、Jellyfin、Emby、Plex、Paperless-ngx、Graylog、Zabbix、Netdata、Prometheus、Alertmanager、Loki、InfluxDB、Elasticsearch / OpenSearch、CouchDB、Traefik、Nginx Proxy Manager、Discourse、Ghost、MediaWiki、Gotify、Roundcube、ONLYOFFICE、Element、Miniflux、Vikunja、Mealie、Audiobookshelf、Ollama、JupyterHub、MLflow、Metabase、Kubernetes、Rancher、Vault、Argo CD、NetBox、TheHive、Seq、Node-RED、Vaultwarden、Kibana、OpenSearch Dashboards、Solr)，共 67 種。支援分段組成的版本、從任何回應的標頭讀版本，以及 Roundcube 的版本號換算。

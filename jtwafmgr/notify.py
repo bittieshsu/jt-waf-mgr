@@ -366,7 +366,7 @@ def event_of(action, result, details):
         return 'change.awaiting_approval' if details.get('state') == 'pending_approval' else 'change.check_failed'
     if action == 'analyst.run':
         if result != 'ok':
-            return 'analyst.failed'
+            return None if details.get('quiet') else 'analyst.failed'
         return 'analyst.proposals' if details.get('proposals') else None
     if action == 'alert.created':
         return 'alert.created' if details.get('notify', True) else None

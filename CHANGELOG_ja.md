@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md) · [繁體中文](CHANGELOG_zh-TW.md) · **日本語**
 
+## 0.4.77 (2026-11-17)
+
+- イベント分析：ローカル LLM サーバー (またはその前のゲートウェイ) が一時的に 502、503、504 を返す、または接続できないとき、同じバッチを 20 秒、60 秒待ってから最大 3 回まで試すようにしました (以前はすぐに 1 回だけ再試行)。待機中は進捗に「何秒後に何回目を試すか」を表示します。長く待ってから失敗した場合 (タイムアウト) は再試行しません。
+- 定期実行がこの種の一時的なエラーだけで失敗し、前回は正常だった場合は「イベント分析に失敗しました」の通知を送りません (実行記録にはエラーを残します)。2 回連続の失敗、その他のエラー、手動で要求した実行は従来どおりすぐに通知します。
+
 ## 0.4.76 (2026-11-16)
 
 - 脅威インテリジェンスのソフトウェア一覧：自分でバージョンを返すアプリケーションを約 50 種追加 (Jira、Confluence、Bitbucket、SonarQube、Nexus、Portainer、Immich、Jellyfin、Emby、Plex、Paperless-ngx、Graylog、Zabbix、Netdata、Prometheus、Alertmanager、Loki、InfluxDB、Elasticsearch / OpenSearch、CouchDB、Traefik、Nginx Proxy Manager、Discourse、Ghost、MediaWiki、Gotify、Roundcube、ONLYOFFICE、Element、Miniflux、Vikunja、Mealie、Audiobookshelf、Ollama、JupyterHub、MLflow、Metabase、Kubernetes、Rancher、Vault、Argo CD、NetBox、TheHive、Seq、Node-RED、Vaultwarden、Kibana、OpenSearch Dashboards、Solr)、合計 67 種。分割されたバージョン、どの応答のヘッダーからでも読み取り、Roundcube のバージョン番号の変換に対応。

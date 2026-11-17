@@ -92,8 +92,10 @@ class AnalystBase(unittest.TestCase):
         self.srv.seen.clear()
         self.srv.reply = lambda body: (200, '{"verdicts": []}')
         self.logs = []
+        self._waits, analyst.RETRY_WAITS = analyst.RETRY_WAITS, (0, 0)
 
     def tearDown(self):
+        analyst.RETRY_WAITS = self._waits
         self.env.cleanup()
 
     def user(self, name):
@@ -728,11 +730,44 @@ class TestBatches(AnalystBase):
         out = self.run_analyst()
         first = [c for c in calls if 'c1' in c]
         self.assertEqual(len(first[0]), analyst.BATCH)
-        self.assertEqual(sum(1 for c in calls if 'c16' in c), 2)        # retried once
+        self.assertEqual(sum(1 for c in calls if 'c16' in c), 3)        # tried three times
         self.assertTrue(out['error'].startswith('partial: 1 of 2'))
         v = {x['id']: x for x in json.loads(self.last_run()['verdicts'])}
         self.assertEqual(v['c1']['verdict'], 'unsure')
         self.assertEqual(v['c16']['problem'], 'no_verdict')
+
+
+    def test_a_passing_gateway_error_is_retried_and_told_only_the_second_time(self):
+        from jtwafmgr import notify
+        self.probes('/.env', 4)
+        tries = []
+
+        def flaky(body):                     # 502 twice, then an answer: the run succeeds
+            tries.append(1)
+            return (502, 'bad gateway') if len(tries) <= 2 else (200, '{"verdicts": []}')
+        self.srv.reply = flaky
+        self.assertIsNone(self.run_analyst()['error'])
+        self.assertEqual(len(tries), 3)
+
+        def told():
+            a = self.app.db.one("SELECT result, details FROM audit WHERE action='analyst.run' ORDER BY id DESC LIMIT 1")
+            return notify.event_of('analyst.run', a['result'], json.loads(a['details']))
+        self.srv.reply = lambda body: (502, 'bad gateway')
+        out = analyst.run(self.app, force=True, log=self.logs.append, trigger='timer')
+        self.assertTrue(out['error'].startswith('http_502'), out)
+        self.assertIsNone(told())                                   # the run before was fine: not told
+        analyst.run(self.app, force=True, log=self.logs.append, trigger='timer')
+        self.assertEqual(told(), 'analyst.failed')                  # twice in a row: told
+        self.srv.reply = lambda body: (500, '')
+        self.app.db.x("UPDATE analyst_runs SET error=NULL")
+        analyst.run(self.app, force=True, log=self.logs.append, trigger='timer')
+        self.assertEqual(told(), 'analyst.failed')                  # not a passing error: told at once
+        self.srv.reply = lambda body: (502, 'bad gateway')
+        self.app.db.x("UPDATE analyst_runs SET error=NULL")
+        self.run_analyst()
+        self.assertEqual(told(), 'analyst.failed')                  # someone asked for this run: told at once
+        self.assertTrue(analyst.transient('partial: 1 of 2 batches failed (http_504: x)'))
+        self.assertFalse(analyst.transient('bad_reply: all 1 batches failed'))
 
 
 class TestUsedInternally(AnalystBase):

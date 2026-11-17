@@ -116,6 +116,7 @@
  "analysis.live.gather": "讀取事件",
  "analysis.live.gather_v": "讀取最近 {h} 小時的事件並依路徑分組…（{s} 秒）",
  "analysis.live.llm": "地端 LLM 判斷",
+ "analysis.live.llm_retry_v": "LLM 伺服器這次沒有回應 ({e})，{w} 秒後第 {n} 次嘗試…（{s} 秒）",
  "analysis.live.llm_v": "等待 {model} 判斷 {c} 個路徑…（已 {s} 秒）",
  "analysis.live.propose": "提出變更",
  "analysis.live.propose_v": "為 {a} 個攻擊探測提出封鎖：執行檢查與沙箱…（{s} 秒）",

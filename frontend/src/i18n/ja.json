@@ -116,6 +116,7 @@
  "analysis.live.gather": "イベント読み込み",
  "analysis.live.gather_v": "直近 {h} 時間のイベントを読み、パスごとにまとめています…（{s} 秒）",
  "analysis.live.llm": "オンプレミス LLM",
+ "analysis.live.llm_retry_v": "LLM サーバーが今回は応答しませんでした ({e})。{w} 秒後に {n} 回目を試します…（{s} 秒）",
  "analysis.live.llm_v": "{model} が {c} 件のパスを判定中…（{s} 秒）",
  "analysis.live.propose": "提案",
  "analysis.live.propose_v": "{a} 件の攻撃の探りにブロックを提案中：検査とサンドボックス…（{s} 秒）",
