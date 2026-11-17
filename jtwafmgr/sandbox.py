@@ -20,6 +20,25 @@ from .managed import FILES
 from .nginxconf import NginxConfig, walk
 
 EXTERNAL_IP = '203.0.113.50'
+# directives and operators that read a file named relative to the configuration file they are in: a copy of that file
+# in the sandbox directory must name the production file absolutely (Ubuntu's modsecurity.conf has
+# "SecUnicodeMapFile unicode.mapping 20127"; CRS rules read their .data lists by a relative name)
+FILE_DIRECTIVE = re.compile(r'^(\s*(?:SecUnicodeMapFile|SecGeoLookupDb|SecGsbLookupDb|Include|IncludeOptional)\s+)("?)([^"\s]+)\2', re.I)
+FILE_OPERATOR = re.compile(r'(@(?:pmFromFile|pmf|ipMatchFromFile|ipMatchF)\s+)([^"\s\\]+)', re.I)
+
+
+def absolute_paths(text, base):
+    """The text with every relative file name of FILE_DIRECTIVE / FILE_OPERATOR made absolute against base."""
+    def fix(p):
+        return p if p.startswith('/') or re.match(r'^https?://', p, re.I) else os.path.normpath(os.path.join(base, p))
+    out = []
+    for line in text.split('\n'):
+        line = FILE_DIRECTIVE.sub(lambda m: m.group(1) + m.group(2) + fix(m.group(3)) + m.group(2), line)
+        line = FILE_OPERATOR.sub(lambda m: m.group(1) + fix(m.group(2)), line)
+        out.append(line)
+    return '\n'.join(out)
+
+
 AUDIT_REWRITE = re.compile(r'^(\s*)(SecAuditLog|SecAuditLogStorageDir|SecTmpDir|SecDataDir|SecUploadDir|SecDebugLog)\b.*$',
                            re.I | re.M)
 
@@ -129,7 +148,7 @@ class Sandbox:
             for line in text.splitlines():
                 mm = re.match(r'(\s*)Include\s+"?([^"\s]+)"?\s*$', line, re.I)
                 if not mm:
-                    out.append(self._rewrite(line, root))
+                    out.append(absolute_paths(self._rewrite(line, root), os.path.dirname(main)))
                     continue
                 p = mm.group(2)
                 p = p if os.path.isabs(p) else os.path.join(os.path.dirname(main), p)
@@ -191,7 +210,7 @@ http {
             with open(p, encoding='utf-8', errors='replace') as fh:
                 body = fh.read()
             with open(dst, 'w', encoding='utf-8') as fh:
-                fh.write(AUDIT_REWRITE.sub(lambda x: self._audit_line(x, root), body))
+                fh.write(absolute_paths(AUDIT_REWRITE.sub(lambda x: self._audit_line(x, root), body), os.path.dirname(p)))
             return 'Include %s' % dst
         return 'Include %s' % p
 

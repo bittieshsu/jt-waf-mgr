@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.4.86 (2026-11-17)
+
+- 沙箱：複製到沙箱的 ModSecurity 設定檔 (主設定檔、要改寫稽核記錄位置的檔案) 裡，用相對路徑指到其他檔案的設定 (`SecUnicodeMapFile unicode.mapping 20127`、`Include`、`SecGeoLookupDb`，以及 `@pmFromFile`、`@ipMatchFromFile` 讀的資料檔) 會被解析到沙箱目錄而失敗；現在一律換成相對於原設定檔所在目錄的絕對路徑，原本的設定不用動。用 Ubuntu 26.04 的 nginx＋ModSecurity 實測：沙箱可以啟動，兩條讀相對資料檔的規則都正確封鎖。(GitHub issue #1)
+
 ## 0.4.85 (2026-11-17)
 
 - nginx 與 ModSecurity 模組相容性 (避免 nginx 更新後 WAF 失效)：

@@ -731,6 +731,24 @@ class TestSandboxBuild(unittest.TestCase):
         finally:
             env.cleanup()
 
+    def test_relative_file_names_in_copied_modsecurity_files(self):
+        """A ModSecurity file copied into the sandbox keeps naming the production files: relative names are relative to
+        the file they are in (GitHub issue #1, second report: SecUnicodeMapFile unicode.mapping)."""
+        from jtwafmgr.sandbox import absolute_paths
+        base = '/etc/nginx/modsec'
+        text = ('SecUnicodeMapFile unicode.mapping 20127\nInclude rules/*.conf\nIncludeOptional "x/y.conf"\n'
+                'SecRule ARGS "@pmFromFile data/a.data" "id:1,phase:2,pass"\n'
+                'SecRule ARGS "@ipMatchFromFile /abs/b.data" "id:2,phase:1,pass"\n'
+                'SecRule ARGS "@pmFromFile https://example.com/c.data" "id:3,phase:1,pass"\nSecGeoLookupDb ../geo/c.mmdb')
+        out = absolute_paths(text, base)
+        self.assertIn('SecUnicodeMapFile /etc/nginx/modsec/unicode.mapping 20127', out)
+        self.assertIn('Include /etc/nginx/modsec/rules/*.conf', out)
+        self.assertIn('IncludeOptional "/etc/nginx/modsec/x/y.conf"', out)
+        self.assertIn('@pmFromFile /etc/nginx/modsec/data/a.data', out)
+        self.assertIn('@ipMatchFromFile /abs/b.data', out)
+        self.assertIn('@pmFromFile https://example.com/c.data', out)
+        self.assertIn('SecGeoLookupDb /etc/nginx/geo/c.mmdb', out)
+
     def test_relative_load_module_paths_use_the_nginx_prefix(self):
         """Debian and Ubuntu: `load_module modules/x.so;` is relative to nginx's built-in prefix, not to the
         sandbox's -p directory (GitHub issue #1)."""

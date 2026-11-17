@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md) · [繁體中文](CHANGELOG_zh-TW.md) · **日本語**
 
+## 0.4.86 (2026-11-17)
+
+- サンドボックス：サンドボックスにコピーする ModSecurity 設定ファイル (メインファイル、監査記録の設定を書き換えるファイル) の中で、相対パスで別のファイルを指す設定 (`SecUnicodeMapFile unicode.mapping 20127`、`Include`、`SecGeoLookupDb`、`@pmFromFile` / `@ipMatchFromFile` が読むデータファイル) がサンドボックスのディレクトリで探されて失敗していました。元の設定ファイルのディレクトリを基準に絶対パスに変換するようにしました。設定の変更は不要です。Ubuntu 26.04 の nginx＋ModSecurity で、サンドボックスが起動し、相対パスのデータファイルを読む 2 つのルールが正しくブロックすることを確認しました。(GitHub issue #1)
+
 ## 0.4.85 (2026-11-17)
 
 - nginx と ModSecurity モジュールの互換性 (nginx の更新で WAF が消えないように)：

@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.86 (2026-11-17)
+
+- Sandbox: in the ModSecurity files copied into the sandbox (the main file, files whose audit log settings are rewritten), settings that name another file by a relative path (`SecUnicodeMapFile unicode.mapping 20127`, `Include`, `SecGeoLookupDb`, and the data files of `@pmFromFile` / `@ipMatchFromFile`) were looked up in the sandbox directory and failed; they are now made absolute against the directory of the original file, with no change to the configuration. Tested with nginx + ModSecurity on Ubuntu 26.04: the sandbox starts and both rules reading relative data files refuse as they should. (GitHub issue #1)
+
 ## 0.4.85 (2026-11-17)
 
 - nginx and the ModSecurity module (so an nginx update never takes the WAF away):
