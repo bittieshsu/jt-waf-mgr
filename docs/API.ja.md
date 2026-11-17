@@ -193,6 +193,14 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 `sha256`)、`POST /uploads/{id}/chunk` (`index`、base64 の `data`)、`POST /uploads/{id}/finish` (CRS リリースは
 署名テキスト `asc` も)。処理前にサイズと SHA-256 を照合します。
 
+**`GET /nginx/update`**：scope `rules:read`。nginx が今と次のシステム更新後に ModSecurity モジュールを読み込めるか
+(`level`、`reason`、`modules`、`hand_built`、`package`、`installed`、`candidate`、`held`)、および次の nginx パッケージで
+待機中のモジュールを試した最後の結果 (`check.state`：`ready`、`no_module`、`failed`、`current`、`packaged`、
+`other_hand_built`、`error`)。`POST /nginx/update/check` (管理者) は今すぐ確認を依頼します。次の nginx 用のモジュール
+(`deploy/build-modsecurity-module.sh` でビルド) は `kind` `nginxmod`、名前 `ngx_http_modsecurity_module.so` で
+アップロードし、`finish` に `description` (スクリプトが出力する `module.json`) か `nginx_package` (対象のパッケージ
+バージョン) を渡します。
+
 ### 4.2 イベント
 
 **`GET /events`**：スコープ `events:read`。イベントの一覧、新しい順。パラメーター（すべて任意）：

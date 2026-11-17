@@ -2,6 +2,14 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.88 (2026-11-18)
+
+- nginx updates verified before they happen (new page Admin → nginx updates): when a newer nginx is available and the ModSecurity module is built by hand, a separate background job (jt-waf-mgr-nginxup, daily or on request) downloads the new nginx package (not installed), unpacks it, loads the waiting new module into that nginx on a local port and checks that a test request is refused (403) and an ordinary one passes (200); only then it shows ready to update. Packaged modules are tried at their new versions too; other modules built by hand are reported.
+- The new module is uploaded by an admin (in parts; SHA-256, ELF format and the module.json description are checked). The release includes `deploy/build-modsecurity-module.sh`, which builds only the module (seconds) on the same system: nginx from the repository's source package, the ModSecurity-nginx connector pinned by version and SHA-256.
+- The health check nginx_module adds `update_ready`.
+- Rules page: CrowdSec virtual patching rules are listed on the CrowdSec page until one is applied.
+- Next: holding nginx and an approved nginx update (only with a verified module, live upgrade, automatic rollback).
+
 ## 0.4.87 (2026-11-17)
 
 - CrowdSec virtual patching rules: the rule column is wide enough for the names; "this site's software" compares only the rule's product and name, no longer the description that may mention other software in passing (a Wing FTP rule that mentions Lua).

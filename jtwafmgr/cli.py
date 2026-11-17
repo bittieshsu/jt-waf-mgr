@@ -268,6 +268,16 @@ def cmd_hub_sync(args):
     return 1 if st.get('state') == 'error' else 0
 
 
+def cmd_nginx_update_check(args):
+    """Run by jt-waf-mgr-nginxup.service (daily timer, "check now" or a module upload); also usable by hand."""
+    from . import nginxup
+    from .app import App
+    cfg = config_mod.load(args.config if os.path.exists(args.config) or args.config != config_mod.DEFAULT_PATH else None)
+    st = nginxup.run(App(cfg), log=lambda m: print(m, flush=True))
+    print(json.dumps(st, indent=1, ensure_ascii=False))
+    return 1 if st.get('state') == 'error' else 0
+
+
 def cmd_dns_check(args):
     """Run by jt-waf-mgr-dns.service (timer, or "check now" in Settings): the names check when due, PTR lookups."""
     from . import dnscheck
@@ -399,6 +409,7 @@ def main(argv=None):
     gu = sub.add_parser('geoip-update', help='download the GeoIP databases now (normally run by its own unit)')
     gu.add_argument('--force', action='store_true', help='even when the files are recent')
     sub.add_parser('dns-check', help='ask the DNS servers about the site names and look up PTR names now (normally run by its own unit)')
+    sub.add_parser('nginx-update-check', help='get ready for the next nginx update now: try the waiting ModSecurity module with it (normally run by its own unit)')
     sub.add_parser('hub-sync', help='read the CrowdSec Hub virtual patching rules now (normally run by its own unit)')
     cu = sub.add_parser('countries-update', help='download the registries\' country lists now (normally run by its own unit)')
     cu.add_argument('--force', action='store_true', help='even when the lists are recent or country blocks are off')
@@ -424,7 +435,7 @@ def main(argv=None):
     try:
         return {'serve': cmd_serve, 'user': cmd_user, 'import': cmd_import, 'check': cmd_check,
                 'integrity': cmd_integrity, 'verify-release': cmd_verify_release, 'audit-verify': cmd_audit_verify,
-                'backup': cmd_backup, 'geoip-update': cmd_geoip_update, 'countries-update': cmd_countries_update, 'hub-sync': cmd_hub_sync, 'dns-check': cmd_dns_check, 'crs-update': cmd_crs_update, 'geoip': cmd_geoip, 'analyst-run': cmd_analyst_run, 'intel-run': cmd_intel_run, 'notify-run': cmd_notify_run,
+                'backup': cmd_backup, 'geoip-update': cmd_geoip_update, 'countries-update': cmd_countries_update, 'hub-sync': cmd_hub_sync, 'nginx-update-check': cmd_nginx_update_check, 'dns-check': cmd_dns_check, 'crs-update': cmd_crs_update, 'geoip': cmd_geoip, 'analyst-run': cmd_analyst_run, 'intel-run': cmd_intel_run, 'notify-run': cmd_notify_run,
                 'config-check': cmd_config_check, 'migrate': cmd_migrate, 'doctor': cmd_doctor}[args.cmd](args)
     except config_mod.ConfigError as e:
         print('configuration error: %s' % e, file=sys.stderr)

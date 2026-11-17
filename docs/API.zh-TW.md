@@ -177,6 +177,13 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 `name`、`size`、`sha256`)、`POST /uploads/{id}/chunk` (`index`、base64 的 `data`)、`POST /uploads/{id}/finish`
 (CRS 發行檔另帶簽章文字 `asc`)；處理前會先核對大小與 SHA-256。
 
+**`GET /nginx/update`**：scope `rules:read`。nginx 現在與下次系統更新後能不能載入 ModSecurity 模組 (`level`、
+`reason`、`modules`、`hand_built`、`package`、`installed`、`candidate`、`held`)，以及上次用下一版 nginx 套件試新模組的
+結果 (`check.state`：`ready`、`no_module`、`failed`、`current`、`packaged`、`other_hand_built`、`error`)。
+`POST /nginx/update/check` (管理者) 要求立即檢查。給下一版 nginx 的模組 (用 `deploy/build-modsecurity-module.sh`
+編譯) 以 `kind` 為 `nginxmod`、名稱 `ngx_http_modsecurity_module.so` 上傳；`finish` 帶 `description` (腳本產生的
+`module.json`) 或 `nginx_package` (模組對應的套件版本)。
+
 ### 4.2 事件
 
 **`GET /events`**：scope `events:read`。事件清單，新的在前。參數（全部選填）：

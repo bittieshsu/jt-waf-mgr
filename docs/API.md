@@ -195,6 +195,14 @@ CRS release and its signature) go in parts of up to 600 KB: `POST /uploads` (adm
 `size`, `sha256`), `POST /uploads/{id}/chunk` (`index`, base64 `data`), `POST /uploads/{id}/finish` (for a CRS release
 also `asc`, the signature text); the size and SHA-256 are checked before the job reads the file.
 
+**`GET /nginx/update`**: scope `rules:read`. Whether nginx loads its ModSecurity module now and after the next system
+update (`level`, `reason`, `modules`, `hand_built`, `package`, `installed`, `candidate`, `held`), and the last check of
+the next nginx package with the waiting module (`check.state`: `ready`, `no_module`, `failed`, `current`, `packaged`,
+`other_hand_built`, `error`). `POST /nginx/update/check` (admin) asks for that check now. A module for the next nginx
+(built with `deploy/build-modsecurity-module.sh`) is an upload of `kind` `nginxmod` named
+`ngx_http_modsecurity_module.so`; `finish` takes `description` (the `module.json` the script writes) or
+`nginx_package` (the package version it is for).
+
 ### 4.2 Events
 
 **`GET /events`**: scope `events:read`. Events, newest first. Parameters (all optional):

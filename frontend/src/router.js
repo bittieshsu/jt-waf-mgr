@@ -17,6 +17,7 @@ import RuleDetail from './views/RuleDetail.vue'
 import Vhosts from './views/Vhosts.vue'
 import CountrySites from './views/CountrySites.vue'
 import Crs from './views/Crs.vue'
+import NginxUpdate from './views/NginxUpdate.vue'
 import WafModel from './views/WafModel.vue'
 import AdminUsers from './views/AdminUsers.vue'
 import AdminTokens from './views/AdminTokens.vue'
@@ -60,6 +61,7 @@ const routes = [
   { path: '/vhosts', name: 'vhosts', component: Vhosts },
   { path: '/countries', name: 'countries', component: CountrySites },
   { path: '/crs', name: 'crs', component: Crs },
+  { path: '/nginx-update', name: 'nginx-update', component: NginxUpdate, meta: { role: 'admin' } },
   { path: '/waf', name: 'waf', component: WafModel },
   { path: '/account', name: 'account', component: Account },
   { path: '/guide', name: 'guide', component: Guide },

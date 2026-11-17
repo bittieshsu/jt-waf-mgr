@@ -2,6 +2,14 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.4.88 (2026-11-18)
+
+- nginx 更新前先驗證 WAF 模組 (新頁面「管理 → nginx 更新」)：系統有新版 nginx、而 ModSecurity 模組是手動編譯時，獨立的背景工作 (jt-waf-mgr-nginxup，每天一次，也可立即檢查) 會下載新版 nginx 套件 (不安裝)、解開後用它實際載入等待中的新模組，在本機連接埠送測試請求，確認會封鎖 (403) 且一般請求正常 (200) 才標示「可以更新」。套件提供的模組會一起取新版試；還有其他手動編譯模組時會提示。
+- 新版模組由管理者上傳 (分段送出，檢查 SHA-256 與 ELF 格式、與 module.json 的描述一致)；發行檔附 `deploy/build-modsecurity-module.sh`，在相同系統上只編模組 (數秒)，nginx 原始碼取自套件庫的原始碼套件，ModSecurity-nginx 連接器固定版本與 SHA-256。
+- health 的 nginx_module 檢查多 `update_ready`。
+- 規則頁說明：CrowdSec 虛擬修補規則套用前只在 CrowdSec 頁檢視。
+- 下一版：鎖定 nginx、經核准的 nginx 更新 (只用驗證通過的模組、熱升級、失敗自動還原)。
+
 ## 0.4.87 (2026-11-17)
 
 - CrowdSec 虛擬修補規則：規則欄給足寬度，名稱不再逐段換行；「本站軟體」只比對規則的產品名稱與規則名稱，不再因說明順帶提到其他軟體而誤配 (例如提到 Lua 的 Wing FTP 規則)。

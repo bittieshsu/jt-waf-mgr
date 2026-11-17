@@ -13,7 +13,7 @@ import shutil
 import time
 
 CHUNK = 600 * 1024                 # bytes per piece (about 800 KB once base64 encoded)
-LIMITS = {'hub': 64 * 1024 * 1024, 'crs': 16 * 1024 * 1024}
+LIMITS = {'hub': 64 * 1024 * 1024, 'crs': 16 * 1024 * 1024, 'nginxmod': 8 * 1024 * 1024}
 STALE = 3600                       # an upload left unfinished for an hour is removed
 NAME_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$')
 PER_USER = 2                       # unfinished uploads at once
@@ -73,6 +73,8 @@ def start(cfg, kind, name, size, sha256, actor):
         raise UploadError('too_large', 413, limit=LIMITS[kind])
     if not isinstance(sha256, str) or not re.fullmatch(r'[0-9a-f]{64}', sha256):
         raise UploadError('invalid_sha256')
+    if kind == 'nginxmod' and name != 'ngx_http_modsecurity_module.so':
+        raise UploadError('invalid_name', 422, expected='ngx_http_modsecurity_module.so')
     if kind == 'crs':
         from .crsupdate import UPLOAD_NAME
         if not UPLOAD_NAME.match(name):

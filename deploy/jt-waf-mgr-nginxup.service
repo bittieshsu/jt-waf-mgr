@@ -1,0 +1,51 @@
+[Unit]
+Description=jt-waf-mgr: get ready for the next nginx update (download the new nginx package, try the ModSecurity module with it)
+Documentation=file:///usr/lib/jt-waf-mgr/README.md
+After=network-online.target
+Wants=network-online.target
+# The web service never reaches the package repositories; only this short-lived job does. It downloads the nginx package
+# the next update would install (not installed) and starts that nginx on a local port with the waiting module.
+
+[Service]
+# background work: below nginx and below the web interface when the host is busy
+Nice=10
+CPUWeight=20
+IOWeight=20
+Type=oneshot
+User=jtwaf
+Group=jtwaf
+Environment=PYTHONPATH=/usr/lib/jt-waf-mgr
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -P -m jtwafmgr --config /etc/jt-waf-mgr/config.toml nginx-update-check
+TimeoutStartSec=10min
+NoNewPrivileges=yes
+ProtectSystem=strict
+# the whole data directory: the job opens the database (WAL) to read the nginx configuration it manages
+ReadWritePaths=/var/lib/jt-waf-mgr
+ProtectHome=yes
+PrivateTmp=yes
+# apt-get download reads the package lists (read only)
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+# no MemoryDenyWriteExecute: the nginx tried here loads libmodsecurity, whose PCRE may compile to machine code
+# (as in the running nginx)
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+UMask=0027
+MemoryMax=512M
+CPUQuota=50%

@@ -1,0 +1,9 @@
+[Unit]
+Description=jt-waf-mgr: check the next nginx update when an admin asks (check now, or a module upload)
+
+[Path]
+PathExists=/var/lib/jt-waf-mgr/nginxup/check.request
+Unit=jt-waf-mgr-nginxup.service
+
+[Install]
+WantedBy=multi-user.target

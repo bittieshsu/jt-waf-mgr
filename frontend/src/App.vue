@@ -172,6 +172,7 @@ const navGroups = computed(() => [
     { to: '/admin/tokens', label: t('nav.tokens'), icon: 'key' },
     { to: '/admin/audit', label: t('nav.audit'), icon: 'page' },
     { to: '/admin/system', label: t('nav.system'), icon: 'verify' },
+    { to: '/nginx-update', label: t('nav.nginx_update'), icon: 'server' },
     { to: '/waf/pause', label: t('nav.waf_pause'), icon: 'warning' },
     { to: '/admin/compliance', label: t('nav.compliance'), icon: 'report' },
     { to: '/admin/notify', label: t('nav.notify'), icon: 'notify' },

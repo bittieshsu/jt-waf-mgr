@@ -218,6 +218,12 @@ paths:
       responses:
         '200': {description: 'active, all, sites, busy', content: {application/json: {schema: {type: object}}}}
         default: {$ref: '#/components/responses/Error'}
+  /nginx/update:
+    get:
+      summary: Whether nginx loads its ModSecurity module now and after the next update, and the last check of the next nginx package with the waiting module (scope rules:read)
+      responses:
+        '200': {description: 'level, reason, modules, hand_built, package, installed, candidate, held, check, waiting', content: {application/json: {schema: {type: object}}}}
+        default: {$ref: '#/components/responses/Error'}
   /events:
     get:
       summary: List events (scope events:read)

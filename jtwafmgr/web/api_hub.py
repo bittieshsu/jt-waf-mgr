@@ -110,7 +110,8 @@ def upload_chunk(app, req):
 
 
 def upload_finish(app, req):
-    """The whole file is here and matches: hand it to the job that reads it (the hub sync or the CRS check)."""
+    """The whole file is here and matches: hand it to the job that reads it (the hub sync, the CRS check, or the nginx
+    update check for a ModSecurity module)."""
     b = req.body()
     uid = req.params['id']
     try:
@@ -118,8 +119,12 @@ def upload_finish(app, req):
     except uploads.UploadError as e:
         app.audit.log('upload.refused', req.user['username'], 'user', req.client_ip, 'denied', reason=e.code, upload_id=uid)
         raise _upload_error(e)
+    extra = {}
     try:
-        if meta['kind'] == 'hub':
+        if meta['kind'] == 'nginxmod':
+            from . import api_nginxup
+            extra['nginx_package'] = api_nginxup.receive_module(app, path, meta, b, req.user['username'])
+        elif meta['kind'] == 'hub':
             dest = os.path.join(hub.hub_dir(app.cfg), hub.UPLOAD_DIR)
             os.makedirs(dest, mode=0o750, exist_ok=True)
             shutil.move(path, os.path.join(dest, meta['name']))
@@ -141,8 +146,8 @@ def upload_finish(app, req):
     finally:
         uploads.discard(app.cfg, uid)
     app.audit.log('upload.finished', req.user['username'], 'user', req.client_ip, 'ok', kind=meta['kind'], name=meta['name'],
-                  size=meta['size'], sha256=meta['sha256'], upload_id=uid)
-    return json_response(202, {'accepted': True, 'kind': meta['kind'], 'name': meta['name'], 'at': util.iso(util.now())})
+                  size=meta['size'], sha256=meta['sha256'], upload_id=uid, **extra)
+    return json_response(202, dict(extra, accepted=True, kind=meta['kind'], name=meta['name'], at=util.iso(util.now())))
 
 
 def register(router):

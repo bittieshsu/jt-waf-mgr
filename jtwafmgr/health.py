@@ -194,8 +194,11 @@ def _nginx_module(app):
            'no_modsecurity_module': 'no ModSecurity module loaded', 'update_would_break': 'an nginx update would leave the ModSecurity module behind',
            'not_held': 'nginx is not held but the ModSecurity module is built by hand'}[why]
     up = st.get('update') or {}
+    from . import nginxup
+    job = nginxup.read_status(app.cfg)
+    ready = up.get('update') and job.get('state') == 'ready' and job.get('candidate') == up.get('candidate')
     return _check('nginx_module', {'ok': OK, 'warning': WARNING, 'critical': CRITICAL}[lvl], msg,
-                  candidate=up.get('candidate') if up.get('update') else None)
+                  candidate=up.get('candidate') if up.get('update') else None, update_ready=bool(ready))
 
 
 CHECKS = (_nginx, _modsecurity, _nginx_module, _paused, _managed, _last_apply, _collector, _blocks, _program, _chain, _outside, _analyst)

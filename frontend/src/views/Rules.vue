@@ -36,7 +36,7 @@
       <span class="muted small" :title="t('author.hint')"><Icon name="user" /> {{ t('rules.author_counts') }}</span>
       <button v-for="a in authors" :key="a.key" type="button" class="authchip" :class="{ on: f.author === a.key }" :aria-pressed="f.author === a.key ? 'true' : 'false'"
               @click="pickAuthor(a.key)"><Icon :name="f.author === a.key ? 'check' : 'filter'" /><span class="badge" :class="AUTHOR_BADGE[a.key]">{{ t('author.' + a.key) }}</span> <b>{{ fmtNum(a.n) }}</b></button>
-      <span class="muted small authhint">{{ t('author.hint') }}</span>
+      <span class="muted small authhint">{{ t('author.hint') }} <RouterLink to="/crowdsec">{{ t('rules.crowdsec_note') }}</RouterLink></span>
     </div>
     <section v-if="summary.length" class="card">
       <h2><Icon name="chart" /> {{ t('rules.by_category_state') }}</h2>
