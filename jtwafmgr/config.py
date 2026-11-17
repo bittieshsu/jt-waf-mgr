@@ -290,6 +290,10 @@ DEFAULTS = {
         'model': '',
         'api_key': '',
         'timeout_seconds': 180,
+        # tokens the event analysis and the single-event AI analysis may use together (0: no limit); over the limit
+        # the scheduled analysis uses the program rules only and single-event analysis is refused
+        'daily_tokens': 0,
+        'monthly_tokens': 0,
     },
     'analyst': {
         # scheduled analysis of recent events: proposes confident blocks (never approves them)
@@ -500,6 +504,8 @@ class Config:
             raise ConfigError('intel.timeout_seconds: 30-1800')
         if it['daily_tokens'] < 0 or it['monthly_tokens'] < 0:
             raise ConfigError('intel token limits: 0 (none) or more')
+        if data['llm']['daily_tokens'] < 0 or data['llm']['monthly_tokens'] < 0:
+            raise ConfigError('llm token limits: 0 (none) or more')
         rv = data['review']
         if rv['interval_hours'] not in (1, 2, 3, 4, 6, 8, 12, 24):
             raise ConfigError('review.interval_hours: 1, 2, 3, 4, 6, 8, 12 or 24')

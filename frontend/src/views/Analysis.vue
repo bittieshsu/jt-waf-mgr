@@ -23,7 +23,7 @@
         {{ isAdmin ? t('analysis.settings_hint_admin') : t('analysis.settings_hint') }}
       </div>
       <div v-if="st.ready && st.mode === 'rules_only'" class="alert info">
-        <Icon name="info" /> {{ t('analysis.rules_only') }}
+        <Icon name="info" /> {{ ['daily_tokens', 'monthly_tokens'].includes(st.llm_not_ready_reason) ? t('analysis.rules_only_' + st.llm_not_ready_reason) : t('analysis.rules_only') }}
       </div>
       <dl class="kv two">
         <dt>{{ t('analysis.enabled') }}</dt>
@@ -33,6 +33,7 @@
           <span class="badge" :class="st.configured ? 'b-ok' : 'b-warn'">{{ st.configured ? t('analysis.configured') : t('analysis.not_configured') }}</span></dd>
         <dt>{{ t('analysis.model') }}</dt><dd class="mono">{{ safeText(st.model, 120) || '—' }}</dd>
         <dt>{{ t('analysis.key') }}</dt><dd>{{ st.key_set ? t('analysis.set') : t('analysis.not_set') }}</dd>
+        <dt>{{ t('analysis.tokens') }}</dt><dd>{{ t('analysis.tokens_v', { d: fmtNum(st.tokens ? st.tokens.day : 0), dl: st.daily_tokens ? fmtNum(st.daily_tokens) : '∞', m: fmtNum(st.tokens ? st.tokens.month : 0), ml: st.monthly_tokens ? fmtNum(st.monthly_tokens) : '∞' }) }}</dd>
         <dt>{{ t('analysis.schedule') }}</dt><dd>{{ t('analysis.schedule_v', { every: everyText(st.interval_minutes), w: st.window_hours }) }}</dd>
         <dt>{{ t('analysis.thresholds') }}</dt><dd>{{ t('analysis.thresholds_v', { e: st.min_events, s: st.min_sources, c: st.max_candidates }) }}</dd>
         <dt>{{ t('analysis.proposal_rules') }}</dt><dd>{{ t('analysis.proposal_rules_v', { c: st.min_confidence, m: st.max_proposals }) }}</dd>

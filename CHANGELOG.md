@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.79 (2026-11-17)
+
+- Token limits for the first-tier LLM as well: Settings → first-tier LLM has a daily and a monthly token limit for the scheduled event analysis and the single-event AI analysis together, 0 (no limit) by default. When one is used up the scheduled analysis uses the program rules only (outside probes for secret or configuration files still get confident blocks proposed) and single-event AI analysis answers "limit reached", until the next day or month; a limit used up during a run leaves the rest of the candidates unjudged that time. The event analysis page shows today's and this month's use.
+
 ## 0.4.78 (2026-11-17)
 
 - Sandbox: when nginx loads dynamic modules with a relative path (the Debian and Ubuntu package default, e.g. `load_module modules/ndk_http_module.so;`), the sandbox looked for them in its own temporary directory and could not start, so every change, CRS installation and CRS update "failed the sandbox test". Relative paths are now made absolute with the prefix nginx was built with (`--prefix` in `nginx -V`); the configuration does not need changing. The configuration fingerprint uses the same absolute paths. (GitHub issue #1)

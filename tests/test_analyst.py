@@ -770,6 +770,37 @@ class TestBatches(AnalystBase):
         self.assertFalse(analyst.transient('bad_reply: all 1 batches failed'))
 
 
+    def test_token_limit_turns_to_the_program_rules_and_refuses_event_analysis(self):
+        from jtwafmgr import eventai
+        self.probes('/.env', 4)
+        self.assertIsNone(analyst.over_budget(self.app.cfg, self.app.db))     # 0: no limit
+        self.assertEqual(analyst.status(self.app)['daily_tokens'], 0)
+        self.run_analyst()                                                     # the fake server: 15 tokens a request
+        self.assertNotEqual(self.last_run()['model'], analyst.RULES_MODEL)
+        self.assertEqual(analyst.tokens_used(self.app.db), {'day': 15, 'month': 15})
+        self.app.cfg['llm']['daily_tokens'] = 20
+        self.assertIsNone(analyst.over_budget(self.app.cfg, self.app.db))
+        n = len(self.srv.seen)
+        self.run_analyst()                                                     # 5 left: one more request, then 30
+        self.assertEqual(len(self.srv.seen), n + 1)
+        self.assertEqual(analyst.over_budget(self.app.cfg, self.app.db), 'daily_tokens')
+        st = analyst.status(self.app)
+        self.assertEqual((st['mode'], st['llm_not_ready_reason'], st['tokens']['day']), ('rules_only', 'daily_tokens', 30))
+        self.run_analyst()                                                     # over: the program rules only
+        self.assertEqual(len(self.srv.seen), n + 1)
+        self.assertEqual(self.last_run()['model'], analyst.RULES_MODEL)
+        eid = self.app.db.one('SELECT id FROM events ORDER BY id LIMIT 1')[0]
+        eventai.request(self.app, eid, 'boss', 'en')
+        eventai.run_pending(self.app, log=self.logs.append)
+        self.assertEqual(eventai.latest(self.app.db, eid)['error'], 'daily_tokens')
+        self.assertEqual(len(self.srv.seen), n + 1)
+        self.app.cfg['llm']['daily_tokens'], self.app.cfg['llm']['monthly_tokens'] = 0, 31
+        self.assertIsNone(analyst.over_budget(self.app.cfg, self.app.db))
+        self.app.cfg['llm']['monthly_tokens'] = 30
+        self.assertEqual(analyst.over_budget(self.app.cfg, self.app.db), 'monthly_tokens')
+        self.assertEqual(analyst.budget_left(self.app.cfg, self.app.db), 0)
+
+
 class TestUsedInternally(AnalystBase):
     def test_a_path_internal_people_use_is_never_blocked_or_alerted(self):
         self.adopt()

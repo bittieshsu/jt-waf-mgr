@@ -136,7 +136,7 @@ const emit = defineEmits(['saved'])
 
 const GROUPS = [
   { key: 'geoip', icon: 'globe', keys: ['geoip.enabled', 'geoip.account_id', 'geoip.license_key', 'geoip.editions', 'geoip.update_days'] },
-  { key: 'llm', icon: 'server', keys: ['llm.url', 'llm.api_key', 'llm.model', 'llm.timeout_seconds', 'llm.enabled'] },
+  { key: 'llm', icon: 'server', keys: ['llm.url', 'llm.api_key', 'llm.model', 'llm.timeout_seconds', 'llm.daily_tokens', 'llm.monthly_tokens', 'llm.enabled'] },
   { key: 'intel', icon: 'ai', keys: ['intel.enabled', 'intel.provider', 'intel.url', 'intel.api_key', 'intel.model', 'intel.timeout_seconds', 'intel.search', 'intel.mcp_url', 'intel.fetch_domains', 'intel.interval_hours', 'intel.days', 'intel.max_rounds', 'intel.patches', 'intel.kev', 'intel.osv', 'intel.nvd', 'intel.librenms_token', 'intel.daily_tokens', 'intel.monthly_tokens'] },
   { key: 'analyst', icon: 'timer', keys: ['analyst.enabled', 'analyst.rules', 'analyst.interval_minutes', 'analyst.window_hours', 'analyst.max_proposals', 'analyst.min_events', 'analyst.min_sources'] },
   { key: 'review', icon: 'report', keys: ['review.enabled', 'review.interval_hours', 'review.keep_days'] },

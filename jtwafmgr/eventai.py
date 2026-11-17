@@ -210,9 +210,9 @@ def run_pending(app, log=print):
                 (util.now() - STALE, PER_RUN))
     if not rows:
         return None
-    from .analyst import llm_ready
+    from .analyst import llm_ready, over_budget
     client = llm.Client(cfg)
-    why = llm_ready(cfg)
+    why = llm_ready(cfg) or over_budget(cfg, db)     # over the token limit: refused, with the reason
     done = 0
     for r in rows:
         db.x('UPDATE event_analyses SET started_at=?, model=? WHERE id=?', (util.now(), client.model, r['id']))
@@ -242,6 +242,8 @@ def run_pending(app, log=print):
             out = clean(llm.parse_json_reply(text), ev)
             out['seconds'] = secs
             out['server'] = server_label(cfg)
+            out['usage'] = {k: v for k, v in (usage or {}).items()
+                            if k in ('prompt_tokens', 'completion_tokens', 'total_tokens') and isinstance(v, int)}
             db.x('UPDATE event_analyses SET finished_at=?, verdict=?, confidence=?, action=?, details=? WHERE id=?',
                  (util.now(), out['verdict'], out['confidence'], out['action'], json.dumps(out, ensure_ascii=False), r['id']))
             app.audit.log('event.analysed', 'analyst', 'system', None, 'ok', event_id=r['event_id'], verdict=out['verdict'],

@@ -137,6 +137,53 @@ def llm_ready(cfg):
 RULES_MODEL = 'program rules (no LLM)'
 
 
+# --- the first layer's token limits (llm.daily_tokens / llm.monthly_tokens; 0: none) ------------------------------
+
+def _total(usage):
+    try:
+        u = json.loads(usage) if isinstance(usage, str) else (usage or {})
+        t = u.get('total_tokens')
+        if not isinstance(t, int):
+            t = sum(v for k, v in u.items() if k in ('prompt_tokens', 'completion_tokens') and isinstance(v, int))
+        return max(0, int(t))
+    except (ValueError, TypeError, AttributeError):
+        return 0
+
+
+def tokens_used(db, now=None):
+    """Tokens the local LLM used for jt-waf-mgr today and this month (local time): the scheduled event analysis and
+    the single-event AI analysis together."""
+    now = now or util.now()
+    lt = time.localtime(now)
+    day = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, 0, 0, 0, 0, 0, -1))
+    month = time.mktime((lt.tm_year, lt.tm_mon, 1, 0, 0, 0, 0, 0, -1))
+    rows = [(r['started_at'], _total(r['usage'])) for r in
+            db.q('SELECT started_at, usage FROM analyst_runs WHERE started_at>=?', (month,))]
+    for r in db.q('SELECT started_at, details FROM event_analyses WHERE started_at>=?', (month,)):
+        try:
+            rows.append((r['started_at'], _total((json.loads(r['details'] or '{}') or {}).get('usage'))))
+        except (ValueError, AttributeError):
+            pass
+    return {'day': sum(t for at, t in rows if at >= day), 'month': sum(t for _, t in rows)}
+
+
+def over_budget(cfg, db):
+    """'daily_tokens' / 'monthly_tokens' when that limit is used up, else None."""
+    c, used = cfg['llm'], tokens_used(db)
+    if c.get('daily_tokens') and used['day'] >= c['daily_tokens']:
+        return 'daily_tokens'
+    if c.get('monthly_tokens') and used['month'] >= c['monthly_tokens']:
+        return 'monthly_tokens'
+    return None
+
+
+def budget_left(cfg, db):
+    c, used = cfg['llm'], tokens_used(db)
+    left = [c['daily_tokens'] - used['day']] if c.get('daily_tokens') else []
+    left += [c['monthly_tokens'] - used['month']] if c.get('monthly_tokens') else []
+    return max(0, min(left)) if left else None
+
+
 def rule_verdict(c, g):
     """The program's own judgement of an attack candidate, or None when it needs the LLM: a name attackers look for
     (RECON_NAME), asked for from outside only, never answered 2xx, no internal user -- a probe whatever the model
@@ -855,6 +902,11 @@ def run(app, force=False, log=print, trigger=None):
         return {'ran': False, 'reason': 'not_due', 'next_due': util.iso(last['started_at'] + a['interval_minutes'] * 60)}
     client = llm.Client(cfg)
     client.use = llm_ready(cfg) is None         # without it: the program rules only
+    over = over_budget(cfg, db) if client.use else None
+    if over:
+        client.use = False                      # the token limit is used up: the program rules only, until it resets
+        log('analyst: LLM token limit reached (%s): program rules only' % over)
+    client.budget = budget_left(cfg, db) if client.use else None
     run_id = db.x('INSERT INTO analyst_runs(node_id, started_at, trigger, window_hours, model) VALUES (?,?,?,?,?)',
                   (cfg['node']['id'], now, trigger, a['window_hours'], client.model if client.use else RULES_MODEL)).lastrowid
     st = {'candidates': [], 'verdicts': [], 'proposals': [], 'skipped': [], 'alerts': [], 'events_scanned': 0, 'conflicts': set(),
@@ -979,6 +1031,11 @@ def _analyse(app, client, a, st, log):
     verdicts, ignored, model_alerts, replies, failed = {}, [], [], [], []
     st['llm_seconds'], st['prompt_chars'], usage_sum = 0.0, 0, collections.Counter()
     for n, (bc, bf) in enumerate(batches, 1):
+        budget = getattr(client, 'budget', None)
+        if budget is not None and usage_sum.get('total_tokens', 0) >= budget:
+            # the token limit ran out during this run: the rest gets no verdict (nothing is proposed for it)
+            failed.append('token_limit')
+            continue
         msgs = build_messages(bc, a['window_hours'], bf)
         st['prompt_chars'] += sum(len(m['content']) for m in msgs)
         prog('llm', candidates=len(ask_c) + len(ask_f), groups=len(groups), model=client.model[:120], batch=n, batches=len(batches))
@@ -1246,7 +1303,10 @@ def status(app):
     due = (last['started_at'] + a['interval_minutes'] * 60) if last else util.now()
     return {'enabled': bool(a['enabled']), 'llm_enabled': c.enabled, 'configured': llm_configured(c),
             'ready': why is None, 'not_ready_reason': why, 'model': c.model, 'key_set': bool(c.key),
-            'mode': 'llm' if llm_ready(cfg) is None else 'rules_only', 'llm_not_ready_reason': llm_ready(cfg),
+            'mode': 'llm' if llm_ready(cfg) is None and not over_budget(cfg, app.db) else 'rules_only',
+            'llm_not_ready_reason': llm_ready(cfg) or over_budget(cfg, app.db),
+            'tokens': tokens_used(app.db), 'daily_tokens': cfg['llm'].get('daily_tokens') or 0,
+            'monthly_tokens': cfg['llm'].get('monthly_tokens') or 0,
             'interval_minutes': a['interval_minutes'], 'window_hours': a['window_hours'], 'max_proposals': a['max_proposals'],
             'min_events': a['min_events'], 'min_sources': a['min_sources'], 'min_confidence': MIN_CONFIDENCE,
             'max_candidates': MAX_CANDIDATES, 'decline_days': DECLINE_DAYS,

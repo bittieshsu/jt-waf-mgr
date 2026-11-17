@@ -47,6 +47,8 @@ EDITABLE = {
     'llm.model': ('str', {'re': r'[\w.:/-]{0,120}', 'max': 120}),
     'llm.api_key': ('secret', {'re': r'[\x21-\x7e]{0,300}'}),
     'llm.timeout_seconds': ('int', {'min': 10, 'max': 900}),
+    'llm.daily_tokens': ('int', {'min': 0, 'max': 100000000}),
+    'llm.monthly_tokens': ('int', {'min': 0, 'max': 2000000000}),
     # scheduled event analysis
     'analyst.enabled': ('bool', {}),
     'analyst.interval_minutes': ('int', {'min': 10, 'max': 10080}),
