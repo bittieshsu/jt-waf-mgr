@@ -28,7 +28,7 @@ REPO = 'crowdsecurity/hub'
 API = 'https://api.github.com/repos/%s' % REPO
 RAW = 'https://raw.githubusercontent.com/%s/%%s/%%s' % REPO
 INDEX = 'index.json'
-INDEX_FORMAT = 2                # 2: with the hub's own tests (0.4.90)
+INDEX_FORMAT = 3                # 2: with the hub's own tests (0.4.90); 3: requests to let through, more templates (0.4.92)
 REQUEST = 'sync.request'
 UPLOAD_DIR = 'upload'
 MAX_FILE = 256 * 1024
@@ -49,7 +49,7 @@ ZONES = {'ARGS': 'ARGS_GET', 'ARGS_NAMES': 'ARGS_GET_NAMES', 'BODY_ARGS': 'ARGS_
          'COOKIES': 'REQUEST_COOKIES', 'COOKIES_NAMES': 'REQUEST_COOKIES_NAMES', 'FILES': 'FILES', 'FILES_NAMES': 'FILES_NAMES',
          'FILENAMES': 'FILES', 'FILES_TOTAL_SIZE': 'FILES_COMBINED_SIZE', 'HEADERS': 'REQUEST_HEADERS',
          'HEADERS_NAMES': 'REQUEST_HEADERS_NAMES', 'METHOD': 'REQUEST_METHOD', 'PROTOCOL': 'REQUEST_PROTOCOL',
-         'URI': 'REQUEST_FILENAME', 'URI_FULL': 'REQUEST_URI', 'RAW_BODY': 'REQUEST_BODY'}
+         'URI': 'REQUEST_FILENAME', 'URI_FULL': 'REQUEST_URI_RAW', 'RAW_BODY': 'REQUEST_BODY'}
 # libmodsecurity 3.0 (Debian 12's 3.0.9: tested) puts the arguments of a JSON body ("json.a.b", the names CrowdSec uses too)
 # in ARGS and ARGS_NAMES but not in ARGS_POST: a body zone also looks at the JSON arguments there. Only names that start
 # with "json." -- a query parameter would have to be named so itself to be taken as well.
@@ -285,18 +285,18 @@ DROP_HEADERS = ('host', 'content-length', 'connection', 'transfer-encoding')
 # the sandbox gives each request its client address in X-Forwarded-For: a test that sets it cannot be sent as it is
 UNSENDABLE_HEADERS = ('x-forwarded-for',)
 _PLACEHOLDER = re.compile(r'\{\{([^{}]{1,200})\}\}')
-_FUNC = re.compile(r'^(hex_decode|base64|base64_decode)\((?:"([^"]*)"|\'([^\']*)\')\)$')
 
 
 def _refused(matchers, cond):
-    """Which requests must be refused: 'each' ("status: [403]": every request is an attack the rule refuses) or a set of
-    request numbers from 1 ("status_code_2 == 403", all of them together). Anything else (words in the page, other
-    codes, "or") cannot be judged here."""
+    """What each request of a group must do: 'each' ("status: [403]": every request is an attack the rule refuses) or
+    {request number from 1: 'refuse' | 'pass'} ("status_code_2 == 403" refused; "status_code_3 == 404" -- or any other
+    code -- an ordinary request the rule must let through; all of them together). Anything else (words in the page,
+    "or") cannot be judged here."""
     if not isinstance(matchers, list) or not matchers:
         raise Unsupported('test_matchers')
     if len(matchers) > 1 and cond not in (None, 'and'):
         raise Unsupported('test_matchers')
-    each, which = False, set()
+    each, which = False, {}
     for m in matchers:
         if not isinstance(m, dict) or set(m) - {'type', 'status', 'dsl', 'condition', 'name'}:
             raise Unsupported('test_matchers')
@@ -305,59 +305,171 @@ def _refused(matchers, cond):
         elif m.get('type') == 'dsl' and isinstance(m.get('dsl'), list) and m['dsl'] and \
                 (len(m['dsl']) == 1 or m.get('condition') == 'and'):
             for x in m['dsl']:
-                d = re.fullmatch(r'\s*status_code(?:_(\d{1,2}))?\s*==\s*403\s*', str(x))
+                d = re.fullmatch(r'\s*status_code(?:_(\d{1,2}))?\s*==\s*([1-5][0-9][0-9])\s*', str(x))
                 if not d:
                     raise Unsupported('test_matchers')
-                which.add(int(d.group(1) or 1))
+                n = int(d.group(1) or 1)
+                want = 'refuse' if d.group(2) == '403' else 'pass'
+                if which.get(n, want) != want:
+                    raise Unsupported('test_matchers')
+                which[n] = want
         else:
             raise Unsupported('test_matchers')
     if each and which:
         raise Unsupported('test_matchers')
+    if not each and 'refuse' not in which.values():
+        raise Unsupported('test_matchers')       # nothing the rule must refuse: no proof of the rule
     return 'each' if each else which
 
 
-def _expand(text, variables, binary_ok, in_path=False):
-    """Placeholders -> text (str) or bytes (when a function such as hex_decode makes binary data)."""
+# nuclei's random helpers give fixed text here: the same request every time (a test that passes once passes again)
+_RAND_ALNUM = 'jtwafrand7q3kx9m2p4v8w1z5c6b0nh'
+_RAND_ALPHA = 'jtwafrandqkxmpvwzcbnhlgseyoiu'
+_RAND_NUM = '7391582046'
+OAST_HOST = 'jtwaf-oast.invalid'        # an out-of-band callback address ({{interactsh-url}}): never answers
+_TOKEN = re.compile(r'\s*(?:(?P<str>"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\')|(?P<int>-?\d{1,9})(?![\w-])|'
+                    r'(?P<name>[A-Za-z_][A-Za-z0-9_-]{0,63})|(?P<p>[(),]))')
+
+
+def _fixed(n, chars):
+    n = int(n)
+    if not 0 < n <= 256:
+        raise Unsupported('test_placeholder', name='rand')
+    return (chars * (n // len(chars) + 1))[:n]
+
+
+def _call(fn, args, key):
+    import base64
+    import urllib.parse
+
+    def text(i):
+        if len(args) <= i or not isinstance(args[i], (str, bytes)):
+            raise Unsupported('test_placeholder', name=key[:40])
+        return args[i].decode('latin-1') if isinstance(args[i], bytes) else args[i]
+
+    def num(i, default=None):
+        if len(args) <= i:
+            if default is None:
+                raise Unsupported('test_placeholder', name=key[:40])
+            return default
+        v = args[i]
+        if isinstance(v, str) and re.fullmatch(r'-?\d{1,9}', v):
+            v = int(v)
+        if not isinstance(v, int):
+            raise Unsupported('test_placeholder', name=key[:40])
+        return v
+    try:
+        if fn == 'hex_decode':
+            return bytes.fromhex(text(0))
+        if fn == 'base64':
+            a = args[0] if args else ''
+            return base64.b64encode(a if isinstance(a, bytes) else text(0).encode('utf-8')).decode('ascii')
+        if fn == 'base64_decode':
+            return base64.b64decode(text(0), validate=True)
+        if fn == 'url_encode':
+            return urllib.parse.quote(text(0), safe='')
+        if fn == 'url_decode':
+            return urllib.parse.unquote(text(0))
+        if fn == 'to_lower':
+            return text(0).lower()
+        if fn == 'to_upper':
+            return text(0).upper()
+        if fn == 'concat':
+            return ''.join(text(i) for i in range(len(args)))
+        if fn in ('rand_base', 'rand_text_alphanumeric', 'rand_char'):
+            if fn == 'rand_char':
+                return _RAND_ALNUM[0]
+            return _fixed(num(0), text(1) if len(args) > 1 and text(1) else _RAND_ALNUM)
+        if fn == 'rand_text_alpha':
+            return _fixed(num(0), _RAND_ALPHA)
+        if fn == 'rand_text_numeric':
+            return _fixed(num(0), _RAND_NUM)
+        if fn == 'rand_int':
+            return str(num(0, 0))
+    except ValueError:
+        raise Unsupported('test_placeholder', name=key[:40])
+    raise Unsupported('test_placeholder', name=key[:40])
+
+
+def _value(key, variables, in_path, depth):
+    """One {{...}}: a name (Hostname, BaseURL, randstr, a variable of the template) or a call of nuclei's helpers,
+    nested ("to_lower(rand_text_alphanumeric(8))"; arguments: quoted text, numbers, names) -> str or bytes."""
+    toks, pos = [], 0
+    while pos < len(key):
+        m = _TOKEN.match(key, pos)
+        if not m or m.end() == pos:
+            if key[pos:].strip():
+                raise Unsupported('test_placeholder', name=key[:40])
+            break
+        toks.append(m)
+        pos = m.end()
+    i = 0
+
+    def expr():
+        nonlocal i
+        if i >= len(toks):
+            raise Unsupported('test_placeholder', name=key[:40])
+        t = toks[i]
+        i += 1
+        if t.group('str') is not None:
+            q = t.group('str')
+            return re.sub(r'\\(.)', r'\1', q[1:-1])
+        if t.group('int') is not None:
+            return int(t.group('int'))
+        name = t.group('name')
+        if name is None:
+            raise Unsupported('test_placeholder', name=key[:40])
+        if i < len(toks) and toks[i].group('p') == '(':
+            i += 1
+            args = []
+            if i < len(toks) and toks[i].group('p') == ')':
+                i += 1
+            else:
+                while True:
+                    args.append(expr())
+                    if i < len(toks) and toks[i].group('p') == ',':
+                        i += 1
+                        continue
+                    if i < len(toks) and toks[i].group('p') == ')':
+                        i += 1
+                        break
+                    raise Unsupported('test_placeholder', name=key[:40])
+            return _call(name, args, key)
+        if name in ('Hostname', 'Host'):
+            return TEST_HOST
+        if name in ('BaseURL', 'RootURL'):
+            return '' if in_path else 'http://' + TEST_HOST
+        if re.fullmatch(r'randstr(?:_\d{1,2})?', name):
+            return 'jtwafrand7q3k'
+        if name in ('interactsh-url', 'interactsh_url'):
+            return OAST_HOST
+        if name in variables:
+            if depth >= 4:
+                raise Unsupported('test_placeholder', name=key[:40])
+            return _expand(variables[name], variables, True, in_path, depth + 1)
+        raise Unsupported('test_placeholder', name=key[:40])
+    v = expr()
+    if i != len(toks):
+        raise Unsupported('test_placeholder', name=key[:40])
+    return str(v) if isinstance(v, int) else v
+
+
+def _expand(text, variables, binary_ok, in_path=False, depth=0):
+    """Placeholders -> text (str) or bytes (when a helper such as hex_decode makes binary data)."""
     parts, binary = [], False
     pos = 0
     for m in _PLACEHOLDER.finditer(text):
         parts.append(text[pos:m.start()])
         pos = m.end()
-        key = m.group(1).strip()
-        if key in ('Hostname', 'Host'):
-            parts.append(TEST_HOST)
-        elif key in ('BaseURL', 'RootURL'):
-            parts.append('' if in_path else 'http://' + TEST_HOST)
-        elif re.fullmatch(r'randstr(?:_\d{1,2})?', key):
-            parts.append('jtwafrand7q3k')
-        elif key in variables:
-            parts.append(variables[key])
-        else:
-            f = _FUNC.match(key)
-            if not f:
-                raise Unsupported('test_placeholder', name=key[:40])
-            arg = f.group(2) if f.group(2) is not None else f.group(3)
-            if _PLACEHOLDER.search(arg):
-                raise Unsupported('test_placeholder', name=key[:40])
+        val = _value(m.group(1).strip(), variables, in_path, depth)
+        if isinstance(val, bytes):
+            if not binary_ok:
+                raise Unsupported('test_binary_outside_body')
             try:
-                if f.group(1) == 'hex_decode':
-                    val = bytes.fromhex(arg)
-                elif f.group(1) == 'base64_decode':
-                    import base64
-                    val = base64.b64decode(arg, validate=True)
-                else:
-                    import base64
-                    val = base64.b64encode(arg.encode('utf-8')).decode('ascii')
-            except ValueError:
-                raise Unsupported('test_placeholder', name=key[:40])
-            if isinstance(val, bytes):
-                if not binary_ok:
-                    raise Unsupported('test_binary_outside_body')
-                try:
-                    val = val.decode('utf-8')
-                except UnicodeDecodeError:
-                    binary = True
-            parts.append(val)
+                val = val.decode('utf-8')
+            except UnicodeDecodeError:
+                binary = True
+        parts.append(val)
     parts.append(text[pos:])
     if binary:
         return b''.join(p if isinstance(p, bytes) else p.encode('utf-8') for p in parts)
@@ -369,7 +481,9 @@ def _test_case(method, target, headers, body, variables):
     if method not in TEST_METHODS:
         raise Unsupported('test_method', method=method[:20])
     path = _expand(target, variables, False, in_path=True)
-    if not path.startswith('/') or len(path) > 2048 or re.search(r'[^\x21-\x7e]', path):
+    if path == '' or path.startswith('?'):
+        path = '/' + path                       # "{{BaseURL}}" alone: the site's root
+    if isinstance(path, bytes) or not path.startswith('/') or len(path) > 2048 or re.search(r'[^\x21-\x7e]', path):
         raise Unsupported('test_path')
     hdr = {}
     for k, v in headers:
@@ -384,6 +498,8 @@ def _test_case(method, target, headers, body, variables):
             raise Unsupported('test_header')
         if k.lower() in DROP_HEADERS:
             continue
+        if k.lower() == 'user-agent' and not v.strip():
+            continue        # nuclei's (Go's) client sends no User-Agent at all for an empty one: neither does the sandbox
         hdr[k] = v
     if len(hdr) > 20:
         raise Unsupported('test_header')
@@ -405,6 +521,9 @@ def _raw_case(raw, variables):
     if not isinstance(raw, str):
         raise Unsupported('test_raw')
     text = raw.lstrip('\r\n')
+    # nuclei's own annotations before the request line ("@timeout: 20s"): for the scanner, not part of the request
+    while re.match(r'@[a-z-]{1,30}\s*:[^\n]*\n', text):
+        text = text.split('\n', 1)[1]
     m = re.search(r'\r?\n\r?\n', text)
     head, body = (text[:m.start()], text[m.end():]) if m else (text, '')
     lines = head.replace('\r\n', '\n').split('\n')       # the body is sent as written (multipart needs its CRLFs)
@@ -425,40 +544,47 @@ def _raw_case(raw, variables):
 
 
 def nuclei_tests(doc):
-    """A nuclei template from the hub's tests -> [{'method', 'path', 'headers', 'body' | 'body_b64'}], each to be refused
-    (the site's name is TEST_HOST until the rule is proposed). Raises Unsupported: only what can be sent exactly is taken."""
+    """A nuclei template from the hub's tests -> [{'method', 'path', 'headers', 'body' | 'body_b64', 'expect'}]: expect
+    'refuse' (an attack the rule must refuse) or 'pass' (an ordinary request it must let through); the site's name is
+    TEST_HOST until the rule is proposed. Raises Unsupported: only what can be sent exactly is taken."""
     if not isinstance(doc, dict) or set(doc) - TEMPLATE_KEYS:
         raise Unsupported('test_template')
     variables = {}
     for k, v in (doc.get('variables') or {}).items() if isinstance(doc.get('variables'), dict) else ():
-        if isinstance(v, (str, int)) and not isinstance(v, bool) and not _PLACEHOLDER.search(str(v)):
-            variables[str(k)] = str(v)
+        if isinstance(v, (str, int)) and not isinstance(v, bool):
+            variables[str(k)] = str(v)          # expanded where used (a variable may name others and helpers)
     groups = doc.get('http') if 'http' in doc else doc.get('requests')
-    if not isinstance(groups, list) or len(groups) != 1 or not isinstance(groups[0], dict):
+    if not isinstance(groups, list) or not 1 <= len(groups) <= 5 or not all(isinstance(g, dict) for g in groups):
         raise Unsupported('test_template')
-    g = groups[0]
-    if set(g) - REQUEST_KEYS:
-        raise Unsupported('test_request_keys', keys=sorted(set(g) - REQUEST_KEYS)[:5])
-    mode = _refused(g.get('matchers'), g.get('matchers-condition'))
-    if 'raw' in g:
-        raws = g.get('raw')
-        if not isinstance(raws, list) or not raws:
-            raise Unsupported('test_raw')
-        cases = [_raw_case(r, variables) for r in raws]
-    else:
-        paths = g.get('path')
-        if not isinstance(paths, list) or not paths or not all(isinstance(x, str) for x in paths):
-            raise Unsupported('test_template')
-        hd = g.get('headers') or {}
-        if not isinstance(hd, dict):
-            raise Unsupported('test_header')
-        cases = [_test_case(g.get('method') or 'GET', x, [(str(k), v) for k, v in hd.items()], g.get('body'), variables)
-                 for x in paths]
-    if mode != 'each':
-        if max(mode) > len(cases):
-            raise Unsupported('test_matchers')
-        cases = [c for i, c in enumerate(cases, 1) if i in mode]
-    return cases[:MAX_TESTS]
+    out = []
+    for g in groups:
+        if set(g) - REQUEST_KEYS:
+            raise Unsupported('test_request_keys', keys=sorted(set(g) - REQUEST_KEYS)[:5])
+        mode = _refused(g.get('matchers'), g.get('matchers-condition'))
+        if 'raw' in g:
+            raws = g.get('raw')
+            if not isinstance(raws, list) or not raws:
+                raise Unsupported('test_raw')
+            cases = [_raw_case(r, variables) for r in raws]
+        else:
+            paths = g.get('path')
+            if not isinstance(paths, list) or not paths or not all(isinstance(x, str) for x in paths):
+                raise Unsupported('test_template')
+            hd = g.get('headers') or {}
+            if not isinstance(hd, dict):
+                raise Unsupported('test_header')
+            cases = [_test_case(g.get('method') or 'GET', x, [(str(k), v) for k, v in hd.items()], g.get('body'), variables)
+                     for x in paths]
+        if mode == 'each':
+            out += [dict(c, expect='refuse') for c in cases]
+        else:
+            if max(mode) > len(cases):
+                raise Unsupported('test_matchers')
+            out += [dict(c, expect=mode[i]) for i, c in enumerate(cases, 1) if i in mode]
+    refuse = [c for c in out if c['expect'] == 'refuse']
+    keep = refuse[:MAX_TESTS]
+    keep += [c for c in out if c['expect'] == 'pass'][:max(0, MAX_TESTS - len(keep))]
+    return keep
 
 
 def upstream_tests(files):

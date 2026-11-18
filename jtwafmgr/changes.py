@@ -248,10 +248,14 @@ class Workflow:
         if old is None and any(it['kind'] == 'crowdsec' and json.loads(it['spec'] or '{}').get('name') == name
                                for it in self.managed.items()):
             raise ChangeError('hub_rule_in_use', 409)      # one item per rule: change its sites with an update
+        all_sites = bool(spec['all_sites']) if 'all_sites' in spec else bool((old or {}).get('all_sites'))
         hosts = spec.get('hosts') if spec.get('hosts') is not None else (old or {}).get('hosts')
+        if all_sites:
+            hosts = []
         source = spec.get('source') or (old or {}).get('source') or 'external'
         commit = idx.get('commit') if isinstance(idx.get('commit'), str) else None
-        out = {'name': name, 'yaml': raw, 'sha256': r['sha256'], 'commit': commit, 'hosts': hosts, 'source': source,
+        out = {'name': name, 'yaml': raw, 'sha256': r['sha256'], 'commit': commit, 'hosts': hosts, 'all_sites': all_sites,
+               'source': source,
                'note': spec.get('note') if spec.get('note') is not None else (old or {}).get('note', ''),
                'license': idx.get('license') or '', 'tests': r['tests'], 'fp_warning': bool(r.get('fp_warning')),
                '_count': n}
@@ -263,19 +267,24 @@ class Workflow:
 
     def _with_hub_tests(self, built, tests):
         """The hub's own attack requests for each CrowdSec rule of the change: sent to its first site from outside, each
-        must be refused by one of the rule's own ids."""
+        must be refused by one of the rule's own ids; the ordinary requests of the hub's tests must not match any of them
+        (whatever else the site's rules do with them). A rule for all sites: sent to a name no site has."""
         from . import hub
         added = []
         for b in built:
             if b['kind'] != 'crowdsec' or b['op'] not in ('add', 'modify', 'enable'):
                 continue
             sp = b['spec']
-            host = sp['hosts'][0].replace('*', 'www')
+            host = hub.TEST_HOST if sp.get('all_sites') else sp['hosts'][0].replace('*', 'www')
             ids = list(managed.id_run(b['rule_id'], sp))
             for t in sp.get('tests') or []:
                 c = {'host': host, 'method': t['method'], 'path': t['path'].replace(hub.TEST_HOST, host),
                      'headers': {k: v.replace(hub.TEST_HOST, host) for k, v in (t.get('headers') or {}).items()},
-                     'source': 'external', 'expect': 403, 'present_any_rules': ids, 'upstream': sp['name']}
+                     'source': 'external', 'upstream': sp['name']}
+                if t.get('expect') == 'pass':
+                    c.update(expect='any', absent_rules=ids)
+                else:
+                    c.update(expect=403, present_any_rules=ids)
                 if t.get('body_b64'):
                     raw = base64.b64decode(t['body_b64']).replace(hub.TEST_HOST.encode(), host.encode())
                     c['body_b64'] = base64.b64encode(raw).decode('ascii')
@@ -1201,8 +1210,9 @@ class Workflow:
         about ordinary requests, the hub's own attack requests refused by the rule and the sites' recent requests not."""
         from . import hub
         spec = json.loads(r['spec'])
-        if not urgent or r['proposed_by'] != 'intel' or spec.get('source') != 'external' or spec.get('fp_warning'):
-            return
+        if not urgent or r['proposed_by'] != 'intel' or spec.get('source') != 'external' or spec.get('fp_warning') or \
+                spec.get('all_sites'):
+            return                  # (every site at once: always a person's decision)
         if not str(spec.get('name') or '').startswith('crowdsecurity/') or not hub.url_header_only(spec.get('yaml') or ''):
             # like the confident blocks applied by themselves: only what the URL, the method or a named header shows (the
             # sites' recent requests checked in the sandbox carry no bodies, cookies or parameters of forms)
@@ -1735,8 +1745,11 @@ def _check_tests(tests, internal=False):
     for t in tests:
         if not isinstance(t, dict):
             raise ChangeError('invalid_tests')
-        if not internal and ('present_any_rules' in t or 'upstream' in t or 'body_b64' in t):
+        if not internal and ('present_any_rules' in t or 'upstream' in t or 'body_b64' in t or 'absent_rules' in t):
             raise ChangeError('invalid_tests', reason='present_any_rules, upstream and body_b64 are set by the system')
+        if 'absent_rules' in t and (not isinstance(t['absent_rules'], list) or not all(
+                isinstance(i, int) and not isinstance(i, bool) for i in t['absent_rules'])):
+            raise ChangeError('invalid_tests', reason='absent_rules')
         if 'present_any_rules' in t and (not isinstance(t['present_any_rules'], list) or not all(
                 isinstance(i, int) and not isinstance(i, bool) for i in t['present_any_rules'])):
             raise ChangeError('invalid_tests', reason='present_any_rules')
@@ -1748,7 +1761,9 @@ def _check_tests(tests, internal=False):
                 raise ChangeError('invalid_tests', reason='body_b64')
             if t.get('body') is not None:
                 raise ChangeError('invalid_tests', reason='body and body_b64')
-        if t.get('expect') not in (200, 403) or t.get('source') not in ('external', 'internal'):
+        # 'any': a hub request the rule must let through, judged by its rules not matching (absent_rules), not a status
+        if t.get('expect') not in ((200, 403, 'any') if internal and t.get('absent_rules') else (200, 403)) or \
+                t.get('source') not in ('external', 'internal'):
             raise ChangeError('invalid_tests', reason='expect 200|403, source external|internal')
         if not isinstance(t.get('host'), str) or not isinstance(t.get('path'), str) or not t['path'].startswith('/'):
             raise ChangeError('invalid_tests', reason='host and path required')
@@ -1812,5 +1827,5 @@ def _summarize(kind, spec, op):
     if kind == 'plugin':
         return '%s %s' % (spec.get('plugin'), (spec.get('host') or {}).get('value', ''))
     if kind == 'crowdsec':
-        return ('CrowdSec %s: %s' % (spec.get('name'), ' '.join(spec.get('hosts') or [])))[:200]
+        return ('CrowdSec %s: %s' % (spec.get('name'), 'all sites' if spec.get('all_sites') else ' '.join(spec.get('hosts') or [])))[:200]
     return (spec.get('text') or '').split('\n', 1)[0][:200]

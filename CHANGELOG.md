@@ -2,6 +2,14 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.92 (2026-11-18)
+
+- CrowdSec rules are "cross-application" or "one application": a flaw of a framework, library, language or a generic weakness (React2Shell, Spring4Shell, PHP2Shell, Laravel, Django, exposed .env and .git files...) reaches every application built on it. The page has a "Cross-application" filter, and "related to this site" also follows the technologies the sites' software is built on (Nextcloud runs on PHP, Zulip on Python and Django; a technology can be entered in the software list too).
+- A cross-application rule can be applied to all sites (when not every backend's stack is known): no site condition; the sandbox still sends the hub's attack requests and the recent requests of all sites; a person always approves, it is never applied by itself.
+- More rules can be proposed: the hub's tests may name requests the rule must let through (answered 404, 405, 200), nuclei's random helpers and nested calls, callback addresses, variables naming each other, a path of `{{BaseURL}}` alone, several request groups in one template, `@timeout` annotations and an empty User-Agent. The hub's URI_FULL now maps to the undecoded REQUEST_URI_RAW, as upstream (PHP CGI's "?%ad" did not match). On a real nginx + ModSecurity + CRS 4.30, Debian 12 and Ubuntu 26.04: all 213 rules refuse their own attack requests (177 in 0.4.90), no request to let through matches, ordinary requests pass. The rule list is read again at the next sync.
+- Threat intelligence gives the model the languages and frameworks each product is built on and looks for flaws in them too.
+- API: a field of the wrong type (such as `host` as a string instead of `{"mode": "exact", "value": ...}`) is 422 naming the field; it was 500.
+
 ## 0.4.91 (2026-11-18)
 
 - The sandbox sometimes missed the rules matched by the last request: nginx writes the audit record after the response has gone out and the sandbox read it too early (about one run in four in a test). A refused request then showed no matched rules, and a CrowdSec rule failed "refused by its own rule". The sandbox now waits until every refused request has its record and the file has stopped growing (at most 2 seconds).

@@ -190,7 +190,11 @@ HOST_RX_FMT = r'^%s\.?(?::[0-9]*)?$'
 
 def _host_cond(host):
     """{'mode': 'exact'|'regex'|'any', 'value': ...} -> (variable, operator, transforms) or None"""
-    if not host or host.get('mode', 'any') == 'any':
+    if not host:
+        return None
+    if not isinstance(host, dict):
+        raise SpecError('host', 'invalid_host_format', expected={'mode': 'exact', 'value': 'www.example.com'})
+    if host.get('mode', 'any') == 'any':
         return None
     mode, v = host.get('mode'), (host.get('value') or '').strip().lower()
     if mode == 'exact':
@@ -207,7 +211,11 @@ def _host_cond(host):
 
 
 def _path_cond(path, negate=False):
-    if not path or path.get('mode', 'any') == 'any':
+    if not path:
+        return None
+    if not isinstance(path, dict):
+        raise SpecError('path', 'invalid_path_format', expected={'mode': 'exact', 'value': '/login'})
+    if path.get('mode', 'any') == 'any':
         return None
     mode, v = path.get('mode'), path.get('value') or ''
     if mode in ('exact', 'prefix'):
@@ -252,7 +260,19 @@ def _chain(conds, first_actions, final_actions):
 
 
 def build(kind, spec, rule_id, cfg):
-    """Returns (normalized spec, rule text, placement). Raises SpecError."""
+    """Returns (normalized spec, rule text, placement). Raises SpecError -- also for a field of the wrong type (a string
+    where an object belongs: an API caller gets 422 naming the problem, never a 500)."""
+    if not isinstance(spec, dict):
+        raise SpecError('spec', 'invalid_spec', expected='object')
+    try:
+        return _build(kind, spec, rule_id, cfg)
+    except (AttributeError, TypeError, KeyError) as e:
+        import traceback
+        traceback.print_exc()           # (in the service's journal: a check that should name the field is missing)
+        raise SpecError('spec', 'invalid_spec', error=type(e).__name__, detail=str(e)[:120])
+
+
+def _build(kind, spec, rule_id, cfg):
     internal = _ip_list(cfg.internal_networks)
     if kind == 'exclusion':
         return _exclusion(spec, rule_id, cfg, internal)
@@ -426,8 +446,12 @@ def _crowdsec(spec, rid, cfg, internal):
     commit = spec.get('commit')
     if commit is not None and not (isinstance(commit, str) and re.fullmatch(r'[0-9a-f]{7,40}', commit)):
         raise SpecError('commit', 'invalid_commit')
-    hosts = spec.get('hosts')
-    if not isinstance(hosts, list) or not 1 <= len(hosts) <= CROWDSEC_MAX_HOSTS:
+    all_sites = spec.get('all_sites') is True
+    hosts = spec.get('hosts') or []
+    if all_sites:
+        if hosts:
+            raise SpecError('hosts', 'all_sites_with_hosts')
+    elif not isinstance(hosts, list) or not 1 <= len(hosts) <= CROWDSEC_MAX_HOSTS:
         raise SpecError('hosts', 'scope_required', limit=CROWDSEC_MAX_HOSTS)
     hosts = sorted({str(h).strip().lower() for h in hosts})
     pats = []
@@ -439,7 +463,7 @@ def _crowdsec(spec, rid, cfg, internal):
     # nginx chose: a full URL in the request line or HTTP/2's :authority cannot hide behind another Host header). Either
     # one applies the rule (a block: the wider the better); without that transaction id format only the Host header counts
     head = [('REQUEST_HEADERS:Host|UNIQUE_ID', '@rx ^(?:%s)\\.?(?:(?::[0-9]*)?|-[0-9a-f]{32})$' % '|'.join(pats),
-             't:none,t:lowercase')]
+             't:none,t:lowercase')] if not all_sites else []    # all sites: a framework's flaw, wherever it runs
     source = spec.get('source') or 'external'
     if source == 'external':
         tail = [('REMOTE_ADDR', '!@ipMatch ' + internal, 't:none')]
@@ -465,7 +489,7 @@ def _crowdsec(spec, rid, cfg, internal):
         raise SpecError('rule_id', 'id_range_full')
     head_lines = ['# CrowdSec Hub appsec rule %s (github.com/crowdsecurity/hub%s, %s sha256 %s)' % (
                       name, ' commit ' + commit if commit else '', 'appsec-rules file', sha),
-                  '# converted to ModSecurity by jt-waf-mgr for: %s' % ' '.join(hosts)[:300]]
+                  '# converted to ModSecurity by jt-waf-mgr for: %s' % ('all sites' if all_sites else ' '.join(hosts)[:300])]
     if lic:
         head_lines.append('# The CrowdSec Hub licence (MIT):')
         head_lines += _license_lines(lic, commit)
@@ -475,7 +499,8 @@ def _crowdsec(spec, rid, cfg, internal):
     tests = spec.get('tests') or []
     if not isinstance(tests, list) or len(tests) > hub.MAX_TESTS:
         raise SpecError('tests', 'invalid_tests')
-    norm = {'name': name, 'yaml': raw, 'sha256': sha, 'commit': commit, 'hosts': hosts, 'source': source, 'note': note,
+    norm = {'name': name, 'yaml': raw, 'sha256': sha, 'commit': commit, 'hosts': hosts, 'all_sites': all_sites,
+            'source': source, 'note': note,
             'license': lic, 'tests': tests, 'rule_count': n, 'fp_warning': bool(spec.get('fp_warning'))}
     if spec.get('before_rule_id'):
         norm['before_rule_id'] = spec['before_rule_id']

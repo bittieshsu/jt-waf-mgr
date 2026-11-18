@@ -64,12 +64,14 @@
         <DataTable id="hub-rules" :columns="cols" :rows="shown" row-key="name" :page-size="50" :expanded="open" clickable
                    @row-click="(r) => openRule(r)">
           <template #cell-name="{ row }"><span class="mono small hubname">{{ safeText(row.name.replace(/^crowdsecurity\//, ''), 120) }}</span>
+            <span v-if="row.scope === 'cross'" class="badge b-ext gapl" :title="t('hub.cross_hint')">{{ t('hub.cross') }}</span>
             <span v-if="row.change === 'new' || row.change === 'changed'" class="badge b-int gapl">{{ t('hub.change.' + row.change) }}</span></template>
           <template #cell-cves="{ row }"><span v-for="c in row.cves.slice(0, 3)" :key="c" class="chip tag mono">{{ safeText(c, 30) }}</span><span v-if="!row.cves.length" class="muted">—</span></template>
           <template #cell-label="{ row }">{{ safeText(row.label || row.description, 160) }}</template>
-          <template #cell-related="{ row }"><template v-if="row.related.length"><span v-for="p in row.related" :key="p.name" class="chip ok">{{ safeText(p.name, 60) }}</span></template><span v-else class="muted">—</span></template>
+          <template #cell-related="{ row }"><template v-if="row.related.length"><span v-for="p in row.related" :key="p.name" class="chip" :class="p.tech ? 'tag' : 'ok'"
+            :title="p.tech ? t('hub.via_tech', { tech: p.name, via: p.via.join(', ') }) : ''">{{ safeText(p.name, 60) }}<span v-if="p.tech" class="muted"> ({{ safeText(p.via.join(', '), 80) }})</span></span></template><span v-else class="muted">—</span></template>
           <template #cell-use="{ row }"><RouterLink v-if="row.open_change" class="badge b-int" :to="'/changes/' + row.open_change.change_id" @click.stop>{{ useText(row) }}</RouterLink>
-            <span v-else-if="row.applied" class="badge" :class="row.applied.upstream === 'same' ? 'b-ok' : 'b-warn'">{{ useText(row) }}</span>
+            <span v-else-if="row.applied" class="badge" :class="row.applied.upstream === 'same' ? 'b-ok' : 'b-warn'">{{ useText(row) }}<template v-if="row.applied.all_sites"> · {{ t('hub.all_sites_short') }}</template></span>
             <button v-else-if="canPropose && row.ok && row.tests" type="button" class="btn small primary" @click.stop="applyRule(row)"><Icon name="add" />{{ t('hub.apply_btn') }}</button>
             <span v-else-if="row.ok" class="muted small" :title="data.outdated_index ? '' : tOr('hub.why.' + row.tests_reason, row.tests_reason || '')">{{ t(data.outdated_index ? 'hub.use.need_sync' : 'hub.use.no_tests') }}</span>
             <span v-else class="muted">—</span></template>
@@ -83,7 +85,8 @@
                   <a v-for="c in detail.cves" :key="c" class="gapr" :href="'https://nvd.nist.gov/vuln/detail/' + encodeURIComponent(c)" target="_blank" rel="noopener noreferrer">{{ c }}</a>
                   <a :href="'https://github.com/crowdsecurity/hub/blob/' + (detail.commit || 'master') + '/' + detail.path" target="_blank" rel="noopener noreferrer">{{ t('hub.on_github') }}</a></p>
                 <p v-if="detail.related.length" class="small"><strong>{{ t('hub.related') }}：</strong>
-                  <template v-for="p in detail.related" :key="p.name">{{ safeText(p.name, 60) }}<span v-if="p.sites.length" class="muted"> ({{ p.sites.map((s) => safeText(s, 80)).join(', ') }})</span> </template></p>
+                  <template v-for="p in detail.related" :key="p.name">{{ p.tech ? t('hub.via_tech', { tech: p.name, via: p.via.join(', ') }) : safeText(p.name, 60) }}<span v-if="p.sites.length" class="muted"> ({{ p.sites.map((s) => safeText(s, 80)).join(', ') }})</span> </template></p>
+                <p v-if="detail.scope === 'cross'" class="alert info small"><Icon name="globe" /> {{ t('hub.cross_note', { techs: (detail.techs || []).join(', ') || '—' }) }}</p>
                 <div class="hubcols">
                   <div><h3 class="charthead">{{ t('hub.upstream') }}</h3><CodeBlock small :code="detail.yaml || ''" /></div>
                   <div><h3 class="charthead">{{ t('hub.converted') }}</h3>
@@ -95,7 +98,7 @@
                   <h3 class="charthead"><Icon name="shield" />{{ t('hub.use_title') }}</h3>
                   <p v-if="detail.fp_warning" class="alert warn small"><Icon name="warning" /> {{ t('hub.fp_warning') }}</p>
                   <template v-if="detail.applied">
-                    <p class="small">{{ t('hub.applied_on', { sites: detail.applied.hosts.join(', '), from: detail.applied.rule_id,
+                    <p class="small">{{ t('hub.applied_on', { sites: detail.applied.all_sites ? t('hub.all_sites') : detail.applied.hosts.join(', '), from: detail.applied.rule_id,
                                                               to: detail.applied.rule_id + detail.applied.rule_count - 1 }) }}
                       <RouterLink v-if="detail.applied.change_id" class="gapl" :to="'/changes/' + detail.applied.change_id">{{ t('hub.by_change', { id: detail.applied.change_id }) }}</RouterLink></p>
                     <p v-if="detail.applied.upstream !== 'same'" class="alert warn small">{{ t('hub.upstream_' + detail.applied.upstream) }}</p>
@@ -107,15 +110,17 @@
                       <p v-else-if="!(detail.tests || []).length && data.outdated_index" class="alert warn small">{{ t(isAdmin ? 'hub.outdated_admin' : 'hub.outdated') }}</p>
                       <p v-else-if="!(detail.tests || []).length" class="muted small">{{ t('hub.no_tests', { why: tOr('hub.why.' + detail.tests_reason, detail.tests_reason || '') }) }}</p>
                       <template v-else>
-                        <p class="muted small">{{ t('hub.tests_note', { n: detail.tests.length }) }}</p>
+                        <p class="muted small">{{ t('hub.tests_note', { n: refuseCount(detail) }) }}<template v-if="passCount(detail)"> {{ t('hub.tests_pass_note', { n: passCount(detail) }) }}</template></p>
                         <div class="field"><label :for="'hub-site-' + row.name">{{ t('hub.sites') }}</label>
-                          <div class="hubsites">
+                          <label class="check"><input v-model="form.all_sites" type="checkbox"> {{ t('hub.all_sites') }}</label>
+                          <p v-if="form.all_sites" class="muted small">{{ t('hub.all_sites_hint') }}</p>
+                          <div v-if="!form.all_sites" class="hubsites">
                             <span v-for="h in form.hosts" :key="h" class="chip">{{ safeText(h, 100) }}
                               <button type="button" class="chipx" :aria-label="t('hub.remove_site', { site: h })" @click.stop="form.hosts = form.hosts.filter((x) => x !== h)"><Icon name="close" /></button></span>
                             <SelectBox :id="'hub-site-' + row.name" small :model-value="null" :options="siteOpts" :placeholder="t('hub.add_site')"
                                        @update:model-value="(v) => { if (v && !form.hosts.includes(v)) form.hosts.push(v) }" />
                           </div>
-                          <p class="muted small">{{ t('hub.sites_hint') }}</p></div>
+                          <p v-if="!form.all_sites" class="muted small">{{ t(detail.scope === 'cross' ? 'hub.sites_hint_cross' : 'hub.sites_hint') }}</p></div>
                         <div class="field"><label :for="'hub-src-' + row.name">{{ t('hub.source_label') }}</label>
                           <SelectBox :id="'hub-src-' + row.name" v-model="form.source" small :options="[{ value: 'external', label: t('hub.src.external') }, { value: 'all', label: t('hub.src.all') }]" /></div>
                       </template>
@@ -126,7 +131,7 @@
                     </div>
                     <div class="actions">
                       <button v-if="!detail.applied && detail.ok && (detail.tests || []).length" type="button" class="btn primary"
-                              :disabled="busy || !form.hosts.length || !form.reason.trim()" @click.stop="propose('add')"><Icon name="add" />{{ t('hub.propose') }}</button>
+                              :disabled="busy || (!form.all_sites && !form.hosts.length) || !form.reason.trim()" @click.stop="propose('add')"><Icon name="add" />{{ t('hub.propose') }}</button>
                       <button v-if="detail.applied && detail.applied.upstream === 'changed' && detail.ok" type="button" class="btn primary"
                               :disabled="busy || !form.reason.trim()" @click.stop="propose('modify')"><Icon name="refresh" />{{ t('hub.update') }}</button>
                       <button v-if="detail.applied" type="button" class="btn danger" :disabled="busy || !form.reason.trim()" @click.stop="propose('delete')"><Icon name="delete" />{{ t('hub.remove') }}</button>
@@ -171,7 +176,7 @@ import SelectBox from '../components/SelectBox.vue'
 
 const router = useRouter()
 const canPropose = computed(() => hasRole('operator'))
-const form = reactive({ hosts: [], source: 'external', reason: '' })
+const form = reactive({ hosts: [], all_sites: false, source: 'external', reason: '' })
 const proposeError = ref(null)
 const sites = ref([])
 const siteOpts = computed(() => sites.value.filter((n) => !form.hosts.includes(n)))
@@ -186,13 +191,14 @@ const detail = ref(null)
 const showLicense = ref(false)
 const license = ref('')
 const filter = ref('related')
-const FILTERS = ['related', 'applied', 'convertible', 'unsupported', 'all']
-const FILTER_ICON = { related: 'server', applied: 'shield', convertible: 'check', unsupported: 'warning', all: 'list' }
+const FILTERS = ['related', 'cross', 'applied', 'convertible', 'unsupported', 'all']
+const FILTER_ICON = { related: 'server', cross: 'globe', applied: 'shield', convertible: 'check', unsupported: 'warning', all: 'list' }
 const isAdmin = computed(() => hasRole('admin'))
 
 const shown = computed(() => {
   const rs = (data.value && data.value.rules) || []
   if (filter.value === 'related') return rs.filter((r) => r.related.length)
+  if (filter.value === 'cross') return rs.filter((r) => r.scope === 'cross')
   if (filter.value === 'applied') return rs.filter((r) => r.applied || r.open_change)
   if (filter.value === 'convertible') return rs.filter((r) => r.ok)
   if (filter.value === 'unsupported') return rs.filter((r) => !r.ok)
@@ -227,6 +233,8 @@ function useText(r) {
   return r.applied.upstream === 'same' ? t('hub.use.applied') : t('hub.use.' + r.applied.upstream)
 }
 
+const refuseCount = (d) => (d.tests || []).filter((x) => (x.expect || 'refuse') === 'refuse').length
+const passCount = (d) => (d.tests || []).filter((x) => x.expect === 'pass').length
 function sourceText(s) { return s === 'github' ? t('hub.from_github') : t('hub.from_upload', { name: safeText(s.replace(/^upload:?/, ''), 100) }) }
 async function load() {
   try { data.value = await get('/hub'); error.value = null } catch (e) { error.value = e }
@@ -240,6 +248,8 @@ async function openRule(r) {
     detail.value = await get('/hub/rule', { name: r.name })
     const d = detail.value
     form.hosts = d.applied ? [...d.applied.hosts] : [...new Set(d.related.flatMap((p) => p.sites || []))]
+    // a framework's or library's flaw with no site known to run it: every site (the backends' stacks are not all known)
+    form.all_sites = d.applied ? !!d.applied.all_sites : (d.scope === 'cross' && !form.hosts.length)
     form.source = (d.applied && d.applied.source) || 'external'
     form.reason = ''
     if (canPropose.value && !sites.value.length) loadSites()
@@ -267,7 +277,7 @@ async function propose(op) {
   proposeError.value = null
   try {
     const body = op === 'add'
-      ? { op, kind: 'crowdsec', spec: { name: d.name, hosts: form.hosts, source: form.source }, reason: form.reason.trim() }
+      ? { op, kind: 'crowdsec', spec: { name: d.name, hosts: form.all_sites ? [] : form.hosts, all_sites: form.all_sites, source: form.source }, reason: form.reason.trim() }
       : { op, item_id: d.applied.item_id, spec: {}, reason: form.reason.trim() }
     const r = await post('/changes', body)
     router.push('/changes/' + r.change_id)

@@ -28,6 +28,21 @@ def _related(rule, products):
     return out
 
 
+def _relation(rule, products):
+    """(profile, related): the rule's scope and technologies, and the confirmed software it is about -- by its name
+    ({'name', 'sites'}) or, for a cross-application rule, by a technology its stack runs on ({'name': tech, 'via': [...],
+    'sites', 'tech': True})."""
+    from .. import techstack
+    prof = techstack.rule_profile(rule)
+    rel = _related(rule, products)
+    if prof['scope'] == 'cross':
+        named = {p['name'] for p in rel}
+        for t in techstack.related_by_tech(prof['match'], products):
+            if not set(t['via']) <= named:
+                rel.append(dict(t, tech=True))
+    return prof, rel
+
+
 def _products(app):
     from .. import software
     names = [r['name'] for r in app.db.q('SELECT DISTINCT name FROM software WHERE confirmed=1 ORDER BY name')]
@@ -55,7 +70,8 @@ def _in_use(app, idx):
         name = sp.get('name')
         applied[name] = {'item_id': it['id'], 'rule_id': it['rule_id'], 'rule_count': sp.get('rule_count') or 1,
                          'enabled': bool(it['enabled']), 'sha256': sp.get('sha256'), 'commit': sp.get('commit'),
-                         'hosts': sp.get('hosts') or [], 'source': sp.get('source'), 'change_id': it.get('change_id'),
+                         'hosts': sp.get('hosts') or [], 'all_sites': bool(sp.get('all_sites')), 'source': sp.get('source'),
+                         'change_id': it.get('change_id'),
                          'upstream': ('removed' if name not in shas else 'same' if shas[name] == sp.get('sha256') else 'changed')}
     for c in app.db.q("SELECT id, op, state, spec FROM changes WHERE kind='crowdsec' AND state IN (%s) ORDER BY id"
                       % ','.join('?' * len(OPEN_STATES)), OPEN_STATES):
@@ -73,12 +89,13 @@ def hub_status(app, req):
     applied, open_ = _in_use(app, idx)
     rules = []
     for r in idx.get('rules') or []:
-        rel = _related(r, products)
+        prof, rel = _relation(r, products)
         rules.append({k: r.get(k) for k in ('name', 'path', 'label', 'description', 'cves', 'cwes', 'product', 'behavior',
                                             'confidence', 'ok', 'reason', 'details', 'rule_count', 'change', 'sha256',
                                             'tests_reason', 'fp_warning')}
-                     | {'related': rel, 'tests': len(r.get('tests') or []), 'applied': applied.get(r.get('name')),
-                        'open_change': open_.get(r.get('name'))})
+                     | {'related': rel, 'scope': prof['scope'], 'techs': prof['techs'],
+                        'tests': sum(1 for t in r.get('tests') or [] if t.get('expect', 'refuse') == 'refuse'),
+                        'applied': applied.get(r.get('name')), 'open_change': open_.get(r.get('name'))})
     names = {r.get('name') for r in idx.get('rules') or []}
     st = hub.read_status(app.cfg)
     return json_response(200, {
@@ -88,7 +105,8 @@ def hub_status(app, req):
         # synced by an older version: no upstream tests in it yet, so nothing can be proposed until the next sync
         'outdated_index': bool(idx.get('commit')) and idx.get('format') != hub.INDEX_FORMAT,
         'requested': os.path.exists(os.path.join(hub.hub_dir(app.cfg), hub.REQUEST)) or st.get('state') == 'running',
-        'related_count': sum(1 for r in rules if r['related']), 'rules': rules,
+        'related_count': sum(1 for r in rules if r['related']), 'cross_count': sum(1 for r in rules if r['scope'] == 'cross'),
+        'rules': rules,
         'applied_count': len(applied), 'outdated_count': sum(1 for a in applied.values() if a['upstream'] != 'same'),
         'applied_removed': [dict(a, name=n, open_change=open_.get(n)) for n, a in sorted(applied.items()) if n not in names]})
 
@@ -101,7 +119,8 @@ def hub_rule(app, req):
     if r is None:
         raise ApiError(404, 'not_found')
     applied, open_ = _in_use(app, idx)
-    return json_response(200, dict(r, related=_related(r, _products(app)), commit=idx.get('commit'),
+    prof, rel = _relation(r, _products(app))
+    return json_response(200, dict(r, related=rel, scope=prof['scope'], techs=prof['techs'], commit=idx.get('commit'),
                                    applied=applied.get(name), open_change=open_.get(name)))
 
 

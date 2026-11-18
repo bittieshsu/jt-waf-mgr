@@ -310,8 +310,10 @@ http {
         ip = EXTERNAL_IP if c.get('source', 'external') == 'external' else self.internal_ip
         if c.get('src_ip') and c.get('source', 'external') == 'external':
             ip = c['src_ip']          # a test from one country (country rules): a public address of that country
-        headers = {'Host': c['host'], 'X-Forwarded-For': ip, 'X-JTWAF-Case': str(i),
-                   'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) jt-waf-mgr-sandbox'}
+        headers = {'Host': c['host'], 'X-Forwarded-For': ip, 'X-JTWAF-Case': str(i)}
+        if not c.get('upstream'):
+            # (the hub's own request is sent as it was written: a rule about requests without one must see none)
+            headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64) jt-waf-mgr-sandbox'
         for k, v in (c.get('headers') or {}).items():
             for d in [x for x in headers if x.lower() == k.lower()]:
                 del headers[d]                              # one header per name, whatever its case
@@ -673,9 +675,9 @@ def evaluate(cases, res, cfg):
     for c, r in zip(cases, res):
         st = r['status']
         exp = c.get('expect')
-        good = (st != 403 and isinstance(st, int)) if exp == 'not403' else st == exp
+        good = (st != 403 and isinstance(st, int)) if exp == 'not403' else isinstance(st, int) if exp == 'any' else st == exp
         note = ''
-        if st == 403 and 949110 not in r['rules'] and set(r['rules']) & fallback:
+        if exp != 'any' and st == 403 and 949110 not in r['rules'] and set(r['rules']) & fallback:
             good, note = False, 'refused by the fallback rule, not by 949110'
         for rid in c.get('absent_rules') or []:
             if rid in r['rules']:

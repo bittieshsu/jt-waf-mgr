@@ -406,7 +406,18 @@ from the synced rules, never from the request; a rule must be convertible and co
 `hub_not_convertible`, `hub_no_tests`, 404 `hub_rule_not_found`). The sandbox sends the hub's attack requests to the
 first site: each must be refused by one of the rule's own ids. `modify` with `spec: {}` takes the hub's current version
 of the same rule (keeping the sites and sources unless given); `delete` removes it. Adding is a tightening; anything else
-a loosening.
+a loosening. Since 0.4.92: `"all_sites": true` with `"hosts": []` applies the rule to every site (meant for a
+cross-application rule: a flaw of a framework, library or language); the hub's attack requests are then sent to a name
+no site has, and such a change is never applied by itself. The hub's tests may also bring ordinary requests the rule must
+let through: the rule must not match them (another rule refusing them does not fail the check).
+
+`GET /hub` (0.4.92) gives each rule `scope` (`cross`: a framework, library, language or a generic weakness; `app`: one
+application; `none`: not a protection) and `techs` (the technologies it is about); `related` lists the confirmed software
+by name and, for a cross-application rule, by technology (`{"name": "PHP", "via": ["Nextcloud"], "sites": [...],
+"tech": true}`); `outdated_index` (0.4.91) is true while the rule list was synced by an older version.
+
+**Field types** (0.4.92): a field of the wrong type is 422 `invalid_spec` naming the field, never 500; for example `host`
+and `path` are objects (`{"mode": "exact", "value": "..."}`), not strings (`reason: invalid_host_format`).
 
 **Kind `raw`** (expert mode: SecRule text as written): adding or modifying a raw rule is for an **admin in the web
 interface only**. A token gets 403 `raw_admin_only`. (A token may disable, enable or delete an existing raw item.)

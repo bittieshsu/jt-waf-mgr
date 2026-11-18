@@ -653,6 +653,15 @@ async function audit(page, where) {
   await page.locator('.hubuse button', { hasText: '提出變更' }).click();
   await page.waitForSelector('.hubuse .alert.error', { timeout: 8000 }).catch(() => {});
   ok((await page.locator('.hubuse .alert.error').count()) === 1, 'crowdsec: proposing reaches the workflow (this environment is not adopted: refused)');
+  // 0.4.92: cross-application rules -- PHP through Nextcloud's stack; React for all sites
+  await page.locator('.seg button', { hasText: '跨應用' }).click();
+  ok((await page.locator('.datatable tbody tr').filter({ hasText: 'vpatch-' }).count()) === 2 &&
+     (await hRow('vpatch-php2shell').locator('.chip', { hasText: 'PHP' }).count()) === 1,
+     'crowdsec: the cross-application filter; a PHP flaw relates to the PHP application');
+  await hRow('vpatch-react-rce').locator('button', { hasText: '套用' }).click();
+  await page.waitForSelector('.hubuse .check input', { timeout: 8000 }).catch(() => {});
+  ok(await page.locator('.hubuse .check input').isChecked() && (await page.locator('.hubuse .hubsites').count()) === 0,
+     'crowdsec: a framework\'s flaw with no site known to run it is offered for all sites');
   // several rules at once: tick, "switch off" opens the change form with its preview (or why it cannot)
   await page.goto(base + '/rules?source=local', { waitUntil: 'networkidle' });
   await page.locator('input.rowsel').first().check();

@@ -222,7 +222,11 @@ for _n, _l, _c, _cond, _t in (
         ('vpatch-nextcloud-upload', 'Nextcloud - RCE', 'CVE-2026-90003', _uri % ('/apps/files/ajax/upload.php', 'dir', '../'),
          '/apps/files/ajax/upload.php?dir=../../config'),
         ('vpatch-grafana-render', 'Grafana - SSRF', 'CVE-2026-90004', '  - zones:\n      - RESPONSE_BODY\n    match:\n      type: contains\n      value: x', None),
-        ('vpatch-shop-sqli', 'Example Shop - SQL injection', 'CVE-2026-90005', _uri % ('/cart.php', 'id', 'union select'), None)):
+        ('vpatch-shop-sqli', 'Example Shop - SQL injection', 'CVE-2026-90005', _uri % ('/cart.php', 'id', 'union select'), None),
+        # cross-application (0.4.92): a flaw of PHP (related to Nextcloud through its stack) and one of React (no site
+        # known to run it: offered for all sites)
+        ('vpatch-php2shell', 'PHP2Shell - RCE', 'CVE-2026-90006', _uri % ('.php', 'cmd', 'system('), '/index.php?cmd=system(id)'),
+        ('vpatch-react-rce', 'React - RCE', 'CVE-2026-90007', _uri % ('/', 'action', '__proto__'), '/?action=__proto__')):
     _files['appsec-rules/crowdsecurity/%s.yaml' % _n] = _hubrule(_n, _l, _c, _cond)
     if _t:
         _files['.appsec-tests/%s/config.yaml' % _n] = ('appsec-rules:\n  - ./appsec-rules/crowdsecurity/%s.yaml\nnuclei_template: t.yaml\n' % _n).encode()

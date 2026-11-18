@@ -879,7 +879,7 @@ def propose_hub_patches(app, run_id, log=print):
         t = json.loads(r['details'] or '{}')
         if item is not None:
             have = json.loads(item['spec'])
-            missing = sorted(set(hosts) - set(have.get('hosts') or []))
+            missing = [] if have.get('all_sites') else sorted(set(hosts) - set(have.get('hosts') or []))
             if item['enabled'] and not missing:
                 # in force for every site of the product: that change stands for the threat
                 db.x("UPDATE intel_threats SET patch_change_id=?, patch_note='crowdsec' WHERE id=?",
@@ -1246,8 +1246,13 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
         for v in o['vulns'][:15]:
             osv_lines.append('- %s (%s %s, %s): %s %s %s' % (name, o['package'], o['version'], o['ecosystem'], v['id'],
                                                             ' '.join(v['cves']), v['summary']))
+    from . import techstack
     user = ('Software to check (product and version; "unknown" when not known):\n' +
-            '\n'.join('- %s %s' % (p['name'], p['version']) for p in products) +
+            '\n'.join('- %s %s%s' % (p['name'], p['version'], (' (built on: %s)' % ', '.join(techstack.app_techs(p['name'])))
+                                    if techstack.app_techs(p['name']) else '') for p in products) +
+            '\n\nAlso look for vulnerabilities of the frameworks, libraries and languages named after "built on" (a flaw that '
+            'reaches every application built on one, such as React2Shell or Spring4Shell), as far as the product is '
+            'affected; report each under that product.' +
             (('\n\nIn the CISA Known Exploited Vulnerabilities catalog for these products (check each against our version):\n' +
               '\n'.join('- %s %s %s (added %s)' % (k['cve'], k['vendor'], k['product'], k['added']) for k in known)) if known else '') +
             (('\n\nOSV (osv.dev) lists these for the exact package versions installed (a distribution may have patched '

@@ -7,7 +7,7 @@ import os
 import time
 import unittest
 
-from jtwafmgr import auth, hub, intel, miniyaml, rulegen, sandbox
+from jtwafmgr import changes, auth, hub, intel, miniyaml, rulegen, sandbox
 from jtwafmgr.app import App
 from jtwafmgr.changes import ChangeError
 from tests.helpers import TempEnv, jload
@@ -107,13 +107,70 @@ class TestNuclei(unittest.TestCase):
 
     def test_refused_shapes(self):
         for bad, why in ((TEMPLATE_RAW.replace(b'- 403', b'- 200'), 'test_matchers'),
-                         (TEMPLATE_RAW.replace(b'{{Hostname}}/', b'{{interactsh-url}}/'), 'test_placeholder'),
+                         (TEMPLATE_RAW.replace(b'{{Hostname}}/', b'{{nonce}}/'), 'test_placeholder'),
+                         (TEMPLATE_RAW.replace(b'{{Hostname}}/', b'{{generate_java_gadget("dns", "x")}}/'), 'test_placeholder'),
                          (TEMPLATE_RAW.replace(b'POST /public', b'PROPFIND /public'), 'test_method'),
                          (TEMPLATE_RAW.replace(b'cookie-reuse: true', b'payloads: {}'), 'test_request_keys'),
                          (TEMPLATE_RAW.replace(b'GET /public', b'GET http://x/public'), 'test_path')):
             with self.assertRaises(hub.Unsupported) as cm:
                 hub.nuclei_tests(miniyaml.loads(bad))
             self.assertEqual(cm.exception.why, why)
+
+    def test_requests_to_let_through_helpers_and_groups(self):
+        """0.4.92: "status_code_3 == 404" -- an ordinary request the rule must let through; nuclei's random helpers,
+        nested and in variables naming each other; {{BaseURL}} alone; annotations; several request groups."""
+        doc = miniyaml.loads(b"""id: x
+info:
+  name: x
+variables:
+  rid: "{{to_lower(rand_text_alphanumeric(8))}}"
+  cb: "{{interactsh-url}}"
+  both: "{{rid}}-{{base64(cb)}}"
+http:
+  - raw:
+      - |
+        @timeout: 20s
+        POST {{BaseURL}} HTTP/1.1
+        X-Request-Id: {{rid}}
+        X-Both: {{both}}
+        Content-Type: application/x-www-form-urlencoded
+
+        class.module.classLoader.x={{rand_base(4)}}&n={{rand_int(1, 9)}}
+      - |
+        GET /foo/ HTTP/1.1
+        Host: {{Hostname}}
+    matchers:
+      - type: dsl
+        condition: and
+        dsl:
+          - 'status_code_1 == 403'
+          - 'status_code_2 == 404'
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    headers:
+      Accept: ../../../../etc/passwd{{
+    matchers:
+      - type: status
+        status:
+          - 403
+""")
+        t = hub.nuclei_tests(doc)
+        self.assertEqual([(x['method'], x['path'], x['expect']) for x in t],
+                         [('POST', '/', 'refuse'), ('GET', '/', 'refuse'), ('GET', '/foo/', 'pass')])
+        self.assertEqual(t[0]['headers']['X-Request-Id'], 'jtwafran')
+        self.assertEqual(t[0]['headers']['X-Both'], 'jtwafran-' + base64.b64encode(hub.OAST_HOST.encode()).decode())
+        self.assertEqual(t[0]['body'], 'class.module.classLoader.x=jtwa&n=1')
+        self.assertEqual(t[1]['headers']['Accept'], '../../../../etc/passwd{{')
+        self.assertEqual(hub._test_case('GET', '/', [('User-Agent', '')], None, {})['headers'], {})   # none sent
+        # only requests to let through: no proof of the rule
+        with self.assertRaises(hub.Unsupported) as cm:
+            hub.nuclei_tests(miniyaml.loads(TEMPLATE_PATH.replace(b'status_code_2 == 403', b'status_code_2 == 404')))
+        self.assertEqual(cm.exception.why, 'test_matchers')
+        # a variable naming itself: refused, not a loop
+        with self.assertRaises(hub.Unsupported):
+            hub.nuclei_tests(miniyaml.loads(TEMPLATE_RAW.replace(b'info:', b'variables:\n  a: "{{a}}"\ninfo:').replace(
+                b'{{Hostname}}/', b'{{a}}/')))
 
     def test_index_links_tests_to_rules(self):
         files = {'LICENSE': b'MIT License\n\nCopyright (c) example\n', 'appsec-rules/crowdsecurity/vpatch-zimbra.yaml': ZIMBRA,
@@ -212,6 +269,20 @@ class TestRuleText(unittest.TestCase):
         self.assertEqual(rulegen.direction('add', 'crowdsec'), 'tighten')
         self.assertEqual(rulegen.direction('delete', 'crowdsec'), 'loosen')
 
+    def test_all_sites(self):
+        """0.4.92: a framework's flaw for every site: no Host condition; sites named as well is refused."""
+        norm, text, _ = rulegen.build('crowdsec', self.spec(hosts=[], all_sites=True), 10400, self.cfg)
+        self.assertTrue(norm['all_sites'])
+        self.assertEqual(rulegen.check_raw_text(text, cfg=self.cfg), [10400, 10401])
+        self.assertNotIn('REQUEST_HEADERS:Host', text)
+        self.assertIn('for: all sites', text)
+        self.assertTrue(any('REMOTE_ADDR "!@ipMatch' in ln for ln in text.splitlines()))     # still outside only
+        with self.assertRaises(rulegen.SpecError) as cm:
+            rulegen.build('crowdsec', self.spec(all_sites=True), 10400, self.cfg)
+        self.assertEqual(cm.exception.code, 'all_sites_with_hosts')
+        with self.assertRaises(rulegen.SpecError):                  # "all_sites": "yes" is not True
+            rulegen.build('crowdsec', self.spec(hosts=[], all_sites='yes'), 10400, self.cfg)
+
     def test_refusals(self):
         for kw, field in (({'sha256': 'c' * 64}, 'sha256'), ({'hosts': []}, 'hosts'), ({'hosts': ['bad host']}, 'hosts'),
                           ({'source': 'internal'}, 'source'), ({'name': 'example/other'}, 'yaml')):
@@ -295,6 +366,44 @@ class TestWorkflow(unittest.TestCase):
         self.wf.set_setting('approval.single_admin_mode', True, 'boss')
         self.approve(cid, 'adopting the existing rule files')
         self.fake_apply()
+
+    def test_all_sites_and_requests_to_let_through(self):
+        """0.4.92: proposed for all sites (sent to a name no site has; never applied by itself); the hub's ordinary
+        requests must not match the rule (whatever else refuses them)."""
+        files = {'LICENSE': MIT.encode(), 'appsec-rules/crowdsecurity/two.yaml': TWO}
+        files.update(tests_dir('two', 'appsec-rules/crowdsecurity/two.yaml', TEMPLATE_PATH.replace(
+            b'"status_code_2 == 403"', b'"status_code_2 == 403"\n          - "status_code_1 == 404"')))
+        self.write_index(files)
+        cid = self.wf.propose('add', 'crowdsec', {'name': 'crowdsecurity/vpatch-two-ways', 'all_sites': True,
+                                                  'hosts': ['app.example.com']}, 'Spring-like flaw: every site', 'op')
+        r = self.wf.get(cid)
+        spec = json.loads(r['spec'])
+        self.assertEqual((spec['all_sites'], spec['hosts']), (True, []))
+        tests = json.loads(r['tests'])
+        self.assertEqual([(t['host'], t['path'], t['expect']) for t in tests],
+                         [(hub.TEST_HOST, '/b.php', 403), (hub.TEST_HOST, '/a.php', 'any')])
+        self.assertEqual(tests[1]['absent_rules'], [10400, 10401])
+        self.assertNotIn('present_any_rules', tests[1])
+        self.assertIn('all sites', changes.summarize('crowdsec', spec, 'add'))
+        # a person cannot send what only the system sets
+        with self.assertRaises(changes.ChangeError):
+            changes._check_tests([{'host': 'a.example.com', 'path': '/', 'expect': 'any', 'source': 'external',
+                                   'absent_rules': [1]}])
+
+    def test_wrong_types_are_422_not_500(self):
+        """jt-wazuh-mgr 2026-11-18: an exclusion with "host": "chat.example.com" (a string, not {mode, value}) gave 500."""
+        for spec, reason in (({'host': 'chat.example.com', 'path': {'mode': 'exact', 'value': '/json/messages'},
+                               'rule_ids': [930120], 'targets': ['ARGS:url']}, 'invalid_host_format'),
+                             ({'host': {'mode': 'exact', 'value': 'chat.example.com'}, 'path': '/json/messages',
+                               'rule_ids': [930120], 'targets': ['ARGS:url']}, 'invalid_path_format'),
+                             ({'host': {'mode': 'exact', 'value': 'chat.example.com'}, 'rule_ids': 930120,
+                               'targets': ['ARGS:url']}, 'invalid_rule_ids'),
+                             (['not', 'an', 'object'], None)):
+            with self.assertRaises(ChangeError) as cm:
+                self.wf.propose('add', 'exclusion', spec, 'false positive', 'op')
+            self.assertEqual(cm.exception.status, 422, spec)
+            if reason:
+                self.assertEqual(cm.exception.details.get('reason'), reason, spec)
 
     def test_propose_apply_update_remove(self):
         cid = self.wf.propose('add', 'crowdsec', {'name': 'crowdsecurity/vpatch-two-ways', 'hosts': ['app.example.com'],
@@ -447,6 +556,41 @@ class TestEvaluate(unittest.TestCase):
         good = sandbox.evaluate([case], [{'status': 403, 'rules': [10401, 949110]}], env.cfg)
         self.assertFalse(bad['ok'])
         self.assertTrue(good['ok'])
+        # a request the rule must let through: refused by another rule is fine, matched by the rule is not
+        let = {'host': 'a.example.com', 'path': '/', 'expect': 'any', 'absent_rules': [10400, 10401], 'origin': 'upstream'}
+        self.assertTrue(sandbox.evaluate([let], [{'status': 403, 'rules': [10205, 10299]}], env.cfg)['ok'])
+        self.assertTrue(sandbox.evaluate([let], [{'status': 200, 'rules': []}], env.cfg)['ok'])
+        self.assertFalse(sandbox.evaluate([let], [{'status': 403, 'rules': [10401, 949110]}], env.cfg)['ok'])
+        self.assertFalse(sandbox.evaluate([let], [{'status': 'error:timeout', 'rules': []}], env.cfg)['ok'])
+
+
+class TestTechStack(unittest.TestCase):
+    def test_scope_and_technologies(self):
+        from jtwafmgr import techstack as T
+        P = lambda label, name='crowdsecurity/vpatch-CVE-2099-1', product=None: T.rule_profile(
+            {'name': name, 'label': label, 'product': product if product is not None else label.split(' - ')[0]})
+        self.assertEqual(P('Spring4Shell - RCE')['scope'], 'cross')
+        self.assertEqual(P('Spring4Shell - RCE')['techs'], ['Spring'])
+        self.assertEqual(P('React - RCE')['techs'], ['React'])
+        self.assertEqual(P('PHP2Shell - RCE')['techs'], ['PHP'])
+        self.assertEqual(P('Laravel Debug Mode - Exposure', 'crowdsecurity/vpatch-laravel-debug-mode')['scope'], 'cross')
+        self.assertEqual(P('Environment File - Exposure', 'crowdsecurity/vpatch-env-access')['scope'], 'cross')
+        self.assertEqual(P('Zimbra Collaboration (ZCS) - XSS')['scope'], 'app')
+        self.assertEqual(P('PHPSHE - SQL Injection')['scope'], 'app')                 # an application, not PHP
+        lp = P('LearnPress - PHP Object Injection')                                   # a WordPress plugin
+        self.assertEqual((lp['scope'], lp['techs']), ('app', []))
+        self.assertEqual(P('x', 'crowdsecurity/crs-exclusion-plugin-nextcloud', '')['scope'], 'none')
+        self.assertEqual(P('Log4Shell - RCE')['match'], ['Log4j', 'Java'])           # bundled by Java applications
+        self.assertEqual(P('Spring - Path Traversal')['match'], ['Spring'])          # not every Java application
+        self.assertEqual(T.app_techs('LibreNMS / Observium'), ['PHP', 'Laravel'])
+        self.assertEqual(T.app_techs('Zulip'), ['Python', 'Django'])
+        self.assertEqual(T.app_techs('Next.js'), ['Next.js', 'React', 'Node.js'])  # a technology entered by a person
+        prods = [{'name': 'Zimbra', 'sites': ['mail.example.com']}, {'name': 'Nextcloud', 'sites': ['cloud.example.com']},
+                 {'name': 'LibreNMS / Observium', 'sites': ['nms.example.com']}]
+        rel = T.related_by_tech(['PHP'], prods)
+        self.assertEqual(rel, [{'name': 'PHP', 'via': ['Nextcloud', 'LibreNMS / Observium'],
+                                'sites': ['cloud.example.com', 'nms.example.com']}])
+        self.assertEqual(T.related_by_tech(['Log4j', 'Java'], prods)[0]['via'], ['Zimbra'])
 
 
 if __name__ == '__main__':
