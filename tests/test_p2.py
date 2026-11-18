@@ -32,7 +32,14 @@ class TestRulegen(unittest.TestCase):
         rules = []
         parse_rules_text(text, 'x', rules, [], [], [])
         self.assertEqual([r.id for r in rules], [10222])
-        self.assertEqual(len(rules[0].parts), 2)
+        # 0.4.93: the raw path is captured first (TX:1), then REQUEST_FILENAME|TX:1, then the source
+        self.assertEqual(len(rules[0].parts), 3)
+        self.assertEqual(rules[0].parts[0][0], 'REQUEST_URI_RAW')
+        self.assertIn('capture', [k for k, _ in rules[0].parts[0][2]])
+        self.assertEqual(rules[0].parts[1][0], 'REQUEST_FILENAME|TX:1')
+        # a User-Agent rule has no path to capture
+        _, ua, _ = rulegen.build('confident_block', {'target': 'ua', 'regex': r'sqlmap', 'msg': 'tool'}, 10223, self.cfg)
+        self.assertNotIn('REQUEST_URI_RAW', ua)
         self.assertEqual(rulegen.direction('add', 'confident_block', text), 'tighten')
         self.assertEqual(rulegen.direction('disable', 'confident_block', text), 'loosen')
 
@@ -45,9 +52,14 @@ class TestRulegen(unittest.TestCase):
         self.assertIn('"@beginsWith /api/"', text)
         self.assertIn('"@streq POST"', text)
         self.assertIn('ctl:ruleRemoveTargetById=930120;ARGS:q,ctl:ruleRemoveTargetById=932235;ARGS:q', text)
+        # 0.4.93: the path must hold as sent and normalised ("/api/../admin" is no /api/ path, nor is "/x/../api/a"),
+        # and an encoded "?" in it (cut by libmodsecurity 3.0.9) means no exclusion
+        self.assertEqual(text.count('"@beginsWith /api/"'), 2)
+        self.assertIn('"t:none,t:normalizePath,chain"', text)
+        self.assertIn('SecRule REQUEST_URI_RAW "!@rx ^[^?#]*%3[fF]"', text)
         rules = []
         parse_rules_text(text, 'x', rules, [], [], [])
-        self.assertEqual(len(rules[0].parts), 4)
+        self.assertEqual(len(rules[0].parts), 6)
         self.assertEqual(rulegen.direction('add', 'exclusion', text), 'loosen')
         self.assertEqual(rulegen.direction('disable', 'exclusion', text), 'tighten')
 

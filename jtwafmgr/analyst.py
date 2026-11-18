@@ -32,7 +32,7 @@ import traceback
 
 from . import llm, rulegen, util
 from .changes import FINAL, ChangeError
-from .evidence import Evidence, _Rx, request_filename, request_uri, transform
+from .evidence import Evidence, _Rx, path_views, request_filename, request_uri, transform
 
 ACTOR = 'analyst'
 REQUEST_FILE = 'analyst.request'
@@ -85,7 +85,13 @@ _PATH_VIEW = Evidence.rule_view({'target': 'path'})
 
 
 def path_view(raw):
-    """REQUEST_FILENAME after t:urlDecodeUni,t:normalizePath,t:lowercase (what a path rule sees), bytes."""
+    """The raw request path after t:urlDecodeUni,t:normalizePath,t:lowercase (what a path rule sees as TX:1 -- the
+    path the backend gets, not cut at an encoded "?" like REQUEST_FILENAME of libmodsecurity 3.0.9), bytes."""
+    return _PATH_VIEW({'uri': raw or '/', 'esc': False})[-1]
+
+
+def path_views_t(raw):
+    """Both views a generated path rule matches (REQUEST_FILENAME and the raw path), transformed as it does."""
     return _PATH_VIEW({'uri': raw or '/', 'esc': False})
 
 
@@ -296,7 +302,7 @@ def _matcher(spec):
         rx = _Rx(spec['regex'])
     except (KeyError, ValueError, re.error):
         return None
-    return lambda raw: bool(rx.search(view({'uri': raw, 'esc': False})))
+    return lambda raw: any(rx.search(v) for v in view({'uri': raw, 'esc': False}))
 
 
 _SIMPLE_OPS = {
@@ -309,11 +315,15 @@ def _site_rule_matcher(r):
     """A raw-path matcher for a site rule's first condition when it inspects the path (REQUEST_FILENAME /
     REQUEST_URI with @rx, @streq, @beginsWith, @endsWith, @contains), else None. Chained conditions (Host,
     source) are ignored: a rule that blocks the path on some site counts as covering it (fewer proposals)."""
-    if not r.parts:
+    parts = r.parts
+    # a generated path rule starts with the capture of the raw path (rulegen.PATH_CAPTURE); its path condition follows
+    if len(parts) > 1 and parts[0][0].strip().upper() == 'REQUEST_URI_RAW' and any(k == 'capture' for k, _ in parts[0][2]):
+        parts = parts[1:]
+    if not parts:
         return None
-    var, op, acts = r.parts[0]
+    var, op, acts = parts[0]
     var = var.strip().upper()
-    if var not in ('REQUEST_FILENAME', 'REQUEST_URI'):
+    if var not in ('REQUEST_FILENAME', 'REQUEST_URI', rulegen.PATH_VARS.upper()):
         return None
     op = op.strip()
     if op.startswith('!'):
@@ -322,19 +332,20 @@ def _site_rule_matcher(r):
         op = '@rx ' + op
     name, _, arg = op.partition(' ')
     tr = ','.join('t:' + v.strip() for k, v in acts if k == 't')
-    getv = request_filename if var == 'REQUEST_FILENAME' else request_uri
+    getv = (path_views if var == rulegen.PATH_VARS.upper() else
+            (lambda b: (request_filename(b),)) if var == 'REQUEST_FILENAME' else (lambda b: (request_uri(b),)))
 
-    def value(raw):
-        return transform(getv(raw.encode('utf-8', 'surrogateescape')), tr)
+    def values(raw):
+        return [transform(v, tr) for v in getv(raw.encode('utf-8', 'surrogateescape'))]
     try:
-        value('/')
+        values('/')
         if name.lower() == '@rx':
             rx = _Rx(arg)
-            return lambda raw: bool(rx.search(value(raw)))
+            return lambda raw: any(rx.search(v) for v in values(raw))
         fn = _SIMPLE_OPS.get(name.lower())
         if fn:
             a = arg.encode('utf-8', 'surrogateescape')
-            return lambda raw: fn(value(raw), a)
+            return lambda raw: any(fn(v, a) for v in values(raw))
     except (ValueError, re.error):
         return None
     return None
@@ -776,16 +787,16 @@ def check_regex(rx, raw_paths, avoid_keys=(), samples=()):
     if rulegen.redos_shape(rx) or not rulegen.redos_runtime_ok(rx):
         return 'regex_redos'
     for raw in raw_paths:
-        if not c.search(path_view(raw)):
+        if not any(c.search(v) for v in path_views_t(raw)):
             return 'regex_misses_path'
     for p in COMMON_PATHS:
-        if c.search(path_view(p)):
+        if any(c.search(v) for v in path_views_t(p)):
             return 'regex_matches_common_path'
     for k in avoid_keys:
         if c.search(path_view(k)):
             return 'regex_matches_legitimate'
     for s in samples:
-        if c.search(path_view(s)):
+        if any(c.search(v) for v in path_views_t(s)):
             return 'regex_matches_regression_sample'
     return None
 

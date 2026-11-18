@@ -338,7 +338,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
 
 **種類 `confident_block`**（確定ブロック：確実に攻撃であるリクエストを、異常スコアに関係なくブロック）：
 
-- `target`：`path`（デフォルト。URL デコード、正規化、小文字化）、`uri`（パスとクエリ、小文字化）、`ua`
+- `target`：`path`（デフォルト。URL デコード、正規化、小文字化。0.4.93 から生のパスも検査し、libmodsecurity 3.0.9 がエンコードされた「?」で切ったパスも見えます）、`uri`（パスとクエリ、小文字化）、`raw_uri` (0.4.93：送られたままのリクエストターゲット、デコードなし、小文字化)、`ua`
   （User-Agent）、`host`、または `header`（このとき `header` で名前を指定。例：`X-Api-Version`）。
 - `regex`：必須、1000 文字まで、ダブルクォートと改行は不可。空文字列にマッチする（`matches_empty`）、ほぼすべての通常の
   リクエストにマッチする（`too_broad`）、破滅的なバックトラックのおそれがある（`redos_shape`、`redos_runtime`）場合は
@@ -491,6 +491,8 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/change
 - **`GET /waf/model`**：各サイトでリクエストがどう判定されるか（エンジン、スコア、しきい値、除外）。
 - **`GET /managed`**：管理対象ルールファイルとその項目（`items[].id` が変更で使う `item_id`）。
 - **`GET /managed/items/{id}`**：1 つの管理対象項目。
+- **`GET /managed/outdated`** (0.4.93)：有効なルールのうち、同じ設定でもこのバージョンでは異なる内容で生成されるもの (ルール生成の修正は再生成して初めて反映されます)：`items[]` (`item_id`、`rule_id`、`kind`、`ok`。まだ終わっていない変更に含まれる場合は `open_change`、元の設定から生成できない場合は `reason`)、`count` (今すぐ再生成できる件数)、`open`、`failed`。
+- **`POST /managed/regenerate`** (0.4.93。operator、人のみで API トークンは不可)：`{"item_ids": [..]}` は任意。旧ルールを元の設定から再生成し、依頼した人に代わってプログラムが提案する `modify` の一括変更 (`proposed_by: "rulegen"`、`proposed_owner` は依頼した人で、その人だけでは承認できません) として、ルールに元々付いていたテストリクエストとともに提案します。通常の変更と同じく検査・承認されます。`GET /managed/outdated` は `raw_path_rules` (REQUEST_FILENAME だけを検査するテキストのルール) と `guard_regex` (それらを補う `raw_uri` の確定ブロック：エンコードされた「?」の後に「../」) も返します。202 `{"changes": [番号], "without_tests": [ルール番号]}` (ブロックするテストリクエストのない確定ブロックは含めません)。対象がなければ 409 `nothing_to_regenerate`。
 - **`GET /managed/files/{placement}`**：`placement` は `before` または `after`。ファイルを `text/plain` で返します。
   `?version=N` を付けると保存済みのバージョンです。
 

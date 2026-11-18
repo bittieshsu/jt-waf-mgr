@@ -2,6 +2,17 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.93 (2026-11-18)
+
+- Path rules and an encoded "?": libmodsecurity 3.0.9 (Debian 12) cuts REQUEST_FILENAME at an encoded "?" (%3F) in the path, while the backend gets the whole path, so a path rule could be passed by, for example, putting "x%3F/../" in front of the path. A confident block on the path now also looks at the raw path up to the query (captured in the rule), normalised; its exceptions apply only when both views of the path are exempt, and are normalised too ("/static/../x" is no "/static/" path any more). An exclusion or a redaction scoped to a path is normalised and never applies to a path with an encoded "?". Tested on a real nginx + ModSecurity, Debian 12 (3.0.9) and Ubuntu 26.04 (3.0.14).
+- Rules written by an older version: the managed rules page shows how many rules this version would write differently from the same settings, and "Write them again" proposes them as changes (proposed by the program, with the test requests the rules came with; checked and approved as any change, no setting changed). Also on the API (`GET /managed/outdated`, `POST /managed/regenerate`) and the CLI (`changes outdated`, `changes regenerate`). This also brings existing redaction rules the CrowdSec rules' fields.
+- CrowdSec rules whose attack puts an encoded "?" in the path can now be converted (their path condition sees the raw path too): 215 rules can be proposed, all refusing their own attack requests on Debian 12 and Ubuntu 26.04. The rule list is read again at the next sync.
+- Threat intelligence: a link with a space or a line break in it (written by the model) ended the whole run; it is escaped now, and a page that cannot be read only gives the model an error.
+- Rules entered as text (adopted ones among them) that look at REQUEST_FILENAME cannot be written again: the managed rules page lists how many and offers a confident block on the new `raw_uri` target (the request target as sent) that refuses an encoded "?" followed by "../" in the path. On production logs (7.3 million lines) no request had that shape.
+- Writing rules again is proposed on behalf of the person who asked, who cannot approve it alone, and only by people (not API tokens). An exclusion or redaction scoped to a path needs it both as sent and normalised (never wider than before). A rule switched on again is written by this version.
+- CrowdSec page: tick several rules and apply them at once, as one change (up to 8 rules each; each goes to the sites of its software, a cross-application rule with none to all sites).
+- The project site's script did not run since 0.4.90 (an apostrophe in an English text): buttons had no text and the language did not switch. Fixed, and every release now opens the site in a browser in all three languages (`tools/check_pages.cjs`).
+
 ## 0.4.92 (2026-11-18)
 
 - CrowdSec rules are "cross-application" or "one application": a flaw of a framework, library, language or a generic weakness (React2Shell, Spring4Shell, PHP2Shell, Laravel, Django, exposed .env and .git files...) reaches every application built on it. The page has a "Cross-application" filter, and "related to this site" also follows the technologies the sites' software is built on (Nextcloud runs on PHP, Zulip on Python and Django; a technology can be entered in the software list too).

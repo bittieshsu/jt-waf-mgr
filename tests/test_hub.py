@@ -83,7 +83,10 @@ class TestConvert(unittest.TestCase):
         self.assertTrue(c['ok'], c)
         self.assertEqual(c['rules'], 1)
         t = c['text']
-        self.assertIn('SecRule REQUEST_FILENAME "@endsWith /public/error.jsp"', t)
+        # 0.4.93: the raw path is captured first and the path condition sees it too (an encoded "?" cuts REQUEST_FILENAME)
+        self.assertTrue(t.startswith('SecRule REQUEST_URI_RAW "@rx ^(?:'), t)
+        self.assertIn('t:none,capture,chain', t)
+        self.assertIn('SecRule REQUEST_FILENAME|TX:1 "@endsWith /public/error.jsp"', t)
         self.assertIn('id:10400,phase:2,pass,log', t)
         self.assertIn(',chain"', t)                                                   # the two conditions together
         self.assertIn('SecRule ARGS_GET:errCode "@detectXSS"', t)
@@ -122,7 +125,7 @@ class TestConvert(unittest.TestCase):
         c = hub.convert(doc, 10400)
         self.assertTrue(c['ok'])
         self.assertNotIn("ctl:ruleEngine=Off", c['text'])
-        self.assertEqual(len(c['text'].split('\n')), 2)
+        self.assertEqual(len(c['text'].split('\n')), 4)        # the path capture and the condition
         self.assertTrue(all(hub.LINE_SHAPE.match(ln) for ln in c['text'].split('\n')))
         # a chain of thousands of conditions, odd types, macros: refused, never a crash
         long = {'name': 'x/y', 'rules': [{'and': [{'zones': ['URI'], 'match': {'type': 'contains', 'value': 'a'}}] * 9}]}

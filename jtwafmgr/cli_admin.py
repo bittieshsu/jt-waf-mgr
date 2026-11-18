@@ -7,6 +7,7 @@ single-admin mode, a fresh one-time code where the web interface asks for one).
   jt-waf-mgr blocks list | add IP --reason R [--ttl 24h] | extend ID --ttl 7d|--permanent --reason R | remove ID --note N
   jt-waf-mgr alerts list [--all] | handle ID --note N
   jt-waf-mgr changes list [--state S] | show ID | approve ID [--note N] [--totp CODE] | reject ID --note N | recheck ID
+                     | outdated | regenerate   (rules an older version wrote: written again, approved as any change)
   jt-waf-mgr settings show [PREFIX] | set KEY=VALUE... | export -o FILE [--secrets] | import FILE [--only LIST] [--dry-run]
   jt-waf-mgr tokens list | revoke ID
   jt-waf-mgr intel threats | status ID open|handled|ignored
@@ -148,6 +149,21 @@ def cmd_changes(app, args):
             p = _person(app, args, 'approver')
             wf.reject(_num(args.id), p, args.note)
             print('rejected #%s' % args.id)
+            return 0
+        if args.action == 'outdated':
+            rows = wf.outdated()
+            if not _out(rows, args.json):
+                _table(rows, ['item_id', 'rule_id', 'kind', 'ok', 'open_change', 'reason'])
+                raw = wf.raw_path_rules()
+                if raw:
+                    print('rules entered as text that look at REQUEST_FILENAME only (not written again): %s' % raw)
+            return 0
+        if args.action == 'regenerate':
+            p = _person(app, args, 'operator')
+            app.audit.log('managed.regenerate_requested', p['username'], 'user', 'cli', 'ok')
+            out = wf.propose_regenerate(p['username'])
+            print('proposed %s; approve them as any change%s' % (', '.join('#%d' % i for i in out['changes']),
+                  ('; without a test it refuses (propose by hand): %s' % out['without_tests']) if out['without_tests'] else ''))
             return 0
         if args.action == 'recheck':
             p = _person(app, args, 'operator')
@@ -333,8 +349,8 @@ def register(sub):
     a.add_argument('id', nargs='?')
     a.add_argument('--note')
     a.add_argument('--all', action='store_true')
-    c = common(sub.add_parser('changes', help='changes: list, show, approve, reject, check again'))
-    c.add_argument('action', choices=('list', 'show', 'approve', 'reject', 'recheck'))
+    c = common(sub.add_parser('changes', help='changes: list, show, approve, reject, check again, rules to write again'))
+    c.add_argument('action', choices=('list', 'show', 'approve', 'reject', 'recheck', 'outdated', 'regenerate'))
     c.add_argument('id', nargs='?')
     c.add_argument('--state')
     c.add_argument('--note')

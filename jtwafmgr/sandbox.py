@@ -664,7 +664,8 @@ def _test_hits(spec, t):
     hdr = {k.lower(): v for k, v in (t.get('headers') or {}).items()}
     d = {'uri': t.get('path') or '/', 'esc': False, 'ua': hdr.get('user-agent', ''), 'host': t.get('host') or ''}
     try:
-        return bool(_Rx(spec['regex']).search(view(d)))
+        rx = _Rx(spec['regex'])
+        return any(rx.search(v) for v in view(d))
     except Exception:
         return False
 

@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.92
+# jt-waf-mgr v0.4.93
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -174,7 +174,7 @@ nginx and ModSecurity keep working with the last rules.
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # a fixed place for the releases
-V=0.4.92; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.93; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # the release, its signature, the public key
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -381,6 +381,7 @@ sudo jt-waf-mgr blocks remove 12 --note "false alarm" --as alice
 sudo jt-waf-mgr alerts list ; sudo jt-waf-mgr alerts handle 23 --note "checked" --as alice
 sudo jt-waf-mgr changes list --state pending_approval
 sudo jt-waf-mgr changes approve 41 --as alice            # not one's own; --totp where the web asks for a code
+sudo jt-waf-mgr changes regenerate --as alice            # rules an older version wrote: propose them written again
 sudo jt-waf-mgr settings show review.
 sudo jt-waf-mgr settings set review.keep_days=60 --as admin1
 sudo jt-waf-mgr settings export -o settings.json         # --secrets --as admin1: keys and passwords too
@@ -395,7 +396,7 @@ the file next to the current values and writes only what you tick).
 
 ```sh
 cd /opt/jt-waf-mgr-install   # the new release, unpacked into the same current
-V=0.4.92; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.93; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # every check, nothing changed

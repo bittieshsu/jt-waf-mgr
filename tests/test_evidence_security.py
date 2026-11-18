@@ -68,12 +68,19 @@ class TestBlockEvidenceMatchesRule(Base):
         self.assertEqual((r['ok'], r['external_success']), (False, 1))
 
     def test_exceptions_use_the_rule_transformations(self):
-        # the block matches the normalized path, the exception the decoded path without normalizePath:
-        # //static/x.bak is blocked, not exempt
-        self.logs([line('//static/x.bak'), line('/STATIC/y.bak', status=404)])
+        # 0.4.93: the exception sees the normalised path too: //static/x.bak is a /static/ path (exempt), while
+        # /static/../y.bak is /y.bak to the backend -- blocked, not exempt (it used to be exempt: a way around the rule)
+        self.logs([line('//static/x.bak'), line('/STATIC/y.bak', status=404), line('/static/../y.bak')])
         r = self.ev.block_evidence({'target': 'path', 'regex': r'\.bak$', 'exceptions': [r'^/static/']})
         self.assertFalse(r['ok'])
         self.assertEqual((r['external_hits'], r['external_success']), (1, 1))
+
+    def test_an_encoded_question_mark_does_not_hide_the_path(self):
+        # libmodsecurity 3.0.9 cuts REQUEST_FILENAME at %3F; the rule also looks at the raw path (TX:1), so
+        # /x%3F/../.env is /.env, and an exempt prefix before the %3F exempts nothing
+        self.logs([line('/x%3F/../.env'), line('/static/a%3F/../../.env'), line('/.env%3F.css', status=404)])
+        r = self.ev.block_evidence({'target': 'path', 'regex': r'^/\.env$', 'exceptions': [r'^/static/']})
+        self.assertEqual((r['external_hits'], r['external_success']), (3, 2))
 
     def test_wildcard_host_scope(self):
         self.logs([line('/backup.zip', host='files.example.com'), line('/backup.zip', host='example.org')])
@@ -137,7 +144,9 @@ class TestTransformations(unittest.TestCase):
         finally:
             env.cleanup()
         self.assertIn('t:none,t:urlDecodeUni,t:normalizePath,t:lowercase', text)
-        exc = text.split('SecRule REQUEST_FILENAME "!@rx', 1)[1].split('\n', 2)[1]
+        self.assertIn('SecRule %s "%s"' % (rulegen.PATH_CAPTURE[0], rulegen.PATH_CAPTURE[1]), text)
+        self.assertIn('SecRule %s "@rx' % rulegen.PATH_VARS, text)
+        exc = text.split('SecRule %s "!@rx' % rulegen.PATH_VARS, 1)[1].split('\n', 2)[1]
         self.assertIn('"%s' % evidence.EXCEPTION_TRANSFORMS, exc)
 
 

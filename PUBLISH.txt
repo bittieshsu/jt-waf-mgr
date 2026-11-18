@@ -26,6 +26,7 @@ frontend/
 tests/
 tools/build_frontend.sh
 tools/check_i18n.py
+tools/check_pages.cjs
 tools/check_ui.py
 tools/i18n_add.py
 tools/make_thumbs.py

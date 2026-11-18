@@ -359,6 +359,8 @@ class Managed:
             target['enabled'] = 0
         elif op == 'enable':
             target['enabled'] = 1
+            if new_item and new_item.get('text'):       # a generated rule, written again by this version
+                target['text'] = new_item['text']
         elif op == 'delete':
             target['deleted'] = 1
         else:

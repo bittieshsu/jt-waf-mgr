@@ -23,6 +23,7 @@ automatic application only as Settings > Change workflow allows (apply.auto_tigh
 affects a confirmed version is not held by the daily limit (at most URGENT_PER_DAY a day) and raises a critical alert.
 """
 import html.parser
+import http.client
 import ipaddress
 import json
 import os
@@ -345,6 +346,9 @@ def fetch_url(url, domains, timeout=30, resolve=None, get=None):
     """The text of one https page on an allowed domain, port 443 only (redirects followed only within the allowed
     domains, every hop checked again)."""
     resolve, get = resolve or _public, get or _get_pinned
+    # a model writes a link with a space or a line break in it now and then: those are escaped (http.client refuses a
+    # request target with control characters -- which once ended a whole run)
+    url = re.sub(r'[\x00-\x20\x7f]', lambda m: '%%%02X' % ord(m.group()), str(url or '').strip())
     for _ in range(4):
         try:
             u = urllib.parse.urlsplit(url or '')
@@ -362,7 +366,7 @@ def fetch_url(url, domains, timeout=30, resolve=None, get=None):
             return 'refused: the name does not resolve to public addresses only'
         try:
             status, headers, raw = get(url, ip, timeout)
-        except (OSError, ValueError) as e:
+        except (OSError, ValueError, http.client.HTTPException) as e:
             return 'error: %s' % util.clip(str(e), 100)
         if status in (301, 302, 303, 307, 308) and headers.get('location'):
             url = urllib.parse.urljoin(url, headers['location'])
@@ -425,7 +429,10 @@ class Session:
         if name == 'fetch_url':
             url = util.clip(str(args.get('url') or ''), 500)
             self.fetched.append(url)
-            text = self.fetch(url, self.cfg['fetch_domains'])
+            try:
+                text = self.fetch(url, self.cfg['fetch_domains'])
+            except Exception as e:          # noqa: BLE001 -- one page that cannot be read never ends the run
+                text = 'error: %s' % type(e).__name__
             host = (urllib.parse.urlsplit(url).hostname or '').lower()
             if allowed(host, ['cisa.gov']) and not text.startswith(('refused:', 'error:')):
                 self.cisa_ids.update(x.upper() for x in re.findall(r'CVE-\d{4}-\d{4,7}', text, re.I))

@@ -662,6 +662,17 @@ async function audit(page, where) {
   await page.waitForSelector('.hubuse .check input', { timeout: 8000 }).catch(() => {});
   ok(await page.locator('.hubuse .check input').isChecked() && (await page.locator('.hubuse .hubsites').count()) === 0,
      'crowdsec: a framework\'s flaw with no site known to run it is offered for all sites');
+  // 0.4.93: several rules ticked and applied at once (one change); no proposal without a reason
+  await hRow('vpatch-react-rce').click();
+  await hRow('vpatch-php2shell').locator('td input[type=checkbox]').check();
+  await hRow('vpatch-react-rce').locator('td input[type=checkbox]').check();
+  ok((await page.locator('.hubbatch button', { hasText: '套用勾選的 2 條' }).count()) === 1 &&
+     (await page.locator('.hubbatch button', { hasText: '套用勾選的 2 條' }).isDisabled()),
+     'crowdsec: two rules ticked; applying them needs a reason');
+  await page.locator('#hub-batch-reason').fill('PHP and React flaws: every site that runs them.');
+  await page.locator('.hubbatch button', { hasText: '套用勾選的 2 條' }).click();
+  await page.waitForSelector('.hubbatch .alert.error', { timeout: 8000 }).catch(() => {});
+  ok((await page.locator('.hubbatch .alert.error').count()) === 1, 'crowdsec: applying several reaches the workflow as one change (not adopted here: refused)');
   // several rules at once: tick, "switch off" opens the change form with its preview (or why it cannot)
   await page.goto(base + '/rules?source=local', { waitUntil: 'networkidle' });
   await page.locator('input.rowsel').first().check();

@@ -69,6 +69,20 @@
 
       <!-- adopted -->
       <template v-else>
+        <section v-if="outdated && (outdated.count || outdated.open || outdated.failed || (outdated.raw_path_rules || []).length)" class="card attention regen">
+          <h2><Icon name="warning" /> {{ t('managed.regen.title') }}</h2>
+          <p v-if="outdated.count || outdated.open" class="small">{{ t('managed.regen.what', { n: outdated.count + outdated.open }) }}</p>
+          <p class="small muted">{{ t('managed.regen.why') }}</p>
+          <p v-if="outdated.open" class="small">{{ t('managed.regen.open', { n: outdated.open }) }}</p>
+          <p v-if="outdated.failed" class="small">{{ t('managed.regen.failed', { n: outdated.failed }) }}</p>
+          <p v-if="(outdated.raw_path_rules || []).length" class="small">{{ t('managed.regen.raw', { n: outdated.raw_path_rules.length }) }}
+            <RouterLink v-if="canPropose" class="gapl" to="/changes/new?kind=confident_block&guard=1">{{ t('managed.regen.guard_link') }}</RouterLink></p>
+          <p v-if="regenSkipped.length" class="alert warn small">{{ t('managed.regen.no_tests', { ids: regenSkipped.join(', ') }) }}</p>
+          <ErrorBox :error="regenError" />
+          <div v-if="canPropose && outdated.count">
+            <button type="button" class="btn primary" :disabled="regenBusy" @click="regenerate"><Icon name="refresh" />{{ t('managed.regen.button') }}</button>
+          </div>
+        </section>
         <section class="card">
           <dl class="kv two">
             <dt>{{ t('managed.current_version') }}</dt><dd class="mono">{{ m.current_version ?? '—' }}</dd>
@@ -240,8 +254,27 @@ const statusParts = computed(() => [
 function firstLine(s) { return String(s || '').split('\n')[0] }
 function firstComment(it) { return String(it.comment || '').split('\n').map((l) => l.replace(/^#\s?/, '')).filter(Boolean).pop() || '' }
 
+const outdated = ref(null)
+const regenBusy = ref(false)
+const regenError = ref(null)
+const regenSkipped = ref([])
 async function load() {
   try { m.value = await get('/managed') } catch (e) { error.value = e }
+  if (m.value && m.value.adopted) {
+    try { outdated.value = await get('/managed/outdated') } catch { outdated.value = null }
+  }
+}
+async function regenerate() {
+  if (!(await askConfirm(t('managed.regen.confirm', { n: outdated.value.count })))) return
+  regenBusy.value = true
+  regenError.value = null
+  try {
+    const r = await post('/managed/regenerate', {})
+    refreshPending(true)
+    regenSkipped.value = r.without_tests || []
+    if (r.changes.length === 1 && !regenSkipped.value.length) router.push('/changes/' + r.changes[0])
+    else await load()
+  } catch (e) { regenError.value = e } finally { regenBusy.value = false }
 }
 async function adopt() {
   busy.value = true
@@ -277,4 +310,5 @@ onMounted(load)
 .drift p { margin: 0 0 6px; }
 .drift .charthead { display: flex; align-items: center; gap: 6px; }
 .sub-chart { margin-top: 10px; }
+.regen p { margin: 0 0 8px; }
 </style>

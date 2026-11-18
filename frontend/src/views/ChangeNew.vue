@@ -77,7 +77,7 @@
           <label class="field grow"><span>{{ t('wizard.regex') }}</span>
             <input v-model="bl.regex" class="mono" maxlength="1000" spellcheck="false" placeholder="^/(?:wp-login\.php|xmlrpc\.php)"></label>
         </div>
-        <p v-if="['path', 'uri', 'ua', 'host'].includes(bl.target)" class="muted small">{{ t('wizard.lowercase_note') }}</p>
+        <p v-if="['path', 'uri', 'raw_uri', 'ua', 'host'].includes(bl.target)" class="muted small">{{ t('wizard.lowercase_note') }}</p>
         <FieldErr :err="err('target') || err('header') || err('regex')" />
         <label class="field"><span>{{ t('wizard.exceptions') }}</span>
           <textarea v-model="bl.exceptions" rows="2" class="mono" maxlength="5000" spellcheck="false" placeholder="^/remote\.php/dav"></textarea>
@@ -242,7 +242,7 @@ watch(showGuide, (v) => { try { localStorage.setItem(GUIDE_KEY, v ? '1' : '0') }
 const methodOptions = computed(() => [{ value: '', label: t('wizard.any_method') }].concat(METHODS.map((m) => ({ value: m, label: m }))))
 const sourceOptions = computed(() => ['all', 'internal', 'external'].map((x) => ({ value: x, label: t('wizard.source_opt.' + x) })))
 const actionOptions = computed(() => ACTIONS.map((a) => ({ value: a, label: t('wizard.action_opt.' + a) })))
-const targetOptions = computed(() => ['path', 'uri', 'ua', 'host', 'header'].map((x) => ({ value: x, label: t('wizard.target_opt.' + x) })))
+const targetOptions = computed(() => ['path', 'uri', 'raw_uri', 'ua', 'host', 'header'].map((x) => ({ value: x, label: t('wizard.target_opt.' + x) })))
 const placementOptions = computed(() => ['before', 'after'].map((x) => ({ value: x, label: t('placement.' + x) })))
 
 const kinds = computed(() => ['exclusion', 'confident_block', 'country', 'redaction', 'plugin'].concat(hasRole('admin') ? ['raw'] : []))
@@ -380,6 +380,16 @@ function fillFromSpec(k, s) {
   else Object.assign(rw, { text: s.text || '', placement: s.placement || 'before', before_rule_id: s.before_rule_id || '' })
 }
 
+// 0.4.93: the confident block that covers rules entered as text (an encoded "?" followed by "../" in the path)
+async function prefillGuard() {
+  const o = await get('/managed/outdated')
+  kind.value = 'confident_block'
+  Object.assign(bl, { target: 'raw_uri', header: '', regex: o.guard_regex, exceptions: '', host: { mode: 'any', value: '' },
+    msg: 'encoded question mark before dot-dot', reference: '', source: 'external' })
+  tests.value = [{ expect: 403, source: 'external', method: 'GET', host: '', path: '/x%3F/../.env' }]
+  reason.value = t('managed.regen.guard_reason')
+}
+
 async function prefillEvent(id, mode) {
   const ev = await get('/events/' + encodeURIComponent(id))
   fromEvent.value = ev
@@ -415,6 +425,7 @@ async function prefillItem(id) {
 onMounted(async () => {
   try {
     if (route.query.item) await prefillItem(route.query.item)
+    else if (route.query.guard === '1') await prefillGuard()
     else if (route.query.from_event) await prefillEvent(route.query.from_event, route.query.mode)
     else if (kind.value === 'country' && typeof route.query.host === 'string') co.host = route.query.host.trim().toLowerCase().slice(0, 253)
   } catch (e) { loadError.value = e }

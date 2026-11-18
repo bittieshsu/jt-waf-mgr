@@ -26,9 +26,9 @@ import time
 from . import rulegen, util
 
 COMBINED = re.compile(r'^(\S+) \S+ \S+ \[[^\]]+\] "(\S+) (\S+)[^"]*" (\d{3}) \S+ "[^"]*" "([^"]*)"')
-# The exception condition of a generated confident block (rulegen._confident): REQUEST_FILENAME
-# with these transformations. tests/test_evidence_security.py checks it against the rule text.
-EXCEPTION_TRANSFORMS = 't:none,t:urlDecodeUni,t:lowercase'
+# The exception condition of a generated confident block (rulegen._confident): REQUEST_FILENAME and
+# the raw path with these transformations. tests/test_evidence_security.py checks it against the rule text.
+EXCEPTION_TRANSFORMS = rulegen.EXCEPTION_TRANSFORMS
 # Regression samples: a path becomes a "must keep working" sample only when this many distinct
 # source addresses got a 2xx for it (one attacker hammering a path cannot make it one).
 MIN_SAMPLE_SOURCES = 3
@@ -178,6 +178,22 @@ def request_filename(raw):
     return dec.split(b'?', 1)[0]
 
 
+_ABS_FORM = re.compile(rb'^[a-zA-Z][a-zA-Z0-9+.-]*://[^/?#]*')
+
+
+def raw_path(raw):
+    """TX:1 of a generated path rule (rulegen.PATH_CAPTURE): the raw request target up to the first "?" or "#", an
+    absolute-form "scheme://host" prefix left out -- not decoded, so not cut at an encoded "?"."""
+    m = _ABS_FORM.match(raw)
+    rest = raw[m.end():] if m else raw
+    return re.split(rb'[?#]', rest, 1)[0]
+
+
+def path_views(raw):
+    """What a generated path rule inspects (rulegen.PATH_VARS): REQUEST_FILENAME and the raw path."""
+    return (request_filename(raw), raw_path(raw))
+
+
 def request_uri(raw):
     """REQUEST_URI from the raw request target (bytes)."""
     dec = uri_decode(raw.split(b'#', 1)[0])
@@ -320,20 +336,24 @@ class Evidence:
     @staticmethod
     def rule_view(spec):
         """What the generated rule inspects, from rulegen's own tables: a function taking a log line
-        (dict) to the transformed value of the first condition, or None when the variable is not in
-        the access log (headers other than User-Agent / Host)."""
+        (dict) to the transformed values of the first condition (a list: the rule matches when any
+        does; a path rule has two), or None when the variable is not in the access log (headers other
+        than User-Agent / Host)."""
         target = spec.get('target', 'path')
         var, tr = rulegen.BLOCK_TARGETS[target]
         if target == 'header':
             var = 'REQUEST_HEADERS:' + (spec.get('header') or '')
         if var == 'REQUEST_FILENAME':
-            return lambda d: transform(request_filename(log_bytes(d['uri'], d['esc'])), tr)
+            # REQUEST_FILENAME|TX:1 (rulegen.PATH_VARS): the rule matches when either view does
+            return lambda d: [transform(v, tr) for v in path_views(log_bytes(d['uri'], d['esc']))]
         if var == 'REQUEST_URI':
-            return lambda d: transform(request_uri(log_bytes(d['uri'], d['esc'])), tr)
+            return lambda d: [transform(request_uri(log_bytes(d['uri'], d['esc'])), tr)]
+        if var == 'REQUEST_URI_RAW':
+            return lambda d: [transform(log_bytes(d['uri'], d['esc']), tr)]
         if var.lower() == 'request_headers:user-agent':
-            return lambda d: transform(log_bytes(d['ua'], d['esc']), tr)
+            return lambda d: [transform(log_bytes(d['ua'], d['esc']), tr)]
         if var.lower() == 'request_headers:host':
-            return lambda d: transform(log_bytes(d['host'], False), tr)
+            return lambda d: [transform(log_bytes(d['host'], False), tr)]
         return None
 
     def block_evidence(self, spec):
@@ -366,12 +386,13 @@ class Evidence:
                 total += 1
                 fn = None
                 for st in live:
-                    if not st['rx'].search(st['view'](d)):
+                    if not any(st['rx'].search(x) for x in st['view'](d)):
                         continue
                     if st['exc']:
                         if fn is None:
-                            fn = transform(request_filename(log_bytes(d['uri'], d['esc'])), EXCEPTION_TRANSFORMS)
-                        if any(e.search(fn) for e in st['exc']):
+                            fn = [transform(x, EXCEPTION_TRANSFORMS) for x in path_views(log_bytes(d['uri'], d['esc']))]
+                        # exempted only when both views of the path are (rulegen._confident: REQUEST_FILENAME|TX:1 !@rx)
+                        if all(any(e.search(x) for e in st['exc']) for x in fn):
                             continue
                     hr = st['host_rx']
                     if hr and not hr[0].search(transform(log_bytes(d['host'], False), hr[1])):
@@ -471,11 +492,22 @@ class Evidence:
         rows = self.db.q('SELECT id, host, path, method, origin, outcome, rule_ids, families, decided_by FROM events WHERE '
                          + ' AND '.join(where) + ' ORDER BY id DESC LIMIT 200000', args)
         host_rx = re.compile(h['value']) if h.get('mode') == 'regex' else None
-        path_ok = {
+        match = {
             'exact': lambda x: x == p.get('value'),
             'prefix': lambda x: x.startswith(p.get('value', '')),
             'regex': (lambda x, c=re.compile(p['value']) if p.get('mode') == 'regex' else None: bool(c.search(x))),
-        }.get(p.get('mode'), lambda x: True)
+        }.get(p.get('mode'))
+
+        def path_ok(raw):
+            # the path condition as the rule has it (rulegen._scoped_path): as sent and normalised, and never for a
+            # path with an encoded "?" (the event's path is the raw one, up to the query)
+            if match is None:
+                return True
+            if re.search(r'%3f', raw.split('#', 1)[0], re.I):
+                return False
+            fn = request_filename(raw.encode('utf-8', 'surrogateescape'))
+            return all(match(transform(fn, tr).decode('utf-8', 'surrogateescape'))
+                       for tr in ('t:none', rulegen.PATH_COND_TRANSFORMS))
         ids = set(spec.get('rule_ids') or [])
         method = spec.get('method') or ''
         src = spec.get('source') or 'all'

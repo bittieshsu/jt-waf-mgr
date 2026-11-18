@@ -81,10 +81,12 @@ class TestReview(unittest.TestCase):
         self.app.cfg.data['notify']['webhook_url'] = 'https://hooks.example.com/x'
         self.app.cfg.data['notify']['language'] = 'en'
         self.app.cfg.data['notify']['base_url'] = 'https://waf.example.com'
-        rid = review.run_due(self.app, self.now)
+        # at least two minutes before the next slot (run near a slot's end, now + 60 would be the next slot)
+        now = min(self.now, review._slot(self.now, 3) + 3 * 3600 - 120)
+        rid = review.run_due(self.app, now)
         self.assertIsNotNone(rid)
-        self.assertIsNone(review.run_due(self.app, self.now + 60))      # the same slot
-        slot = review._slot(self.now, 3)
+        self.assertIsNone(review.run_due(self.app, now + 60))           # the same slot
+        slot = review._slot(now, 3)
         self.assertIsNotNone(review.run_due(self.app, slot + 3 * 3600 + 5))   # the next one
         self.assertEqual(len(review.listing(self.app.db)), 2)
         row = self.app.db.one("SELECT details FROM notifications WHERE event='report.review' ORDER BY id LIMIT 1")

@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.92
+# jt-waf-mgr v0.4.93
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -152,7 +152,7 @@ ModSecurity は最後のルールのまま動作し続けます。
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # リリースの決まった場所
-V=0.4.92; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.93; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # リリース、署名、公開鍵
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -345,6 +345,7 @@ sudo jt-waf-mgr blocks remove 12 --note "false alarm" --as alice
 sudo jt-waf-mgr alerts list ; sudo jt-waf-mgr alerts handle 23 --note "checked" --as alice
 sudo jt-waf-mgr changes list --state pending_approval
 sudo jt-waf-mgr changes approve 41 --as alice            # 自分の変更は不可。Web がコードを求める場合は --totp
+sudo jt-waf-mgr changes regenerate --as alice            # 旧バージョンが生成したルール：再生成を提案
 sudo jt-waf-mgr settings show review.
 sudo jt-waf-mgr settings set review.keep_days=60 --as admin1
 sudo jt-waf-mgr settings export -o settings.json         # --secrets --as admin1：鍵とパスワードも
@@ -358,7 +359,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新しいリリースも同じ current に展開
-V=0.4.92; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.93; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # すべての検査のみ、何も変更しない

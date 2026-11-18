@@ -70,6 +70,8 @@ SRV=$!
 trap 'kill $SRV 2>/dev/null; rm -rf "$W"' EXIT
 sleep 2
 if [ "${E2E_ONLY_SECURITY:-0}" != 1 ]; then node "$HERE/e2e.cjs" "$W" "$SHOTS"; fi
+# the project site (docs/*.html) in a browser, every language: no script error, buttons with text, language switch
+if [ "${E2E_ONLY_SECURITY:-0}" != 1 ]; then node "$TOP/tools/check_pages.cjs" "$TOP/docs"; fi
 # black-box security checks on the same environment (stdlib; tools/security_scan.py)
 python3 "$TOP/tools/security_scan.py" "$W"
 cp "$W/security-report.json" "$SHOTS/" 2>/dev/null || true

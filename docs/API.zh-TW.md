@@ -317,7 +317,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
 
 **種類 `confident_block`**（確定封鎖：確定是攻擊的請求直接封鎖，不看異常分數）：
 
-- `target`：`path`（預設；URL 解碼、正規化、轉小寫）、`uri`（路徑加查詢字串，轉小寫）、`ua`（User-Agent）、`host`，
+- `target`：`path`（預設；URL 解碼、正規化、轉小寫；0.4.93 起也看原始路徑，libmodsecurity 3.0.9 在編碼問號截斷的路徑也看得到）、`uri`（路徑加查詢字串，轉小寫）、`raw_uri` (0.4.93：原始請求目標，不解碼，轉小寫)、`ua`（User-Agent）、`host`，
   或 `header`（這時用 `header` 指定名稱，例如 `X-Api-Version`）。
 - `regex`：必填，最多 1000 字，不可有雙引號或換行。比對到空字串（`matches_empty`）、幾乎比對到所有一般請求
   （`too_broad`），或可能造成災難性回溯（`redos_shape`、`redos_runtime`）時會被拒絕。
@@ -455,6 +455,8 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/change
 - **`GET /waf/model`**：每個站台上一個請求如何被判定（引擎、計分、門檻、排除）。
 - **`GET /managed`**：受管理規則檔與其中的項目（`items[].id` 就是變更用的 `item_id`）。
 - **`GET /managed/items/{id}`**：單一受管理項目。
+- **`GET /managed/outdated`** (0.4.93)：已啟用、用同樣設定以這一版產生會不一樣的規則 (規則產生器的修正要重新產生才會生效)：`items[]` (`item_id`、`rule_id`、`kind`、`ok`；有還沒結束的變更動到它時有 `open_change`；無法用原本設定產生時有 `reason`)、`count` (現在可以重新產生的數量)、`open`、`failed`。
+- **`POST /managed/regenerate`** (0.4.93；operator，只限人，不開放 API 權杖)：可帶 `{"item_ids": [..]}`。把舊版規則用原本的設定重新產生，提出為程式代要求者提出的整批 `modify` 變更 (`proposed_by: "rulegen"`，`proposed_owner` 是要求的人，他不能自己核准)，附上規則原本的測試請求；和一般變更一樣檢查與核准。`GET /managed/outdated` 另外列出 `raw_path_rules` (只看 REQUEST_FILENAME 的文字規則) 與 `guard_regex` (涵蓋它們的 `raw_uri` 確定封鎖：編碼問號後面接「../」)。回 202 `{"changes": [編號], "without_tests": [規則編號]}` (沒有它會封鎖的測試請求的確定封鎖不會包含)；沒有可重新產生的回 409 `nothing_to_regenerate`。
 - **`GET /managed/files/{placement}`**：`placement` 是 `before` 或 `after`；以 `text/plain` 回傳檔案，加
   `?version=N` 則是某個已存版本。
 

@@ -1868,6 +1868,39 @@ def managed(app, req):
     return json_response(200, out)
 
 
+def managed_outdated(app, req):
+    """The enabled rules this version would write differently from the same settings (an older rule generator), and the
+    rules entered as text that look at the path the old way."""
+    wf = _wf(app)
+    rows = wf.outdated()
+    return json_response(200, {'items': rows, 'count': sum(1 for x in rows if x['ok'] and not x.get('open_change')),
+                               'open': sum(1 for x in rows if x.get('open_change')),
+                               'failed': sum(1 for x in rows if not x['ok']),
+                               'raw_path_rules': wf.raw_path_rules(), 'guard_regex': rulegen_guard()})
+
+
+def rulegen_guard():
+    from .. import rulegen
+    return rulegen.PATH_GUARD_REGEX
+
+
+def managed_regenerate(app, req):
+    """Write the outdated rules again: bundles proposed by the program on behalf of the person who asked (who therefore
+    cannot approve them alone), checked and approved as any change. People only, not API tokens."""
+    b = req.body()
+    if req.user['role'] == 'viewer':
+        raise ApiError(403, 'forbidden')
+    ids = b.get('item_ids')
+    if ids is not None and (not isinstance(ids, list) or not all(isinstance(i, int) and not isinstance(i, bool) for i in ids)):
+        raise ApiError(422, 'invalid_item_ids')
+    app.audit.log('managed.regenerate_requested', req.user['username'], 'user', req.client_ip, 'ok', item_ids=ids)
+    try:
+        out = _wf(app).propose_regenerate(req.user['username'], ids)
+    except ChangeError as e:
+        raise _change_error(e)
+    return json_response(202, out)
+
+
 def managed_item(app, req):
     it = _wf(app).managed.item(_cid(req))
     if not it or it['kind'] == 'comment':
@@ -2231,6 +2264,8 @@ def register_p2(router):
     R('POST', V + '/managed/import/preview', managed_import_preview, ('admin',))
     R('POST', V + '/managed/import', managed_import, ('admin',))
     R('GET', V + '/managed/items/{id}', managed_item, viewer('rules:read'))
+    R('GET', V + '/managed/outdated', managed_outdated, viewer('rules:read'))
+    R('POST', V + '/managed/regenerate', managed_regenerate, ('role', 'operator', None))
     R('GET', V + '/changes', changes_list, viewer('changes:read'))
     R('POST', V + '/changes', change_create, ('role', 'viewer', 'changes:propose'))
     R('POST', V + '/rules/toggle', rules_toggle, ('role', 'viewer', 'changes:propose'))

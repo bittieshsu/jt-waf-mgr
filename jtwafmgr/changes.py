@@ -169,6 +169,10 @@ class Workflow:
             raise ChangeError('raw_admin_only', 403)
         rule_id = item['rule_id'] if item else None
         text = item['text'] if item else ''
+        if op == 'enable':
+            # written again by this version (a rule switched off before a fix of the rule generator must not come back
+            # as it was): the change shows and checks the text that will be applied
+            text = (self._enable_text(kind, item_id) or {}).get('text') or text
         if kind == 'crowdsec' and op in ('add', 'modify'):
             spec = self._hub_spec(spec, json.loads(item['spec']) if item else None)
         if op in ('add', 'modify'):
@@ -413,6 +417,127 @@ class Workflow:
                             for b in built)[:200000]
         spec = {'ops': [{k: b[k] for k in ('op', 'kind', 'item_id', 'rule_id', 'spec', 'direction')} for b in built]}
         return self._insert('bundle', 'bundle', None, None, spec, direction, reason, actor, via, text, tests, owner)
+
+    # --- rules written by an older rule generator --------------------------------------------
+    REGEN_KINDS = ('exclusion', 'confident_block', 'redaction', 'plugin', 'country', 'crowdsec')
+    REGEN_TESTS_PER_ITEM = 2
+
+    def _open_items(self):
+        """item id -> the open change that touches it (a single operation or a bundle's)."""
+        out = {}
+        for r in self.db.q('SELECT id, op, item_id, spec FROM changes WHERE state NOT IN (%s)' % ','.join('?' * len(FINAL)),
+                           FINAL):
+            if r['item_id'] is not None:
+                out.setdefault(r['item_id'], r['id'])
+            if r['op'] == 'bundle':
+                try:
+                    for b in json.loads(r['spec']).get('ops', []):
+                        if b.get('item_id') is not None:
+                            out.setdefault(b['item_id'], r['id'])
+                except (ValueError, AttributeError, TypeError):
+                    continue
+        return out
+
+    def outdated(self):
+        """The enabled managed rules that this version would write differently from the same settings (a fix of the rule
+        generator reaches a rule only when it is written again, 0.4.93: path rules and an encoded "?"):
+        [{'item_id', 'rule_id', 'kind', 'ok', 'reason'?, 'open_change'?}]. A CrowdSec rule only while the synced hub
+        file is the one it was written from (otherwise its update is on the CrowdSec page). Rules entered as text are
+        in raw_path_rules()."""
+        out, opened = [], self._open_items()
+        hub_sha = None
+        for it in self.managed.items():
+            if it['kind'] not in self.REGEN_KINDS or it['rule_id'] is None or not it['enabled']:
+                continue
+            row = {'item_id': it['id'], 'rule_id': it['rule_id'], 'kind': it['kind'], 'ok': True}
+            try:
+                spec = json.loads(it['spec'] or '{}')
+                _, text, _ = rulegen.build(it['kind'], spec, it['rule_id'], self.cfg)
+            except (rulegen.SpecError, ValueError, TypeError) as e:
+                row.update(ok=False, reason=getattr(e, 'code', None) or 'invalid_spec')
+                out.append(row)
+                continue
+            if text.strip() == (it['text'] or '').strip():
+                continue
+            if it['kind'] == 'crowdsec':
+                if hub_sha is None:
+                    from . import hub
+                    hub_sha = {r.get('name'): r.get('sha256') for r in (hub.read_index(self.cfg) or {}).get('rules') or []}
+                if hub_sha.get(spec.get('name')) != spec.get('sha256'):
+                    row.update(ok=False, reason='hub_changed')
+            if it['id'] in opened:
+                row['open_change'] = opened[it['id']]
+            out.append(row)
+        return out
+
+    def raw_path_rules(self):
+        """Enabled rules entered as text (adopted ones among them) that look at REQUEST_FILENAME the old way (not the
+        raw path as well): they cannot be written again; a confident block on the raw request target covers what an
+        encoded "?" hides from them (rulegen.PATH_GUARD_REGEX)."""
+        return [it['rule_id'] for it in self.managed.items()
+                if it['kind'] == 'raw' and it['enabled'] and it['rule_id'] is not None
+                and re.search(r'\bREQUEST_FILENAME\b', it['text'] or '') and 'TX:1' not in (it['text'] or '')]
+
+    def _item_tests(self, it, spec):
+        """Test requests for a rule written again: the ones its own change brought (a confident block: only those it
+        refuses itself -- another rule's test would fail the whole bundle). A CrowdSec rule brings the hub's own."""
+        from .sandbox import _test_hits
+        if it['kind'] == 'crowdsec':
+            return []
+        r = self.db.one('SELECT tests FROM changes WHERE id=?', (it['change_id'],)) if it.get('change_id') else None
+        try:
+            tests = [t for t in json.loads(r['tests'] or '[]') if isinstance(t, dict)] if r else []
+        except ValueError:
+            tests = []
+        tests = [{k: v for k, v in t.items() if k not in ('present_any_rules', 'absent_rules', 'upstream', 'body_b64')}
+                 for t in tests if t.get('expect') in (200, 403)]
+        if it['kind'] == 'confident_block':
+            tests = [t for t in tests if t.get('expect') == 403 and t.get('source', 'external') == 'external'
+                     and _test_hits(spec, t)]
+        return tests[:self.REGEN_TESTS_PER_ITEM]
+
+    REGEN_ACTOR = 'rulegen'
+
+    def propose_regenerate(self, owner, item_ids=None):
+        """The outdated rules written again from their own settings, as bundles (at most BUNDLE_MAX_BLOCKS confident
+        blocks and 50 tests each), proposed by the program on behalf of `owner` (the person who asked, or a token's
+        creator): that person counts as the proposer and cannot approve it alone. Every bundle is checked as any
+        change is and needs a person's approval."""
+        rows = [x for x in self.outdated() if x['ok'] and not x.get('open_change')
+                and (item_ids is None or x['item_id'] in item_ids)]
+        if not rows:
+            raise ChangeError('nothing_to_regenerate', 409)
+        groups, cur, tests, blocks, missing = [], [], [], 0, []
+        for x in rows:
+            it = self.managed.item(x['item_id'])
+            spec = json.loads(it['spec'] or '{}')
+            ts = self._item_tests(it, spec)
+            if it['kind'] == 'confident_block' and not ts:
+                missing.append(it['rule_id'])        # no test it refuses itself: proposed on its own by a person
+                continue
+            nb = 1 if it['kind'] == 'confident_block' else 0
+            if cur and (blocks + nb > self.BUNDLE_MAX_BLOCKS or len(tests) + len(ts) > 50 or len(cur) >= self.BUNDLE_MAX):
+                groups.append((cur, tests))
+                cur, tests, blocks = [], [], 0
+            cur.append({'op': 'modify', 'item_id': it['id'], 'spec': spec, '_rule_id': it['rule_id']})
+            tests += [t for t in ts if t not in tests]
+            blocks += nb
+        if cur:
+            groups.append((cur, tests))
+        if not groups:
+            raise ChangeError('nothing_to_regenerate', 409, without_tests=missing)
+        from . import __version__
+        ids = []
+        for ops, ts in groups:
+            rids = ', '.join(str(o.pop('_rule_id')) for o in ops)
+            reason = util.clip('Rules written again by the rule generator of jt-waf-mgr %s from their own settings, asked '
+                               'by %s: %s. Path rules now also see the path cut at an encoded "?" (%%3F), normalised; '
+                               'exclusions and redactions scoped to a path need it both as sent and normalised and never '
+                               'apply to a path with an encoded "?". The network lists in force now (internal networks, '
+                               'known scanners) are written in, as in any new rule: compare the rule text.'
+                               % (__version__, owner, rids), 2000)
+            ids.append(self.propose_bundle(ops, reason, self.REGEN_ACTOR, via='api', tests=ts, owner=owner))
+        return {'changes': ids, 'without_tests': missing}
 
     # --- rules file upload: a batch of ordinary proposals, never a direct write ---------------
     MAX_UPLOAD_ITEMS = 500
@@ -1013,6 +1138,8 @@ class Workflow:
                     _, text, placement = rulegen.build(b['kind'], b['spec'], b['rule_id'], self.cfg)
                     new = {'rule_id': b['rule_id'], 'kind': b['kind'], 'placement': placement, 'spec': b['spec'],
                            'text': text, 'comment': _comment(r), 'origin': 'created'}
+                elif b['op'] == 'enable':
+                    new = self._enable_text(b['kind'], b['item_id'])
                 items, it = self.managed.with_op(b['op'], b['item_id'], new, items=items)
                 touched.append(it)
             return items, touched
@@ -1021,7 +1148,22 @@ class Workflow:
             _, text, placement = rulegen.build(r['kind'], spec, r['rule_id'], self.cfg)
             new = {'rule_id': r['rule_id'], 'kind': r['kind'], 'placement': placement, 'spec': spec, 'text': text,
                    'comment': _comment(r), 'origin': 'created'}
+        elif r['op'] == 'enable':
+            new = self._enable_text(r['kind'], r['item_id'])
         return self.managed.with_op(r['op'], r['item_id'], new)
+
+    ENABLE_REBUILDS = ('exclusion', 'confident_block', 'redaction', 'plugin')
+
+    def _enable_text(self, kind, item_id):
+        """A generated rule switched on again is written by this version (it may have been switched off before a fix of
+        the rule generator); None keeps the stored text (rules entered as text, or settings that no longer build)."""
+        it = self.managed.item(item_id) if item_id else None
+        if not it or kind not in self.ENABLE_REBUILDS:
+            return None
+        try:
+            return {'text': rulegen.build(kind, json.loads(it['spec'] or '{}'), it['rule_id'], self.cfg)[1]}
+        except (rulegen.SpecError, ValueError, TypeError):
+            return None
 
     def build_files(self, r, version):
         items, touched = self._target_items(r)

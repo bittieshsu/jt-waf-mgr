@@ -31,6 +31,9 @@ BLOCK_TARGETS = {
     # target -> (variable, transformations)
     'path': ('REQUEST_FILENAME', 't:none,t:urlDecodeUni,t:normalizePath,t:lowercase'),
     'uri': ('REQUEST_URI', 't:none,t:urlDecodeUni,t:lowercase'),
+    # the request target as sent, not decoded (0.4.93: e.g. an encoded "?" followed by "..", which hides the path from
+    # REQUEST_FILENAME on libmodsecurity 3.0.9)
+    'raw_uri': ('REQUEST_URI_RAW', 't:none,t:lowercase'),
     'ua': ('REQUEST_HEADERS:User-Agent', 't:none,t:lowercase'),
     'host': ('REQUEST_HEADERS:Host', 't:none,t:lowercase'),
     'header': (None, 't:none'),
@@ -227,6 +230,33 @@ def _path_cond(path, negate=False):
         _regex_ok('path', v)
         return ('REQUEST_FILENAME', ('!' if negate else '') + '@rx ' + v, 't:none')
     raise SpecError('path', 'invalid_mode')
+
+
+# The path a person scopes an exclusion (or a redaction) to must hold both as sent and normalised: "/a/../admin" is no
+# "/a/" path (normalised it is "/admin"), and "/x/../a/b" is no "/a/" path either (as sent) -- never wider than the path
+# as written.
+PATH_COND_TRANSFORMS = 't:none,t:normalizePath'
+# libmodsecurity 3.0.9 cuts REQUEST_FILENAME at an encoded "?" (%3F) of the path ("/json/messages%3F/../../admin" is
+# "/json/messages" to it, while the backend gets "/admin"); 3.0.14 does not. An exclusion never applies to such a
+# request: it is inspected in full.
+PATH_CUT_GUARD = ('REQUEST_URI_RAW', '!@rx ^[^?#]*%3[fF]', 't:none')
+# A path rule looks at REQUEST_FILENAME and at the path of the raw request target, captured here (TX:1, up to the
+# query; an absolute-form "scheme://host" prefix left out): what was cut at an encoded "?" is seen whole, so
+# "/x%3F/../.env" is "/.env" to the rule as it is to the backend.
+PATH_CAPTURE = ('REQUEST_URI_RAW', '@rx ^(?:[a-zA-Z][a-zA-Z0-9+.-]*://[^/?#]*)?([^?#]*)', 't:none,capture')
+PATH_VARS = 'REQUEST_FILENAME|TX:1'
+# A confident block (target raw_uri) that covers rules entered as text: an encoded "?" in the path followed later by a
+# "../" segment (encoded or not) -- what hides a path from REQUEST_FILENAME on libmodsecurity 3.0.9 and still reaches it
+# at the backend. Matched against the raw request target, lowercase.
+PATH_GUARD_REGEX = r'^[^?#]*%3f[^?#]*(?:/|%2f|%5c)(?:\.|%2e){2}(?:/|%2f|%5c|$|\?|#)'
+# The exception condition of a confident block: both views of the path must be exempted (normalised: "/share/../.env"
+# is no "/share/" path)
+EXCEPTION_TRANSFORMS = 't:none,t:urlDecodeUni,t:normalizePath,t:lowercase'
+
+
+def _scoped_path(path_cond):
+    """The conditions of an exclusion / redaction path scope: the path as sent and normalised, and no encoded "?"."""
+    return [path_cond, (path_cond[0], path_cond[1], PATH_COND_TRANSFORMS), PATH_CUT_GUARD] if path_cond else []
 
 
 def _source_cond(source, internal):
@@ -553,7 +583,7 @@ def _exclusion(spec, rid, cfg, internal):
         if bp not in ('JSON', 'XML', 'URLENCODED', 'MULTIPART'):
             raise SpecError('body_processor', 'invalid_body_processor')
         ctl = ['ctl:requestBodyProcessor=%s' % bp]
-    conds = [c for c in (host, path) if c]
+    conds = ([host] if host else []) + _scoped_path(path)
     if method:
         conds.append(('REQUEST_METHOD', '@streq ' + method, 't:none'))
     if src:
@@ -584,9 +614,11 @@ def _confident(spec, rid, cfg, internal):
         raise SpecError('exceptions', 'invalid_exceptions')
     for e in exc:
         _regex_ok('exceptions', e, allow_broad=True)
-    conds = [(var, '@rx ' + rx, tr)]
+    conds = [(PATH_VARS if target == 'path' else var, '@rx ' + rx, tr)]
     if exc:
-        conds.append(('REQUEST_FILENAME', '!@rx ' + '|'.join('(?:%s)' % e for e in exc), 't:none,t:urlDecodeUni,t:lowercase'))
+        conds.append((PATH_VARS, '!@rx ' + '|'.join('(?:%s)' % e for e in exc), EXCEPTION_TRANSFORMS))
+    if target == 'path' or exc:
+        conds.insert(0, PATH_CAPTURE)
     h = _host_cond(spec.get('host'))
     if h:
         conds.append(h)
@@ -618,7 +650,7 @@ def _redaction(spec, rid, cfg):
         'ctl:ruleRemoveTargetByTag=crowdsec-hub;%s' % t for f in fields
         for t in ('ARGS_GET:%s' % f, 'ARGS_POST:%s' % f, 'ARGS:json.%s' % f))
     host, path = _host_cond(spec.get('host')), _path_cond(spec.get('path'))
-    conds = [c for c in (host, path) if c]
+    conds = ([host] if host else []) + _scoped_path(path)
     if conds:
         text = _chain(conds, 'id:%d,phase:1,pass,nolog' % rid, ctl)
     else:

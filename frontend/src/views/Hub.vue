@@ -61,8 +61,23 @@
         </div>
         <p class="muted small">{{ t('hub.rules_hint') }}</p>
         <p v-if="data.outdated_index" class="alert warn small"><Icon name="warning" /> {{ t(isAdmin ? 'hub.outdated_admin' : 'hub.outdated') }}</p>
+        <!-- 0.4.93: several rules applied at once, as one change (one check, one approval, one reload) -->
+        <div v-if="canPropose && pickable.length" class="batchbar hubbatch" role="group" :aria-label="t('hub.batch.title')">
+          <label class="check"><input type="checkbox" :checked="allPicked" :indeterminate.prop="picked.size > 0 && !allPicked" @change="pickAll" /> {{ t('hub.batch.all', { n: pickable.length }) }}</label>
+          <template v-if="picked.size">
+            <div class="field"><label for="hub-batch-src">{{ t('hub.source_label') }}</label>
+              <SelectBox id="hub-batch-src" v-model="batch.source" small :options="[{ value: 'external', label: t('hub.src.external') }, { value: 'all', label: t('hub.src.all') }]" /></div>
+            <div class="field grow"><label for="hub-batch-reason">{{ t('hub.reason') }}</label>
+              <input id="hub-batch-reason" v-model="batch.reason" maxlength="2000" :placeholder="t('hub.reason_ph')" /></div>
+            <button type="button" class="btn primary" :disabled="busy || !batch.reason.trim()" @click="applyPicked"><Icon name="add" />{{ t('hub.batch.apply', { n: picked.size }) }}</button>
+          </template>
+          <p class="muted small batchnote">{{ t('hub.batch.note') }}</p>
+          <p v-if="batchSkipped.length" class="alert warn small">{{ t('hub.batch.skipped', { names: batchSkipped.join(', ') }) }}</p>
+          <ErrorBox :error="batchError" />
+        </div>
         <DataTable id="hub-rules" :columns="cols" :rows="shown" row-key="name" :page-size="50" :expanded="open" clickable
                    @row-click="(r) => openRule(r)">
+          <template #cell-sel="{ row }"><input v-if="isPickable(row)" type="checkbox" :checked="picked.has(row.name)" :aria-label="t('hub.batch.pick', { name: row.name })" @click.stop @change="togglePick(row.name)" /><span v-else aria-hidden="true"></span></template>
           <template #cell-name="{ row }"><span class="mono small hubname">{{ safeText(row.name.replace(/^crowdsecurity\//, ''), 120) }}</span>
             <span v-if="row.scope === 'cross'" class="badge b-ext gapl" :title="t('hub.cross_hint')">{{ t('hub.cross') }}</span>
             <span v-if="row.change === 'new' || row.change === 'changed'" class="badge b-int gapl">{{ t('hub.change.' + row.change) }}</span></template>
@@ -220,6 +235,7 @@ const tiles = computed(() => {
   ]
 })
 const cols = computed(() => [
+  ...(canPropose.value && pickable.value.length ? [{ key: 'sel', label: '', sortable: false, filterable: false, required: true, nowrap: true, text: () => '' }] : []),
   { key: 'name', label: t('hub.c_name'), class: 'c-name' },
   { key: 'cves', label: 'CVE', nowrap: true, text: (r) => r.cves.join(' ') },
   { key: 'label', label: t('hub.c_label'), class: 'c-fill', text: (r) => r.label || r.description || '' },
@@ -227,6 +243,49 @@ const cols = computed(() => [
   { key: 'ok', label: t('hub.c_state'), nowrap: true, text: (r) => (r.ok ? t('hub.convertible') : t('hub.unsupported')) },
   { key: 'use', label: t('hub.c_use'), nowrap: true, text: (r) => useText(r) },
 ])
+// --- several at once ---------------------------------------------------------------------------------------
+const picked = ref(new Set())
+const batch = reactive({ source: 'external', reason: '' })
+const batchError = ref(null)
+const batchSkipped = ref([])
+const BATCH_SIZE = 8          // the hub's own test requests of a change: at most 60
+const isPickable = (r) => r.ok && r.tests && !r.applied && !r.open_change
+const pickable = computed(() => shown.value.filter(isPickable))
+const allPicked = computed(() => pickable.value.length > 0 && pickable.value.every((r) => picked.value.has(r.name)))
+function togglePick(n) { const s = new Set(picked.value); s.has(n) ? s.delete(n) : s.add(n); picked.value = s }
+function pickAll() { picked.value = allPicked.value ? new Set() : new Set(pickable.value.map((r) => r.name)) }
+// each rule goes to the sites of the software it relates to; a cross-application rule with no such site to every site
+function batchSpec(r) {
+  const hosts = [...new Set((r.related || []).flatMap((p) => p.sites || []))].sort()
+  if (hosts.length) return { name: r.name, hosts, all_sites: false, source: batch.source }
+  if (r.scope === 'cross') return { name: r.name, hosts: [], all_sites: true, source: batch.source }
+  return null
+}
+async function applyPicked() {
+  const rows = ((data.value && data.value.rules) || []).filter((r) => picked.value.has(r.name) && isPickable(r))
+  const ops = []
+  const skipped = []
+  for (const r of rows) {
+    const spec = batchSpec(r)
+    if (spec) ops.push({ op: 'add', kind: 'crowdsec', spec })
+    else skipped.push(r.name.replace(/^crowdsecurity\//, ''))
+  }
+  batchSkipped.value = skipped
+  if (!ops.length) return
+  busy.value = true
+  batchError.value = null
+  const ids = []
+  try {
+    for (let i = 0; i < ops.length; i += BATCH_SIZE) {
+      const r = await post('/changes', { op: 'bundle', ops: ops.slice(i, i + BATCH_SIZE), reason: batch.reason.trim() })
+      ids.push(r.change_id)
+    }
+    picked.value = new Set()
+    if (ids.length === 1 && !skipped.length) router.push('/changes/' + ids[0])
+    else await load()
+  } catch (e) { batchError.value = e; if (ids.length) await load() } finally { busy.value = false }
+}
+
 function useText(r) {
   if (r.open_change) return t('hub.use.open', { id: r.open_change.change_id })
   if (!r.applied) return ''
@@ -321,6 +380,9 @@ onUnmounted(() => clearInterval(timer))
 
 <style scoped>
 .hubtiles { margin: 0 0 14px; }
+.hubbatch { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; margin: 0 0 10px; }
+.hubbatch .grow { flex: 1 1 18em; }
+.hubbatch .batchnote { flex-basis: 100%; margin: 0; }
 .hubname { white-space: nowrap; }
 :deep(td.c-name) { min-width: 17em; }
 .hubacts { align-items: center; flex-wrap: wrap; margin-top: 14px; }

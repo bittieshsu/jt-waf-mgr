@@ -343,8 +343,10 @@ Loosening always needs a person's approval.
 
 **Kind `confident_block`** (block requests that are certainly attacks, regardless of the anomaly score):
 
-- `target`: `path` (default; URL-decoded, normalized, lowercased), `uri` (path and query, lowercased), `ua`
-  (User-Agent), `host`, or `header` (then `header` names it, for example `X-Api-Version`).
+- `target`: `path` (default; URL-decoded, normalized, lowercased; since 0.4.93 also the raw path, so a path cut at an
+  encoded "?" by libmodsecurity 3.0.9 is still seen), `uri` (path and query, lowercased), `raw_uri` (0.4.93: the request
+  target as sent, not decoded, lowercased), `ua` (User-Agent), `host`, or `header` (then `header` names it, for example
+  `X-Api-Version`).
 - `regex`: required, at most 1000 characters, no double quotes or line breaks. Refused when it matches the empty
   string (`matches_empty`), matches almost every ordinary request (`too_broad`), or looks open to catastrophic
   backtracking (`redos_shape`, `redos_runtime`).
@@ -493,6 +495,18 @@ All with scope `rules:read`.
 - **`GET /waf/model`**: how a request is decided on each site (engine, scoring, thresholds, exclusions).
 - **`GET /managed`**: the managed rule files and their items (`items[].id` is the `item_id` for changes).
 - **`GET /managed/items/{id}`**: one managed item.
+- **`GET /managed/outdated`** (0.4.93): the enabled rules this version would write differently from the same settings
+  (a fix of the rule generator reaches a rule only when it is written again): `items[]` (`item_id`, `rule_id`, `kind`,
+  `ok`, `open_change` when a change still open touches it, `reason` when it cannot be written from its settings),
+  `count` (can be written again now), `open`, `failed`.
+- **`POST /managed/regenerate`** (0.4.93; an operator, people only -- not API tokens): `{"item_ids": [..]}` optional.
+  Proposes the outdated rules written again from their own settings, as bundles of `modify` operations proposed by the
+  program (`proposed_by: "rulegen"`) on behalf of the person who asked (`proposed_owner`: that person cannot approve
+  them alone), with the test requests the rules came with; checked and approved like any change. `GET /managed/outdated`
+  also lists `raw_path_rules` (rules entered as text that look at REQUEST_FILENAME only) and `guard_regex` (the
+  `raw_uri` confident block that covers them: an encoded "?" followed by "../").
+  202 `{"changes": [ids], "without_tests": [rule ids]}` (a confident block with no test it refuses is left out); 409
+  `nothing_to_regenerate`.
 - **`GET /managed/files/{placement}`**: `placement` = `before` or `after`; the file as `text/plain`, or a stored version
   with `?version=N`.
 

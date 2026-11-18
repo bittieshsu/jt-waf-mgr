@@ -28,7 +28,8 @@ REPO = 'crowdsecurity/hub'
 API = 'https://api.github.com/repos/%s' % REPO
 RAW = 'https://raw.githubusercontent.com/%s/%%s/%%s' % REPO
 INDEX = 'index.json'
-INDEX_FORMAT = 3                # 2: with the hub's own tests (0.4.90); 3: requests to let through, more templates (0.4.92)
+INDEX_FORMAT = 4                # 2: with the hub's own tests (0.4.90); 3: requests to let through, more templates (0.4.92);
+                                # 4: the path also seen whole at an encoded "?" (0.4.93)
 REQUEST = 'sync.request'
 UPLOAD_DIR = 'upload'
 MAX_FILE = 256 * 1024
@@ -219,14 +220,19 @@ def render(doc, first_id, head=(), tail=()):
     ...; head: conditions put in front of every chain (the sites), tail: after it (the sources). Each rule marks the
     request like a confident block (jt_block), which the system rules refuse. Raises Unsupported."""
     alts, msg, tag = _alternatives(doc)
-    if any(len(a) + len(head) + len(tail) > MAX_CONDITIONS + 2 for a in alts):
+    if any(len(a) + len(head) + len(tail) > MAX_CONDITIONS + 2 for a in alts):     # (+ the path capture: not counted)
         raise Unsupported('too_many_conditions')
+    from .rulegen import PATH_CAPTURE, PATH_VARS
     texts = []
     for i, conds in enumerate(alts):
         rid = first_id + i
         first = ("id:%d,phase:2,pass,log,msg:'jt confident block: CrowdSec %s',tag:'jt-confident-block',tag:'crowdsec-hub',"
                  "tag:'%s'" % (rid, msg, tag))
-        conds = list(head) + list(conds) + list(tail)
+        # the path (URI) as the backend gets it too: libmodsecurity 3.0.9 cuts REQUEST_FILENAME at an encoded "?",
+        # CrowdSec does not (0.4.93: TX:1, the raw path, captured first -- rulegen.PATH_CAPTURE)
+        uses_path = any('REQUEST_FILENAME' in v.split('|') for v, _, _ in conds)
+        conds = [('|'.join(PATH_VARS if x == 'REQUEST_FILENAME' else x for x in v.split('|')), o, t) for v, o, t in conds]
+        conds = list(head) + ([PATH_CAPTURE] if uses_path else []) + list(conds) + list(tail)   # (after the site: cheaper)
         lines = []
         for j, (var, op, tr) in enumerate(conds):
             ind = '    ' * j
@@ -660,15 +666,6 @@ def url_header_only(raw):
                             and ('HEADERS' not in x['zones'] or x.get('variables')) for x in ls)
 
 
-def _cut_path(doc, tests):
-    """The hub's own attack puts an encoded "?" (%3F) in the path and the rule looks at the path (URI): ModSecurity cuts
-    REQUEST_FILENAME at that "?" (tested with libmodsecurity 3.0.9), CrowdSec does not -- the converted rule would miss
-    the very attack it is for."""
-    if not any(re.search(r'%3f', (x.get('path') or '').split('?', 1)[0], re.I) for x in tests or []):
-        return False
-    return 'URI' in _zones((doc or {}).get('rules') if isinstance(doc, dict) else None)
-
-
 def fp_warning(raw):
     """The hub's file itself warns that the rule refuses ordinary requests (a disclaimer, "false positives")."""
     t = raw.decode('utf-8', 'replace').lower() if isinstance(raw, bytes) else str(raw).lower()
@@ -828,8 +825,6 @@ def build_index(files, commit, source, preview_id, now=None):
         if conv['ok'] and not whole:
             # the index keeps 20,000 characters of the file: a rule must be kept whole to be proposed
             conv = {'ok': False, 'reason': 'too_long', 'details': {}, 'text': '', 'rules': 0}
-        if conv['ok'] and _cut_path(doc, t):
-            conv = {'ok': False, 'reason': 'uri_encoded_question_mark', 'details': {}, 'text': '', 'rules': 0}
         rules.append(dict(item, name=name, yaml=raw.decode('utf-8', 'replace')[:20000],
                           ok=conv['ok'], reason=conv['reason'], details=conv['details'], text=conv['text'],
                           rule_count=conv['rules'], **desc))

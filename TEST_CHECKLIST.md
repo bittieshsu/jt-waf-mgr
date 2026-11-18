@@ -21,6 +21,8 @@ What each gate covers and how it passes: `TEST_PLAN.md`.
 - [ ] `tools/e2e/run.sh` — every page in zh-TW and en, light and dark, the theme switch, sorting /
       filtering / column choice / paging, select box and date picker, charts with tooltips, the guide,
       the login page and favicon; no console errors, no raw i18n keys, no buttons without icons.
+- [ ] The same run opens the project site (`tools/check_pages.cjs`): every `docs/*.html` in en, zh-TW and ja with no
+      script error, every button with its text, the language taking effect: `pages check: OK`.
 - [ ] The same run ends with `tools/security_scan.py`: `security scan: OK` (headers, cookies, authentication and
       authorisation on every route, CSRF, methods, traversal, hostile input, malformed bodies, login).
 - [ ] For UI changes: look at the screenshots, including a phone width (375 px) and a tablet (768 px).
