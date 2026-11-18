@@ -186,6 +186,11 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 檢查結果為 `ready` 後，`POST /nginx/update/propose` (管理者，帶 `reason`) 提出更新 (或完成中斷的更新)，為 op `nginx`
 的變更；核准要管理者的一次性密碼與說明。`POST /nginx/hold` (管理者) 鎖定 nginx 套件 (由套用程式執行 apt-mark hold)。
 
+0.4.98 起，檢查時也會讀取 nginx.org 的安全公告：`check.security` 列出已安裝的 nginx 受影響的公告 (`issues`：`title`、
+`severity`、`cves`、`feature`、`in_use`、`candidate_fixes`)，以及 `major_in_use`、`fixed_by_candidate`。`proto` 說明
+HTTP/2、HTTP/3 有幾處設定開啟 (`on`)，以及目前暫時關閉了幾行 (`off_by_us`、`change_ids`)。`POST /nginx/proto` (審核者，
+`feature` 為 `http2` 或 `http3`，`mode` 為 `off` 或 `on`，帶 `reason`) 提出暫時關閉該功能或原樣恢復，為 op `proto` 的變更。
+
 ### 4.2 事件
 
 **`GET /events`**：scope `events:read`。事件清單，新的在前。參數（全部選填）：

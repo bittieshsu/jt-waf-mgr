@@ -206,6 +206,13 @@ the next nginx package with the waiting module (`check.state`: `ready`, `no_modu
 `nginx` once the check is `ready`; approving it takes an admin's one-time code and a note. `POST /nginx/hold` (admin)
 holds the nginx package (apt-mark hold by the apply program).
 
+Since 0.4.98 the check also reads nginx.org's security advisories: `check.security` lists the ones the installed nginx is
+vulnerable to (`issues`: `title`, `severity`, `cves`, `feature`, `in_use`, `candidate_fixes`), with `major_in_use` and
+`fixed_by_candidate`. `proto` says how many directives switch HTTP/2 and HTTP/3 on (`on`) and how many lines
+jt-waf-mgr switched off for now (`off_by_us`, `change_ids`). `POST /nginx/proto` (approver, `feature` `http2` or
+`http3`, `mode` `off` or `on`, `reason`) proposes switching the feature off for a while, or back on as it was, as a
+change of op `proto`.
+
 ### 4.2 Events
 
 **`GET /events`**: scope `events:read`. Events, newest first. Parameters (all optional):

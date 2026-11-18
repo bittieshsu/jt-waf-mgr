@@ -10,6 +10,10 @@
 #   sudo ./build-modsecurity-module.sh 1.30.7-1~bookworm  # a given nginx package version (its source package)
 #   sudo ./build-modsecurity-module.sh 1.30.7          # an upstream nginx version (nginx.org/download, NGINX_SHA256)
 #   OUT=/tmp/mod ./build-modsecurity-module.sh 1.30.7  # where to put the result (default: ./modsecurity-module-<version>)
+#   MODSECURITY_PREFIX=/usr/local/modsecurity-3.0.17 ./build-modsecurity-module.sh 1.30.7-1~bookworm
+#                                                      # a libmodsecurity built from source (newer than the distribution's,
+#                                                      # e.g. for security fixes): the module looks for it there (rpath),
+#                                                      # so that directory must exist on the WAF host as well
 #
 # Needs: build-essential, libmodsecurity-dev (or your own libmodsecurity's headers: MODSECURITY_INC / MODSECURITY_LIB),
 # libpcre2-dev, zlib1g-dev, libssl-dev, curl. The nginx source comes from the nginx.org source package when that
@@ -70,8 +74,16 @@ echo "$CONNECTOR_SHA256  connector.tar.gz" | sha256sum -c --quiet || die "the co
 tar xzf connector.tar.gz
 
 cd "nginx-$NGINX_VERSION"
+LDOPT=()
+if [ -n "${MODSECURITY_PREFIX:-}" ]; then
+    [[ "$MODSECURITY_PREFIX" =~ ^/[A-Za-z0-9._/-]+$ ]] || die "MODSECURITY_PREFIX must be an absolute path"
+    [ -f "$MODSECURITY_PREFIX/include/modsecurity/modsecurity.h" ] && [ -e "$MODSECURITY_PREFIX/lib/libmodsecurity.so" ] \
+        || die "no libmodsecurity in $MODSECURITY_PREFIX (include/modsecurity, lib)"
+    export MODSECURITY_INC="$MODSECURITY_PREFIX/include" MODSECURITY_LIB="$MODSECURITY_PREFIX/lib"
+    LDOPT=(--with-ld-opt="-Wl,-rpath,$MODSECURITY_PREFIX/lib")
+fi
 # --with-compat: the module loads into an nginx of this version built with other options (the distribution's)
-./configure --with-compat --add-dynamic-module="../ModSecurity-nginx-v$CONNECTOR_VERSION" >"$WORK/configure.log" 2>&1 \
+./configure --with-compat "${LDOPT[@]}" --add-dynamic-module="../ModSecurity-nginx-v$CONNECTOR_VERSION" >"$WORK/configure.log" 2>&1 \
     || { tail -20 "$WORK/configure.log" >&2; die "configure failed"; }
 make -j"$(nproc)" modules >"$WORK/make.log" 2>&1 || { tail -20 "$WORK/make.log" >&2; die "make failed"; }
 # strip, hash (and trust) inside this script's own directory; only then is a copy put in $OUT, which others may write
@@ -81,6 +93,9 @@ chmod 644 "$MOD"
 
 . /etc/os-release
 LIBMS=$(dpkg-query -W -f='${Package}=${Version}' 'libmodsecurity3*' 2>/dev/null | head -1 || true)
+if [ -n "${MODSECURITY_PREFIX:-}" ]; then
+    LIBMS="libmodsecurity $(PKG_CONFIG_PATH="$MODSECURITY_PREFIX/lib/pkgconfig" pkg-config --modversion modsecurity 2>/dev/null || echo '?') in $MODSECURITY_PREFIX"
+fi
 SHA=$(sha256sum "$MOD" | cut -d' ' -f1)
 cat > "$WORK/module.json" <<EOF
 {"module": "ngx_http_modsecurity_module.so", "sha256": "$SHA", "nginx_version": "$NGINX_VERSION",

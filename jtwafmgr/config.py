@@ -227,6 +227,16 @@ DEFAULTS = {
         'ptr': True,                  # look up the PTR of outside addresses (their zone's owner can see the question)
         'ptr_servers': [],            # empty: the internal servers, else the host's resolvers
     },
+    'nginxup': {
+        # the nginx update job (nginxup.py): nginx's own security advisories (nginx.org, the same site as the packages)
+        # read each run, an alert when the installed nginx is vulnerable in a feature this configuration uses
+        # (nginxsec.py; rules cannot refuse these), and the verified update proposed as a change an administrator approves
+        'advisories': True,
+        'auto_propose': True,
+        # a major advisory in HTTP/2 or HTTP/3 while the fixed nginx is not installed: the feature switched off at once
+        # (protooff.py: marked lines, health checks, the way back), and on again as it was once nginx is updated
+        'auto_mitigate': True,
+    },
     'iprep': {
         # IP reputation (iprep.py, jt-waf-mgr-iprep.service): public lists downloaded once a day and matched on this host,
         # Shodan InternetDB and the organisation's MISP asked about the outside addresses someone looks up. Off by default

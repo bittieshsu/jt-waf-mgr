@@ -252,6 +252,12 @@ class Workflow:
         if old is None and any(it['kind'] == 'crowdsec' and json.loads(it['spec'] or '{}').get('name') == name
                                for it in self.managed.items()):
             raise ChangeError('hub_rule_in_use', 409)      # one item per rule: change its sites with an update
+        if old is None:
+            # a change adding the same rule still on its way (0.4.98: the threat intelligence's own change for two sites
+            # and a person's for all sites were both applied, the rule twice)
+            pending = self._open_hub_adds().get(name)
+            if pending is not None:
+                raise ChangeError('hub_rule_pending', 409, change_id=pending)
         all_sites = bool(spec['all_sites']) if 'all_sites' in spec else bool((old or {}).get('all_sites'))
         hosts = spec.get('hosts') if spec.get('hosts') is not None else (old or {}).get('hosts')
         if all_sites:
@@ -388,7 +394,7 @@ class Workflow:
         reason, tests = self._start(reason, tests)
         if not isinstance(ops, list) or not 1 <= len(ops) <= self.BUNDLE_MAX:
             raise ChangeError('invalid_bundle', 422, limit=self.BUNDLE_MAX)
-        built, taken, items = [], set(), set()
+        built, taken, items, names = [], set(), set(), set()
         for i, o in enumerate(ops):
             if not isinstance(o, dict):
                 raise ChangeError('invalid_bundle', 422, index=i)
@@ -401,6 +407,10 @@ class Workflow:
             except ChangeError as e:
                 e.details = dict(e.details or {}, index=i)
                 raise
+            if b['kind'] == 'crowdsec' and b['op'] == 'add':
+                if b['spec']['name'] in names:
+                    raise ChangeError('invalid_bundle', 422, index=i, reason='hub_rule_twice')
+                names.add(b['spec']['name'])
             if b['item_id'] is not None:
                 if b['item_id'] in items:
                     raise ChangeError('invalid_bundle', 422, index=i, reason='item_twice')
@@ -421,6 +431,21 @@ class Workflow:
     # --- rules written by an older rule generator --------------------------------------------
     REGEN_KINDS = ('exclusion', 'confident_block', 'redaction', 'plugin', 'country', 'crowdsec')
     REGEN_TESTS_PER_ITEM = 2
+
+    def _open_hub_adds(self):
+        """CrowdSec rule name -> the open change that adds it (a single operation or a bundle's)."""
+        out = {}
+        for r in self.db.q("SELECT id, op, kind, spec FROM changes WHERE (kind='crowdsec' OR op='bundle') AND state NOT IN (%s) "
+                           "ORDER BY id" % ','.join('?' * len(FINAL)), FINAL):
+            try:
+                spec = json.loads(r['spec'])
+                ops = spec.get('ops', []) if r['op'] == 'bundle' else [{'op': r['op'], 'kind': r['kind'], 'spec': spec}]
+                for b in ops:
+                    if b.get('op') == 'add' and b.get('kind') == 'crowdsec' and isinstance((b.get('spec') or {}).get('name'), str):
+                        out.setdefault(b['spec']['name'], r['id'])
+            except (ValueError, AttributeError, TypeError):
+                continue
+        return out
 
     def _open_items(self):
         """item id -> the open change that touches it (a single operation or a bundle's)."""
@@ -899,7 +924,7 @@ class Workflow:
         summary = str(res.get('summary', ''))[:1000]
         spec = json.loads(r['spec'])
         if ok:          # the module question is settled: earlier alerts close (before any new one below is raised)
-            self.db.x("UPDATE alerts SET state='handled', handled_by='system', handled_at=?, note=? WHERE kind='nginx_module' "
+            self.db.x("UPDATE alerts SET state='handled', handled_by='system', handled_at=?, note=? WHERE kind IN ('nginx_module', 'nginx_security') "
                       "AND state='open'", (util.now(), 'nginx updated with a verified module (change #%d)' % cid))
         for flag, why in (('half', 'update_half_done'), ('not_held', 'hold_lost')):
             if res.get(flag):
@@ -927,6 +952,79 @@ class Workflow:
         rid = 'hold-%d' % int(util.now() * 1000)
         self._write_request({'request_id': rid, 'action': 'nginx_hold', 'package': up['nginx_package']})
         return rid
+
+    # --- HTTP/2 or HTTP/3 off for a while (protooff.py, 0.4.98) -----------------------------------------------------
+    def propose_proto(self, feature, mode, reason, actor, role=None, auto=False):
+        """Switch HTTP/2 or HTTP/3 off while nginx has a flaw in it (rules cannot refuse those), or back on as it was.
+        A person (approver or admin) proposes it, or the nginx update job for an nginx security advisory in a feature
+        in use (nginxsec.py; applied by itself when nginxup.auto_mitigate is on). The root program writes it."""
+        from . import protooff
+        if actor not in ('nginxup',) and role not in ('approver', 'admin'):
+            raise ChangeError('forbidden', 403)
+        reason = (reason or '').strip()
+        if not reason or len(reason) > 2000:
+            raise ChangeError('reason_required')
+        if feature not in protooff.FEATURES or mode not in protooff.MODES:
+            raise ChangeError('invalid_request', 422)
+        ids = self.proto_off_changes(feature) if mode == 'on' else None
+        try:
+            p = protooff.plan(self.cfg, feature, mode, from_changes=ids)
+        except protooff.PlanError as e:
+            raise ChangeError(e.code, 422, **(e.details or {}))
+        open_ = self.db.one("SELECT id FROM changes WHERE op='proto' AND state NOT IN (%s)" % ','.join('?' * len(FINAL)), FINAL)
+        if open_:
+            raise ChangeError('proto_change_pending', 409, change_id=open_[0])
+        spec = {'feature': feature, 'mode': mode, 'edits': p['edits'], 'from_changes': ids,
+                'auto': bool(auto and actor == 'nginxup')}
+        # off: less of nginx answers (a protocol), nothing more is let through; on: back as the person had it
+        direction = 'tighten' if mode == 'off' else 'neutral'
+        return self._insert('proto', 'system', None, None, spec, direction, reason, actor, 'user', protooff.preview(p), [],
+                            None if actor == 'nginxup' else actor)
+
+    def proto_off_changes(self, feature):
+        """The applied changes that switched the feature off: only their marked lines are ever put back."""
+        return [x[0] for x in self.db.q("SELECT id FROM changes WHERE op='proto' AND state='applied' AND "
+                                        "json_extract(spec, '$.mode')='off' AND json_extract(spec, '$.feature')=? ORDER BY id",
+                                        (feature,))][-200:]
+
+    def _proto_checks(self, cid, r):
+        from . import protooff
+        spec = json.loads(r['spec'])
+        checks = {'started_at': util.iso(util.now())}
+        try:
+            p = protooff.plan(self.cfg, spec['feature'], spec['mode'], from_changes=spec.get('from_changes'))
+        except protooff.PlanError as e:
+            checks['static'] = {'ok': False, 'error': e.code}
+            self._finish_checks(cid, checks, 'failed', '%s %s: %s' % (spec['feature'], spec['mode'], e.code))
+            return
+        key = lambda es: sorted((e['file'], e['line'], e['sha256'], e['old'], e['new']) for e in es)   # noqa: E731
+        if key(p['edits']) != key(spec['edits']):
+            checks['static'] = {'ok': False, 'error': 'changed_since_proposal'}
+            self._finish_checks(cid, checks, 'failed', 'the nginx configuration changed since the proposal; propose again')
+            return
+        checks['static'] = {'ok': True, 'lines': len(p['edits'])}
+        checks['finished_at'] = util.iso(util.now())
+        self._finish_checks(cid, checks, 'pending_approval', None)
+        # (spec.auto is set only by the nginx update job's own call, never from the API; "nginxup" is a reserved name)
+        if r['proposed_by'] == 'nginxup' and spec.get('auto') is True and self.cfg['nginxup'].get('auto_mitigate'):
+            # an nginx security advisory, major, in a feature in use: the feature goes off at once (health checks and
+            # the way back as for any change); switching it back on after the update is the same
+            self.log(cid, 'system', 'auto_approved', 'nginx security advisory: %s %s until nginx is updated' % (
+                spec['feature'], spec['mode']) if spec['mode'] == 'off' else 'nginx updated: %s back on as it was' % spec['feature'])
+            self.app.audit.log('change.approved', 'system', 'system', None, 'ok', change_id=cid, auto=True, op='proto')
+            self._queue_apply(cid, 'system')
+
+    def _send_proto(self, cid, r):
+        from . import protooff
+        spec = json.loads(r['spec'])
+        req = {'request_id': 'proto-c%d' % cid, 'action': 'proto', 'change_id': cid, 'feature': spec['feature'],
+               'mode': spec['mode'], 'edits': protooff.with_change({'feature': spec['feature'], 'mode': spec['mode'],
+                                                                    'edits': spec['edits']}, cid),
+               'from_changes': spec.get('from_changes'),
+               'health_urls': self.setting('health.urls'), 'wait_old_workers': self.setting('apply.wait_old_workers_seconds')}
+        self._write_request(req)
+        self._state(cid, 'applying')
+        self.log(cid, 'system', 'apply_requested', '%s %s' % (spec['feature'], spec['mode']))
 
     # --- ModSecurity on / off for one site (sitewaf.py) -------------------------------------------------------------
     def propose_site_waf(self, mode, host, reason, actor, role=None, kind='waf'):
@@ -1009,7 +1107,7 @@ class Workflow:
         self.log(cid, 'system', 'apply_requested', '%s %s for %s' % ('ModSecurity' if kind == 'waf' else 'Blocked page',
                                                                     'on' if spec['mode'] == 'enable' else 'off', spec['host']))
 
-    def _handle_site_result(self, res, r):
+    def _handle_site_result(self, res, r, op='site_waf'):
         cid = r['id']
         ok = res.get('result') == 'ok'
         summary = str(res.get('summary', ''))[:1000]
@@ -1025,7 +1123,7 @@ class Workflow:
         self._state(cid, 'applied' if ok else 'apply_failed', None if ok else summary)
         self.log(cid, 'system', 'applied' if ok else 'apply_failed', summary)
         self.app.audit.log('change.applied' if ok else 'change.apply_failed', 'system', 'system', None,
-                           'ok' if ok else 'failed', severity=None if ok else 'crit', change_id=cid, op='site_waf',
+                           'ok' if ok else 'failed', severity=None if ok else 'crit', change_id=cid, op=op,
                            summary=summary[:300])
 
     def _crs_checks(self, cid, r):
@@ -1184,6 +1282,8 @@ class Workflow:
             return self._crs_checks(cid, r)
         if r['op'] == 'site_waf':
             return self._site_checks(cid, r)
+        if r['op'] == 'proto':
+            return self._proto_checks(cid, r)
         if r['op'] == 'nginx':
             return self._nginx_checks(cid, r)
         checks = {'started_at': util.iso(util.now())}
@@ -1214,6 +1314,13 @@ class Workflow:
             dup = sorted(i for i, n in collections.Counter(ids).items() if n > 1)
             if dup:
                 raise ChangeError('duplicate_rule_ids', ids=dup)
+            # one item per CrowdSec rule: checked again on the result (two changes proposed before either was applied)
+            # (only one this change adds: a rule already twice in force must not stop every other change, and its
+            # removal is a person's decision)
+            twice = sorted(n for n, k in _hub_names(items).items()
+                           if n and k > 1 and k > _hub_names(self.managed.items(include_deleted=True)).get(n, 0))
+            if twice:
+                raise ChangeError('hub_rule_twice', name=twice[0])
             old = Managed.render(self.managed.items(include_deleted=True), base) if r['op'] != 'adopt' else {}
             checks['diff'] = _diff(old, files)
             checks['rules_sha256'] = _rules_hash(items)
@@ -1500,7 +1607,7 @@ class Workflow:
         r = self.get(cid)
         cur = self.managed.current_version()
         base = cur['version'] if cur else 0
-        if r['op'] not in ('adopt', 'crs', 'site_waf', 'nginx') and (r['base_version'] or 0) != base:   # no rule files in these
+        if r['op'] not in ('adopt', 'crs', 'site_waf', 'nginx', 'proto') and (r['base_version'] or 0) != base:   # no rule files in these
             # another change was applied meanwhile: check again against the new base
             self._state(cid, 'checking')
             self.log(cid, 'system', 'stale', 'version %s applied since the checks; checking again' % base)
@@ -1530,6 +1637,8 @@ class Workflow:
             return self._send_crs(cid, r)
         if r['op'] == 'site_waf':
             return self._send_site(cid, r)
+        if r['op'] == 'proto':
+            return self._send_proto(cid, r)
         if r['op'] == 'nginx':
             return self._send_nginx(cid, r)
         cur = self.managed.current_version()
@@ -1694,6 +1803,10 @@ class Workflow:
             if r and r['op'] == 'site_waf' and r['state'] == 'applying':
                 self._handle_site_result(res, r)
             return
+        if res.get('action') == 'proto':
+            if r and r['op'] == 'proto' and r['state'] == 'applying':
+                self._handle_site_result(res, r, op='proto')
+            return
         if res.get('action') == 'nginx_update':
             if r and r['op'] == 'nginx' and r['state'] == 'applying':
                 self._handle_nginx_result(res, r)
@@ -1843,6 +1956,22 @@ def _plain(items):
             d['spec'] = json.loads(d['spec'])
         out.append(d)
     return out
+
+
+def _spec_dict(it):
+    """An item's settings, stored (text) or about to be written (a dict)."""
+    spec = it.get('spec')
+    if isinstance(spec, str):
+        try:
+            spec = json.loads(spec or '{}')
+        except ValueError:
+            return {}
+    return spec if isinstance(spec, dict) else {}
+
+
+def _hub_names(items):
+    return collections.Counter(_spec_dict(it).get('name') for it in items
+                               if it.get('kind') == 'crowdsec' and not it.get('deleted') and it.get('enabled', 1))
 
 
 def _comment(r):

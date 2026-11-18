@@ -204,6 +204,12 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 op `nginx` の変更として提案します。承認には管理者のワンタイムコードと説明が必要です。`POST /nginx/hold` (管理者) は
 nginx パッケージを固定します (適用プログラムが apt-mark hold を実行)。
 
+0.4.98 からは確認時に nginx.org のセキュリティアドバイザリも読みます。`check.security` はインストール済みの nginx が該当する
+アドバイザリ (`issues`：`title`、`severity`、`cves`、`feature`、`in_use`、`candidate_fixes`) と `major_in_use`、
+`fixed_by_candidate` を示します。`proto` は HTTP/2・HTTP/3 を有効にしている設定の数 (`on`) と、一時停止中の行数
+(`off_by_us`、`change_ids`) です。`POST /nginx/proto` (承認者、`feature` は `http2` か `http3`、`mode` は `off` か `on`、
+`reason`) で、その機能の一時停止または元に戻す操作を op `proto` の変更として提案します。
+
 ### 4.2 イベント
 
 **`GET /events`**：スコープ `events:read`。イベントの一覧、新しい順。パラメーター（すべて任意）：

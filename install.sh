@@ -176,6 +176,7 @@ for u in jt-waf-mgr.service jt-waf-mgr-apply.service jt-waf-mgr-apply.path \
          jt-waf-mgr-intel.service jt-waf-mgr-intel.timer jt-waf-mgr-intel.path \
          jt-waf-mgr-hub.service jt-waf-mgr-hub.timer jt-waf-mgr-hub.path \
          jt-waf-mgr-nginxup.service jt-waf-mgr-nginxup.timer jt-waf-mgr-nginxup.path \
+         jt-waf-mgr-nginx-aptrefresh.service jt-waf-mgr-nginx-aptrefresh.path \
          jt-waf-mgr-nginxswap.service; do
     cp "$SRC/deploy/$u" "$UNIT_DIR/$u"
     chmod 644 "$UNIT_DIR/$u"
@@ -254,7 +255,9 @@ systemctl enable --now jt-waf-mgr-intel.timer jt-waf-mgr-intel.path >/dev/null
 systemctl enable --now jt-waf-mgr-hub.timer jt-waf-mgr-hub.path >/dev/null
 # Getting ready for nginx updates: a sandboxed one-shot job (daily timer + "check now" / a module upload on the page);
 # it downloads the next nginx package (not installed) only when apt has one and the ModSecurity module is built by hand.
-systemctl enable --now jt-waf-mgr-nginxup.timer jt-waf-mgr-nginxup.path >/dev/null
+# 0.4.98: every 6 hours, apt's lists for nginx's repository refreshed first (root, short) and nginx's own security
+# advisories read (nginx.org): an alert when the installed nginx is vulnerable in a feature in use.
+systemctl enable --now jt-waf-mgr-nginxup.timer jt-waf-mgr-nginxup.path jt-waf-mgr-nginx-aptrefresh.path >/dev/null
 # The apply program writes nginx configuration: it is armed only on request (--enable-apply),
 # normally right before the adoption step.
 if [ "$ENABLE_APPLY" = 1 ]; then

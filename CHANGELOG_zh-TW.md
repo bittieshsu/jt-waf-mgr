@@ -2,6 +2,15 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.4.98 (2026-11-19)
+
+- nginx 安全公告：nginx 本身的漏洞 (HTTP/2、HTTP/3、resolver、mail 與 stream 模組) 發生在 ModSecurity 看到請求之前，任何規則都封鎖不了。nginx 更新檢查現在每次都會讀取 nginx.org 的安全公告，比對已安裝的 nginx 與本站設定用到的功能 (HTTP/2、HTTP/3、resolver、mail、stream、PROXY protocol、ssl_preread、SSI、alias、TLS session ticket key)，並發出「nginx 安全更新」警示 (有用到的功能遇到嚴重公告時為緊急)，說明規則幫不上忙，以及修正版 nginx 是否已準備好。驗證過的更新會自動提出為變更，仍要管理者用一次性密碼核准。威脅情報裡的 nginx 項目改依公告判定 (已修正的版本會標記不適用)。nginx 更新頁會列出適用的公告。
+- 暫時關閉 HTTP/2 或 HTTP/3：修正版 nginx 裝好之前，可以在 nginx 更新頁暫時關閉 HTTP/2 或 HTTP/3 (之後再恢復)。每一行修改都會標上變更編號並保留原文，恢復時原樣放回；root 程式會自己重新規劃修改，確認沒有改到其他地方，再跑 nginx -t、reload、健康檢查，任何一步失敗就全部還原。開啟「嚴重公告時自動關閉 HTTP/2 或 HTTP/3」(設定 → nginx 更新，預設開啟) 時，有用到的功能遇到嚴重公告會立即關閉，更新後自動恢復。
+- nginx 更新檢查改為每 6 小時一次 (原本每天一次)，並先由短暫執行的 root 工作 (jt-waf-mgr-nginx-aptrefresh.service) 更新 nginx 套件庫的 apt 清單 (只更新有列出 nginx 套件庫的來源清單，簽章照常由 apt 檢查)，安全更新當天就看得到。「立即檢查」也會先更新清單。
+- deploy/build-modsecurity-module.sh：用 `MODSECURITY_PREFIX=/usr/local/modsecurity-<版本>` 可以讓模組改用自行編譯的 libmodsecurity (發行版還沒提供安全修正時)，模組會從該目錄載入。
+- CrowdSec 規則不會再重複套用：如果還在進行中的變更已經要加入同一條規則 (包括從 CrowdSec 頁一次套用多條的變更)，再提出會被拒絕並告知該變更的編號；同一筆多條變更不能加入同一條規則兩次；變更檢查也會拒絕讓同一條規則同時生效兩份的結果。已經重複套用的規則，CrowdSec 頁會列出兩份，並可移除其中一份。
+- 威脅情報：NVD 的分析只列出其他產品時 (例如函式庫的 CVE 只列出瀏覽器，或網頁應用的 CVE 只列出廠商自己的伺服器)，會標示為「可能歸錯產品」，不再走緊急處理；警示也會這樣說明。
+
 ## 0.4.97 (2026-11-18)
 
 - 威脅情報：發行版套件的版本 (`3.0.9-1+deb12u2`、`1.30.6-1~bookworm`、`2.9.14+dfsg-1.3~deb12u6`) 改用上游版本比較；不在 NVD 任何範圍內就判為不影響本站，在範圍內則維持不確定，並註明發行版可能已回補修正。只比對產品本身 (同廠商的其他產品，例如桌面版程式，不再被當成本站的軟體)。0.4.96 在正式機排除了 1 筆 (CVE-2026-73570，Zimbra 10.1.20)；其他大多是發行版套件版本。

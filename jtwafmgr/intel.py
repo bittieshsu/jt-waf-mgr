@@ -45,6 +45,8 @@ MAY_AFFECT = ('yes', 'unknown')
 def unverified(t):
     """An exploited vulnerability with preconditions (a C library, a build or configuration option...) that the host
     facts could not confirm: it gets a warning to check, not the urgent path (a version match alone over-reports)."""
+    if (t.get('version_check') or {}).get('result') == 'elsewhere':
+        return True             # 0.4.98: NVD names other products only (the model's product is likely wrong)
     return bool(t.get('preconditions')) and t.get('conditions_met') != 'yes'
 
 
@@ -878,8 +880,10 @@ def propose_hub_patches(app, run_id, log=print):
         if not hosts:
             continue
         # a change for this rule still on its way: wait for it (the next run looks again)
-        if db.one("SELECT 1 FROM changes WHERE kind='crowdsec' AND state IN ('checking', 'pending_approval', 'approved', "
-                  "'applying') AND json_extract(spec, '$.name')=?", (hr['name'],)):
+        # (also one of several rules proposed together, a bundle from the CrowdSec page)
+        if hr['name'] in app.workflow._open_hub_adds() or db.one(
+                "SELECT 1 FROM changes WHERE kind='crowdsec' AND state IN ('checking', 'pending_approval', 'approved', "
+                "'applying') AND json_extract(spec, '$.name')=?", (hr['name'],)):
             continue
         item = next((it for it in app.workflow.managed.items() if it['kind'] == 'crowdsec'
                      and json.loads(it['spec'] or '{}').get('name') == hr['name']), None)
@@ -1360,6 +1364,12 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
         retire_by_version(app, log=log)
     except Exception as e:      # noqa: BLE001 -- as above
         log('intel: version check failed: %s' % type(e).__name__)
+    try:
+        # nginx's own advisories (read by the nginx update job; 0.4.98) decide nginx's CVEs
+        from . import nginxsec
+        nginxsec.decide_threats(app, log=log)
+    except Exception as e:      # noqa: BLE001 -- as above
+        log('intel: nginx advisories check failed: %s' % type(e).__name__)
     tokens = session.tokens_in + session.tokens_out
     app.audit.log('intel.run', 'intel', 'system', None, 'ok', run_id=rid, threats=len(threats), new=len(new),
                   urgent=len(urgent), tokens=tokens)
@@ -1374,6 +1384,16 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
     for t in check:
         # exploited, but only under conditions this host may not meet: a person checks, nothing is rushed
         ver = known_version(t['our_version'])
+        vc = t.get('version_check') or {}
+        if vc.get('result') == 'elsewhere':
+            # NVD's analysis names other products only: likely attributed to the wrong product (0.4.98)
+            names = ', '.join(vc.get('products') or [])[:200]
+            alerts.raise_alert(db, app.audit, 'intel', 'exploited_vulnerability', 'warning', 'intel-check:%s:%s' % (t['id'], t['product']),
+                               {'reason': '%s is exploited in the wild, but NVD lists only %s, not %s: probably attributed to the '
+                                          'wrong product; check it and set it aside.' % (t['id'], names, t['product']),
+                                'msg': 'intel_elsewhere', 'cve': t['id'], 'product': t['product'], 'sw_version': ver,
+                                'products': names, 'run_id': rid}, link='/intel')
+            continue
         alerts.raise_alert(db, app.audit, 'intel', 'exploited_vulnerability', 'warning', 'intel-check:%s:%s' % (t['id'], t['product']),
                            {'reason': '%s in %s %s is exploited in the wild, but only where %s; this could not be confirmed '
                                       'for this host: check whether it applies.' % (

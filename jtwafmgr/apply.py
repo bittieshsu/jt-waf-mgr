@@ -87,6 +87,8 @@ class Applier:
             return self.check_countries(req)
         if isinstance(req, dict) and req.get('action') == 'site_waf':
             return self.check_site_waf(req)
+        if isinstance(req, dict) and req.get('action') == 'proto':
+            return self.check_proto(req)
         if isinstance(req, dict) and req.get('action') in ('nginx_update', 'nginx_hold'):
             return self.check_nginx(req)
         if not isinstance(req, dict) or req.get('action') != 'apply':
@@ -668,7 +670,8 @@ class Applier:
         goes ahead only when both agree and every file still has the contents that were checked and approved."""
         from . import sitewaf
         kind = req.get('kind') or 'waf'
-        if not isinstance(req.get('change_id'), int) or req.get('mode') not in sitewaf.MODES or kind not in sitewaf.KINDS:
+        if type(req.get('change_id')) is not int or req['change_id'] <= 0 or req.get('mode') not in sitewaf.MODES or \
+                kind not in sitewaf.KINDS:
             raise Fail('request', 'bad site_waf request')
         req['kind'] = kind
         try:
@@ -823,6 +826,103 @@ class Applier:
                 files[os.path.realpath(f)] = hashlib.sha256(fh.read()).hexdigest()
         return {'result': 'ok', 'summary': '; '.join(log), 'files': files, 'snippet_created': made_snip,
                 'site': {'host': p['host'], 'mode': req['mode'], 'kind': kind, 'blocks': [[b['file'], b['line']] for b in p['blocks']]}}
+
+    # --- HTTP/2 or HTTP/3 off for a while, and back on (protooff.py) -------------------------------------------------
+    def check_proto(self, req):
+        """The request names the feature, the mode and the lines the web service planned; root plans again itself and
+        goes ahead only when both agree (files, lines, contents, the new lines) and every file is still as checked."""
+        from . import protooff
+        if type(req.get('change_id')) is not int or req['change_id'] <= 0 or req.get('feature') not in protooff.FEATURES or \
+                req.get('mode') not in protooff.MODES:
+            raise Fail('request', 'bad proto request')
+        fc = req.get('from_changes')
+        if req['mode'] == 'on' and (not isinstance(fc, list) or len(fc) > 200 or
+                                    not all(type(x) is int and 0 < x < 10 ** 10 for x in fc)):
+            raise Fail('request', 'bad from_changes')
+        try:
+            p = protooff.plan(self.cfg, req['feature'], req['mode'], from_changes=fc if req['mode'] == 'on' else None)
+        except protooff.PlanError as e:
+            raise Fail('validate', '%s %s: %s %s' % (req['feature'], req['mode'], e.code, e.details or ''))
+        mine = protooff.with_change(p, req['change_id'])
+        key = lambda es: sorted((str(e.get('file')), e.get('line'), e.get('sha256'), e.get('old'), e.get('new'))   # noqa: E731
+                                for e in es if isinstance(e, dict))
+        if not isinstance(req.get('edits'), list) or key(req['edits']) != key(mine):
+            raise Fail('drift', 'the planned lines changed since the checks')
+        urls = req.get('health_urls') or []
+        if not isinstance(urls, list) or len(urls) > 100 or not all(
+                isinstance(u, str) and re.fullmatch(r'https?://[a-z0-9.-]+(?::\d{1,5})?/\S{0,500}', u) for u in urls):
+            raise Fail('request', 'bad health check list')
+        try:
+            req['wait_old_workers'] = max(0, min(600, int(req.get('wait_old_workers') or 120)))
+        except (TypeError, ValueError):
+            raise Fail('request', 'bad wait_old_workers')
+        top = os.path.dirname(os.path.realpath(self.cfg['paths']['nginx_conf'])).rstrip('/') + '/'
+        for f in {e['file'] for e in mine}:
+            real = os.path.realpath(f)
+            if not real.startswith(top) or not os.path.isfile(real):
+                raise Fail('validate', '%s is not a file inside the nginx configuration directory' % f)
+        req['plan_edits'] = mine
+        return req
+
+    def proto_write(self, req):
+        from . import protooff
+        feature, mode = req['feature'], req['mode']
+        by_file = {}
+        for e in req['plan_edits']:
+            by_file.setdefault(os.path.realpath(e['file']), []).append(e)
+        urls = req.get('health_urls') or []
+        pre = self.health(urls)
+        saved = {}
+        for f, es in by_file.items():
+            fd = os.open(f, os.O_RDONLY | os.O_NOFOLLOW)
+            with os.fdopen(fd, 'rb') as fh:
+                st = os.fstat(fh.fileno())
+                data = fh.read()
+            if hashlib.sha256(data).hexdigest() != es[0]['sha256']:
+                raise Fail('drift', '%s changed since the checks' % f)
+            saved[f] = (data, st.st_mode & 0o7777, st.st_uid, st.st_gid)
+        self.check_binary()
+        before, n_before, errs = protooff.signature(self.cfg, feature)
+        if errs:
+            raise Fail('validate', 'the nginx configuration cannot be read: %s' % '; '.join(errs[:2]))
+        log = []
+        try:
+            for f, es in by_file.items():
+                text, fmode, uid, gid = saved[f]
+                new = protooff.edit(text.decode('utf-8'), es)
+                write_atomic(f, new.encode('utf-8'), fmode)
+                os.chown(f, uid, gid)
+            log.append('%s %s: %d line(s) in %d file(s)' % (feature, mode, len(req['plan_edits']), len(by_file)))
+            # nothing but the feature changed, and the feature is gone (off) or back (on)
+            after, n_after, errs = protooff.signature(self.cfg, feature)
+            want_n = 0 if mode == 'off' else n_before + len(req['plan_edits'])
+            if errs or after != before or (mode == 'off' and n_after != 0) or (mode == 'on' and n_after != want_n):
+                raise Fail('verify', 'the written files do not change exactly the planned lines')
+            self.test_config()
+            log.append('nginx -t ok')
+            log.append(self.reload(int(req.get('wait_old_workers') or 120)))
+            post = self.health(urls)
+            diff = {u: [pre[u], post[u]] for u in urls if pre[u] != post[u]}
+            if diff:
+                raise Fail('health', 'health check changed for %d url(s)' % len(diff), health=diff)
+        except Exception as e:      # noqa: BLE001 -- whatever went wrong, the files are put back
+            if not isinstance(e, Fail):
+                e = Fail('write', '%s: %s' % (type(e).__name__, clean(str(e), 300)))
+            for f, (text, fmode, uid, gid) in saved.items():
+                write_atomic(f, text, fmode)
+                os.chown(f, uid, gid)
+            try:
+                self.reload(int(req.get('wait_old_workers') or 120))
+            except Fail:
+                pass
+            e.summary += ' -- the files were put back, nginx reloaded'
+            raise e
+        files = {}
+        for f in by_file:
+            with open(f, 'rb') as fh:
+                files[f] = hashlib.sha256(fh.read()).hexdigest()
+        return {'result': 'ok', 'summary': '; '.join(log), 'files': files,
+                'proto': {'feature': feature, 'mode': mode, 'lines': [[e['file'], e['line']] for e in req['plan_edits']]}}
 
     # --- nginx update and hold (nginxswap.py) -------------------------------------------------------------------------
     def nginxup_dir(self):
@@ -1088,6 +1188,9 @@ class Applier:
                 elif req.get('action') == 'site_waf':
                     res.update(action='site_waf', change_id=req['change_id'])
                     res.update(self.site_waf_write(req))
+                elif req.get('action') == 'proto':
+                    res.update(action='proto', change_id=req['change_id'])
+                    res.update(self.proto_write(req))
                 elif req.get('action') == 'nginx_update':
                     res.update(action='nginx_update', change_id=req['change_id'])
                     res.update(self.nginx_update(req))
@@ -1113,6 +1216,9 @@ class Applier:
             ms = re.match(r'site-c(\d+)$', base)
             if ms:
                 res.update(action='site_waf', change_id=int(ms.group(1)))
+            mp = re.match(r'proto-c(\d+)$', base)
+            if mp:
+                res.update(action='proto', change_id=int(mp.group(1)))
             mc = re.match(r'crs-c(\d+)$', base)
             if mc:
                 res.update(action='crs_switch', change_id=int(mc.group(1)))

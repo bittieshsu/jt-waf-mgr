@@ -298,7 +298,7 @@ class Monitor:
         the contents it wrote (the root program reports each file's hash): a later edit of the same file is outside."""
         ours = {}
         # oldest first: a later change to the same file (on, then off) leaves its own hash, the newest one
-        for (checks,) in self.db.q("SELECT checks FROM changes WHERE op='site_waf' AND state='applied' AND updated_at >= ? "
+        for (checks,) in self.db.q("SELECT checks FROM changes WHERE op IN ('site_waf', 'proto') AND state='applied' AND updated_at >= ? "
                                    'ORDER BY updated_at, id', (last['ts'] - 1800,)):
             try:
                 ours.update(json.loads(checks or '{}').get('applied_files') or {})

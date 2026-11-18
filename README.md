@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.97
+# jt-waf-mgr v0.4.98
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -163,6 +163,12 @@ measuring on your own traffic before you rely on it; a CDN or cloud WAF is the o
   program re-verifies the signature, unpacks it itself, switches the crs link and switches back on any failure; 3
   versions are kept to roll back. A host without the CRS can install CRS 4 the same way (its Includes go right after
   modsecurity.conf).
+- **nginx updates and nginx's own flaws** (new in 0.4.98): every 6 hours the next nginx is tried with the ModSecurity
+  module (so the WAF is never left behind by an update) and nginx.org's security advisories are compared with the
+  installed nginx and the features this configuration uses. Flaws in nginx itself (HTTP/2, HTTP/3, resolver...) happen
+  before ModSecurity sees a request, so the alert says to update; the verified update is proposed for an admin to
+  approve, and HTTP/2 or HTTP/3 can be switched off for a while (by itself for a major advisory, back on after the
+  update) with marked, exactly reversible edits.
 - **Log servers (syslog / SIEM)**: up to 8 destinations, each with its own protocol (local socket, UDP, TCP, TLS),
   record format (JSON, CEF, LEEF 2.0, GELF 1.1, key=value) and content (audit records, WAF events, alerts); its own
   queue and retries; a test send that shows exactly what went out.
@@ -202,7 +208,7 @@ measuring on your own traffic before you rely on it; a CDN or cloud WAF is the o
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # a fixed place for the releases
-V=0.4.97; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.98; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # the release, its signature, the public key
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -424,7 +430,7 @@ the file next to the current values and writes only what you tick).
 
 ```sh
 cd /opt/jt-waf-mgr-install   # the new release, unpacked into the same current
-V=0.4.97; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.98; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # every check, nothing changed

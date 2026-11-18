@@ -62,7 +62,37 @@ def update_status(app, req):
         'update': up.get('update'), 'held': up.get('held'), 'supported': up.get('supported'),
         'hand_built': up.get('hand_built') or [], 'module_packages': [m for m in up.get('modules') or [] if m.get('package')],
         'check': job, 'waiting': waiting, 'checked_at': st.get('checked_at'),
-        'open_change': _open_change(app)})
+        'open_change': _open_change(app), 'proto': _proto_state(app)})
+
+
+def _proto_state(app):
+    """HTTP/2 and HTTP/3 in this configuration, and the lines jt-waf-mgr switched off (0.4.98)."""
+    from .. import protooff
+    from ..changes import FINAL
+    from .api import _wf
+    try:
+        # the lines this system switched off (applied changes only; a comment in that shape is not one)
+        out = {f: protooff.state(app.cfg, from_changes=_wf(app).proto_off_changes(f))[f] for f in protooff.FEATURES}
+    except Exception:       # noqa: BLE001 -- no configuration to read
+        return None
+    r = app.db.one("SELECT id FROM changes WHERE op='proto' AND state NOT IN (%s)" % ','.join('?' * len(FINAL)), FINAL)
+    out['open_change'] = r[0] if r else None
+    return out
+
+
+def proto(app, req):
+    """Approver: switch HTTP/2 or HTTP/3 off for a while (nginx has a flaw in it), or back on as it was -- a change."""
+    from ..changes import ChangeError
+    from .api import _change_error, _wf
+    b = req.body()
+    if not isinstance(b, dict) or not isinstance(b.get('feature'), str) or not isinstance(b.get('mode'), str):
+        raise ApiError(400, 'bad_request', 'feature and mode')
+    try:
+        cid = _wf(app).propose_proto(b['feature'], b['mode'], b.get('reason') if isinstance(b.get('reason'), str) else '',
+                                     req.user['username'], role=req.user['role'])
+    except ChangeError as e:
+        raise _change_error(e)
+    return json_response(202, {'change_id': cid})
 
 
 def _open_change(app):
@@ -74,7 +104,7 @@ def _open_change(app):
 def update_check(app, req):
     """Admin: try the next nginx package with the waiting module now."""
     try:
-        nginxup.request_check(app.cfg)
+        nginxup.request_refresh(app.cfg)        # apt's lists for nginx first (0.4.98), then the check
     except OSError as e:
         raise ApiError(500, 'request_failed', str(e)[:200])
     app.audit.log('nginx.update_check_requested', req.user['username'], 'user', req.client_ip, 'ok')
@@ -159,3 +189,4 @@ def register(router):
     R('POST', V + '/nginx/update/check', update_check, ('admin',))
     R('POST', V + '/nginx/update/propose', update_propose, ('admin',))
     R('POST', V + '/nginx/hold', hold, ('admin',))
+    R('POST', V + '/nginx/proto', proto, ('role', 'approver', None))

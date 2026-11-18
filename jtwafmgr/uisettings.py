@@ -50,6 +50,9 @@ EDITABLE = {
     'llm.timeout_seconds': ('int', {'min': 10, 'max': 900}),
     'llm.daily_tokens': ('int', {'min': 0, 'max': 100000000}),
     'hub.enabled': ('bool', {}),
+    'nginxup.advisories': ('bool', {}),
+    'nginxup.auto_propose': ('bool', {}),
+    'nginxup.auto_mitigate': ('bool', {}),
     'llm.monthly_tokens': ('int', {'min': 0, 'max': 2000000000}),
     # scheduled event analysis
     'analyst.enabled': ('bool', {}),

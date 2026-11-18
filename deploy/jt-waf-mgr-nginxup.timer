@@ -1,10 +1,12 @@
 [Unit]
-Description=jt-waf-mgr: daily check of the next nginx update
+Description=jt-waf-mgr: check the next nginx update and nginx's security advisories (every 6 hours)
 
 [Timer]
-OnCalendar=*-*-* 05:20
-RandomizedDelaySec=1h
+# 0.4.98: every 6 hours (was daily), with apt's lists for nginx refreshed first: a security release is seen the same day
+OnCalendar=*-*-* 05,11,17,23:20
+RandomizedDelaySec=30min
 Persistent=true
+Unit=jt-waf-mgr-nginx-aptrefresh.service
 
 [Install]
 WantedBy=timers.target

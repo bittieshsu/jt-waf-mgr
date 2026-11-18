@@ -68,18 +68,34 @@ def _in_use(app, idx):
         except ValueError:
             continue
         name = sp.get('name')
+        if name in applied:
+            # in force twice (two changes for the same rule, before 0.4.98): shown so a person can remove one
+            applied[name].setdefault('others', []).append({'item_id': it['id'], 'rule_id': it['rule_id'],
+                                                           'change_id': it.get('change_id'), 'hosts': sp.get('hosts') or [],
+                                                           'all_sites': bool(sp.get('all_sites'))})
+            continue
         applied[name] = {'item_id': it['id'], 'rule_id': it['rule_id'], 'rule_count': sp.get('rule_count') or 1,
                          'enabled': bool(it['enabled']), 'sha256': sp.get('sha256'), 'commit': sp.get('commit'),
                          'hosts': sp.get('hosts') or [], 'all_sites': bool(sp.get('all_sites')), 'source': sp.get('source'),
                          'change_id': it.get('change_id'),
                          'upstream': ('removed' if name not in shas else 'same' if shas[name] == sp.get('sha256') else 'changed')}
-    for c in app.db.q("SELECT id, op, state, spec FROM changes WHERE kind='crowdsec' AND state IN (%s) ORDER BY id"
-                      % ','.join('?' * len(OPEN_STATES)), OPEN_STATES):
+    by_item = {a['item_id']: n for n, a in applied.items()}
+    for c in app.db.q("SELECT id, op, kind, item_id, state, spec FROM changes WHERE (kind='crowdsec' OR op='bundle') "
+                      "AND state IN (%s) ORDER BY id" % ','.join('?' * len(OPEN_STATES)), OPEN_STATES):
         try:
-            name = json.loads(c['spec'] or '{}').get('name')
-        except ValueError:
+            spec = json.loads(c['spec'] or '{}')
+            # several rules applied at once from this page are one change (a bundle): each of its rules is on its way
+            ops = (spec.get('ops') or []) if c['op'] == 'bundle' else \
+                [{'op': c['op'], 'kind': c['kind'], 'item_id': c['item_id'], 'spec': spec}]
+        except (ValueError, AttributeError):
             continue
-        open_[name] = {'change_id': c['id'], 'op': c['op'], 'state': c['state']}
+        for b in ops:
+            if not isinstance(b, dict) or b.get('kind') not in ('crowdsec', None):
+                continue
+            name = (b.get('spec') or {}).get('name') if isinstance(b.get('spec'), dict) else None
+            name = name or by_item.get(b.get('item_id'))
+            if name and (b.get('kind') == 'crowdsec' or b.get('item_id') in by_item):
+                open_.setdefault(name, {'change_id': c['id'], 'op': b.get('op'), 'state': c['state']})
     return applied, open_
 
 

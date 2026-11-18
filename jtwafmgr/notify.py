@@ -136,6 +136,9 @@ TEXT = {
         'r.ver_unknown': ' (本站版本未知)',
         'r.intel_urgent': '{sw} 的 {cve} 已被利用，{affects}{vu}：請盡快更新軟體，或決定是否加上預防規則。',
         'r.intel_check': '{sw} 的 {cve} 已被利用，但只在特定條件下才會受影響{vu}；無法確認本站是否符合，請確認是否適用。',
+        'r.intel_elsewhere': '{cve} 已被利用，但 NVD 只列出 {products}，沒有 {product}：可能歸錯產品，請確認後標記不適用。',
+        'r.nginx_security': 'nginx {v} 有 {n} 個安全問題出在本站設定有用到的功能 ({cves})。WAF 規則封鎖不了這類問題：請更新 nginx。{ready}',
+        'r.nginx_ready': '更新到 {v} 已準備好 (ModSecurity 模組已用它驗證過)。',
         'r.intel_patch': '{sw} 的 {cve} 已被利用，{affects}{vu}，但預先防護規則沒有生效：請更新軟體，或決定要不要用規則。',
         'r.intel_remove': '{product} 已更新為 {now} (寫 {cve} 的預先防護規則時是 {was})：確認新版已修補後，移除規則 {rule_id}。',
         'f.conditions': '前提條件',
@@ -229,6 +232,9 @@ TEXT = {
         'r.ver_unknown': ' (the version here is not known)',
         'r.intel_urgent': '{cve} in {sw} is exploited in the wild and {affects}{vu}: update the software soon, or decide on a precaution rule.',
         'r.intel_check': '{cve} in {sw} is exploited in the wild, but only under certain conditions{vu}; whether this site meets them could not be confirmed: check whether it applies.',
+        'r.intel_elsewhere': '{cve} is exploited in the wild, but NVD lists only {products}, not {product}: probably attributed to the wrong product; check it and set it aside.',
+        'r.nginx_security': 'nginx {v} has {n} security issue(s) in features this configuration uses ({cves}). WAF rules cannot refuse these: update nginx.{ready}',
+        'r.nginx_ready': ' The update to {v} is ready (the ModSecurity module was verified with it).',
         'r.intel_patch': '{cve} in {sw} is exploited in the wild and {affects}{vu}, but the precaution rule is not in force: update the software, or decide on a rule.',
         'r.intel_remove': '{product} is now {now} (it was {was} when the precaution rule for {cve} was written): check that the update fixes it, then remove rule {rule_id}.',
         'f.conditions': 'Conditions',
@@ -323,6 +329,9 @@ TEXT = {
         'r.ver_unknown': ' (当サイトのバージョン不明)',
         'r.intel_urgent': '{sw} の {cve} は悪用されており、{affects}{vu}：早めにソフトウェアを更新するか、予防ルールを決めてください。',
         'r.intel_check': '{sw} の {cve} は悪用されていますが、特定の条件でのみ影響します{vu}。当サイトが該当するかは確認できませんでした：該当するか確認してください。',
+        'r.intel_elsewhere': '{cve} は悪用されていますが、NVD に記載されているのは {products} だけで {product} はありません。製品の割り当て誤りの可能性があります：確認してから対象外にしてください。',
+        'r.nginx_security': 'nginx {v} には、この設定で使っている機能に {n} 件のセキュリティ問題があります ({cves})。WAF ルールでは拒否できません。nginx を更新してください。{ready}',
+        'r.nginx_ready': ' {v} への更新は準備済みです (ModSecurity モジュールを検証済み)。',
         'r.intel_patch': '{sw} の {cve} は悪用されており、{affects}{vu}が、予防ルールが有効になっていません：ソフトウェアを更新するか、ルールを決めてください。',
         'r.intel_remove': '{product} は {now} に更新されました ({cve} の予防ルール作成時は {was})：更新で修正されたことを確認してから、ルール {rule_id} を削除してください。',
         'f.conditions': '前提条件',
@@ -570,13 +579,17 @@ def _link(cfg, path):
     return base + path if base and path else None
 
 
-ALERT_MSGS = ('intel_urgent', 'intel_check', 'intel_patch', 'intel_remove')
+ALERT_MSGS = ('intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere')
 
 
 def alert_text(lang, d):
     """An alert's sentence in the notification language: alerts that carry a message key and its values are worded
     here (the stored "reason" is the English one, for the audit trail and the log servers)."""
     msg = d.get('msg')
+    if msg == 'nginx_security':
+        return _t(lang, 'r.nginx_security', v=_v(d.get('installed'), 40), n=len(d.get('issues') or []),
+                  cves=_v(', '.join(str(c) for c in (d.get('cves') or [])[:20]), 400),
+                  ready=_t(lang, 'r.nginx_ready', v=_v(d.get('candidate'), 40)) if d.get('ready') and d.get('candidate') else '')
     if msg not in ALERT_MSGS:
         return d.get('reason') or ''
     ver = str(d.get('sw_version') or '').strip()
@@ -584,7 +597,8 @@ def alert_text(lang, d):
     kw = {'cve': _v(d.get('cve'), 40), 'product': product, 'sw': (product + ' ' + _v(ver, 40)) if ver else product,
           'vu': '' if ver else _t(lang, 'r.ver_unknown'),
           'affects': _t(lang, 'r.aff_yes' if d.get('affected') == 'yes' else 'r.aff_maybe'),
-          'now': _v(d.get('sw_version'), 40), 'was': _v(d.get('sw_was'), 40), 'rule_id': _v(d.get('rule_id'), 20)}
+          'now': _v(d.get('sw_version'), 40), 'was': _v(d.get('sw_was'), 40), 'rule_id': _v(d.get('rule_id'), 20),
+          'products': _v(d.get('products'), 200)}
     if msg == 'intel_remove':
         kw['vu'] = ''
     return _t(lang, 'r.' + msg, **kw)

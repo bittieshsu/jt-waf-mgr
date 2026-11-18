@@ -152,6 +152,7 @@ const GROUPS = [
   { key: 'n_webhook', icon: 'link', channel: 'webhook', keys: ['notify.webhook_enabled', 'notify.webhook_url', 'notify.webhook_secret', 'notify.webhook_token'] },
   { key: 'countries', icon: 'globe', keys: ['countries.enabled'] },
   { key: 'hub', icon: 'shield', keys: ['hub.enabled'] },
+  { key: 'nginxup', icon: 'server', keys: ['nginxup.advisories', 'nginxup.auto_propose', 'nginxup.auto_mitigate'] },
   { key: 'iprep', icon: 'shield', keys: ['iprep.enabled', 'iprep.lists', 'iprep.internetdb', 'iprep.misp_url', 'iprep.misp_api_key', 'iprep.misp_verify_tls', 'iprep.misp_cert_sha256'] },
   { key: 'dns', icon: 'network', keys: ['dns.enabled', 'dns.internal_servers', 'dns.external_servers', 'dns.check_hours', 'dns.ptr', 'dns.ptr_servers'] },
   { key: 'blocks', icon: 'lock', keys: ['blocks.enabled', 'blocks.protected', 'blocks.max_active', 'blocks.max_per_token', 'blocks.token_per_hour', 'blocks.default_ttl', 'blocks.api_max_ttl', 'blocks.ui_max_ttl', 'blocks.reload_seconds', 'blocks.auto_recon', 'blocks.auto_recon_paths', 'blocks.auto_recon_minutes', 'blocks.auto_recon_ttl', 'blocks.auto_recon_per_hour'] },

@@ -547,6 +547,61 @@ class TestWorkflow(unittest.TestCase):
         self.assertEqual((ops[0]['spec']['rule_count'], ops[1]['rule_id']), (3, 10403))
 
 
+    def test_same_rule_never_added_twice(self):
+        """0.4.98: the threat intelligence's change for two sites and a person's for all sites were both applied (the
+        second was proposed while the first was on its way)."""
+        name = 'crowdsecurity/vpatch-two-ways'
+        a = self.wf.propose('add', 'crowdsec', {'name': name, 'hosts': ['app.example.com']}, 'x', 'op')
+        with self.assertRaises(ChangeError) as cm:                    # on its way: refused, naming the change
+            self.wf.propose('add', 'crowdsec', {'name': name, 'all_sites': True}, 'x', 'op')
+        self.assertEqual((cm.exception.code, cm.exception.details.get('change_id')), ('hub_rule_pending', a))
+        with self.assertRaises(ChangeError) as cm:                    # inside a bundle too
+            self.wf.propose_bundle([{'op': 'add', 'kind': 'crowdsec', 'spec': {'name': name, 'all_sites': True}}], 'x', 'op')
+        self.assertEqual(cm.exception.code, 'hub_rule_pending')
+        self.wf.cancel(a, self.app.auth.user_row('op'))
+        b = self.wf.propose_bundle([{'op': 'add', 'kind': 'crowdsec', 'spec': {'name': name, 'all_sites': True}}], 'x', 'op')
+        from jtwafmgr.web import api_hub                              # a bundle from the CrowdSec page is on its way too
+        self.assertEqual(api_hub._in_use(self.app, hub.read_index(self.env.cfg))[1][name]['change_id'], b)
+        with self.assertRaises(ChangeError) as cm:
+            self.wf.propose('add', 'crowdsec', {'name': name, 'hosts': ['app.example.com']}, 'x', 'op')
+        self.assertEqual((cm.exception.code, cm.exception.details.get('change_id')), ('hub_rule_pending', b))
+        self.wf.cancel(b, self.app.auth.user_row('op'))
+        with self.assertRaises(ChangeError) as cm:                    # the same rule twice in one bundle
+            self.wf.propose_bundle([{'op': 'add', 'kind': 'crowdsec', 'spec': {'name': name, 'hosts': ['a.example.com']}},
+                                    {'op': 'add', 'kind': 'crowdsec', 'spec': {'name': name, 'hosts': ['b.example.com']}}],
+                                   'x', 'op')
+        self.assertEqual((cm.exception.code, cm.exception.details.get('reason')), ('invalid_bundle', 'hub_rule_twice'))
+
+    def test_result_with_the_rule_twice_fails_the_static_check(self):
+        name = 'crowdsecurity/vpatch-two-ways'
+        a = self.wf.propose('add', 'crowdsec', {'name': name, 'hosts': ['app.example.com']}, 'x', 'op')
+        orig = self.wf._open_hub_adds
+        self.wf._open_hub_adds = lambda: {}                           # as before 0.4.98: both proposed
+        b = self.wf.propose('add', 'crowdsec', {'name': name, 'all_sites': True}, 'x', 'op')
+        self.wf._open_hub_adds = orig
+        self.wf.run_checks(a)
+        self.approve(a)
+        self.fake_apply()
+        self.wf.run_checks(b)
+        r = self.wf.get(b)
+        self.assertEqual((r['state'], json.loads(r['checks'])['static'].get('error')), ('failed', 'hub_rule_twice'))
+        # a rule already in force twice (from before 0.4.98) does not stop other changes, such as its own update
+        it = next(i for i in self.wf.managed.items() if i['kind'] == 'crowdsec')
+        from jtwafmgr import rulegen
+        spec = json.loads(it['spec'])
+        _, text, _ = rulegen.build('crowdsec', spec, it['rule_id'] + 20, self.wf.cfg)
+        self.wf.db.x("INSERT INTO managed_rules(rule_id, kind, placement, position, spec, text, comment, enabled, origin, "
+                     "created_by, created_at, updated_at) VALUES (?, 'crowdsec', ?, ?, ?, ?, '', 1, 'created', 'op', 0, 0)",
+                     (it['rule_id'] + 20, it['placement'], it['position'] + 0.5, it['spec'], text))
+        from jtwafmgr.web import api_hub
+        applied, open_ = api_hub._in_use(self.app, hub.read_index(self.env.cfg))
+        self.assertEqual([o['rule_id'] for o in applied[name]['others']], [it['rule_id'] + 20])   # shown, to remove one
+        c = self.wf.propose('modify', None, {'hosts': ['app.example.com', 'b.example.com']}, 'x', 'op', item_id=it['id'])
+        self.wf.run_checks(c)
+        self.assertTrue(json.loads(self.wf.get(c)['checks'])['static']['ok'], self.wf.get(c)['checks'][:300])
+        self.assertEqual(api_hub._in_use(self.app, hub.read_index(self.env.cfg))[1][name]['change_id'], c)
+
+
 class TestEvaluate(unittest.TestCase):
     def test_inside_request_refused_before_the_change_is_not_its_doing(self):
         """0.4.95 (jt-wazuh-mgr, change #78): an external-only block's "same request from inside" may be refused by rules

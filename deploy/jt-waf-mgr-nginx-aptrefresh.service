@@ -1,0 +1,38 @@
+[Unit]
+Description=jt-waf-mgr: refresh apt's lists for nginx's repository, then check the next nginx update
+Documentation=file:///usr/lib/jt-waf-mgr/README.md
+After=network-online.target
+Wants=network-online.target
+# root, short: `apt-get update` for the source lists that name nginx's repositories only (apt checks signatures as
+# always), so a security release is seen within hours instead of whenever the system's own daily timer runs. It takes no
+# input from the jt-waf-mgr user; a request file only says "now". The update check runs afterwards, whatever happened.
+# generous: the timer runs it every 6 hours and "check now" at most every 15 minutes
+StartLimitIntervalSec=3600
+StartLimitBurst=20
+
+[Service]
+Type=oneshot
+User=root
+Nice=10
+Environment=PYTHONPATH=/usr/lib/jt-waf-mgr
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -P -m jtwafmgr.aptrefresh --package nginx
+ExecStopPost=/bin/systemctl start --no-block jt-waf-mgr-nginxup.service
+TimeoutStartSec=15min
+ProtectSystem=full
+ReadWritePaths=/var/lib/apt /var/cache/apt /var/lib/jt-waf-mgr/nginxup
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+SystemCallArchitectures=native
+UMask=0022

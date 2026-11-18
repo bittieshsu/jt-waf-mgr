@@ -30,6 +30,7 @@ REQUEST = 'check.request'
 STATUS = 'status.json'
 MODULE_NAME = 'ngx_http_modsecurity_module.so'
 MAX_MODULE = 8 * 1024 * 1024
+REFRESH_EVERY = 15 * 60          # "check now" refreshes apt's lists at most this often
 
 
 def base(cfg):
@@ -66,6 +67,26 @@ def request_check(cfg):
     d = base(cfg)
     os.makedirs(d, mode=0o750, exist_ok=True)
     with open(os.path.join(d, REQUEST), 'w') as fh:
+        fh.write(util.iso(time.time()))
+
+
+def request_refresh(cfg):
+    """Check now, with apt's lists for nginx refreshed first (root, jt-waf-mgr-nginx-aptrefresh.service; it starts
+    the check afterwards)."""
+    d = base(cfg)
+    os.makedirs(d, mode=0o750, exist_ok=True)
+    stamp = os.path.join(d, 'refresh.last')
+    try:
+        recent = time.time() - os.stat(stamp).st_mtime < REFRESH_EVERY
+    except OSError:
+        recent = False
+    if recent:
+        # refreshed a moment ago: just check (systemd limits how often the root job may start; clicking "check now"
+        # again and again must not use that up)
+        return request_check(cfg)
+    with open(stamp, 'w') as fh:
+        fh.write(util.iso(time.time()))
+    with open(os.path.join(d, 'refresh.request'), 'w') as fh:
         fh.write(util.iso(time.time()))
 
 
@@ -204,9 +225,59 @@ def run(app, log=print, now=None):
             st.update(_prepare(cfg, up, 'update', [], log))
     except Exception as e:      # noqa: BLE001 -- reported; tried again next time
         st.update(state='error', error=('%s: %s' % (type(e).__name__, e))[:300])
+    try:
+        security(app, st, log)
+    except Exception as e:      # noqa: BLE001 -- the update check stands; the advisories are read again next run
+        log('nginxup: security advisories: %s' % type(e).__name__)
     _write_status(cfg, st)
     log('nginxup: %s' % st.get('state'))
     return st
+
+
+def security(app, st, log=print, get=None):
+    """0.4.98: nginx's own security advisories against the installed nginx (nginxsec.py): kept in the status, an alert
+    for the ones in features this configuration uses, nginx threats of the threat intelligence decided by them, and the
+    verified update proposed (an administrator approves it with a one-time code; never applied by itself)."""
+    from . import nginxsec
+    cfg = app.cfg
+    if not cfg['nginxup'].get('advisories') or not st.get('installed'):
+        return None
+    nginxsec.refresh(cfg, get=get, log=log)
+    # a feature this system switched off for now still counts as used: nginx stays vulnerable until it is updated
+    from . import protooff
+    feats = nginxsec.features(cfg)
+    wf = getattr(app, 'workflow', None)
+    if wf is not None:
+        for f in MITIGABLE:
+            try:
+                if protooff.state(cfg, from_changes=wf.proto_off_changes(f))[f]['off_by_us']:
+                    feats[f] = True
+            except Exception:       # noqa: BLE001 -- no configuration to read: as it is
+                pass
+    a = nginxsec.raise_alerts(app, st, log=log, feats=feats)
+    st['security'] = {'version': a['version'], 'exact': a['exact'], 'major_in_use': a['major_in_use'],
+                      'fixed_by_candidate': a['fixed_by_candidate'], 'issues': a['issues'][:40]}
+    nginxsec.decide_threats(app, st.get('installed'), log=log)
+    try:
+        st['mitigation'] = mitigate(app, a, log)
+    except Exception as e:      # noqa: BLE001 -- the alert stands; tried again next run
+        log('nginxup: mitigation: %s' % type(e).__name__)
+    used = [i for i in a['issues'] if i['in_use']]
+    if used and st.get('state') == 'ready' and cfg['nginxup'].get('auto_propose') and getattr(app, 'workflow', None):
+        from .changes import ChangeError
+        cves = sorted({c for i in used for c in i['cves']})
+        try:
+            cid = app.workflow.propose_nginx(
+                'nginx %s -> %s: nginx.org security advisories for features this configuration uses (%s). Rules cannot '
+                'refuse these; the ModSecurity module was verified with the new nginx (%s).' % (
+                    a['version'], st.get('target'), ', '.join(cves)[:600] or ', '.join(i['title'] for i in used)[:600],
+                    st.get('detail') or 'ready'), 'nginxup', role='admin')
+            st['proposed_change'] = cid
+            log('nginxup: update proposed as change #%d' % cid)
+        except ChangeError as e:
+            if e.code != 'nginx_change_pending':
+                log('nginxup: update not proposed (%s)' % e.code)
+    return a
 
 
 def _single_package(pkg, version):
@@ -311,3 +382,48 @@ def _prepare(cfg, up, mode, packaged, log):
     log('nginxup: %s %s (%s): %s' % (pkg, target, mode, detail))
     return dict(out, state='ready' if ok else 'failed', **{'detail' if ok else 'error': detail},
                 verified_at=util.iso(time.time()) if ok else None)
+
+
+MITIGABLE = ('http2', 'http3')
+
+
+def mitigate(app, a, log=print):
+    """0.4.98: a major advisory in HTTP/2 or HTTP/3 while the installed nginx is vulnerable and the configuration has the
+    feature on: propose switching it off (protooff.py). Once the installed nginx is vulnerable to no advisory about the
+    feature (updated), propose putting back the lines this system switched off. Applied by themselves when
+    nginxup.auto_mitigate is on -- not for a distribution's nginx package, which may carry the fixes already (backports):
+    a person decides there. Returns what was proposed: {'change_id', 'feature', 'mode'}."""
+    from . import protooff
+    from .changes import ChangeError
+    wf = getattr(app, 'workflow', None)
+    if wf is None or not a.get('version'):
+        return None
+    # what the installed nginx is vulnerable to, whether the feature is on now or switched off already
+    vulnerable = {i['feature'] for i in a['issues'] if i['feature'] in MITIGABLE}
+    major = {i['feature'] for i in a['issues'] if i['feature'] in MITIGABLE and i['severity'] in ('major', 'high', 'critical')}
+    ours = {f: wf.proto_off_changes(f) for f in MITIGABLE}
+    todo = []
+    for f in MITIGABLE:
+        st = protooff.state(app.cfg, from_changes=ours[f])[f]
+        if f in major and st['on']:
+            todo.append((f, 'off'))
+        elif f not in vulnerable and st['off_by_us']:
+            todo.append((f, 'on'))
+    for f, mode in todo:
+        name = f.upper().replace('HTTP', 'HTTP/')
+        cves = sorted({c for i in a['issues'] if i['feature'] == f for c in i['cves']})
+        reason = ('nginx %s: nginx.org security advisory in %s (%s), which this configuration uses; rules cannot refuse it. '
+                  '%s off until nginx is updated (browsers fall back to an older protocol).' % (
+                      a['version'], name, ', '.join(cves)[:400], name)
+                  if mode == 'off' else
+                  'nginx %s is vulnerable to no advisory in %s any more: the lines switched off for it go back as they were.' % (
+                      a['version'], name))
+        try:
+            cid = wf.propose_proto(f, mode, reason, 'nginxup', auto=bool(a.get('exact')))
+        except ChangeError as e:
+            if e.code not in ('proto_change_pending', 'nothing_to_do'):
+                log('nginxup: %s %s not proposed (%s)' % (f, mode, e.code))
+            continue
+        log('nginxup: %s %s proposed as change #%d' % (f, mode, cid))
+        return {'change_id': cid, 'feature': f, 'mode': mode}       # one at a time (one open change of this kind)
+    return None

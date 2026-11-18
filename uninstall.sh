@@ -31,7 +31,7 @@ UNITS="$ROOT/etc/systemd/system"
 units=$(
     { for f in "$UNITS"/jt-waf-mgr*.path "$UNITS"/jt-waf-mgr*.timer "$UNITS"/jt-waf-mgr*.service; do
           [ -f "$f" ] && basename "$f"; done
-      for n in nginxswap nginxup hub intel iprep dns countries crs notify analyst geoip; do
+      for n in nginx-aptrefresh nginxswap nginxup hub intel iprep dns countries crs notify analyst geoip; do
           printf 'jt-waf-mgr-%s.path\njt-waf-mgr-%s.timer\njt-waf-mgr-%s.service\n' "$n" "$n" "$n"; done
       printf 'jt-waf-mgr-apply.path\njt-waf-mgr-apply.service\njt-waf-mgr.service\n'
     } | awk '!seen[$0]++' | awk '/\.path$/ {print 1, $0; next} /\.timer$/ {print 2, $0; next} {print 3, $0}' \

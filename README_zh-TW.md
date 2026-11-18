@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.97
+# jt-waf-mgr v0.4.98
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -122,6 +122,10 @@ jt-waf-mgr 不在請求路徑上：每個請求一樣由 nginx 加 ModSecurity �
   有效簽章的版本並放進暫存區；CRS 頁顯示使用中、最新與已驗證的版本。切換到新版（或退回保留的舊版）是一筆變更：新舊兩版在沙箱
   跑同一批最近的請求比對，由人核准，root 程式重新驗章、自己解開、切換 crs 連結，任何一步失敗就切回；保留 3 個版本可以退回。
   還沒有 CRS 的主機也能用同樣的流程安裝 CRS 4（Include 加在 modsecurity.conf 之後）。
+- **nginx 更新與 nginx 本身的漏洞**（0.4.98 新增）：每 6 小時用 ModSecurity 模組試跑下一版 nginx（更新後 WAF 不會失效），
+  並比對 nginx.org 的安全公告與已安裝的 nginx、本站設定用到的功能。nginx 本身的漏洞（HTTP/2、HTTP/3、resolver 等）發生在
+  ModSecurity 看到請求之前，所以警示會說明要更新；驗證過的更新會提出給管理者核准，也可以先暫時關閉 HTTP/2 或 HTTP/3
+  （嚴重公告時自動關閉、更新後自動恢復），修改的每一行都有標記並可原樣還原。
 - **外送記錄（syslog / SIEM）**：最多 8 個目的地，各自選協定（本機 socket、UDP、TCP、TLS）、訊息格式（JSON、CEF、LEEF 2.0、
   GELF 1.1、key=value）與送出內容（稽核記錄、WAF 事件、警示）；各有自己的佇列與重試；測試送出會顯示實際送出的內容。
 - **帳號**：scrypt 密碼、approver / admin 必須雙因素驗證、鎖定、含歷史與期限的密碼政策、帳號到期與審查；API 權杖有範圍與
@@ -153,7 +157,7 @@ jt-waf-mgr 不在請求路徑上：每個請求一樣由 nginx 加 ModSecurity �
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # 發行檔的固定位置
-V=0.4.97; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.98; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # 發行檔、簽章與公鑰
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -349,7 +353,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新版本一樣解開到 current
-V=0.4.97; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.98; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # 只做所有檢查，不改任何東西

@@ -125,7 +125,8 @@ restore_from() {  # <backup dir>
              jt-waf-mgr-dns.service jt-waf-mgr-intel.path jt-waf-mgr-intel.timer jt-waf-mgr-intel.service \
              jt-waf-mgr-iprep.path jt-waf-mgr-iprep.timer jt-waf-mgr-iprep.service \
              jt-waf-mgr-hub.path jt-waf-mgr-hub.timer jt-waf-mgr-hub.service \
-             jt-waf-mgr-nginxup.path jt-waf-mgr-nginxup.timer jt-waf-mgr-nginxup.service; do $SYSTEMCTL stop "$u" 2>/dev/null || true; done
+             jt-waf-mgr-nginxup.path jt-waf-mgr-nginxup.timer jt-waf-mgr-nginxup.service \
+             jt-waf-mgr-nginx-aptrefresh.path jt-waf-mgr-nginx-aptrefresh.service; do $SYSTEMCTL stop "$u" 2>/dev/null || true; done
     $SYSTEMCTL stop jt-waf-mgr.service 2>/dev/null || true
     rm -rf "$LIB/jtwafmgr" "$LIB/release" "$LIB/LICENSE"
     tar -C "${ROOT:-/}" -xf "$B/files.tar"
@@ -138,6 +139,7 @@ restore_from() {  # <backup dir>
              jt-waf-mgr-intel.path jt-waf-mgr-intel.timer jt-waf-mgr-intel.service \
              jt-waf-mgr-hub.path jt-waf-mgr-hub.timer jt-waf-mgr-hub.service \
              jt-waf-mgr-nginxup.path jt-waf-mgr-nginxup.timer jt-waf-mgr-nginxup.service \
+             jt-waf-mgr-nginx-aptrefresh.path jt-waf-mgr-nginx-aptrefresh.service \
              jt-waf-mgr-nginxswap.service; do
         if ! tar -tf "$B/files.tar" | grep -qx "etc/systemd/system/$u" && [ -e "${ROOT:-}/etc/systemd/system/$u" ]; then
             $SYSTEMCTL disable --now "$u" >/dev/null 2>&1 || true
@@ -164,7 +166,8 @@ restore_from() {  # <backup dir>
              jt-waf-mgr-crs.timer jt-waf-mgr-crs.path jt-waf-mgr-countries.timer jt-waf-mgr-countries.path \
              jt-waf-mgr-dns.timer jt-waf-mgr-dns.path jt-waf-mgr-intel.timer jt-waf-mgr-intel.path \
              jt-waf-mgr-iprep.timer jt-waf-mgr-iprep.path \
-             jt-waf-mgr-hub.timer jt-waf-mgr-hub.path jt-waf-mgr-nginxup.timer jt-waf-mgr-nginxup.path; do
+             jt-waf-mgr-hub.timer jt-waf-mgr-hub.path jt-waf-mgr-nginxup.timer jt-waf-mgr-nginxup.path \
+             jt-waf-mgr-nginx-aptrefresh.path; do
         if [ -e "${ROOT:-}/etc/systemd/system/$u" ]; then $SYSTEMCTL start "$u" 2>/dev/null || true; fi
     done
 }
@@ -256,7 +259,8 @@ echo "$OLD" > "$B/version.old"; echo "$NEW" > "$B/version.new"; echo "$APPLY_ARM
                etc/systemd/system/jt-waf-mgr-intel.path etc/systemd/system/jt-waf-mgr-hub.service \
                etc/systemd/system/jt-waf-mgr-hub.timer etc/systemd/system/jt-waf-mgr-hub.path \
                etc/systemd/system/jt-waf-mgr-nginxup.service etc/systemd/system/jt-waf-mgr-nginxup.timer \
-               etc/systemd/system/jt-waf-mgr-nginxup.path etc/systemd/system/jt-waf-mgr-nginxswap.service; do [ -e "$p" ] && echo "$p"; done) )
+               etc/systemd/system/jt-waf-mgr-nginxup.path etc/systemd/system/jt-waf-mgr-nginxswap.service \
+               etc/systemd/system/jt-waf-mgr-nginx-aptrefresh.service etc/systemd/system/jt-waf-mgr-nginx-aptrefresh.path; do [ -e "$p" ] && echo "$p"; done) )
 python3 -I -c "
 import sqlite3, sys
 src = sqlite3.connect('file:$DB?mode=ro', uri=True)

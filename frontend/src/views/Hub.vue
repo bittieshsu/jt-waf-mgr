@@ -86,7 +86,7 @@
           <template #cell-related="{ row }"><template v-if="row.related.length"><span v-for="p in row.related" :key="p.name" class="chip" :class="p.tech ? 'tag' : 'ok'"
             :title="p.tech ? t('hub.via_tech', { tech: p.name, via: p.via.join(', ') }) : ''">{{ safeText(p.name, 60) }}<span v-if="p.tech" class="muted"> ({{ safeText(p.via.join(', '), 80) }})</span></span></template><span v-else class="muted">—</span></template>
           <template #cell-use="{ row }"><RouterLink v-if="row.open_change" class="badge b-int" :to="'/changes/' + row.open_change.change_id" @click.stop>{{ useText(row) }}</RouterLink>
-            <span v-else-if="row.applied" class="badge" :class="row.applied.upstream === 'same' ? 'b-ok' : 'b-warn'">{{ useText(row) }}<template v-if="row.applied.all_sites"> · {{ t('hub.all_sites_short') }}</template></span>
+            <span v-else-if="row.applied" class="badge" :class="row.applied.upstream === 'same' && !(row.applied.others || []).length ? 'b-ok' : 'b-warn'">{{ useText(row) }}<template v-if="row.applied.all_sites"> · {{ t('hub.all_sites_short') }}</template></span>
             <button v-else-if="canPropose && row.ok && row.tests" type="button" class="btn small primary" @click.stop="applyRule(row)"><Icon name="add" />{{ t('hub.apply_btn') }}</button>
             <span v-else-if="row.ok" class="muted small" :title="data.outdated_index ? '' : tOr('hub.why.' + row.tests_reason, row.tests_reason || '')">{{ t(data.outdated_index ? 'hub.use.need_sync' : 'hub.use.no_tests') }}</span>
             <span v-else class="muted">—</span></template>
@@ -117,6 +117,13 @@
                                                               to: detail.applied.rule_id + detail.applied.rule_count - 1 }) }}
                       <RouterLink v-if="detail.applied.change_id" class="gapl" :to="'/changes/' + detail.applied.change_id">{{ t('hub.by_change', { id: detail.applied.change_id }) }}</RouterLink></p>
                     <p v-if="detail.applied.upstream !== 'same'" class="alert warn small">{{ t('hub.upstream_' + detail.applied.upstream) }}</p>
+                    <!-- 0.4.98: the same rule in force twice (two changes before the check covered open ones) -->
+                    <div v-for="o in detail.applied.others || []" :key="o.item_id" class="alert warn small hubtwice">
+                      <span><Icon name="warning" /> {{ t('hub.twice', { sites: o.all_sites ? t('hub.all_sites') : o.hosts.join(', '), rule: o.rule_id }) }}
+                        <RouterLink v-if="o.change_id" class="gapl" :to="'/changes/' + o.change_id">{{ t('hub.by_change', { id: o.change_id }) }}</RouterLink></span>
+                      <button v-if="canPropose && !detail.open_change" type="button" class="btn small danger" :disabled="busy || !form.reason.trim()"
+                              :title="form.reason.trim() ? '' : t('hub.twice_reason')" @click.stop="removeCopy(o)"><Icon name="delete" />{{ t('hub.twice_remove') }}</button>
+                    </div>
                   </template>
                   <p v-if="detail.open_change" class="small"><RouterLink :to="'/changes/' + detail.open_change.change_id">{{ t('hub.open_change', { id: detail.open_change.change_id }) }}</RouterLink></p>
                   <template v-else-if="canPropose">
@@ -289,7 +296,8 @@ async function applyPicked() {
 function useText(r) {
   if (r.open_change) return t('hub.use.open', { id: r.open_change.change_id })
   if (!r.applied) return ''
-  return r.applied.upstream === 'same' ? t('hub.use.applied') : t('hub.use.' + r.applied.upstream)
+  const base = r.applied.upstream === 'same' ? t('hub.use.applied') : t('hub.use.' + r.applied.upstream)
+  return (r.applied.others || []).length ? base + ' · ' + t('hub.use.twice', { n: r.applied.others.length + 1 }) : base
 }
 
 const refuseCount = (d) => (d.tests || []).filter((x) => (x.expect || 'refuse') === 'refuse').length
@@ -342,6 +350,14 @@ async function propose(op) {
     router.push('/changes/' + r.change_id)
   } catch (e) { proposeError.value = e } finally { busy.value = false }
 }
+async function removeCopy(o) {
+  busy.value = true
+  proposeError.value = null
+  try {
+    const r = await post('/changes', { op: 'delete', item_id: o.item_id, spec: {}, reason: form.reason.trim() })
+    router.push('/changes/' + r.change_id)
+  } catch (e) { proposeError.value = e } finally { busy.value = false }
+}
 async function removeGone(a) {
   busy.value = true
   proposeError.value = null
@@ -380,6 +396,7 @@ onUnmounted(() => clearInterval(timer))
 
 <style scoped>
 .hubtiles { margin: 0 0 14px; }
+.hubtwice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
 .hubbatch { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; margin: 0 0 10px; }
 .hubbatch .grow { flex: 1 1 18em; }
 .hubbatch .batchnote { flex-basis: 100%; margin: 0; }

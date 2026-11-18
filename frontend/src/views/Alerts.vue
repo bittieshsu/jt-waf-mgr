@@ -104,12 +104,16 @@ const cols = computed(() => [
 function kindText(r) { return tOr('alerts.kind.' + r.kind, r.kind) }
 // threat intelligence alerts carry a message key and its values: worded in the interface language (the stored
 // reason is the English one, kept for the audit trail)
-const MSGS = ['intel_urgent', 'intel_check', 'intel_patch', 'intel_remove']
+const MSGS = ['intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere']
 function reasonText(r) {
   const d = r.details || {}
   if (r.kind === 'nginx_module') {
     return t('nginxmod.alert.' + (d.reason || 'ok'), { installed: String(d.installed || d.nginx_version || ''), candidate: String(d.candidate || ''),
       package: String(d.package || 'nginx') })
+  }
+  if (r.kind === 'nginx_security') {
+    return t('alerts.nginx_security', { v: String(d.installed || ''), n: (d.issues || []).length, cves: (d.cves || []).join(', '),
+      ready: d.ready && d.candidate ? t('alerts.nginx_security_ready', { v: String(d.candidate) }) : '' })
   }
   if (!MSGS.includes(d.msg)) return d.reason || ''
   const ver = String(d.sw_version || '').trim()
@@ -118,7 +122,7 @@ function reasonText(r) {
     cve: String(d.cve || ''), product, sw: ver ? product + ' ' + ver : product,
     vu: ver || d.msg === 'intel_remove' ? '' : t('alerts.ver_unknown'),
     affects: t(d.affected === 'yes' ? 'alerts.aff_yes' : 'alerts.aff_maybe'),
-    now: ver, was: String(d.sw_was || ''), rule_id: String(d.rule_id || ''),
+    now: ver, was: String(d.sw_was || ''), rule_id: String(d.rule_id || ''), products: String(d.products || ''),
   })
 }
 // an alert becomes a change: find a recent event of that site and path (paths in alerts are decoded and lower case,

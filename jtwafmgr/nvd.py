@@ -164,15 +164,21 @@ def _words(name):
 
 
 def version_check(product, version, entries):
-    """Whether our version of a product is among NVD's affected ones: {'result': 'yes' | 'no', 'ranges': [...]} or None
+    """Whether our version of a product is among NVD's affected ones: {'result': 'yes' | 'no', 'ranges': [...]},
+    {'result': 'elsewhere', 'products': [...]} (NVD names only other products) or None
     (NVD names no such product, our version is not plain numbers, or an entry cannot be compared -- unknown)."""
     ours, distro = _ours(version)
     words = _words(product)
-    if ours is None or not words or not entries:
+    if not words or not entries:
         return None
     # the product itself (a vendor's other products -- a desktop client, a plugin -- are not ours)
     mine = [e for e in entries if words & _words(e['product'].replace('_', ' '))]
     if not mine:
+        # 0.4.98: NVD's analysis names other products only (a browser for a library's CVE, a vendor's own server for a
+        # web application's): the model's product is likely wrong. Said, and no longer urgent; a person sets it aside.
+        names = list(dict.fromkeys('%s %s' % (e['vendor'], e['product']) for e in entries))
+        return {'result': 'elsewhere', 'ranges': [], 'products': names[:8]}
+    if ours is None:
         return None
     ranges, hit, unsure = [], False, False
     for e in mine:
