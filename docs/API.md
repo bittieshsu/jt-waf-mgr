@@ -521,6 +521,12 @@ Scope `lookups:read`.
 - **`GET /lookups/ip/{ip}`**: what jt-waf-mgr has seen from one address in the last 7 and 30 days, with its PTR name
   (`ptr`: the name and whether it leads back to the address; `{"pending": true}` while the DNS job looks it up).
 - **`GET /lookups/ip/{ip}/card`**: the short form the pages show on hover (where, PTR, blocked, the last 7 days).
+- IP reputation (0.4.94): both answers carry `reputation` for an outside address: `verdict` (`malicious`, `suspicious`
+  or `no_record` -- never "safe"), `reasons` (`source`: `site` (this site's own evidence), `list`, `internetdb` or `misp`;
+  `level`: `high`, `medium` or `info`), and on the full answer `lists` (the downloaded lists it is on), `online`
+  (Shodan InternetDB, MISP) and `pending` (the online sources are being asked by their own job; ask again in a few
+  seconds). `GET /iprep/status` (scope `lookups:read`): the lists, when they were downloaded, which online sources are
+  on. `POST /iprep/update` (admin, web session): download the lists now.
 - **`GET /intel`** (scope `events:read`): threat intelligence: the second-tier LLM's status and token use, the vulnerabilities found (id, product and our version, exploited, affects us, severity, request pattern, references, status), the software list, the searches. `POST /intel/run`, `POST /intel/threats/{id}` (`{"status": "open"|"handled"|"ignored"}`), `POST /intel/software`, `PATCH`/`DELETE /intel/software/{id}`, `POST /intel/software/guess` (also removes guesses no longer made that nobody confirmed), `POST /intel/software/confirm-all` (`{"confirmed": n}`): approver, web session. `POST /intel/test` (admin; `{"what": "mcp"}` tests the MCP search server alone) and `GET /intel/test`: the connection test, done by the threat intelligence service.
 - **`GET /events/{id}/analysis`** (scope `events:read`): the latest AI analysis of one event (`state` queued / running / done, `verdict`, `confidence`, `summary`, `evidence`, `action`, `action_reason`, `model`, `error`) and whether the LLM is ready. `POST /events/{id}/analysis` (operator, web session): queue one; 409 `llm_not_ready`.
 - **`POST /vhosts/waf`** (approver, web session): `{"host", "mode": "enable"|"disable", "reason"}` -> 202 `{"change_id"}`: ModSecurity on (or off again) for one site, as a change. `GET /vhosts` marks `waf_by_us` (switched on from here) and lists `site_changes` in progress.

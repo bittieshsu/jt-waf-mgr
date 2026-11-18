@@ -302,6 +302,16 @@ def cmd_dns_check(args):
     return 0
 
 
+def cmd_iprep_run(args):
+    """Run by jt-waf-mgr-iprep.service (hourly timer, or a request file): the IP lists when due, then the addresses
+    someone looked up."""
+    from . import iprep
+    app = _app(args)
+    st = iprep.run(app, log=lambda m: print(m, flush=True), force_lists=args.force)
+    print(json.dumps(st))
+    return 0
+
+
 def cmd_crs_update(args):
     """Run by jt-waf-mgr-crs.service (daily timer, or "check now" from the CRS page); also usable by hand."""
     from . import crsupdate
@@ -421,6 +431,8 @@ def main(argv=None):
     cu.add_argument('--force', action='store_true', help='check even when crs.manage is off (nothing is installed)')
     gu = sub.add_parser('geoip-update', help='download the GeoIP databases now (normally run by its own unit)')
     gu.add_argument('--force', action='store_true', help='even when the files are recent')
+    ir = sub.add_parser('iprep-run', help='download the IP reputation lists when due and look up the addresses someone opened (normally run by its own unit)')
+    ir.add_argument('--force', action='store_true', help='download the lists even when they are recent')
     sub.add_parser('dns-check', help='ask the DNS servers about the site names and look up PTR names now (normally run by its own unit)')
     nt = sub.add_parser('nginx-module-trust', help='root: trust a ModSecurity module file for nginx updates (adds its SHA-256 to /etc/jt-waf-mgr/trusted-modules.sha256)')
     nt.add_argument('file')
@@ -452,7 +464,7 @@ def main(argv=None):
     try:
         return {'serve': cmd_serve, 'user': cmd_user, 'import': cmd_import, 'check': cmd_check,
                 'integrity': cmd_integrity, 'verify-release': cmd_verify_release, 'audit-verify': cmd_audit_verify,
-                'backup': cmd_backup, 'geoip-update': cmd_geoip_update, 'countries-update': cmd_countries_update, 'hub-sync': cmd_hub_sync, 'nginx-update-check': cmd_nginx_update_check, 'nginx-module-trust': cmd_nginx_module_trust, 'dns-check': cmd_dns_check, 'crs-update': cmd_crs_update, 'geoip': cmd_geoip, 'analyst-run': cmd_analyst_run, 'intel-run': cmd_intel_run, 'notify-run': cmd_notify_run,
+                'backup': cmd_backup, 'geoip-update': cmd_geoip_update, 'countries-update': cmd_countries_update, 'hub-sync': cmd_hub_sync, 'nginx-update-check': cmd_nginx_update_check, 'nginx-module-trust': cmd_nginx_module_trust, 'dns-check': cmd_dns_check, 'iprep-run': cmd_iprep_run, 'crs-update': cmd_crs_update, 'geoip': cmd_geoip, 'analyst-run': cmd_analyst_run, 'intel-run': cmd_intel_run, 'notify-run': cmd_notify_run,
                 'config-check': cmd_config_check, 'migrate': cmd_migrate, 'doctor': cmd_doctor}[args.cmd](args)
     except config_mod.ConfigError as e:
         print('configuration error: %s' % e, file=sys.stderr)

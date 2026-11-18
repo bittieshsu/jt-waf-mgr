@@ -20,7 +20,8 @@ EMAIL_RE = r'[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}'
 HTTPS_URL_RE = r'(https://[A-Za-z0-9.-]+(?::\d{1,5})?/[^\s"\'<>\\]{0,1990})?'
 # a URL setting and the secret that belongs to that server: a stored secret is never sent to a different server
 # unless it is entered again (or cleared)
-BOUND = {'llm.url': ('llm.api_key',), 'intel.url': ('intel.api_key',), 'notify.zulip_site': ('notify.zulip_api_key',),
+from .iprep import LISTS as _IPREP_LISTS  # noqa: E402
+BOUND = {'iprep.misp_url': ('iprep.misp_api_key',), 'llm.url': ('llm.api_key',), 'intel.url': ('intel.api_key',), 'notify.zulip_site': ('notify.zulip_api_key',),
          'notify.nextcloud_url': ('notify.nextcloud_secret',), 'notify.smtp_host': ('notify.smtp_password',),
          'notify.webhook_url': ('notify.webhook_token', 'notify.webhook_secret')}
 SECRET = object()
@@ -130,6 +131,13 @@ EDITABLE = {
     'review.enabled': ('bool', {}),
     'review.interval_hours': ('int', {'min': 1, 'max': 24}),        # 1, 2, 3, 4, 6, 8, 12 or 24 (config check)
     'review.keep_days': ('int', {'min': 1, 'max': 3650}),
+    'iprep.enabled': ('bool', {}),
+    'iprep.lists': ('list', {'choices': tuple(_IPREP_LISTS), 'max_items': 20}),
+    'iprep.internetdb': ('bool', {}),
+    'iprep.misp_url': ('str', {'re': r'(https://[A-Za-z0-9.-]+(?::\d{1,5})?(?:/[\w./-]*)?)?', 'max': 300}),
+    'iprep.misp_api_key': ('secret', {'re': r'[A-Za-z0-9]{0,128}'}),
+    'iprep.misp_verify_tls': ('bool', {}),
+    'iprep.misp_cert_sha256': ('str', {'re': r'([0-9A-Fa-f]{2}(:?[0-9A-Fa-f]{2}){31})?', 'max': 95}),
     'dns.enabled': ('bool', {}),
     'dns.internal_servers': ('list', {'server': True, 'max_items': 10}),
     'dns.external_servers': ('list', {'server': True, 'max_items': 10}),

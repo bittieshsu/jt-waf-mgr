@@ -148,6 +148,28 @@ if cfg['dns']['enabled']:
                                               for n, (i, e) in names.items()}}, fh)
     with open(os.path.join(cfg['dns']['dir'], 'ptr.json'), 'w') as fh:
         json.dump({'203.0.113.9': {'name': 'scanner9.example.net', 'confirmed': True, 'at': now - 600}}, fh)
+# IP reputation: synthetic lists and online answers (nothing is downloaded or asked)
+if cfg['iprep']['enabled']:
+    d = cfg['iprep']['dir']
+    os.makedirs(os.path.join(d, 'lists'), exist_ok=True)
+    lists = {'cins': ['203.0.113.9/32', '198.51.100.77/32'], 'firehol_level1': ['203.0.113.0/26'], 'tor_exit': ['198.51.100.200/32'],
+             'spamhaus_drop': ['192.0.2.128/25'], 'blocklist_de': ['203.0.113.9/32']}
+    for lid, nets in lists.items():
+        with open(os.path.join(d, 'lists', lid + '.txt'), 'w') as fh:
+            fh.write('\n'.join(nets) + '\n')
+    with open(os.path.join(d, 'manifest.json'), 'w') as fh:
+        json.dump({lid: {'at': now - 3 * 3600, 'count': len(n), 'sha256': '0' * 64, 'bytes': 100, 'error': None}
+                   for lid, n in lists.items()}, fh)
+    with open(os.path.join(d, 'online.json'), 'w') as fh:
+        json.dump({'203.0.113.9': {'at': now - 600,
+                                   'internetdb': {'ports': [22, 80, 8080], 'tags': ['scanner'], 'vulns': ['CVE-2099-0001'],
+                                                  'vulns_total': 1, 'hostnames': ['scanner9.example.net'], 'cpes': []},
+                                   'misp': {'count': 3, 'to_ids': 3, 'weight': 'high', 'tags': ['tlp:white'],
+                                            'first': util.iso(now - 9 * 86400), 'last': util.iso(now - 86400),
+                                            'events': [{'id': '412', 'info': 'firehol_level1', 'weight': 'high', 'threat_level': 'undefined', 'date': ''},
+                                                       {'id': '88', 'info': 'IPsum level 1', 'weight': 'info', 'threat_level': 'undefined', 'date': ''}]}}}, fh)
+    with open(os.path.join(d, 'status.json'), 'w') as fh:
+        json.dump({'ran_at': util.iso(now - 600), 'ok': True}, fh)
 # country blocks: synthetic registry lists (documentation ranges stand in for countries) and one waiting rule
 if cfg['countries']['enabled']:
     from tests.test_countries import stage

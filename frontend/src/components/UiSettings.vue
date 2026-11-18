@@ -152,6 +152,7 @@ const GROUPS = [
   { key: 'n_webhook', icon: 'link', channel: 'webhook', keys: ['notify.webhook_enabled', 'notify.webhook_url', 'notify.webhook_secret', 'notify.webhook_token'] },
   { key: 'countries', icon: 'globe', keys: ['countries.enabled'] },
   { key: 'hub', icon: 'shield', keys: ['hub.enabled'] },
+  { key: 'iprep', icon: 'shield', keys: ['iprep.enabled', 'iprep.lists', 'iprep.internetdb', 'iprep.misp_url', 'iprep.misp_api_key', 'iprep.misp_verify_tls', 'iprep.misp_cert_sha256'] },
   { key: 'dns', icon: 'network', keys: ['dns.enabled', 'dns.internal_servers', 'dns.external_servers', 'dns.check_hours', 'dns.ptr', 'dns.ptr_servers'] },
   { key: 'blocks', icon: 'lock', keys: ['blocks.enabled', 'blocks.protected', 'blocks.max_active', 'blocks.max_per_token', 'blocks.token_per_hour', 'blocks.default_ttl', 'blocks.api_max_ttl', 'blocks.ui_max_ttl', 'blocks.reload_seconds', 'blocks.auto_recon', 'blocks.auto_recon_paths', 'blocks.auto_recon_minutes', 'blocks.auto_recon_ttl', 'blocks.auto_recon_per_hour'] },
   { key: 'traffic', icon: 'chart', keys: ['traffic.enabled', 'traffic.logs', 'traffic.keep_days', 'traffic.alert', 'traffic.spike_factor', 'traffic.min_requests', 'traffic.error_percent'] },
@@ -161,12 +162,13 @@ const GROUPS = [
 ]
 const MULTILINE = ['ui.login_notice']
 const MONO = ['syslog.address', 'geoip.account_id', 'llm.url', 'llm.model', 'intel.url', 'intel.model', 'intel.mcp_url', 'intel.fetch_domains', 'notify.base_url', 'notify.smtp_host', 'notify.telegram_chat_id',
-  'notify.zulip_site', 'notify.nextcloud_url', 'notify.nextcloud_token']
+  'notify.zulip_site', 'notify.nextcloud_url', 'notify.nextcloud_token', 'iprep.misp_url', 'iprep.misp_cert_sha256']
 const PLACEHOLDER = { 'syslog.address': '/dev/log', 'llm.url': 'http://192.0.2.10:8080/v1', 'intel.url': 'https://api.anthropic.com', 'intel.mcp_url': 'http://192.0.2.20:8021/mcp', 'geoip.account_id': '123456', 'notify.base_url': 'https://waf.example.com',
   'notify.smtp_host': 'mail.example.com', 'notify.smtp_from': 'waf@example.com', 'notify.telegram_chat_id': '-1001234567890',
   'notify.zulip_site': 'https://chat.example.com', 'notify.zulip_bot_email': 'waf-bot@chat.example.com', 'notify.zulip_stream': 'security',
   'notify.nextcloud_url': 'https://cloud.example.com', 'notify.teams_webhook': 'https://…', 'notify.slack_webhook': 'https://hooks.slack.com/services/…',
-  'notify.discord_webhook': 'https://discord.com/api/webhooks/…', 'notify.webhook_url': 'https://hooks.example.com/waf' }
+  'notify.discord_webhook': 'https://discord.com/api/webhooks/…', 'notify.webhook_url': 'https://hooks.example.com/waf',
+  'iprep.misp_url': 'https://misp.example.com', 'iprep.misp_cert_sha256': 'AB:CD:…' }
 
 const s = ref(null)
 const form = reactive({})

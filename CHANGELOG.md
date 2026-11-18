@@ -2,6 +2,13 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.94 (2026-11-18)
+
+- IP reputation: the IP lookup now says whether an outside address is known to be malicious, with the reasons -- this site's own evidence (blocks, confident rules, probing for secret files), public lists downloaded once a day and matched on the host (Spamhaus DROP, abuse.ch Feodo, FireHOL level 1, Emerging Threats compromised, CINS Army, blocklist.de, Tor exit nodes), Shodan InternetDB and your own MISP. The verdict is "malicious", "suspicious" or "no record" (never "safe"); the hover card shows it too. Nothing is blocked by itself.
+- MISP: attributes/restSearch for the one address (read only, no context fetched); since most IP attributes come from feeds, an event weighs by the feed it comes from (for example FireHOL level 1 or a C2 list high, IPsum level 1-2 or scanner lists information). A self-signed MISP certificate is pinned by its SHA-256 fingerprint.
+- The evidence check of a bundle of path rules works each log line out once per kind of rule (0.4.93's two views of the path made a bundle of 19 rules run out of time on 7 million lines).
+- Only the new jt-waf-mgr-iprep.service connects out (hourly timer, and when a person opens an address; API tokens read what is there and never make it send); the web service never does. Online answers are kept 24 hours (an error one hour); only outside addresses, never the internal networks, at most 500 a day; a run stops after 7 minutes and leaves a failing source alone. Without a certificate check a pinned fingerprint is required, or the MISP key is not sent. Settings → IP reputation: off by default, lists chosen one by one, MISP address and key (write-only).
+
 ## 0.4.93 (2026-11-18)
 
 - Path rules and an encoded "?": libmodsecurity 3.0.9 (Debian 12) cuts REQUEST_FILENAME at an encoded "?" (%3F) in the path, while the backend gets the whole path, so a path rule could be passed by, for example, putting "x%3F/../" in front of the path. A confident block on the path now also looks at the raw path up to the query (captured in the rule), normalised; its exceptions apply only when both views of the path are exempt, and are normalised too ("/static/../x" is no "/static/" path any more). An exclusion or a redaction scoped to a path is normalised and never applies to a path with an encoded "?". Tested on a real nginx + ModSecurity, Debian 12 (3.0.9) and Ubuntu 26.04 (3.0.14).

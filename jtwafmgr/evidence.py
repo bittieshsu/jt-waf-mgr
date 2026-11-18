@@ -373,7 +373,10 @@ class Evidence:
                 out[i] = {'ok': True, 'skipped': 'headers other than User-Agent are not in the access log', 'complete': False}
                 continue
             host_cond = rulegen._host_cond(spec.get('host'))
-            live.append({'i': i, 'view': view, 'rx': _Rx(spec['regex']),
+            # rules with the same variable and transformations see the same values: worked out once a line (0.4.93: a
+            # path rule has two views, and a bundle of 20 rules ran out of time on 7 million lines)
+            vkey = (target, spec.get('header') or '')
+            live.append({'i': i, 'view': view, 'vkey': vkey, 'rx': _Rx(spec['regex']),
                          'exc': [_Rx(e) for e in spec.get('exceptions') or []],
                          'host_rx': (_Rx(host_cond[1][len('@rx '):]), host_cond[2]) if host_cond else None,
                          'ext': 0, 'ext_ok': collections.Counter(), 'intl': collections.Counter(),
@@ -385,8 +388,12 @@ class Evidence:
             for d in self.logs.lines(deadline):
                 total += 1
                 fn = None
+                memo = {}
                 for st in live:
-                    if not any(st['rx'].search(x) for x in st['view'](d)):
+                    vals = memo.get(st['vkey'])
+                    if vals is None:
+                        vals = memo[st['vkey']] = st['view'](d)
+                    if not any(st['rx'].search(x) for x in vals):
                         continue
                     if st['exc']:
                         if fn is None:

@@ -41,6 +41,8 @@ class App:
         self.countries = Countries(self)
         from .dnscheck import Dns
         self.dns = Dns(self)
+        from .iprep import Iprep
+        self.iprep = Iprep(self)
         from .compliance import Monitor
         self.monitor = Monitor(self)
         self._note_version()

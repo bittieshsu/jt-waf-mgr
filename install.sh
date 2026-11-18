@@ -172,6 +172,7 @@ for u in jt-waf-mgr.service jt-waf-mgr-apply.service jt-waf-mgr-apply.path \
          jt-waf-mgr-crs.service jt-waf-mgr-crs.timer jt-waf-mgr-crs.path \
          jt-waf-mgr-countries.service jt-waf-mgr-countries.timer jt-waf-mgr-countries.path \
          jt-waf-mgr-dns.service jt-waf-mgr-dns.timer jt-waf-mgr-dns.path \
+         jt-waf-mgr-iprep.service jt-waf-mgr-iprep.timer jt-waf-mgr-iprep.path \
          jt-waf-mgr-intel.service jt-waf-mgr-intel.timer jt-waf-mgr-intel.path \
          jt-waf-mgr-hub.service jt-waf-mgr-hub.timer jt-waf-mgr-hub.path \
          jt-waf-mgr-nginxup.service jt-waf-mgr-nginxup.timer jt-waf-mgr-nginxup.path \
@@ -242,6 +243,9 @@ systemctl enable --now jt-waf-mgr-countries.timer jt-waf-mgr-countries.path >/de
 # DNS check of the site names and PTR names of outside addresses: a sandboxed one-shot job (15-minute timer + "check
 # now"); it asks the DNS servers about names only once servers are entered and the check is on in Settings.
 systemctl enable --now jt-waf-mgr-dns.timer jt-waf-mgr-dns.path >/dev/null
+# IP reputation: a one-shot job (hourly timer + a looked-up address); it downloads nothing and asks nobody until it is
+# switched on in Settings.
+systemctl enable --now jt-waf-mgr-iprep.timer jt-waf-mgr-iprep.path >/dev/null
 # Threat intelligence (second-tier LLM): a one-shot job (hourly timer + "search now"); it searches only once it is
 # switched on and configured in Settings, and only for the software list a person confirmed.
 systemctl enable --now jt-waf-mgr-intel.timer jt-waf-mgr-intel.path >/dev/null

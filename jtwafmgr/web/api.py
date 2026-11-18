@@ -1319,7 +1319,49 @@ def lookup_ip(app, req):
         'rules': [_rule_label(app, r['k'], {'key': str(r['k']), 'events': r['n']}) for r in rules_],
         'blocked_now': bool(app.blocks.blocked(ip)) if getattr(app, 'blocks', None) else False,
         'blocks': app.blocks.blocked(ip) if getattr(app, 'blocks', None) else [],
-        'ptr': _ptr(app, ip)})
+        'ptr': _ptr(app, ip), 'reputation': _reputation(app, ip, d30, person=req.user is not None)})
+
+
+def _own_evidence(app, ip, d30=None):
+    """What this site itself saw of an address in 30 days: blocked events, confident-rule blocks, a recon block."""
+    t = util.now()
+    if d30 is None:
+        d30 = app.db.one("SELECT COUNT(*) n, SUM(outcome='blocked') b FROM events WHERE src_ip=? AND ts>=?", (ip, t - 30 * 86400))
+    conf = app.db.one("SELECT COUNT(*) n FROM events WHERE src_ip=? AND ts>=? AND decided_by IN ('confident', 'fallback')",
+                      (ip, t - 30 * 86400))
+    recon = app.db.one("SELECT 1 FROM ip_blocks WHERE ip=? AND source=? AND created_at>=? LIMIT 1",
+                       (ip, 'jt-waf-mgr/recon', t - 30 * 86400))
+    return {'events': d30['n'] or 0, 'blocked': d30['b'] or 0, 'confident': conf['n'] or 0, 'recon_block': bool(recon)}
+
+
+def _reputation(app, ip, d30=None, ask=True, person=True):
+    """The IP reputation of an address (iprep.py) with the site's own evidence; ask: queue the online sources."""
+    rep = getattr(app, 'iprep', None)
+    if rep is None or util.ip_in(ip, app.cfg.internal_networks):
+        return None
+    own = _own_evidence(app, ip, d30)
+    if not ask:
+        from ..iprep import verdict, outside
+        lists = rep.list_hits(ip) if app.cfg['iprep']['enabled'] and outside(ip) else []
+        cached = rep.online(ip) if app.cfg['iprep']['enabled'] else None
+        return verdict(own, lists, cached or {})
+    return rep.reputation(ip, own, ask=person)
+
+
+def iprep_status(app, req):
+    return json_response(200, app.iprep.status())
+
+
+def iprep_update(app, req):
+    """Download the IP lists now: the web service only leaves a request for jt-waf-mgr-iprep.service."""
+    if not app.cfg['iprep']['enabled']:
+        raise ApiError(409, 'iprep_off', 'IP reputation is off (Settings)')
+    try:
+        app.iprep.request_lists()
+    except OSError as e:
+        raise ApiError(500, 'iprep_request_failed', 'could not queue the download', error=e.strerror)
+    app.audit.log('iprep.update_requested', req.user['username'], src_ip=req.client_ip)
+    return json_response(202, app.iprep.status())
 
 
 def _ptr(app, ip):
@@ -1355,7 +1397,8 @@ def ip_card(app, req):
         'ip': ip, 'origin': 'internal' if util.ip_in(ip, app.cfg.internal_networks) else 'external', 'geo': geo(ip),
         'ptr': _ptr(app, ip), 'd7': {'events': d7['n'] or 0, 'blocked': d7['b'] or 0, 'last': util.iso(d7['l']) if d7['l'] else None},
         'hosts': [{'key': r['k'], 'events': r['n']} for r in hosts],
-        'blocked': [{'until': b['expires_at'], 'permanent': b.get('permanent'), 'source': b['source']} for b in blocks]})
+        'blocked': [{'until': b['expires_at'], 'permanent': b.get('permanent'), 'source': b['source']} for b in blocks],
+        'reputation': _reputation(app, ip, ask=False)})
 
 
 def dns_status(app, req):
@@ -1792,6 +1835,8 @@ def register(router):
     R('GET', V + '/reviews/{id}', review_get, viewer('events:read'))
     R('POST', V + '/reviews/run', review_run, ('role', 'approver', None))
     R('POST', V + '/dns/check', dns_check, ('role', 'admin', None))
+    R('GET', V + '/iprep/status', iprep_status, viewer('lookups:read'))
+    R('POST', V + '/iprep/update', iprep_update, ('role', 'admin', None))
     R('GET', V + '/users', users, admin)
     R('POST', V + '/users', user_create, admin)
     R('PATCH', V + '/users/{username}', user_patch, admin)

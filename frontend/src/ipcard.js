@@ -68,6 +68,10 @@ function render(d) {
     const b = d.blocked[0]
     c.appendChild(row(t('ipcard.blocked'), b.permanent ? t('blocks.permanent') : t('ipcard.until', { at: fmtMinute(b.until) }), 'bad'))
   }
+  // 0.4.94: the IP reputation verdict (lists matched on the host, online answers already kept; never asks here)
+  if (d.reputation && d.reputation.verdict && d.reputation.verdict !== 'no_record') {
+    c.appendChild(row(t('iprep.title'), t('iprep.verdict.' + d.reputation.verdict), d.reputation.verdict === 'malicious' ? 'bad' : 'warn'))
+  }
   c.appendChild(row(t('ipcard.week'), t('ipcard.week_n', { n: fmtNum(d.d7.events), b: fmtNum(d.d7.blocked) })))
   if (d.d7.last) c.appendChild(row(t('ipcard.last'), fmtMinute(d.d7.last)))
   if (d.hosts && d.hosts.length) c.appendChild(row(t('ipcard.sites'), d.hosts.map((h) => h.key + ' ' + fmtNum(h.events)).join(' · ')))

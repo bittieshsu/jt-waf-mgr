@@ -37,6 +37,14 @@ external_servers = ["198.51.100.53"]
 [hub]
 dir = "$W/hub"
 
+[iprep]
+enabled = true
+dir = "$W/iprep"
+documentation_nets_outside = true
+internetdb = true
+misp_url = "https://misp.example.com"
+misp_api_key = "e2eSyntheticKey0000000000000000000000000"
+
 [countries]
 enabled = true
 dir = "$W/countries"

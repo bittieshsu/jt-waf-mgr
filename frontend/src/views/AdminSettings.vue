@@ -7,6 +7,7 @@
     <UiSettings :groups="['llm', 'intel', 'hub', 'analyst', 'review', 'warroom', 'traffic', 'blocks', 'network']" @saved="load" :key="'c4-' + gen" />
     <CountrySettings @saved="load" :key="'c5-' + gen" />
     <DnsSettings @saved="load" :key="'c6-' + gen" />
+    <IprepSettings @saved="load" :key="'c6b-' + gen" />
     <SyslogDestinations :key="'c7-' + gen" />
     <UiSettings :groups="['policy']" @saved="load" :key="'c8-' + gen" />
     <SettingsTransfer @saved="afterImport" />
@@ -43,6 +44,7 @@ import RegressionSamples from '../components/RegressionSamples.vue'
 import GeoipSettings from '../components/GeoipSettings.vue'
 import CountrySettings from '../components/CountrySettings.vue'
 import DnsSettings from '../components/DnsSettings.vue'
+import IprepSettings from '../components/IprepSettings.vue'
 import UiSettings from '../components/UiSettings.vue'
 import SettingsTransfer from '../components/SettingsTransfer.vue'
 import SyslogDestinations from '../components/SyslogDestinations.vue'
@@ -53,7 +55,7 @@ const KNOWN = ['internal_networks', 'focus_sites', 'sensitive_fields', 'id_range
 const s = ref(null)
 const error = ref(null)
 // set in the cards above (web interface): not repeated in this read-only list
-const IN_UI = ['focus_sites', 'known_scanners', 'account_policy', 'geoip', 'countries', 'dns', 'compliance_level', 'syslog']
+const IN_UI = ['focus_sites', 'known_scanners', 'account_policy', 'geoip', 'countries', 'dns', 'iprep', 'compliance_level', 'syslog']
 const keys = computed(() => {
   if (!s.value) return []
   const extra = Object.keys(s.value).filter((k) => !KNOWN.includes(k) && !IN_UI.includes(k)).sort()

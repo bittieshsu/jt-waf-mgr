@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.93
+# jt-waf-mgr v0.4.94
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -92,6 +92,7 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
   網路搜尋。程式只讀允許清單上的 https 網頁，而且只有本輪程式自己讀到 CISA 清單，或開啟 KEV 清單 (每天下載，約 1.5 MB) 且清單上有列出，才算「已被利用」。套件只填名稱也能確認；
   已被利用且影響 (或沒有版本、可能影響) 本站的漏洞會發出緊急警示；公告寫明的前提條件 (例如只影響 musl C 函式庫) 主機不符合就不算影響，查不到就只發一般警示。能從網址或標頭辨識的漏洞會產生預先防護規則 (很窄的確定封鎖，和一般變更一樣經過證據與沙箱檢查)；已被利用
   且影響本站的，不受每日上限、立即套用，檢查沒過則發緊急警示請人決定。每天、每月有 token 上限。
+- **IP 情資**：IP 查詢會把本站看到的證據、每天下載的公開清單 (Spamhaus DROP、FireHOL level 1、abuse.ch Feodo、Emerging Threats、CINS Army、blocklist.de、Tor 出口節點；在本機比對)、Shodan InternetDB 和你自己的 MISP 放在一起，給出判斷與依據。預設關閉，不會自動封鎖。
 - **CrowdSec 虛擬修補規則**：每天同步 CrowdSec Hub 的 appsec 規則 (MIT 授權，也可以離線上傳)，在本機轉成 ModSecurity 規則，只轉每個條件都能保留原意的規則。
   可轉換的規則可以提出到跑該軟體的站台；跨應用的漏洞 (React、Spring、PHP 這類框架、函式庫或語言，依站台軟體所用的技術判斷相關) 也可以套用到所有站台，走一般變更流程：沙箱重送上游附的攻擊請求，每一個都必須被這條規則封鎖，站台最近的請求則不能被封鎖。
   已套用的規則在上游更新或移除時會提示。影響已確認軟體的漏洞，威脅情報會優先提出上游的規則。
@@ -135,7 +136,7 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # 發行檔的固定位置
-V=0.4.93; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.94; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # 發行檔、簽章與公鑰
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -331,7 +332,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新版本一樣解開到 current
-V=0.4.93; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.94; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # 只做所有檢查，不改任何東西

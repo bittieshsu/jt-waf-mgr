@@ -42,6 +42,46 @@
                        @select="(r) => router.push({ path: '/events', query: { src_ip: data.ip, since: r.since, until: r.until } })" />
         <div class="actions"><RouterLink class="btn small" :to="{ path: '/events', query: { src_ip: data.ip } }"><Icon name="list" />{{ t('lookup.view_events') }}</RouterLink></div>
       </section>
+      <!-- 0.4.94: IP reputation -- the site's own evidence, public lists, InternetDB, the organisation's MISP -->
+      <section v-if="rep" class="card iprep" :class="{ attention: rep.verdict === 'malicious' }">
+        <h2><Icon name="shield" /> {{ t('iprep.title') }}
+          <span class="badge gapl" :class="VERDICT_CLS[rep.verdict]">{{ t('iprep.verdict.' + rep.verdict) }}</span>
+          <span v-if="rep.pending" class="muted small gapl" role="status"><Icon name="timer" /> {{ t('iprep.pending') }}</span></h2>
+        <p v-if="rep.enabled === false" class="muted small">{{ t('iprep.off') }}
+          <RouterLink v-if="isAdmin" class="gapl" to="/admin/settings#uiset-iprep">{{ t('iprep.where_on') }}</RouterLink></p>
+        <ul v-if="rep.reasons.length" class="plainlist reasons">
+          <li v-for="(r, i) in rep.reasons" :key="i"><span class="badge" :class="LEVEL_CLS[r.level]">{{ t('iprep.level.' + r.level) }}</span>
+            <span class="gapl">{{ reasonText(r) }}</span></li>
+        </ul>
+        <p v-else class="muted small">{{ t('iprep.nothing') }}</p>
+        <p class="muted small">{{ t('iprep.note') }}</p>
+        <div v-if="rep.online" class="kvgroups">
+          <div v-if="rep.online.internetdb" class="kvpanel">
+            <h3><Icon name="globe" />Shodan InternetDB</h3>
+            <p v-if="rep.online.internetdb.error" class="small warn">{{ safeText(rep.online.internetdb.error, 160) }}</p>
+            <p v-else-if="rep.online.internetdb.none" class="muted small">{{ t('iprep.idb_none') }}</p>
+            <dl v-else class="kv">
+              <dt>{{ t('iprep.ports') }}</dt><dd class="mono">{{ (rep.online.internetdb.ports || []).join(', ') || '—' }}</dd>
+              <dt>{{ t('iprep.tags') }}</dt><dd><span v-for="x in rep.online.internetdb.tags" :key="x" class="chip tag">{{ safeText(x, 40) }}</span><span v-if="!(rep.online.internetdb.tags || []).length" class="muted">—</span></dd>
+              <dt>{{ t('iprep.vulns') }}</dt><dd class="mono small">{{ rep.online.internetdb.vulns_total ? fmtNum(rep.online.internetdb.vulns_total) + ' · ' + rep.online.internetdb.vulns.slice(0, 8).join(', ') : '—' }}</dd>
+              <dt>{{ t('iprep.hostnames') }}</dt><dd class="mono small">{{ (rep.online.internetdb.hostnames || []).map((h) => safeText(h, 120)).join(', ') || '—' }}</dd>
+            </dl>
+          </div>
+          <div v-if="rep.online.misp" class="kvpanel">
+            <h3><Icon name="database" />MISP</h3>
+            <p v-if="rep.online.misp.error" class="small warn">{{ safeText(rep.online.misp.error, 160) }}</p>
+            <p v-else-if="!rep.online.misp.count" class="muted small">{{ t('iprep.misp_none') }}</p>
+            <template v-else>
+              <p class="small">{{ t('iprep.misp_count', { n: rep.online.misp.count, events: rep.online.misp.events.length }) }}</p>
+              <ul class="plainlist small">
+                <li v-for="e in rep.online.misp.events" :key="e.id"><span class="badge" :class="LEVEL_CLS[e.weight]">{{ t('iprep.level.' + e.weight) }}</span>
+                  <span class="gapl">#{{ safeText(e.id, 20) }} {{ safeText(e.info, 160) }}</span></li>
+              </ul>
+            </template>
+          </div>
+        </div>
+        <p v-if="rep.online_at" class="muted small">{{ t('iprep.online_at', { at: fmtTime(rep.online_at) }) }}</p>
+      </section>
       <div class="cols2">
         <section class="card">
           <h2><Icon name="server" /> {{ t('lookup.hosts') }} <span class="count">{{ data.hosts.length }}</span></h2>
@@ -58,7 +98,7 @@
 
 <script setup>
 import GeoTag from '../components/GeoTag.vue'
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { get } from '../api.js'
 import EventTimeline from '../components/EventTimeline.vue'
@@ -136,10 +176,37 @@ const ruleBars = computed(() => (data.value ? data.value.rules : []).map((r) => 
   sub: r.msg ? safeText(r.msg, 120) : null, values: { events: r.events || 0 }, to: '/rules/' + encodeURIComponent(r.key),
 })))
 
+// --- IP reputation --------------------------------------------------------------------------------------------------
+const isAdmin = computed(() => hasRole('admin'))
+const rep = computed(() => data.value && data.value.reputation)
+const VERDICT_CLS = { malicious: 'b-blocked', suspicious: 'b-warn', no_record: 'b-logged' }
+const LEVEL_CLS = { high: 'b-blocked', medium: 'b-warn', info: 'b-logged' }
+function reasonText(r) {
+  if (r.source === 'site') return t('iprep.site.' + r.what, { n: fmtNum(r.n || 0) })
+  if (r.source === 'list') return t('iprep.on_list', { name: r.name, category: tOr('iprep.cat.' + r.category, r.category), entry: r.entry })
+  if (r.source === 'internetdb') return t('iprep.idb_tag', { tag: r.tag })
+  if (r.source === 'misp') return t('iprep.misp_event', { id: r.id, name: r.name })
+  return ''
+}
+// the online sources answer through their own job: look again a few times while they are pending
+let polls = 0
+let pollTimer = null
+watch(() => rep.value && rep.value.pending, (p) => {
+  clearTimeout(pollTimer)
+  if (p && polls < 8) {
+    pollTimer = setTimeout(async () => {
+      polls += 1
+      try { data.value = await get('/lookups/ip/' + encodeURIComponent(props.ip)) } catch { /* the page keeps what it has */ }
+    }, 4000)
+  }
+})
+onUnmounted(() => clearTimeout(pollTimer))
+
 function go() {
   if (input.value) router.push('/lookup/' + encodeURIComponent(input.value))
 }
 async function load() {
+  polls = 0
   data.value = null
   error.value = null
   if (!props.ip) return
@@ -152,3 +219,8 @@ watch(() => props.ip, load, { immediate: true })
 function spark(days, key) { return ((data.value && data.value.daily) || []).slice(-days).map((d) => ({ t: d.t, v: d[key] || 0 })) }
 function ago(iso) { return fmtAgo(iso, lang.value) }
 </script>
+
+<style scoped>
+.iprep .reasons li { margin: 4px 0; }
+.iprep .kvgroups { margin-top: 10px; }
+</style>

@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.93
+# jt-waf-mgr v0.4.94
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -100,6 +100,7 @@ ModSecurity は最後のルールのまま動作し続けます。
   緊急アラートになります。URL やヘッダーで判別できるものには仮想パッチ(狭い確定ブロック。通常の変更と同じく証拠と
   サンドボックスで確認)を作成し、悪用されていて影響するものは 1 日の上限を受けずにすぐ適用、確認に失敗すれば緊急アラートで
   人の判断を求めます。1 日・1 か月のトークン上限があります。
+- **IP レピュテーション**:IP 照会で、このサイトが見た証拠と、毎日ダウンロードする公開リスト(Spamhaus DROP、FireHOL level 1、abuse.ch Feodo、Emerging Threats、CINS Army、blocklist.de、Tor の出口ノード。ホスト上で照合)、Shodan InternetDB、自組織の MISP をまとめて、判定とその根拠を示します。デフォルトは無効で、自動ではブロックしません。
 - **CrowdSec 仮想パッチルール**:CrowdSec Hub の appsec ルール(MIT ライセンス)を毎日同期し(オフラインでのアップロードも可)、ホスト上で ModSecurity ルールに変換します。すべての条件の意味を保てるルールだけを変換します。
   変換したルールはそのソフトウェアを動かすサイトに、アプリ横断の脆弱性(React、Spring、PHP などのフレームワーク、ライブラリ、言語。サイトのソフトウェアが使う技術で関係を判断)ならすべてのサイトにも、通常の変更として提案でき、サンドボックスが上流の攻撃リクエストを再送して、すべてこのルールで遮断され、サイトの最近のリクエストは遮断されないことを確認します。
   適用中のルールは上流で更新・削除されると表示されます。確認済みソフトウェアに影響する脆弱性では、脅威インテリジェンスが上流のルールを優先して提案します。
@@ -152,7 +153,7 @@ ModSecurity は最後のルールのまま動作し続けます。
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # リリースの決まった場所
-V=0.4.93; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.94; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # リリース、署名、公開鍵
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -359,7 +360,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新しいリリースも同じ current に展開
-V=0.4.93; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.94; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # すべての検査のみ、何も変更しない

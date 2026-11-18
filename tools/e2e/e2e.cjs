@@ -263,6 +263,16 @@ async function audit(page, where) {
   } else problems.push('FAIL dialog: no "confirm all" button on the threat intelligence page');
   page.off('dialog', countNative);
   ok(nativeDialogs === 0, 'dialog: the browser\'s own dialog never opened');
+  // 0.4.94: IP reputation on the lookup -- lists, InternetDB and MISP put together with the site's own evidence
+  await page.goto(base + '/lookup/203.0.113.9', { waitUntil: 'networkidle' });
+  await page.waitForSelector('.iprep', { timeout: 8000 }).catch(() => {});
+  ok((await page.locator('.iprep .badge', { hasText: '惡意' }).count()) >= 1 &&
+     (await page.locator('.iprep .reasons li', { hasText: 'CINS Army' }).count()) === 1 &&
+     (await page.locator('.iprep .kvpanel', { hasText: 'MISP' }).count()) === 1,
+     'lookup: the IP reputation card shows the verdict, the lists and MISP');
+  await page.goto(base + '/admin/settings#uiset-iprep', { waitUntil: 'networkidle' });
+  await page.waitForSelector('section.card:has(h2:has-text("IP 情資清單")) tbody tr', { timeout: 8000 }).catch(() => {});
+  ok((await page.locator('section.card:has(h2:has-text("IP 情資清單")) tbody tr').count()) === 8, 'settings: the IP reputation lists are listed');
   // "someone was blocked": an address goes to the address lookup
   await page.goto(base + '/events', { waitUntil: 'networkidle' });
   await page.fill('.findvisit input', '203.0.113.9');

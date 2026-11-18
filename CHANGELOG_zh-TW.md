@@ -2,6 +2,13 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.4.94 (2026-11-18)
+
+- IP 情資：IP 查詢頁會判斷外部位址是否已知惡意並列出依據——本站自己的證據 (封鎖、確定封鎖規則、試探機密檔)、每天下載並在本機比對的公開清單 (Spamhaus DROP、abuse.ch Feodo、FireHOL level 1、Emerging Threats compromised、CINS Army、blocklist.de、Tor 出口節點)、Shodan InternetDB，以及你自己的 MISP。判斷結果是「惡意」、「可疑」或「沒有記錄」(不會說安全)；滑鼠停留的 IP 卡片也會顯示。不會自動封鎖。
+- MISP：用 attributes/restSearch 查單一位址 (只讀，不抓事件內容)；IP 屬性大多來自 feed，所以依來自哪個 feed 判斷輕重 (例如 FireHOL level 1 或 C2 清單算高，IPsum level 1–2 或掃描清單算參考)。自簽憑證用 SHA-256 指紋釘選。
+- 整批路徑規則的證據檢查，每行記錄同一種規則只算一次 (0.4.93 的兩種路徑讓 19 條規則的整批變更在 730 萬行記錄上逾時)。
+- 只有新的 jt-waf-mgr-iprep.service 會連外 (每小時，以及有人查詢位址時)，網頁服務不會。線上查詢結果保留 24 小時，只會送出外部位址。設定 → IP 情資：預設關閉，清單可逐一選擇，MISP 網址與金鑰 (金鑰只寫不讀)。
+
 ## 0.4.93 (2026-11-18)
 
 - 路徑規則與編碼問號：libmodsecurity 3.0.9 (Debian 12) 遇到路徑裡編碼過的「?」(%3F) 會把 REQUEST_FILENAME 截斷，但後端收到的是完整路徑，所以在路徑前面加上「x%3F/../」這類寫法就能繞過路徑規則。現在路徑的確定封鎖也會看原始路徑 (到查詢字串為止，在規則裡擷取) 正規化後的結果；例外要兩種路徑都符合才算，而且也會正規化 (「/static/../x」不再算「/static/」底下的路徑)。限定路徑的排除與不檢查敏感欄位規則會正規化路徑，且路徑帶編碼問號時一律不套用。已在真 nginx＋ModSecurity 的 Debian 12 (3.0.9) 與 Ubuntu 26.04 (3.0.14) 實測。

@@ -1,0 +1,11 @@
+[Unit]
+Description=jt-waf-mgr: hourly IP reputation run (the lists are downloaded once a day; nothing while it is off)
+
+[Timer]
+OnBootSec=7min
+OnUnitActiveSec=1h
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

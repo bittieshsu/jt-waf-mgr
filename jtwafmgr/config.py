@@ -227,6 +227,25 @@ DEFAULTS = {
         'ptr': True,                  # look up the PTR of outside addresses (their zone's owner can see the question)
         'ptr_servers': [],            # empty: the internal servers, else the host's resolvers
     },
+    'iprep': {
+        # IP reputation (iprep.py, jt-waf-mgr-iprep.service): public lists downloaded once a day and matched on this host,
+        # Shodan InternetDB and the organisation's MISP asked about the outside addresses someone looks up. Off by default
+        # (switching it on downloads the lists).
+        'enabled': False,
+        'dir': '',                    # empty: the "iprep" folder next to the database (/var/lib/jt-waf-mgr/iprep)
+        'lists': ['spamhaus_drop', 'spamhaus_drop6', 'feodo', 'firehol_level1', 'et_compromised', 'cins', 'blocklist_de',
+                  'tor_exit'],
+        'internetdb': False,          # Shodan InternetDB (no key; the address is sent to it)
+        'misp_url': '',               # https://misp.example.com (the address is sent to it)
+        'misp_api_key': '',
+        'misp_verify_tls': True,
+        'misp_cert_sha256': '',       # a self-signed MISP: its certificate's SHA-256 (checked instead of a CA and the name)
+        'misp_ca_file': '',           # config.toml only: a CA for a MISP with an internal certificate
+        # config.toml only, for a demonstration or test environment: the documentation networks (192.0.2.0/24,
+        # 198.51.100.0/24, 203.0.113.0/24, 2001:db8::/32) count as outside addresses (never sent anywhere with the
+        # online sources off)
+        'documentation_nets_outside': False,
+    },
     'countries': {
         # per-site country blocks (countries.py, rulegen kind "country"): lists from the five regional registries,
         # downloaded by jt-waf-mgr-countries.service into dir, written for ModSecurity into rules_dir by the root apply

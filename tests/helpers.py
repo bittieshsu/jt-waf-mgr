@@ -10,6 +10,8 @@ from jtwafmgr import software as _software
 from jtwafmgr.web import api as _api
 
 _software.OFFLINE = True          # the sites are never asked for real (the tests also run on a production host)
+from jtwafmgr import iprep as _iprep  # noqa: E402
+_iprep.TEST_NETS = True           # documentation addresses stand for outside ones (never a real address in a test)
 
 _api.OVERVIEW_CACHE_SECONDS = 0       # a test sees its own writes at once (the cache has its own test)
 

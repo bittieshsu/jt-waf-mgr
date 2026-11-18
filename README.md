@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.93
+# jt-waf-mgr v0.4.94
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -115,6 +115,9 @@ nginx and ModSecurity keep working with the last rules.
   For one seen in the URL or a header it writes a virtual patch (a narrow confident block, checked like any change:
   evidence, sandbox); one for an exploited vulnerability that affects you applies at once, past the daily limit, and
   a critical alert asks a person if its checks fail. Token limits per day and month.
+- **IP reputation**: the IP lookup puts together what this site saw of an address with public lists downloaded once a day
+  (Spamhaus DROP, FireHOL level 1, abuse.ch Feodo, Emerging Threats, CINS Army, blocklist.de, Tor exit nodes; matched on
+  the host), Shodan InternetDB and your own MISP, with a verdict and its reasons. Off by default; nothing is blocked by itself.
 - **CrowdSec virtual patching rules**: the CrowdSec Hub's appsec rules (MIT) are synced daily (or uploaded offline) and
   converted into ModSecurity rules on the host, only where every condition keeps its meaning. A converted rule is proposed
   for the sites that run the software, or for all sites when it is a cross-application flaw (a framework, library or
@@ -174,7 +177,7 @@ nginx and ModSecurity keep working with the last rules.
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # a fixed place for the releases
-V=0.4.93; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.94; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # the release, its signature, the public key
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -396,7 +399,7 @@ the file next to the current values and writes only what you tick).
 
 ```sh
 cd /opt/jt-waf-mgr-install   # the new release, unpacked into the same current
-V=0.4.93; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.94; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # every check, nothing changed

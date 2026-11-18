@@ -1095,6 +1095,7 @@ a.tile.tilelink:hover { border-color: var(--accent); box-shadow: 0 2px 10px rgba
 .jt-ipcard .ic-v { overflow-wrap: anywhere; }
 .jt-ipcard .ic-v.muted { color: var(--muted); }
 .jt-ipcard .ic-v.bad { color: var(--blocked); font-weight: 600; }
+.jt-ipcard .ic-v.warn { color: var(--warn, #b45309); font-weight: 600; }
 .jt-ipcard .ic-note { margin-left: 6px; font-size: 12px; }
 .jt-ipcard .ic-note.ok { color: var(--ok); }
 .jt-ipcard .ic-note.warn { color: var(--warn); }
