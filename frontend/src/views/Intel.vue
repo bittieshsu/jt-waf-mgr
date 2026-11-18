@@ -82,6 +82,10 @@
                   <h4><Icon name="versions" /> {{ t('intel.d_versions') }}</h4>
                   <dl class="kv">
                     <dt>{{ t('intel.affected_versions') }}</dt><dd class="mono">{{ row.affected_versions || '—' }}</dd>
+                    <template v-if="row.version_check">
+                      <dt>{{ t('intel.nvd_versions') }}</dt><dd><span class="mono small">{{ (row.version_check.ranges || []).join(', ') || '—' }}</span>
+                        <div class="small" :class="row.version_check.result === 'no' ? 'ok' : 'warn'">{{ t('intel.nvd_versions_' + row.version_check.result) }}</div></dd>
+                    </template>
                     <dt>{{ t('intel.fixed_version') }}</dt><dd class="mono">{{ row.fixed_version || '—' }}</dd>
                     <dt>{{ t('intel.d_ours') }}</dt><dd><span class="mono">{{ row.our_version || '—' }}</span>
                       <span class="badge tiny gapl" :class="AFF[row.affected]">{{ t('intel.affected.' + row.affected) }}</span></dd>

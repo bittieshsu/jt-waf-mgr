@@ -2,6 +2,13 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.96 (2026-11-18)
+
+- Threat intelligence, fewer false alarms: NVD's affected versions (the CPE ranges of each CVE) are compared with the known version of our software. When NVD names the product and our version is outside every range, the threat does not affect this site, whatever the model guessed: it is set aside with the ranges as the reason and its open alert is handled (for example CVE-2025-48700: Zimbra 10.1.0 to 10.1.3, this site 10.1.20). Inside a range changes nothing by itself (preconditions may still apply); an unknown or unparseable version, or a patch level NVD lists separately, stays "unknown". Threats already open are compared at the next search, or now with `jt-waf-mgr intel versions --as USER`. The threat details show NVD's ranges.
+- Filters: a dropdown set to a value has a "×" back to "all".
+- War room: "other" in the site heat map opens the events of every Host no site serves (the new events filter `host=_other`), not all events.
+- Layout: the module upload on the nginx updates page shows buttons, not the browser's file boxes (a UI check now refuses a visible native file input); the IP reputation lists show their last run and online sources on one line, a list switched off without a count; the CRS card lists its details first and the offline upload in a section of its own.
+
 ## 0.4.95 (2026-11-18)
 
 - Sandbox: the "same request from inside" check of an external-only confident block no longer fails when rules already in place refuse that request from inside (internal protection, the CRS score, another confident block): such a request is run through the configuration as it is, and only the change's own rule matching it is a failure (reported by jt-waf-mgr's integration with jt-wazuh-mgr; the guard block was refused for the same reason).

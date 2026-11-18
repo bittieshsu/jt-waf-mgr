@@ -27,7 +27,7 @@
                 <span class="knob" aria-hidden="true"></span><span>{{ form[k] ? t('uiset.on') : t('uiset.off') }}</span></label>
               <div v-else-if="k === 'llm.model'" class="modelrow">
                 <div class="modelpick">
-                  <SelectBox :id="'uiset-in-' + k" v-model="form[k]" :options="modelOptions" class="w-md" />
+                  <SelectBox :id="'uiset-in-' + k" v-model="form[k]" :options="modelOptions" class="w-md" :clearable="false" />
                   <button type="button" class="btn small" :disabled="busy.llm || !form['llm.url']" @click="saveAndTest(g)">
                     <Icon name="test" />{{ connDirty ? t('uiset.llm.save_and_test') : t('uiset.llm.test') }}</button>
                 </div>
@@ -40,7 +40,7 @@
               <!-- the second tier: the same test, done by the threat intelligence unit (also checks the search tool) -->
               <div v-else-if="k === 'intel.model'" class="modelrow">
                 <div class="modelpick">
-                  <SelectBox :id="'uiset-in-' + k" v-model="form[k]" :options="intelModelOptions" class="w-md" />
+                  <SelectBox :id="'uiset-in-' + k" v-model="form[k]" :options="intelModelOptions" class="w-md" :clearable="false" />
                   <button type="button" class="btn small" :disabled="busy.intel" @click="saveAndTestIntel(g)">
                     <Icon name="test" />{{ dirty(g).length ? t('uiset.llm.save_and_test') : t('uiset.llm.test') }}</button>
                 </div>
@@ -67,7 +67,7 @@
                   <Icon :name="mcpResult.ok ? 'check' : 'alert'" />{{ mcpResult.ok ? t('uiset.intel.mcp_ok', { tools: (mcpResult.search.tools || []).join(', '), seconds: mcpResult.seconds })
                     : t('uiset.intel.search_bad', { error: (mcpResult.error || '') + (mcpResult.detail ? ' ' + mcpResult.detail : '') }) }}</div>
               </div>
-              <SelectBox v-else-if="s[k].type === 'choice'" :id="'uiset-in-' + k" v-model="form[k]" :options="choiceOptions(k)" class="w-md"
+              <SelectBox v-else-if="s[k].type === 'choice'" :id="'uiset-in-' + k" v-model="form[k]" :options="choiceOptions(k)" class="w-md" :clearable="false"
                          @update:model-value="(v) => onChoice(g, k, v)" />
               <div v-else-if="s[k].type === 'list' && s[k].choices" class="chips" role="group" :aria-label="t('uiset.' + k)">
                 <label v-for="c in s[k].choices" :key="c" class="chipcheck" :class="{ on: (form[k] || []).includes(c) }">

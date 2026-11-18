@@ -48,15 +48,6 @@
           </div>
         </div>
         <p v-if="checkMsg" class="muted small" role="status">{{ checkMsg }}</p>
-        <!-- a host that cannot reach GitHub: the release and its signature from elsewhere, checked the same way -->
-        <div v-if="isAdmin" class="crsupload">
-          <span class="muted small">{{ t('crsupd.upload_hint') }}</span>
-          <label class="btn small ghost filebtn"><Icon name="upload" />{{ tarFile ? safeText(tarFile.name, 60) : t('crsupd.pick_tar') }}
-            <input type="file" accept=".tar.gz,application/gzip" :disabled="busy" @change="tarFile = $event.target.files[0] || null"></label>
-          <label class="btn small ghost filebtn"><Icon name="key" />{{ ascFile ? safeText(ascFile.name, 60) : t('crsupd.pick_asc') }}
-            <input type="file" accept=".asc" :disabled="busy" @change="ascFile = $event.target.files[0] || null"></label>
-          <button type="button" class="btn small" :disabled="busy || !tarFile || !ascFile || !upd.manage" @click="uploadRelease"><Icon name="upload" />{{ t('crsupd.upload') }}</button>
-        </div>
         <dl class="kv crskv">
           <template v-if="upd.location"><dt>{{ t('crsupd.location') }}</dt>
             <dd class="mono small breakall">{{ safeText(upd.location.path, 200) }}<template v-if="upd.location.link"><span class="muted"> → </span>{{ safeText(upd.location.target, 200) }}</template></dd></template>
@@ -71,6 +62,18 @@
           <template v-if="st.staged"><dt>{{ t('crsupd.staged') }}</dt><dd><b>{{ st.staged.version }}</b><div class="muted small">{{ t('crsupd.staged_hint', { at: fmtMinute(st.staged.verified_at), n: st.staged.files }) }}</div></dd></template>
           <template v-if="st.newer_major"><dt>{{ t('crsupd.major') }}</dt><dd>{{ t('crsupd.major_hint', { v: st.newer_major }) }}</dd></template>
         </dl>
+        <!-- a host that cannot reach GitHub: the release and its signature from elsewhere, checked the same way -->
+        <div v-if="isAdmin" class="crsoffline">
+          <h3 class="charthead"><Icon name="upload" />{{ t('crsupd.offline_title') }}</h3>
+          <p class="muted small">{{ t('crsupd.upload_hint') }}</p>
+          <div class="crsupload">
+            <label class="btn small ghost filebtn"><Icon name="upload" />{{ tarFile ? safeText(tarFile.name, 60) : t('crsupd.pick_tar') }}
+              <input type="file" accept=".tar.gz,application/gzip" :disabled="busy" @change="tarFile = $event.target.files[0] || null"></label>
+            <label class="btn small ghost filebtn"><Icon name="key" />{{ ascFile ? safeText(ascFile.name, 60) : t('crsupd.pick_asc') }}
+              <input type="file" accept=".asc" :disabled="busy" @change="ascFile = $event.target.files[0] || null"></label>
+            <button type="button" class="btn small" :disabled="busy || !tarFile || !ascFile || !upd.manage" @click="uploadRelease"><Icon name="upload" />{{ t('crsupd.upload') }}</button>
+          </div>
+        </div>
         <p v-if="upd.manage && upd.external_updater" class="alert warn">{{ t('crsupd.external', { path: safeText(upd.external_updater, 200) }) }}</p>
         <p v-if="upd.location && !upd.location.link" class="alert info">{{ t('crsupd.not_link') }}</p>
         <p v-if="st.state === 'error'" class="alert error">{{ safeText(st.error, 300) }}</p>
@@ -257,14 +260,14 @@ onMounted(async () => {
 
 <style scoped>
 .crsupd .kv dd > div { margin-top: 4px; }
-.crsupload { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
-.filebtn { position: relative; overflow: hidden; }
-.filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .crshead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 12px 14px; margin-bottom: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); }
 .crsver { display: flex; align-items: center; gap: 10px; }
 .crsver .v { font-size: 22px; font-variant-numeric: tabular-nums; }
 .crscheck { display: flex; align-items: center; gap: 12px; }
 .crskv { row-gap: 12px; align-items: start; }
+.crsoffline { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+.crsoffline p { margin: 4px 0 10px; }
+.crsoffline .crsupload { margin: 0; }
 .crskv dt.sw { padding-top: 2px; }
 .crskv dd.chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .crskv .chip { display: inline-flex; align-items: center; padding: 2px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }

@@ -683,6 +683,16 @@ async function audit(page, where) {
   await page.locator('.hubbatch button', { hasText: '套用勾選的 2 條' }).click();
   await page.waitForSelector('.hubbatch .alert.error', { timeout: 8000 }).catch(() => {});
   ok((await page.locator('.hubbatch .alert.error').count()) === 1, 'crowdsec: applying several reaches the workflow as one change (not adopted here: refused)');
+  // 0.4.96: a filter set to something has a "×" back to "all"
+  await page.goto(base + '/rules', { waitUntil: 'networkidle' });
+  const fsel = page.locator('.filters .selectbox').first();
+  await fsel.locator('.sb-btn').click();
+  await page.locator('.sb-pop li[role=option]').nth(1).dispatchEvent('mousedown');
+  await page.waitForTimeout(200);
+  const hadClear = await fsel.locator('.sb-clear').count();
+  if (hadClear) await fsel.locator('.sb-clear').click();
+  await page.waitForTimeout(200);
+  ok(hadClear === 1 && (await fsel.locator('.sb-clear').count()) === 0, 'filters: a chosen value can be cleared with one click');
   // several rules at once: tick, "switch off" opens the change form with its preview (or why it cannot)
   await page.goto(base + '/rules?source=local', { waitUntil: 'networkidle' });
   await page.locator('input.rowsel').first().check();

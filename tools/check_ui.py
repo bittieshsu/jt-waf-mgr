@@ -71,6 +71,13 @@ def main():
                     problems.append('%s (template line %d): negative action without the "danger" class' % (rel, line))
             # a leading space inside an inline element is dropped by the template compiler, so the text runs into what
             # comes before it ("4.30.0/etc/nginx/..."): space it with the gapl class or put it on its own line
+            # a file picker shows the browser's own control unless it is hidden (sr-only) or sits in a .filebtn label
+            # (the global style hides it there); 0.4.96: the nginx module upload showed the native boxes
+            for m in re.finditer(r'<input\b[^>]*\btype="file"[^>]*>', tpl):
+                before = tpl[max(0, tpl.rfind('<label', 0, m.start())):m.start()]
+                if 'sr-only' not in m.group(0) and 'filebtn' not in before:
+                    line = tpl[:m.start()].count('\n') + 1
+                    problems.append('%s (template line %d): native file input; use a label.btn.filebtn or class "sr-only"' % (rel, line))
             for m in re.finditer(r'<(span|b|small|em|code)\b[^>]*> +\{\{', tpl):
                 line = tpl[:m.start()].count('\n') + 1
                 problems.append('%s (template line %d): leading space inside <%s> is dropped; use class "gapl" or a new line'

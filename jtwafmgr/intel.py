@@ -1179,6 +1179,55 @@ def retire_unrelated(app, log=print):
     return done
 
 
+VERSION_NOTE = 'NVD lists the affected versions and ours is not among them (%s; ours %s): it does not affect this site'
+
+
+def retire_by_version(app, log=print):
+    """0.4.96: open threats whose product and version NVD's CPE ranges rule out are set aside ("ignored", by intel), and
+    their open alerts handled, with the ranges as the reason (a guess of the model, or a run that could not confirm the
+    range, no longer stays an "exploited, may affect us" alert). Only with intel.nvd on (the ranges come from NVD).
+    Returns the threat ids set aside."""
+    from . import nvd
+    db, cfg = app.db, app.cfg
+    if not cfg['intel'].get('nvd'):
+        return []
+    rows = db.q("SELECT id, cve, product, affected, details FROM intel_threats WHERE status='open'")
+    items = []
+    for r in rows:
+        try:
+            t = json.loads(r['details'] or '{}')
+        except ValueError:
+            continue
+        t.update(id=r['cve'], product=r['product'], affected=r['affected'])
+        items.append((r, t))
+    try:
+        nvd.enrich(cfg, [t for _, t in items], log=log)
+    except Exception as e:      # noqa: BLE001 -- the next run tries again
+        log('intel: version check stopped: %s' % type(e).__name__)
+        return []
+    done = []
+    for r, t in items:
+        vc = t.get('version_check')
+        if not vc or vc.get('result') != 'no':
+            if vc:
+                db.x('UPDATE intel_threats SET details=? WHERE id=?', (json.dumps(t, ensure_ascii=False), r['id']))
+            continue
+        note = VERSION_NOTE % ('; '.join(vc.get('ranges') or [])[:200], known_version(t.get('our_version')))
+        db.x("UPDATE intel_threats SET affected='no', details=?, status='ignored', status_by='intel', status_at=? WHERE id=?",
+             (json.dumps(t, ensure_ascii=False), util.now(), r['id']))
+        app.audit.log('intel.threat_status', 'intel', 'system', None, 'ok', threat_id=r['id'], status='ignored',
+                      reason='nvd_version_range', ranges=vc.get('ranges'))
+        done.append(r['id'])
+        for pre in ('intel', 'intel-check', 'intel-patch'):
+            for a in db.q("SELECT id, kind FROM alerts WHERE state='open' AND dedup=?", ('%s:%s:%s' % (pre, r['cve'], r['product']),)):
+                if db.x("UPDATE alerts SET state='handled', handled_by='intel', handled_at=?, note=? WHERE id=? AND state='open'",
+                        (util.now(), note, a['id'])).rowcount == 1:
+                    app.audit.log('alert.handled', 'intel', 'system', None, 'ok', alert_id=a['id'], kind=a['kind'], note=note)
+    if done:
+        log('intel: %d threats set aside by NVD version ranges' % len(done))
+    return done
+
+
 def _level(t):
     """'urgent' (exploited, may affect us, nothing left to verify), 'check' (exploited, may affect us, preconditions not
     confirmed) or None."""
@@ -1307,6 +1356,10 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
         remind_removal(app)
     except Exception as e:      # noqa: BLE001 -- a reminder never fails the search
         log('intel: removal reminder failed: %s' % type(e).__name__)
+    try:
+        retire_by_version(app, log=log)
+    except Exception as e:      # noqa: BLE001 -- as above
+        log('intel: version check failed: %s' % type(e).__name__)
     tokens = session.tokens_in + session.tokens_out
     app.audit.log('intel.run', 'intel', 'system', None, 'ok', run_id=rid, threats=len(threats), new=len(new),
                   urgent=len(urgent), tokens=tokens)

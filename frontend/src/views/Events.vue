@@ -12,7 +12,8 @@
         <DatePicker id="ev-f-since" v-model="f.since" mode="datetime" :presets="sincePresets" /></div>
       <div class="field" :class="fieldClass('until')"><label for="ev-f-until">{{ t('filter.until') }}</label>
         <DatePicker id="ev-f-until" v-model="f.until" mode="datetime" :presets="untilPresets" /></div>
-      <label class="field" :class="fieldClass('host')"><span>{{ t('event.host') }}</span><input v-model.trim="f.host" maxlength="255" :placeholder="t('filter.all_hosts')"></label>
+      <label class="field" :class="fieldClass('host')"><span>{{ t('event.host') }}</span><input v-model.trim="f.host" maxlength="255" :placeholder="t('filter.all_hosts')">
+        <small v-if="f.host === '_other'" class="muted">{{ t('filter.host_other') }}</small></label>
       <label class="field" :class="fieldClass('path_prefix')"><span>{{ t('filter.path_prefix') }}</span><input v-model.trim="f.path_prefix" maxlength="500" placeholder="/"></label>
       <label class="field" :class="fieldClass('q')"><span>{{ t('filter.q') }}</span><input v-model.trim="f.q" maxlength="200"></label>
       <label class="field" :class="fieldClass('src_ip')"><span>{{ t('filter.src_ip') }}</span><input v-model.trim="f.src_ip" maxlength="64" placeholder="203.0.113.0/24"></label>

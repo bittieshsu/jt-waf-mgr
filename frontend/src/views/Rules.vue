@@ -15,7 +15,7 @@
     <FlowSteps v-if="showGuide" :title="t('guide.rule.title')" :steps="flow" :note="t('guide.rule.note')" />
     <form class="filters" @submit.prevent="apply">
       <div class="field" :class="fieldClass('source')"><label for="rules-f-source">{{ t('rules.source') }}</label>
-        <SelectBox id="rules-f-source" v-model="f.source" :options="sourceOpts" /></div>
+        <SelectBox id="rules-f-source" v-model="f.source" :options="sourceOpts" clear-to="all" /></div>
       <div class="field" :class="fieldClass('author')"><label for="rules-f-author">{{ t('rules.author') }}</label>
         <SelectBox id="rules-f-author" v-model="f.author" :options="authorOpts" /></div>
       <div v-if="f.source !== 'crs'" class="field" :class="fieldClass('category')"><label for="rules-f-category">{{ t('rules.category') }}</label>

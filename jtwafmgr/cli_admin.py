@@ -10,7 +10,7 @@ single-admin mode, a fresh one-time code where the web interface asks for one).
                      | outdated | regenerate   (rules an older version wrote: written again, approved as any change)
   jt-waf-mgr settings show [PREFIX] | set KEY=VALUE... | export -o FILE [--secrets] | import FILE [--only LIST] [--dry-run]
   jt-waf-mgr tokens list | revoke ID
-  jt-waf-mgr intel threats | status ID open|handled|ignored
+  jt-waf-mgr intel threats | status ID open|handled|ignored | versions   (compare open threats with NVD's affected versions)
   jt-waf-mgr review run
 """
 import json
@@ -309,6 +309,13 @@ def cmd_intel(app, args):
             _table([{k: i.get(k) for k in ('threat_id', 'id', 'product', 'severity', 'affected', 'exploited', 'status')} for i in items],
                    ['threat_id', 'id', 'product', 'severity', 'affected', 'exploited', 'status'])
         return 0
+    if args.action == 'versions':
+        # 0.4.96: compare the open threats with NVD's affected versions now (normally at each search)
+        p = _person(app, args, 'approver')
+        done = intel.retire_by_version(app, log=lambda m: print(m))
+        app.audit.log('intel.versions_checked', p['username'], 'user', 'cli', 'ok', set_aside=done)
+        print('set aside: %s' % (done or 'none'))
+        return 0
     if args.action == 'status':
         p = _person(app, args, 'approver')
         try:
@@ -366,8 +373,8 @@ def register(sub):
     t = common(sub.add_parser('tokens', help='API tokens: list, revoke'))
     t.add_argument('action', choices=('list', 'revoke'))
     t.add_argument('id', nargs='?')
-    i = common(sub.add_parser('intel', help='threat intelligence: threats, set a status'))
-    i.add_argument('action', choices=('threats', 'status'))
+    i = common(sub.add_parser('intel', help='threat intelligence: threats, set a status, check versions against NVD'))
+    i.add_argument('action', choices=('threats', 'status', 'versions'))
     i.add_argument('id', nargs='?')
     i.add_argument('status', nargs='?', choices=('open', 'handled', 'ignored'))
     r = common(sub.add_parser('review', help='run the periodic WAF review now'))

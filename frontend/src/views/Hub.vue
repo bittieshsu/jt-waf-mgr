@@ -387,8 +387,6 @@ onUnmounted(() => clearInterval(timer))
 :deep(td.c-name) { min-width: 17em; }
 .hubacts { align-items: center; flex-wrap: wrap; margin-top: 14px; }
 .uphint { margin: 8px 0 0; }
-.filebtn { position: relative; overflow: hidden; }
-.filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .hubdetail { display: flex; flex-direction: column; gap: 8px; }
 .hubcols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .hubcols :deep(pre) { max-height: 420px; overflow: auto; }

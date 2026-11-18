@@ -10,16 +10,18 @@
       <p v-if="!st.enabled" class="alert info">{{ t('iprep.off') }}</p>
       <DataTable id="iprep-lists" :columns="cols" :rows="st.lists" row-key="id" :page-size="20">
         <template #cell-name="{ row }"><a :href="row.url" target="_blank" rel="noopener noreferrer">{{ row.name }}</a></template>
+        <template #cell-count="{ row }">{{ !row.on || row.count == null ? '—' : fmtNum(row.count) }}</template>
         <template #cell-weight="{ row }"><span class="badge" :class="LEVEL_CLS[row.weight]">{{ t('iprep.level.' + row.weight) }}</span></template>
         <template #cell-state="{ row }"><span v-if="!row.on" class="muted">{{ t('uiset.off') }}</span>
           <span v-else-if="row.error" class="warn small">{{ t('iprep.list_error', { error: row.error }) }}</span>
           <span v-else-if="row.updated">{{ fmtMinute(row.updated) }}</span><span v-else class="muted">{{ t('iprep.not_yet') }}</span></template>
       </DataTable>
-      <dl class="kv two">
-        <dt>{{ t('iprep.ran_at') }}</dt><dd>{{ st.ran_at ? fmtMinute(st.ran_at) : '—' }}
-          <span v-if="st.requested" class="badge b-warn">{{ t('countries.queued') }}</span></dd>
-        <dt>{{ t('iprep.online') }}</dt><dd>{{ [st.internetdb ? 'Shodan InternetDB' : '', st.misp ? 'MISP' : ''].filter(Boolean).join(t('common.list_sep')) || t('uiset.off') }}</dd>
-      </dl>
+      <p class="small iprep-meta">
+        <span class="muted">{{ t('iprep.ran_at') }}</span><span class="gapl">{{ st.ran_at ? fmtMinute(st.ran_at) : '—' }}</span>
+        <span v-if="st.requested" class="badge b-warn gapl">{{ t('countries.queued') }}</span>
+        <span class="sep" aria-hidden="true">·</span>
+        <span class="muted">{{ t('iprep.online') }}</span><span class="gapl">{{ [st.internetdb ? 'Shodan InternetDB' : '', st.misp ? 'MISP' : ''].filter(Boolean).join(t('common.list_sep')) || t('uiset.off') }}</span>
+      </p>
       <div class="actions">
         <button type="button" class="btn" :disabled="busy || !isAdmin || !st.enabled || st.requested" @click="update"><Icon name="refresh" />{{ t('iprep.update_now') }}</button>
         <button type="button" class="btn ghost" :disabled="busy" @click="load"><Icon name="refresh" />{{ t('common.refresh') }}</button>
@@ -49,7 +51,7 @@ const cols = computed(() => [
   { key: 'name', label: t('iprep.col.name'), required: true, text: (r) => r.name },
   { key: 'category', label: t('iprep.col.category'), value: (r) => tOr('iprep.cat.' + r.category, r.category) },
   { key: 'weight', label: t('iprep.col.weight'), value: (r) => t('iprep.level.' + r.weight) },
-  { key: 'count', label: t('iprep.col.count'), align: 'num', value: (r) => r.count || 0, text: (r) => (r.count == null ? '—' : fmtNum(r.count)) },
+  { key: 'count', label: t('iprep.col.count'), align: 'num', value: (r) => (r.on ? r.count || 0 : -1), text: (r) => (!r.on || r.count == null ? '—' : fmtNum(r.count)) },
   { key: 'state', label: t('iprep.col.updated'), text: (r) => r.error || r.updated || '' },
 ])
 async function load() {
@@ -63,3 +65,8 @@ async function update() {
 }
 onMounted(load)
 </script>
+
+<style scoped>
+.iprep-meta { margin: 12px 0 4px; display: flex; flex-wrap: wrap; align-items: center; row-gap: 4px; }
+.iprep-meta .sep { margin: 0 10px; color: var(--muted); }
+</style>

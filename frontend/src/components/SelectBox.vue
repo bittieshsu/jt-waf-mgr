@@ -3,7 +3,7 @@
      options: [{ value, label, icon?, hint?, disabled? }] or plain strings. The popup is position: fixed, so
      it is never clipped by a scrolling table. -->
 <template>
-  <div class="selectbox" :class="[{ open, disabled, small }, $attrs.class]">
+  <div class="selectbox" :class="[{ open, disabled, small, clearing: canClear }, $attrs.class]">
     <button ref="btn" type="button" class="sb-btn" :id="id" :disabled="disabled" :aria-label="ariaLabel || null"
             aria-haspopup="listbox" :aria-expanded="open ? 'true' : 'false'" :aria-controls="listId"
             @click.prevent.stop="toggle" @keydown="onBtnKey">
@@ -11,6 +11,9 @@
       <span class="sb-value" :class="{ placeholder: !current }">{{ current ? current.label : (placeholder || t('select.choose')) }}</span>
       <Icon name="expand" class="sb-caret" />
     </button>
+    <!-- a filter set to something: one click back to "all" (the option with the empty value) -->
+    <button v-if="canClear" type="button" class="sb-clear" :aria-label="t('select.clear')" :title="t('select.clear')"
+            @click.prevent.stop="pick(clearOption)"><Icon name="close" /></button>
     <div v-if="open" ref="pop" class="sb-pop" :style="popStyle" @keydown="onListKey" @click.prevent.stop>
       <input v-if="searchable" ref="search" v-model="query" class="sb-search" type="search" :placeholder="t('select.search')"
              :aria-label="t('select.search')" @keydown="onListKey" />
@@ -44,6 +47,8 @@ const props = defineProps({
   disabled: Boolean,
   small: Boolean,
   searchable: { type: Boolean, default: null },   // default: on when there are more than 10 options
+  clearable: { type: Boolean, default: true },    // a "×" back to the "all" option (value clearTo), when there is one
+  clearTo: { default: '' },                       // the value that means "all" ('' on most filters)
 })
 const emit = defineEmits(['update:modelValue', 'change'])
 
@@ -57,6 +62,9 @@ const popStyle = ref({})
 
 const opts = computed(() => props.options.map((o) => (o !== null && typeof o === 'object' ? o : { value: o, label: String(o) })))
 const current = computed(() => opts.value.find((o) => o.value === props.modelValue) || null)
+const clearOption = computed(() => opts.value.find((o) => o.value === props.clearTo && !o.disabled) || null)
+const canClear = computed(() => props.clearable && !props.disabled && !!clearOption.value && props.modelValue !== props.clearTo
+  && props.modelValue !== null && props.modelValue !== undefined)
 const searchable = computed(() => (props.searchable === null ? opts.value.length > 10 : props.searchable))
 const shown = computed(() => {
   const q = query.value.trim().toLowerCase()

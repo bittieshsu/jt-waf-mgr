@@ -351,7 +351,8 @@ def _rollup_filter(req):
         if not v:
             continue
         base = k[4:] if k.startswith('not_') else k
-        if base not in rollup.FILTERABLE or (base == 'outcome' and v not in ('blocked', 'logged')):
+        if base not in rollup.FILTERABLE or (base == 'outcome' and v not in ('blocked', 'logged')) or \
+                (base == 'host' and v.lower() == OTHER_HOST):     # a group of hosts: the events themselves
             return None
         out[k] = v.lower() if base == 'host' else v
     return out
@@ -638,8 +639,25 @@ def _event_filters(req, with_time=True):
     return where, args
 
 
+OTHER_HOST = '_other'      # 0.4.96: every Host that is no name nginx serves (the war room's "other" row)
+
+
+def _site_names(app):
+    """Every name a site of nginx serves (lowercase, no trailing dot), or None when the configuration cannot be read."""
+    from .api_warroom import _hosts_alias_now
+    a = _hosts_alias_now(app)
+    return None if a is None else sorted(set(a['shown']) | set(a['alias']))
+
+
 def _value_filters(req, q, where, args):
-    if q.get('host'):
+    if q.get('host') and q['host'].lower() == OTHER_HOST:
+        names = _site_names(req.app)
+        if names is None:
+            raise ApiError(503, 'nginx_unreadable', 'the nginx configuration cannot be read')
+        # the war room's "other": a Host no site serves (a typo, an address, a made-up name; a trailing dot ignored)
+        where.append("rtrim(lower(host), '.') NOT IN (%s)" % ','.join('?' * len(names)) if names else '1')
+        args += names
+    elif q.get('host'):
         where.append('host=?')
         args.append(q['host'].lower())
     if q.get('path_prefix'):

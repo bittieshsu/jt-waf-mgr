@@ -460,8 +460,9 @@ function eventsQuery(q) {
   const p = new URLSearchParams(Object.assign({}, q, since ? { since } : {}))
   return '/events?' + p.toString()
 }
-function siteLink(h) { return h === 'other' ? eventsQuery({}) : /^internal-\d+$/.test(h) ? eventsQuery({ origin: 'internal' }) : eventsQuery({ host: h }) }
-function scoreLink(h) { return /^internal-\d+$/.test(h) || h === 'other' ? eventsQuery({ decided_by: 'score' }) : eventsQuery({ host: h, decided_by: 'score' }) }
+// "other": a Host no site serves -- the events page's host=_other is the same grouping (0.4.96)
+function siteLink(h) { return h === 'other' ? eventsQuery({ host: '_other' }) : /^internal-\d+$/.test(h) ? eventsQuery({ origin: 'internal' }) : eventsQuery({ host: h }) }
+function scoreLink(h) { return /^internal-\d+$/.test(h) ? eventsQuery({ decided_by: 'score' }) : eventsQuery({ host: h === 'other' ? '_other' : h, decided_by: 'score' }) }
 function decisionLink(d) { return d === 'logged' ? eventsQuery({ outcome: 'logged' }) : eventsQuery(d === 'other' ? { outcome: 'blocked' } : { decided_by: d }) }
 function pickFlow(p) {
   const q = {}

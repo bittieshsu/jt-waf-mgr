@@ -535,6 +535,13 @@ table.grid tbody tr.dt-expand:hover td { background: var(--panel-2); }
 .sb-value { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sb-value.placeholder { color: var(--muted); }
 .sb-caret { color: var(--muted); transition: transform .12s; }
+.selectbox.clearing .sb-btn { padding-right: 30px; }
+.sb-clear { position: absolute; right: 26px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center;
+  justify-content: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: transparent;
+  color: var(--muted); cursor: pointer; }
+.sb-clear:hover, .sb-clear:focus-visible { background: var(--hover, rgba(127, 127, 127, .15)); color: var(--text); }
+.sb-clear svg { width: 14px; height: 14px; }
+.selectbox.small .sb-clear { right: 22px; }
 .selectbox.open .sb-caret { transform: rotate(180deg); }
 .sb-pop { z-index: 1000; background: var(--panel); border: 1px solid var(--border-strong); border-radius: 8px;
   box-shadow: 0 8px 24px rgba(10, 20, 40, .18); display: flex; flex-direction: column; overflow: hidden; }
@@ -1131,3 +1138,8 @@ dl.facts dd { margin: 0; min-width: 0; display: flex; flex-wrap: wrap; align-ite
 .jobsteps .js-sub { font-size: 12.5px; color: var(--muted); }
 .llmline { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); margin: 0 0 8px; }
 .llmline b { color: var(--text); font-weight: 600; }
+
+/* a file picker that looks like a button (the native control hidden over it): every page with an upload */
+.filebtn { position: relative; overflow: hidden; }
+.filebtn input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.crsupload { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0 8px; }

@@ -188,6 +188,16 @@ class TestApi(unittest.TestCase):
         st, obj, _ = c.req('GET', '/api/v1/events?not_src_ip=192.168.0.0/16&not_outcome=logged')
         self.assertTrue(all(x['origin'] != 'internal' and x['outcome'] != 'logged' for x in obj['items']))
         self.assertEqual(c.req('GET', '/api/v1/events?not_outcome=maybe')[0], 400)
+        # 0.4.96: host=_other -- every Host no site serves (the war room's "other" row); not_host=_other the rest
+        st, every, _ = c.req('GET', '/api/v1/events')
+        names = {'app.example.com', 'intranet.example.com', 'intra.example.com', 'static.example.com'}
+        st, obj, _ = c.req('GET', '/api/v1/events?host=_other')
+        self.assertEqual(sorted(x['id'] for x in obj['items']), sorted(x['id'] for x in every['items'] if x['host'] not in names))
+        self.assertTrue(obj['items'])
+        st, obj, _ = c.req('GET', '/api/v1/events?not_host=_other')
+        self.assertTrue(all(x['host'] in names for x in obj['items']))
+        st, o, _ = c.req('GET', '/api/v1/overview?host=_other')
+        self.assertEqual((st, o['totals']['events']), (200, sum(1 for x in every['items'] if x['host'] not in names)))
         st, o, _ = c.req('GET', '/api/v1/overview?not_host=sso.example.com')
         self.assertEqual((o['filters'], o['totals']['events']), ({'not_host': 'sso.example.com'}, 2))
         self.assertEqual(c.req('GET', '/api/v1/events/999999')[0], 404)
