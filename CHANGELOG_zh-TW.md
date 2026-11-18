@@ -2,6 +2,12 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.4.99 (2026-11-19)
+
+- 威脅情報，發行版套件：Debian 與 Ubuntu 會把安全修正移植到原本的版本號 (libbrotli1 1.0.9-2+deb12u1 已含 CVE-2026-111497 的修正，上游要到 1.0.10 才修)，所以這類套件不再只用上游版本號判斷是否受影響。改讀本機已安裝套件自己的修改記錄 (/usr/share/doc/<套件>/changelog.Debian.gz，不下載任何東西)：記錄裡有這個 CVE 就標記不適用 (理由寫套件名稱)，並處理對應的待處理警示。發行版的版本但本機找不到套件或修改記錄時，改走「請確認」(請以發行版的安全公告為準)，不走緊急處理。由 jt-wazuh-mgr 回報。
+- 同一次搜尋中已標記不適用的威脅 (NVD 版本範圍、發行版已修正、nginx 安全公告) 不再發警示。
+- nginx 安全公告中「Severity: none」的項目 (nginx.org 有一則列為所有版本) 不再算成未修正的問題：警示與 nginx 更新頁不會再因為它顯示「下一版沒有全部修正」。
+
 ## 0.4.98 (2026-11-19)
 
 - nginx 安全公告：nginx 本身的漏洞 (HTTP/2、HTTP/3、resolver、mail 與 stream 模組) 發生在 ModSecurity 看到請求之前，任何規則都封鎖不了。nginx 更新檢查現在每次都會讀取 nginx.org 的安全公告，比對已安裝的 nginx 與本站設定用到的功能 (HTTP/2、HTTP/3、resolver、mail、stream、PROXY protocol、ssl_preread、SSI、alias、TLS session ticket key)，並發出「nginx 安全更新」警示 (有用到的功能遇到嚴重公告時為緊急)，說明規則幫不上忙，以及修正版 nginx 是否已準備好。驗證過的更新會自動提出為變更，仍要管理者用一次性密碼核准。威脅情報裡的 nginx 項目改依公告判定 (已修正的版本會標記不適用)。nginx 更新頁會列出適用的公告。

@@ -104,7 +104,7 @@ const cols = computed(() => [
 function kindText(r) { return tOr('alerts.kind.' + r.kind, r.kind) }
 // threat intelligence alerts carry a message key and its values: worded in the interface language (the stored
 // reason is the English one, kept for the audit trail)
-const MSGS = ['intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere']
+const MSGS = ['intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere', 'intel_distro']
 function reasonText(r) {
   const d = r.details || {}
   if (r.kind === 'nginx_module') {

@@ -137,6 +137,7 @@ TEXT = {
         'r.intel_urgent': '{sw} 的 {cve} 已被利用，{affects}{vu}：請盡快更新軟體，或決定是否加上預防規則。',
         'r.intel_check': '{sw} 的 {cve} 已被利用，但只在特定條件下才會受影響{vu}；無法確認本站是否符合，請確認是否適用。',
         'r.intel_elsewhere': '{cve} 已被利用，但 NVD 只列出 {products}，沒有 {product}：可能歸錯產品，請確認後標記不適用。',
+        'r.intel_distro': '{sw} 的 {cve} 已被利用，但這是發行版的套件，修正常會移植到原本的版本號；本機找不到可確認的修改記錄，請以發行版的安全公告為準。',
         'r.nginx_security': 'nginx {v} 有 {n} 個安全問題出在本站設定有用到的功能 ({cves})。WAF 規則封鎖不了這類問題：請更新 nginx。{ready}',
         'r.nginx_ready': '更新到 {v} 已準備好 (ModSecurity 模組已用它驗證過)。',
         'r.intel_patch': '{sw} 的 {cve} 已被利用，{affects}{vu}，但預先防護規則沒有生效：請更新軟體，或決定要不要用規則。',
@@ -233,6 +234,7 @@ TEXT = {
         'r.intel_urgent': '{cve} in {sw} is exploited in the wild and {affects}{vu}: update the software soon, or decide on a precaution rule.',
         'r.intel_check': '{cve} in {sw} is exploited in the wild, but only under certain conditions{vu}; whether this site meets them could not be confirmed: check whether it applies.',
         'r.intel_elsewhere': '{cve} is exploited in the wild, but NVD lists only {products}, not {product}: probably attributed to the wrong product; check it and set it aside.',
+        'r.intel_distro': '{cve} in {sw} is exploited in the wild, but this is a distribution\'s package: fixes are often backported without changing the upstream version, and no change log on this host confirms it; check the distribution\'s security advisory.',
         'r.nginx_security': 'nginx {v} has {n} security issue(s) in features this configuration uses ({cves}). WAF rules cannot refuse these: update nginx.{ready}',
         'r.nginx_ready': ' The update to {v} is ready (the ModSecurity module was verified with it).',
         'r.intel_patch': '{cve} in {sw} is exploited in the wild and {affects}{vu}, but the precaution rule is not in force: update the software, or decide on a rule.',
@@ -330,6 +332,7 @@ TEXT = {
         'r.intel_urgent': '{sw} の {cve} は悪用されており、{affects}{vu}：早めにソフトウェアを更新するか、予防ルールを決めてください。',
         'r.intel_check': '{sw} の {cve} は悪用されていますが、特定の条件でのみ影響します{vu}。当サイトが該当するかは確認できませんでした：該当するか確認してください。',
         'r.intel_elsewhere': '{cve} は悪用されていますが、NVD に記載されているのは {products} だけで {product} はありません。製品の割り当て誤りの可能性があります：確認してから対象外にしてください。',
+        'r.intel_distro': '{sw} の {cve} は悪用されていますが、ディストリビューションのパッケージです。修正は元のバージョン番号のまま取り込まれることが多く、このホストでは確認できる変更履歴が見つかりませんでした：ディストリビューションのセキュリティ情報で確認してください。',
         'r.nginx_security': 'nginx {v} には、この設定で使っている機能に {n} 件のセキュリティ問題があります ({cves})。WAF ルールでは拒否できません。nginx を更新してください。{ready}',
         'r.nginx_ready': ' {v} への更新は準備済みです (ModSecurity モジュールを検証済み)。',
         'r.intel_patch': '{sw} の {cve} は悪用されており、{affects}{vu}が、予防ルールが有効になっていません：ソフトウェアを更新するか、ルールを決めてください。',
@@ -579,7 +582,7 @@ def _link(cfg, path):
     return base + path if base and path else None
 
 
-ALERT_MSGS = ('intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere')
+ALERT_MSGS = ('intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere', 'intel_distro')
 
 
 def alert_text(lang, d):

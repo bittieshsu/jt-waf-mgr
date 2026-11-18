@@ -230,6 +230,8 @@ def assess(cfg, installed, candidate=None, advs=None, feats=None):
     for a in advs:
         if not ver or is_vulnerable(ver, a) is not True:
             continue
+        if (a.get('severity') or '').strip().lower() == 'none':
+            continue            # 0.4.99: nginx.org's "Severity: none" (CVE-2009-4487, every version): no flaw to fix
         f = feature_of(a)
         issues.append({'title': a['title'], 'severity': a.get('severity') or '', 'cves': a.get('cves') or [],
                        'feature': f, 'in_use': True if f is None else bool(feats.get(f)),

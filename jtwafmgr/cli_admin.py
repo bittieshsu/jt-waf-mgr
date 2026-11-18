@@ -313,6 +313,7 @@ def cmd_intel(app, args):
         # 0.4.96: compare the open threats with NVD's affected versions now (normally at each search)
         p = _person(app, args, 'approver')
         done = intel.retire_by_version(app, log=lambda m: print(m))
+        done += intel.retire_by_distro(app, log=lambda m: print(m))     # 0.4.99: a distribution's backported fix
         app.audit.log('intel.versions_checked', p['username'], 'user', 'cli', 'ok', set_aside=done)
         print('set aside: %s' % (done or 'none'))
         return 0

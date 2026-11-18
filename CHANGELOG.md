@@ -2,6 +2,12 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.99 (2026-11-19)
+
+- Threat intelligence, distribution packages: Debian and Ubuntu backport security fixes without changing the upstream version (libbrotli1 1.0.9-2+deb12u1 carries the fix for CVE-2026-111497, which upstream fixed in 1.0.10), so the upstream number of such a package no longer decides "affected". The installed package's own change log (/usr/share/doc/<package>/changelog.Debian.gz, on this host; nothing is downloaded) is read: when it names the CVE, the threat is set aside with the package as the reason and its open alert is handled. A distribution's version whose package or change log cannot be found here takes the "check" path ("check the distribution's security advisory") instead of the urgent one. Reported by jt-wazuh-mgr.
+- A threat set aside during a search (NVD's version ranges, a distribution's fix, nginx's advisories) no longer raises an alert in the same search.
+- nginx security advisories with "Severity: none" (nginx.org lists one for every version) are no longer counted as open issues: the alert and the nginx updates page no longer say the next version does not fix everything because of it.
+
 ## 0.4.98 (2026-11-19)
 
 - nginx's own security advisories: flaws in nginx itself (HTTP/2, HTTP/3, the resolver, the mail and stream modules) happen before ModSecurity sees a request, so no rule can refuse them. The nginx update job now reads nginx.org's security advisories with each run, compares them with the installed nginx and with the features this configuration uses (HTTP/2, HTTP/3, resolver, mail, stream, PROXY protocol, ssl_preread, SSI, alias, TLS session ticket keys), and raises an "nginx security update" alert (critical for a major advisory in a feature in use) saying that rules cannot help and whether the fixed nginx is ready. The verified update is proposed as a change by itself; an administrator still approves it with a one-time code. Threat intelligence entries for nginx are decided by the advisories (a version that is already fixed is set aside). The nginx updates page lists the advisories that apply.

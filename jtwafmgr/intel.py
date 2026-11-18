@@ -47,6 +47,8 @@ def unverified(t):
     facts could not confirm: it gets a warning to check, not the urgent path (a version match alone over-reports)."""
     if (t.get('version_check') or {}).get('result') == 'elsewhere':
         return True             # 0.4.98: NVD names other products only (the model's product is likely wrong)
+    if (t.get('distro_check') or {}).get('result') == 'unknown':
+        return True             # 0.4.99: a distribution's package whose change log is not found here (backports)
     return bool(t.get('preconditions')) and t.get('conditions_met') != 'yes'
 
 
@@ -1232,6 +1234,47 @@ def retire_by_version(app, log=print):
     return done
 
 
+DISTRO_NOTE = 'the installed %s package names %s in its change log: the distribution has backported the fix to %s'
+
+
+def retire_by_distro(app, log=print):
+    """0.4.99: open threats whose product is installed here as a distribution's package that names the CVE in its
+    installed change log (a backported fix: 1.0.9-2+deb12u1 carries a fix upstream made in 1.0.10) are set aside
+    ("ignored", by intel) and their open alerts handled. Returns the threat ids set aside."""
+    from . import distropkg
+    db = app.db
+    done = []
+    for r in db.q("SELECT id, cve, product, affected, details FROM intel_threats WHERE status='open'"):
+        try:
+            t = json.loads(r['details'] or '{}')
+        except ValueError:
+            continue
+        t.update(id=r['cve'], product=r['product'], affected=r['affected'])
+        before = t.get('distro_check')
+        dc = distropkg.apply(t)
+        if not dc:
+            continue
+        if dc['result'] != 'fixed':
+            if dc != before:
+                db.x('UPDATE intel_threats SET details=? WHERE id=?', (json.dumps(t, ensure_ascii=False), r['id']))
+            continue
+        ver = known_version(t.get('our_version'))
+        note = DISTRO_NOTE % (dc['package'], r['cve'], ver)
+        db.x("UPDATE intel_threats SET affected='no', details=?, status='ignored', status_by='intel', status_at=? WHERE id=?",
+             (json.dumps(t, ensure_ascii=False), util.now(), r['id']))
+        app.audit.log('intel.threat_status', 'intel', 'system', None, 'ok', threat_id=r['id'], status='ignored',
+                      reason='distro_changelog', package=dc['package'], cve=r['cve'])
+        done.append(r['id'])
+        for pre in ('intel', 'intel-check', 'intel-patch'):
+            for a in db.q("SELECT id, kind FROM alerts WHERE state='open' AND dedup=?", ('%s:%s:%s' % (pre, r['cve'], r['product']),)):
+                if db.x("UPDATE alerts SET state='handled', handled_by='intel', handled_at=?, note=? WHERE id=? AND state='open'",
+                        (util.now(), note, a['id'])).rowcount == 1:
+                    app.audit.log('alert.handled', 'intel', 'system', None, 'ok', alert_id=a['id'], kind=a['kind'], note=note)
+    if done:
+        log('intel: %d threats set aside: the distribution package carries the fix' % len(done))
+    return done
+
+
 def _level(t):
     """'urgent' (exploited, may affect us, nothing left to verify), 'check' (exploited, may affect us, preconditions not
     confirmed) or None."""
@@ -1336,6 +1379,13 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
             nvd.enrich(cfg, threats, log=log)
         except Exception as e:      # noqa: BLE001 -- the threats stand without the official scores
             log('nvd: failed: %s' % type(e).__name__)
+        from . import distropkg
+        for t in threats:
+            try:
+                # a distribution's package: its installed change log says whether the fix is in (0.4.99)
+                distropkg.apply(t)
+            except Exception as e:      # noqa: BLE001 -- the threat stands as the model said
+                log('intel: distribution package check failed: %s' % type(e).__name__)
         note = util.clip(str(answer.get('notes') or ''), 1000) if isinstance(answer, dict) else ''
     except Exception as e:      # noqa: BLE001 -- recorded, notified; the next run starts afresh
         code = e.code if isinstance(e, IntelError) else 'internal_%s' % type(e).__name__
@@ -1365,6 +1415,10 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
     except Exception as e:      # noqa: BLE001 -- as above
         log('intel: version check failed: %s' % type(e).__name__)
     try:
+        retire_by_distro(app, log=log)
+    except Exception as e:      # noqa: BLE001 -- as above
+        log('intel: distribution package check failed: %s' % type(e).__name__)
+    try:
         # nginx's own advisories (read by the nginx update job; 0.4.98) decide nginx's CVEs
         from . import nginxsec
         nginxsec.decide_threats(app, log=log)
@@ -1373,6 +1427,10 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
     tokens = session.tokens_in + session.tokens_out
     app.audit.log('intel.run', 'intel', 'system', None, 'ok', run_id=rid, threats=len(threats), new=len(new),
                   urgent=len(urgent), tokens=tokens)
+    # a threat set aside above (NVD ranges, a distribution's fix, nginx's advisories) raises nothing
+    still = {r['id'] for r in db.q("SELECT id FROM intel_threats WHERE status='open'")}
+    urgent = [t for t in urgent if t.get('threat_id') in still]
+    check = [t for t in check if t.get('threat_id') in still]
     for t in urgent:
         # exploited in the wild (read on a CISA page) and our version is affected: a person acts now
         ver = known_version(t['our_version'])
@@ -1385,6 +1443,15 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
         # exploited, but only under conditions this host may not meet: a person checks, nothing is rushed
         ver = known_version(t['our_version'])
         vc = t.get('version_check') or {}
+        if (t.get('distro_check') or {}).get('result') == 'unknown':
+            # a distribution's package: the fix may be backported, and no change log here says (0.4.99)
+            alerts.raise_alert(db, app.audit, 'intel', 'exploited_vulnerability', 'warning', 'intel-check:%s:%s' % (t['id'], t['product']),
+                               {'reason': '%s in %s %s is exploited in the wild, but this is a distribution\'s package: fixes are '
+                                          'often backported without changing the upstream version, and no change log on this host '
+                                          'confirms it; check the distribution\'s security advisory.' % (t['id'], t['product'], ver),
+                                'msg': 'intel_distro', 'cve': t['id'], 'product': t['product'], 'sw_version': ver,
+                                'package': t['distro_check'].get('package') or '', 'run_id': rid}, link='/intel')
+            continue
         if vc.get('result') == 'elsewhere':
             # NVD's analysis names other products only: likely attributed to the wrong product (0.4.98)
             names = ', '.join(vc.get('products') or [])[:200]

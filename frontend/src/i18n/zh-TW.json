@@ -23,6 +23,7 @@
  "alerts.handle_title": "標記警示 #{id} 為已處理",
  "alerts.handled_by": "{by} 於 {at}",
  "alerts.intel_check": "{sw} 的 {cve} 已被利用，但只在特定條件下才會受影響{vu}；無法確認本站是否符合，請確認是否適用。",
+ "alerts.intel_distro": "{sw} 的 {cve} 已被利用，但這是發行版的套件，修正常會移植到原本的版本號；本機找不到可確認的修改記錄，請以發行版的安全公告為準。",
  "alerts.intel_elsewhere": "{cve} 已被利用，但 NVD 只列出 {products}，沒有 {product}：可能歸錯產品，請確認後標記不適用。",
  "alerts.intel_patch": "{sw} 的 {cve} 已被利用，{affects}{vu}，但預先防護規則沒有生效：請更新軟體，或決定要不要用規則。",
  "alerts.intel_remove": "{product} 已更新為 {now} (寫 {cve} 的預先防護規則時是 {was})：確認新版已修補後，移除規則 {rule_id}。",

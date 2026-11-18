@@ -17,6 +17,7 @@ PAGE = '''<html><body><div id="content"><h2>nginx security advisories</h2><ul>
 <li><p>Memory corruption in HTTP/2 flow control<br>Severity: <b>major</b><br><a href="https://advisory.example.com/K2">Advisory</a><br><a href="https://www.cve.org/CVERecord?id=CVE-2099-0002">CVE-2099-0002</a><br>Not vulnerable: 1.31.9+, 1.30.7+<br>Vulnerable: 1.9.5-1.31.8</p></li>
 <li><p>Use-after-free in HTTP/3<br>Severity: medium<br><a href="https://advisory.example.com/K3">Advisory</a><br><a href="https://www.cve.org/CVERecord?id=CVE-CVE-2099-0003">CVE-CVE-2099-0003</a><br>Not vulnerable: 1.31.9+, 1.30.7+<br>Vulnerable: 1.25.0-1.31.8</p></li>
 <li><p>Buffer overflow when using alias with rewrite<br>Severity: medium<br><a href="https://www.cve.org/CVERecord?id=CVE-2099-0004">CVE-2099-0004</a><br>Not vulnerable: 1.31.7+, 1.30.6+<br>Vulnerable: 0.6.0-1.31.6</p></li>
+<li><p>An issue in logging<br>Severity: none<br><a href="https://www.cve.org/CVERecord?id=CVE-2009-0006">CVE-2009-0006</a><br>Not vulnerable: none<br>Vulnerable: all</p></li>
 <li><p>Old one<br>Severity: major<br><a href="https://www.cve.org/CVERecord?id=CVE-2009-0005">CVE-2009-0005</a><br>Not vulnerable: 0.8.15+, 0.7.64+<br>Vulnerable: 0.1.0-0.8.14</p></li>
 </ul></div></body></html>'''
 
@@ -45,7 +46,7 @@ class TestAdvisories(unittest.TestCase):
     def test_parse_and_versions(self):
         advs = nginxsec.parse(PAGE)
         self.assertEqual([a['cves'] for a in advs], [['CVE-2099-0001'], ['CVE-2099-0002'], ['CVE-2099-0003'],
-                                                      ['CVE-2099-0004'], ['CVE-2009-0005']])   # "CVE-CVE-" typo read
+                                                      ['CVE-2099-0004'], ['CVE-2009-0006'], ['CVE-2009-0005']])   # "CVE-CVE-" typo read
         h2 = advs[1]
         self.assertEqual((h2['severity'], h2['not_vulnerable'], h2['vulnerable']), ('major', ['1.31.9+', '1.30.7+'], ['1.9.5-1.31.8']))
         self.assertEqual(h2['advisory'], 'https://advisory.example.com/K2')
@@ -105,7 +106,7 @@ class TestAdvisories(unittest.TestCase):
         r2 = app.db.one('SELECT status, details FROM intel_threats WHERE id=?', (rows['CVE-2099-0002'],))
         self.assertEqual((r2['status'], json.loads(r2['details'])['nginx_advisory']['result']), ('open', 'yes'))
         # the page cannot be read: the last list is kept
-        self.assertEqual(len(nginxsec.refresh(self.env.cfg, get=lambda url: '<html></html>', log=lambda m: None)), 5)
+        self.assertEqual(len(nginxsec.refresh(self.env.cfg, get=lambda url: '<html></html>', log=lambda m: None)), 6)
         # switched off: nothing is read or raised
         self.env.cfg.data['nginxup']['advisories'] = False
         self.assertIsNone(nginxup.security(app, st, log=lambda m: None, get=lambda url: self.fail('read')))
