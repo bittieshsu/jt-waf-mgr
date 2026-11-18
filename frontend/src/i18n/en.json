@@ -2070,6 +2070,7 @@
  "intel.nvd_versions": "Affected versions (NVD)",
  "intel.nvd_versions_no": "Our version is not among them: it does not affect this site.",
  "intel.nvd_versions_yes": "Our version is among them (preconditions may still apply).",
+ "intel.nvd_versions_yes_distro": "The upstream release of our package is among them; the distribution may have backported the fix (check its security tracker).",
  "intel.osv": "OSV queries",
  "intel.osv_eco": "packages of {eco}",
  "intel.osv_no_eco": "On, but this host is not Debian or Ubuntu: nothing is asked",

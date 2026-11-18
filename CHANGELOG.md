@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.97 (2026-11-18)
+
+- Threat intelligence: a distribution package's version (`3.0.9-1+deb12u2`, `1.30.6-1~bookworm`, `2.9.14+dfsg-1.3~deb12u6`) is compared by its upstream release; outside every NVD range it does not affect this site, inside one it stays undecided with a note that the distribution may have backported the fix. Only the product itself is compared (another product of the same vendor, such as a desktop client, is no longer taken for ours). On production, 0.4.96 set aside one threat (CVE-2026-73570, Zimbra 10.1.20); most others had distribution versions.
+
 ## 0.4.96 (2026-11-18)
 
 - Threat intelligence, fewer false alarms: NVD's affected versions (the CPE ranges of each CVE) are compared with the known version of our software. When NVD names the product and our version is outside every range, the threat does not affect this site, whatever the model guessed: it is set aside with the ranges as the reason and its open alert is handled (for example CVE-2025-48700: Zimbra 10.1.0 to 10.1.3, this site 10.1.20). Inside a range changes nothing by itself (preconditions may still apply); an unknown or unparseable version, or a patch level NVD lists separately, stays "unknown". Threats already open are compared at the next search, or now with `jt-waf-mgr intel versions --as USER`. The threat details show NVD's ranges.

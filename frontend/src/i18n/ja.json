@@ -2070,6 +2070,7 @@
  "intel.nvd_versions": "影響を受けるバージョン (NVD)",
  "intel.nvd_versions_no": "当方のバージョンは含まれません。このサイトには影響しません。",
  "intel.nvd_versions_yes": "当方のバージョンが含まれます (前提条件がある場合があります)。",
+ "intel.nvd_versions_yes_distro": "当方のパッケージの上流バージョンが含まれます。ディストリビューションが修正をバックポートしている場合があります (ディストリビューションのセキュリティトラッカーを確認してください)。",
  "intel.osv": "OSV 問い合わせ",
  "intel.osv_eco": "{eco} のパッケージを照会",
  "intel.osv_no_eco": "オンですが、このホストは Debian / Ubuntu ではないため問い合わせません",

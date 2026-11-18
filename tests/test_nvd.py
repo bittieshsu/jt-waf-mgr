@@ -61,6 +61,15 @@ class TestNvd(unittest.TestCase):
         self.assertNotIn('version_check', t[2])               # 8.8.15 with an unknown patch level: not decided
         self.assertNotIn('version_check', t[3])               # NVD names another product
         self.assertNotIn('cpes', t[0]['nvd'])                 # the ranges are not stored with every threat
+        # 0.4.97: a distribution package -- the upstream release decides "outside" only (fixes are backported)
+        brotli = [{'vendor': 'google', 'product': 'brotli', 'version': '*', 'update': '*', 'si': '1.0.3', 'se': '', 'ei': '',
+                   'ee': '1.0.10'}]
+        self.assertEqual(nvd.version_check('Brotli', '1.0.9-2+deb12u1', brotli)['distro'], True)
+        self.assertEqual(nvd.version_check('Brotli', '1.1.0-2+deb13u1', brotli)['result'], 'no')
+        self.assertIsNone(nvd.version_check('OpenSSH', '1:9.2p1-2+deb12u10', brotli))
+        # the vendor's other product (a desktop client) is no comparison for ours
+        self.assertIsNone(nvd.version_check('Nextcloud', '34.0.5', [{'vendor': 'nextcloud', 'product': 'desktop', 'version': '*',
+                                                                     'update': '*', 'si': '', 'se': '', 'ei': '', 'ee': '3.0'}]))
         self.assertIsNone(nvd.version_check('Zimbra', 'unknown', [{'vendor': 'x', 'product': 'zimbra', 'version': '*',
                                                                    'update': '*', 'si': '', 'se': '', 'ei': '', 'ee': '1.0'}]))
 

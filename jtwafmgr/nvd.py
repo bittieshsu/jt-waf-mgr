@@ -133,6 +133,26 @@ def _v(s):
     return tuple(int(x) for x in m.group(0).split('.'))
 
 
+# a distribution package's version: [epoch:]upstream[-revision], the upstream part with a repack or backport tag
+_DISTRO = re.compile(r'^(?:\d+:)?(?P<up>[0-9][0-9.]*)(?:[+~](?:dfsg|ds|repack|really[0-9.]*|deb\w*|bpo\w*|ubuntu\w*)[\w.]*)*'
+                     r'(?:-[\w.+~]+)?$', re.I)
+
+
+def _ours(version):
+    """Our version as numbers and whether it is a distribution package's ('1.30.6-1~bookworm', '3.0.9-1+deb12u2',
+    '2.9.14+dfsg-1.3~deb12u6' -> the upstream release): (tuple, distro) or (None, False). A distribution backports fixes
+    without changing the upstream number, so for such a version only "outside every range" says anything."""
+    v = _v(version)
+    if v is not None:
+        return v, False
+    m = _DISTRO.match(str(version or '').strip())
+    if m and re.search(r'[-:+~]', str(version)):
+        up = _v(m.group('up').rstrip('.'))
+        if up is not None:
+            return up, True
+    return None, False
+
+
 def _cmp(a, b):
     n = max(len(a), len(b))
     a, b = a + (0,) * (n - len(a)), b + (0,) * (n - len(b))
@@ -146,11 +166,12 @@ def _words(name):
 def version_check(product, version, entries):
     """Whether our version of a product is among NVD's affected ones: {'result': 'yes' | 'no', 'ranges': [...]} or None
     (NVD names no such product, our version is not plain numbers, or an entry cannot be compared -- unknown)."""
-    ours = _v(version)
+    ours, distro = _ours(version)
     words = _words(product)
     if ours is None or not words or not entries:
         return None
-    mine = [e for e in entries if words & (_words(e['product'].replace('_', ' ')) | _words(e['vendor'].replace('_', ' ')))]
+    # the product itself (a vendor's other products -- a desktop client, a plugin -- are not ours)
+    mine = [e for e in entries if words & _words(e['product'].replace('_', ' '))]
     if not mine:
         return None
     ranges, hit, unsure = [], False, False
@@ -187,7 +208,8 @@ def version_check(product, version, entries):
             ranges.append(e['version'] + ('' if e['update'] in ('*', '-', '') else ' ' + e['update']))
     ranges = list(dict.fromkeys(ranges))[:12]
     if hit:
-        return {'result': 'yes', 'ranges': ranges}
+        # a distribution package inside the range may well carry the fix (backported): said, never acted on
+        return {'result': 'yes', 'ranges': ranges, 'distro': True} if distro else {'result': 'yes', 'ranges': ranges}
     if unsure:
         return None
     return {'result': 'no', 'ranges': ranges}

@@ -2070,6 +2070,7 @@
  "intel.nvd_versions": "受影響版本 (NVD)",
  "intel.nvd_versions_no": "本站版本不在範圍內：不影響本站。",
  "intel.nvd_versions_yes": "本站版本在範圍內 (仍可能有前提條件)。",
+ "intel.nvd_versions_yes_distro": "本站套件的上游版本在範圍內；發行版可能已回補修正 (請查發行版的安全追蹤)。",
  "intel.osv": "OSV 查詢",
  "intel.osv_eco": "查詢 {eco} 的套件",
  "intel.osv_no_eco": "已開啟，但這台主機不是 Debian 或 Ubuntu：不會查詢",
