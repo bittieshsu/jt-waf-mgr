@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.94
+# jt-waf-mgr v0.4.95
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -54,18 +54,20 @@ ModSecurity は最後のルールのまま動作し続けます。
 
 ## 向いている場面・向いていない場面
 
-jt-waf-mgr は **1 台の nginx ホスト** (libmodsecurity v3) のために作られています。企業、学校、公的機関、運用受託先のサイトで、少人数のチームが WAF の変更をすべて検査・承認し、追跡と監査ができるようにしたい場合に向いています。
+jt-waf-mgr はリクエストの経路にありません。各リクエストは jt-waf-mgr がない場合と同じく nginx と ModSecurity、CRS が検査し、jt-waf-mgr が停止しても WAF は最後のルールで動き続けます。jt-waf-mgr が加える処理は同じホストの nginx の横で動き、制約もそこにあります。
 
 **向いている**
-- 1 台の nginx ホスト (Web サーバー、リバースプロキシ、またはその両方) で数十までのサイトを運用：ポータル、SSO、メール、ERP、Nextcloud、社内ツール。
-- 中程度のトラフィック：本番では数十サイトのリバースプロキシで 1 日約 15 万リクエストを処理しています。ダッシュボードは 40 万件の合成イベントで検証済み (7 日間を 1 秒未満で表示)、証拠チェックはアクセスログを毎秒約 1 万行読みます。
-- 記録が必要なチーム：誰が何をなぜ変えたか、承認、ロールバック、ISO/IEC 27001 と台湾の資通安全管理法。
+- libmodsecurity v3 を使う 1 台の nginx ホスト (Web サーバー、リバースプロキシ、またはその両方) で、少人数のチームが WAF の変更をすべて検査・承認し、追跡と監査ができるようにしたい場合 (ISO/IEC 27001、台湾の資通安全管理法)。
+- 証拠チェックが読む範囲のアクセスログが約 900 万行まで (毎秒約 1 万行を読み、15 分で打ち切り)。本番：数十サイト、1 日約 15 万リクエスト、730 万行。
+- WAF イベント：収集プログラムは CPU 1 コアで毎秒約 750 件を保存できます (合成ログで計測)。通常のサイトの量を大きく上回り、攻撃の洪水で繰り返されるイベントはまとめます。
 
-**向いていない**
-- **大規模・高トラフィックのサイト** (毎秒数千リクエストが続く、1 日数千万リクエスト：大規模 EC、メディア、公共プラットフォームなど)。すべてが 1 台で動きます。イベントは SQLite に保存し、変更のたびにアクセスログを読み直して nginx のサンドボックスで再送し、ModSecurity と CRS はリクエストごとに負荷を加えます。こうしたサイトには CDN やクラウド WAF、または専用の管理を持つ WAF クラスターを使ってください。
-- ロードバランサーの後ろに複数の nginx がある構成：現在は単一ノードのみ (複数ノード管理は一時停止中)。
+**現時点では向いていない**
+- ロードバランサーの後ろの**複数の nginx に分かれたサイト** (大規模・高トラフィックのサイトによくある構成)：現在は単一ノードのみです (複数ノード管理は一時停止中)。
+- **非常に大量のログ** (1 日数千万リクエストを数週間保持)：変更の証拠チェックが読み終わる前に止まり、完全な証拠なしで人が理由を説明する必要があります。
 - 他のプロキシやエンジン (Apache、HAProxy、Envoy、Traefik、ModSecurity v2、Coraza)。
 - 完全自動の WAF：ルールの緩和には必ず人の承認が必要です。
+
+大規模サイトでは、ModSecurity と CRS のリクエストごとの負荷 (jt-waf-mgr の有無にかかわらず同じ) を自分のトラフィックで事前に計測してください。CDN やクラウド WAF という選択肢もあります。
 
 ## 機能
 
@@ -168,7 +170,7 @@ jt-waf-mgr は **1 台の nginx ホスト** (libmodsecurity v3) のために作�
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # リリースの決まった場所
-V=0.4.94; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.95; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # リリース、署名、公開鍵
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -375,7 +377,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新しいリリースも同じ current に展開
-V=0.4.94; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.95; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # すべての検査のみ、何も変更しない

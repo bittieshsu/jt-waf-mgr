@@ -761,12 +761,17 @@ async function audit(page, where) {
         await tp.goto(base + p, { waitUntil: 'networkidle' });
         await tp.waitForTimeout(p.startsWith('/warroom') ? 2500 : 400);
         await tp.screenshot({ path: SHOTS + '/thumb-' + lang + '-' + name + (scheme === 'dark' ? '-dark' : '') + '.png' });
+        // 0.4.94: the IP reputation card on its own, for the project site (the picture and its thumbnail)
+        if (name === 'lookup' && scheme === 'light') {
+          await tp.locator('section.iprep').screenshot({ path: SHOTS + '/thumb-' + lang + '-iprep.png' });
+          fs.copyFileSync(SHOTS + '/thumb-' + lang + '-iprep.png', SHOTS + '/' + (lang === 'zh-TW' ? 'light' : lang) + '_iprep.png');
+        }
       }
     }
     await setLang(tp, 'zh-TW');
     await tc.close();
   }
-  ok(fs.existsSync(SHOTS + '/thumb-ja-lookup.png') && fs.existsSync(SHOTS + '/thumb-en-overview-dark.png') && fs.existsSync(SHOTS + '/thumb-en-warroom-globe.png'), 'site thumbnails at 2x');
+  ok(fs.existsSync(SHOTS + '/thumb-ja-iprep.png') && fs.existsSync(SHOTS + '/thumb-ja-lookup.png') && fs.existsSync(SHOTS + '/thumb-en-overview-dark.png') && fs.existsSync(SHOTS + '/thumb-en-warroom-globe.png'), 'site thumbnails at 2x');
   // Notifications as they look on a phone (a chat app's channel, dark), for the project site: the messages come from
   // the notification preview (made-up example data, never real records), drawn the way a chat app shows the Markdown
   // format (bold title, values in code). Two phones per picture; each language its own picture.

@@ -221,6 +221,8 @@ function ago(iso) { return fmtAgo(iso, lang.value) }
 </script>
 
 <style scoped>
-.iprep .reasons li { margin: 4px 0; }
+.iprep .plainlist li { display: flex; justify-content: flex-start; align-items: baseline; gap: 8px; margin: 4px 0; text-align: left; }
+.iprep .plainlist li .badge { flex: none; }
+.iprep .plainlist li .gapl { margin-left: 0; }
 .iprep .kvgroups { margin-top: 10px; }
 </style>

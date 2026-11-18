@@ -431,6 +431,17 @@ http {
         return [spec] if r['kind'] == 'confident_block' and r['op'] in ('add', 'modify') else []
 
     @staticmethod
+    def _block_ids(r):
+        """The rule ids of the confident blocks a change adds or changes."""
+        spec = r['spec']
+        spec = json.loads(spec) if isinstance(spec, str) else spec
+        if r['op'] == 'bundle':
+            return [b['rule_id'] for b in spec.get('ops', []) if b['kind'] == 'confident_block' and b['op'] in ('add', 'modify')
+                    and isinstance(b.get('rule_id'), int)]
+        rid = r['rule_id'] if 'rule_id' in r.keys() else None
+        return [rid] if r['kind'] == 'confident_block' and isinstance(rid, int) else []
+
+    @staticmethod
     def _has_country(r):
         if r['kind'] == 'country':
             return True
@@ -445,6 +456,7 @@ http {
         cases = []
         blocks = self._blocks(r)
         sources = {(b.get('source') or 'external') for b in blocks}
+        block_ids = self._block_ids(r)
         for t in user_tests:
             cases.append(dict(t, origin='upstream' if t.get('upstream') else 'test'))
             # path blocks must survive encoding / case / slash tricks (LESSONS 14)
@@ -456,7 +468,9 @@ http {
                 # the same request from inside: let through by an external-only block, refused by one that
                 # also covers internal sources (a bundle mixing both cannot tell which rule a test is for)
                 if sources == {'external'}:
-                    cases.append(dict(t, source='internal', expect=200, origin='internal-same'))
+                    # (and the change's own rules must not match it; refused by rules already in place is judged
+                    # against the configuration as it is: run_change)
+                    cases.append(dict(t, source='internal', expect=200, origin='internal-same', absent_rules=block_ids))
                 elif sources == {'all'}:
                     cases.append(dict(t, source='internal', expect=403, origin='internal-same'))
         if r['direction'] == 'tighten' or r['kind'] in ('raw', 'bundle'):
@@ -574,7 +588,10 @@ http {
             res = self.run(self.replacements(files, managed), cases)
             # a regression sample the rules in place already refuse is no regression of this change: run those samples
             # through the configuration as it is now and judge only what the change itself alters
-            reg = [i for i, (c, r) in enumerate(zip(cases, res)) if c.get('origin') == 'regression' and r['status'] == 403]
+            # the same for the inside request of an external-only block (0.4.95): refused from inside already (internal
+            # protection, the CRS score, another confident block) is not this change's doing
+            reg = [i for i, (c, r) in enumerate(zip(cases, res)) if r['status'] == 403 and (
+                c.get('origin') == 'regression' or c.get('origin') == 'internal-same' and c.get('expect') == 200)]
             if reg:
                 base = self.run({}, [cases[i] for i in reg])
                 for i, b in zip(reg, base):
@@ -690,7 +707,8 @@ def evaluate(cases, res, cfg):
         if anyof and good and not set(anyof) & set(r['rules']):
             # refused, but not by the rule under test (another rule, the site itself): the rule is not shown to work
             good, note = False, 'none of rules %s matched' % ','.join(str(i) for i in anyof[:5])
-        if exp == 'not403' and c.get('baseline_refused') and st == 403:
+        if exp in ('not403', 200) and c.get('baseline_refused') and st == 403 and not (
+                set(c.get('absent_rules') or ()) & set(r['rules'])):
             good, note = True, 'already refused by the rules in place'
         ok = ok and good
         out.append(dict(_case_view(c), expect=exp, status=st, rules=r['rules'][:30], ok=good, note=note))

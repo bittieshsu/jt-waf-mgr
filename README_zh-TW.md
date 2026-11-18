@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.94
+# jt-waf-mgr v0.4.95
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -53,18 +53,20 @@ jt-waf-mgr 把稽核記錄變成看得懂的畫面，把每一次修改變成可
 
 ## 適用場景
 
-jt-waf-mgr 是為**一台 nginx 主機** (libmodsecurity v3) 設計的，適合公司、學校、機關或代管客戶的網站：由小團隊管理，希望每個 WAF 變更都經過檢查、核准，可追溯也可稽核。
+jt-waf-mgr 不在請求路徑上：每個請求一樣由 nginx 加 ModSecurity 與 CRS 檢查，和沒有裝 jt-waf-mgr 時相同；jt-waf-mgr 停止時，WAF 仍以最後一版規則運作。它增加的工作都在同一台主機的 nginx 旁邊執行，限制也在這裡。
 
 **適合**
-- 一台 nginx 主機 (網站伺服器、反向代理或兩者都有)，服務數十個以內的站台：入口網站、SSO、郵件、ERP、Nextcloud、內部工具。
-- 中等流量：正式環境是一台反向代理，數十個站台，每天約 15 萬個請求；總覽用 40 萬筆合成事件測過 (7 天範圍不到 1 秒回應)，證據檢查每秒約讀 1 萬行存取記錄。
-- 需要留下記錄的團隊：誰改了什麼、為什麼、誰核准、可以退回，對應 ISO/IEC 27001 與資通安全管理法。
+- 一台 nginx 主機 (網站伺服器、反向代理或兩者都有)，使用 libmodsecurity v3，由小團隊管理，希望每個 WAF 變更都經過檢查與核准、可追溯也可稽核 (ISO/IEC 27001、資通安全管理法)。
+- 證據檢查讀取範圍內的存取記錄約 900 萬行以內 (每秒約讀 1 萬行，15 分鐘後停止)。正式環境：數十個站台、每天約 15 萬個請求、730 萬行記錄。
+- WAF 事件：收集程式單一 CPU 核心每秒可寫入約 750 筆事件 (以合成記錄實測)，遠高於一般網站的量；攻擊洪水的重複事件會合併。
 
-**不適合**
-- **大規模、高流量網站** (持續每秒數千個請求、每天數千萬個請求，例如大型電商、媒體或公共平台)：所有工作都在同一台主機上——事件存在 SQLite，每個變更都要重讀存取記錄並在 nginx 沙箱重送，ModSecurity 加 CRS 也會增加每個請求的負擔。這類網站請用 CDN 或雲端 WAF，或有自己管理系統的專用 WAF 叢集。
-- 負載平衡後面有多台 nginx：目前只有單機模式 (多台管理暫停)。
+**目前不適合**
+- **分散在多台 nginx 的網站** (負載平衡後面多台，大型高流量網站通常是這種架構)：目前只有單機模式 (多台管理暫停)。
+- **非常大量的記錄** (每天數千萬個請求、保留數週)：變更的證據檢查來不及讀完就會停止，需要由人在沒有完整證據的情況下說明理由。
 - 其他代理或引擎 (Apache、HAProxy、Envoy、Traefik、ModSecurity v2、Coraza)。
 - 完全自動的 WAF：放寬規則一定要由人核准。
+
+大型網站另外要先用自己的流量量測 ModSecurity 加 CRS 對每個請求的負擔 (有沒有 jt-waf-mgr 都一樣)；也可以考慮 CDN 或雲端 WAF。
 
 ## 功能
 
@@ -151,7 +153,7 @@ jt-waf-mgr 是為**一台 nginx 主機** (libmodsecurity v3) 設計的，適合�
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # 發行檔的固定位置
-V=0.4.94; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.95; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # 發行檔、簽章與公鑰
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -347,7 +349,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新版本一樣解開到 current
-V=0.4.94; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.95; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # 只做所有檢查，不改任何東西

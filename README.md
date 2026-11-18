@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.4.94
+# jt-waf-mgr v0.4.95
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -57,26 +57,28 @@ nginx and ModSecurity keep working with the last rules.
 
 ## When it fits — and when it does not
 
-jt-waf-mgr is made for **one nginx host** with libmodsecurity v3 in front of the sites of a company, a school, a public
-agency or a managed-service customer, where a small team wants every WAF change checked, approved, traced and audited.
+jt-waf-mgr does not sit in the request path: nginx with ModSecurity and the CRS inspects every request, exactly as
+without it, and if jt-waf-mgr stops, the WAF keeps working with the last rules. What it adds runs beside nginx on the
+same host; that is where the limits are.
 
 **A good fit**
-- One nginx host (web server, reverse proxy or both) serving up to some tens of sites: portals, SSO, mail, ERP,
-  Nextcloud, internal tools.
-- Moderate traffic: in production it runs a reverse proxy with a few dozen sites and about 150,000 requests a day;
-  the dashboard was tested with 400,000 synthetic events (7 days answered in under a second), and the evidence check
-  reads about 10,000 access-log lines a second.
-- Teams that need the record: who changed what and why, approvals, rollback, ISO/IEC 27001 and Taiwan's Cyber
-  Security Management Act.
+- One nginx host (web server, reverse proxy or both) with libmodsecurity v3, run by a small team that wants every WAF
+  change checked, approved, traced and audited (ISO/IEC 27001, Taiwan's Cyber Security Management Act).
+- Access logs up to roughly 9 million lines in the window the evidence check reads (it reads about 10,000 lines a
+  second and stops after 15 minutes). In production: a few dozen sites, about 150,000 requests a day, 7.3 million lines.
+- WAF events: the collector stores about 750 events a second on one CPU core (measured on a synthetic log), far more
+  than an ordinary site raises; repeated events of an attack flood are merged.
 
-**Not a fit**
-- **Large, high-traffic sites** (sustained thousands of requests a second, tens of millions a day: big e-commerce,
-  media or public platforms). Everything runs on one host: events in SQLite, every change checked by re-reading the
-  access logs and replayed in an nginx sandbox, and ModSecurity with CRS adds work to every request. Use a CDN or
-  cloud WAF, or a dedicated WAF cluster with its own management, there.
-- Several nginx nodes behind a load balancer: only single-node mode for now (multi-node management is paused).
+**Not a fit (yet)**
+- **Sites spread over several nginx nodes** behind a load balancer — the usual shape of large, high-traffic sites:
+  only single-node mode for now (multi-node management is paused).
+- **Very large log volumes** (tens of millions of requests a day kept for weeks): the evidence check of a change stops
+  before it has read everything, and a person has to justify the change without it.
 - Other proxies or engines (Apache, HAProxy, Envoy, Traefik, ModSecurity v2, Coraza).
 - A fully automatic WAF: loosening a rule always needs a person.
+
+For a large site, the per-request cost of ModSecurity with the CRS (the same with or without jt-waf-mgr) is worth
+measuring on your own traffic before you rely on it; a CDN or cloud WAF is the other road.
 
 ## Features
 
@@ -200,7 +202,7 @@ agency or a managed-service customer, where a small team wants every WAF change 
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # a fixed place for the releases
-V=0.4.94; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.95; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # the release, its signature, the public key
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -422,7 +424,7 @@ the file next to the current values and writes only what you tick).
 
 ```sh
 cd /opt/jt-waf-mgr-install   # the new release, unpacked into the same current
-V=0.4.94; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.4.95; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # every check, nothing changed

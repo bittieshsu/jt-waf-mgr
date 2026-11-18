@@ -150,6 +150,7 @@ section { padding: 60px 0; } section.alt { background: #fff; border-top: 1px sol
 h2 { font-size: 30px; margin: 0 0 10px; } h2 + p.sub { color: var(--muted); margin: 0 0 28px; font-size: 17px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 18px; }
 .fit-grid ul { margin: 8px 0 0; padding-left: 20px; }
+.iprep-row { margin-top: 56px; }
 .fit-grid li { margin: 6px 0; line-height: 1.6; }
 .card.fit-yes h3 .ic { background: #e3f4ea; color: #1a7f45; box-shadow: none; }
 .card.fit-no h3 .ic { background: #fde8e8; color: #b42318; box-shadow: none; }
@@ -283,7 +284,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
 
 <div class="hero"><div class="wrap">
   <div>
-    <h1>jt-waf-mgr <span class="ver">v0.4.94</span></h1>
+    <h1>jt-waf-mgr <span class="ver">v0.4.95</span></h1>
     <p class="lead" data-t="lead"></p>
     <div class="btns">
       <a class="btn primary" href="https://github.com/jasoncheng7115/jt-waf-mgr">GitHub</a>
@@ -416,6 +417,11 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
     <ul class="ticks recgrid"><li data-t="intel_rec1"></li><li data-t="intel_rec2"></li><li data-t="intel_rec3"></li><li data-t="intel_rec4"></li></ul>
     <p class="disclaimer" data-t="intel_disclaimer"></p>
   </div>
+  <div class="two top iprep-row" id="iprep">
+    <div><div class="tier-tag l2" data-t="iprep_tier"></div><h2 data-t="iprep_h"></h2><p class="sub" data-t="iprep_sub"></p>
+      <ul class="ticks"><li data-t="iprep1"></li><li data-t="iprep2"></li><li data-t="iprep3"></li><li data-t="iprep4"></li><li data-t="iprep5"></li></ul></div>
+    <a class="shotlink" href="shots/en/iprep.png" data-shot="iprep"><img class="shot" src="shots/en/thumb/iprep.webp" alt="" loading="lazy"></a>
+  </div>
 </div></section>
 
 <section id="alerts" class="alt"><div class="wrap two top">
@@ -489,7 +495,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
       <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_dir"></span>
 sudo mkdir -p /opt/jt-waf-mgr-install &amp;&amp; cd /opt/jt-waf-mgr-install
 <span class="c" data-t="c_get"></span>
-V=<span class="v-cur">0.4.94</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=<span class="v-cur">0.4.95</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done
 <span class="c" data-t="c_verify"></span>
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
@@ -525,7 +531,7 @@ sudo nginx -t &amp;&amp; sudo systemctl reload nginx</pre></div>
       <div class="ihead"><span class="ic">↻</span><div><h3 data-t="ub_h"></h3><p data-t="ub_d"></p></div></div>
       <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_udir"></span>
 cd /opt/jt-waf-mgr-install
-V=<span class="v-cur">0.4.94</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=<span class="v-cur">0.4.95</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current &amp;&amp; sudo mkdir current &amp;&amp; sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 &amp;&amp; cd current
 <span class="c" data-t="c_ucheck"></span>
@@ -579,12 +585,18 @@ const T = {
   vid_full_h: 'Feature tour', vid_full: 'The dashboard, events and an event\'s detail, how a request is decided, AI event analysis, the change workflow and approval, rules, alerts, temporary IP blocks, country limits, request volume, threat intelligence and the periodic WAF review, then the war room.',
   vid_warroom_h: 'War room', vid_warroom: 'The live wall board: the global event map, the 3D defence globe (zoom, drag, back to this site), the decision flow, site activity, the false-positive review, AI analysis and threat intelligence, alerts and changes, time ranges, blocked only and the keys.',
   vid_yt: 'Watch on YouTube',
-  fit_h: 'When it fits — and when it does not', fit_sub: 'Made for one nginx host with libmodsecurity v3, run by a small team that wants every WAF change checked, approved, traced and audited.',
-  fit_yes_h: 'A good fit', fy1: 'One nginx host (web server, reverse proxy or both) with up to some tens of sites: portals, SSO, mail, ERP, Nextcloud, internal tools.',
-  fy2: 'Moderate traffic: in production a reverse proxy with a few dozen sites and about 150,000 requests a day; the dashboard tested with 400,000 synthetic events; the evidence check reads about 10,000 log lines a second.',
-  fy3: 'Teams that need the record: who changed what and why, approvals, rollback, ISO/IEC 27001 and the Cyber Security Management Act.',
-  fit_no_h: 'Not a fit', fn1: 'Large, high-traffic sites (sustained thousands of requests a second, tens of millions a day): everything runs on one host — events in SQLite, every change re-reads the access logs and is replayed in a sandbox. Use a CDN or cloud WAF, or a dedicated WAF cluster.',
-  fn2: 'Several nginx nodes behind a load balancer: single-node mode only for now.',
+  iprep_tier: 'IP reputation', iprep_h: 'Is this address known to be malicious?', iprep_sub: 'The IP lookup puts together what your own site saw of an address with public lists, Shodan InternetDB and your own MISP, and says why.',
+  iprep1: 'Verdict with reasons: malicious, suspicious or no record (never "safe"); also on the hover card of every address.',
+  iprep2: 'Public lists downloaded once a day and matched on the host: Spamhaus DROP, FireHOL level 1, abuse.ch Feodo, Emerging Threats, CINS Army, blocklist.de, Tor exit nodes.',
+  iprep3: 'Your MISP (attributes/restSearch, read only): feed events weigh by the feed they come from; a self-signed certificate is pinned by its fingerprint.',
+  iprep4: 'Only a separate job connects out, only for outside addresses a person looks up, at most 500 a day; API tokens never make it send.',
+  iprep5: 'Nothing is blocked by itself: the verdict helps a person decide.',
+  fit_h: 'When it fits — and when it does not', fit_sub: 'jt-waf-mgr is not in the request path: nginx with ModSecurity and the CRS inspects every request as it would without it. What it adds runs beside nginx on the same host — that is where the limits are.',
+  fit_yes_h: 'A good fit', fy1: 'One nginx host (web server, reverse proxy or both) with libmodsecurity v3, run by a small team that wants every WAF change checked, approved, traced and audited.',
+  fy2: 'Access logs up to roughly 9 million lines in the window the evidence check reads (about 10,000 lines a second, 15-minute limit). In production: a few dozen sites, about 150,000 requests a day.',
+  fy3: 'WAF events: about 750 stored a second on one CPU core (measured), far more than an ordinary site raises; attack floods are merged.',
+  fit_no_h: 'Not a fit (yet)', fn1: 'Sites spread over several nginx nodes behind a load balancer — the usual shape of large, high-traffic sites: single-node mode only for now.',
+  fn2: 'Very large log volumes (tens of millions of requests a day kept for weeks): a change\'s evidence check stops before it has read everything.',
   fn3: 'Other proxies or engines: Apache, HAProxy, Envoy, Traefik, ModSecurity v2, Coraza.',
   fn4: 'A fully automatic WAF: loosening a rule always needs a person.',
   modes_h: 'Three ways to use it', modes_sub: 'jt-waf-mgr runs on the nginx host, beside ModSecurity: requests never pass through it, and nginx keeps protecting the sites with the last rules if it stops.',
@@ -792,12 +804,18 @@ const T = {
   vid_full_h: '功能介紹', vid_full: '儀表板、事件與事件明細、WAF 判斷流程、AI 事件分析、變更流程與核准、規則、警示、暫時封鎖 IP、國家限制、請求量、威脅情報、WAF 定期檢討，最後是戰情室。',
   vid_warroom_h: '戰情室', vid_warroom: '給牆面看的即時看板：全球事件地圖、3D 防禦地球 (縮放、拖動、轉回本站)、封鎖決策流、站台熱區、誤判檢討、AI 分析與威脅情報、警示與變更，以及時間範圍、只看封鎖與按鍵操作。',
   vid_yt: '在 YouTube 觀看',
-  fit_h: '適用場景', fit_sub: '為一台 nginx 主機 (libmodsecurity v3) 設計，適合由小團隊管理、希望每個 WAF 變更都經過檢查與核准、可追溯也可稽核的網站。',
-  fit_yes_h: '適合', fy1: '一台 nginx 主機 (網站伺服器、反向代理或兩者都有)，數十個以內的站台：入口網站、SSO、郵件、ERP、Nextcloud、內部工具。',
-  fy2: '中等流量：正式環境是一台反向代理，數十個站台、每天約 15 萬個請求；總覽用 40 萬筆合成事件測過；證據檢查每秒約讀 1 萬行記錄。',
-  fy3: '需要留下記錄的團隊：誰改了什麼、為什麼、誰核准、可以退回，對應 ISO/IEC 27001 與資通安全管理法。',
-  fit_no_h: '不適合', fn1: '大規模、高流量網站 (持續每秒數千個請求、每天數千萬個請求)：所有工作都在同一台主機——事件存在 SQLite，每個變更都要重讀存取記錄並在沙箱重送。請改用 CDN 或雲端 WAF，或專用的 WAF 叢集。',
-  fn2: '負載平衡後面有多台 nginx：目前只有單機模式。',
+  iprep_tier: 'IP 情資', iprep_h: '這個位址是不是已知的惡意來源？', iprep_sub: 'IP 查詢會把本站自己看到的證據，和公開清單、Shodan InternetDB、你自己的 MISP 放在一起，並說明判斷依據。',
+  iprep1: '判斷結果與依據：惡意、可疑或沒有記錄 (不會說安全)；每個位址的滑鼠停留卡片也會顯示。',
+  iprep2: '每天下載、在本機比對的公開清單：Spamhaus DROP、FireHOL level 1、abuse.ch Feodo、Emerging Threats、CINS Army、blocklist.de、Tor 出口節點。',
+  iprep3: '你的 MISP (attributes/restSearch，只讀)：feed 事件依來自哪個 feed 判斷輕重；自簽憑證用指紋釘選。',
+  iprep4: '只有獨立的服務會連外，只查有人開啟的外部位址，每天最多 500 個；API 權杖不會觸發送出。',
+  iprep5: '不會自動封鎖：判斷結果用來協助人做決定。',
+  fit_h: '適用場景', fit_sub: 'jt-waf-mgr 不在請求路徑上：每個請求一樣由 nginx 加 ModSecurity 與 CRS 檢查，和沒有裝時相同。它增加的工作在同一台主機的 nginx 旁邊執行，限制也在這裡。',
+  fit_yes_h: '適合', fy1: '一台 nginx 主機 (網站伺服器、反向代理或兩者都有)，使用 libmodsecurity v3，由小團隊管理，希望每個 WAF 變更都經過檢查與核准、可追溯也可稽核。',
+  fy2: '證據檢查讀取範圍內的存取記錄約 900 萬行以內 (每秒約 1 萬行，15 分鐘上限)。正式環境：數十個站台、每天約 15 萬個請求。',
+  fy3: 'WAF 事件：單一 CPU 核心每秒可寫入約 750 筆 (實測)，遠高於一般網站的量；攻擊洪水的重複事件會合併。',
+  fit_no_h: '目前不適合', fn1: '分散在多台 nginx 的網站 (負載平衡後面多台，大型高流量網站通常是這種架構)：目前只有單機模式。',
+  fn2: '非常大量的記錄 (每天數千萬個請求、保留數週)：變更的證據檢查來不及讀完就會停止。',
   fn3: '其他代理或引擎：Apache、HAProxy、Envoy、Traefik、ModSecurity v2、Coraza。',
   fn4: '完全自動的 WAF：放寬規則一定要由人核准。',
   modes_h: '三種使用方式', modes_sub: 'jt-waf-mgr 裝在 nginx 主機上、在 ModSecurity 旁邊：請求不會經過它；它停止時，nginx 仍以最後一版規則保護網站。',
@@ -1005,12 +1023,18 @@ const T = {
   vid_full_h: '機能紹介', vid_full: 'ダッシュボード、イベントとその詳細、リクエストの判定の流れ、AI イベント分析、変更フローと承認、ルール、アラート、IP の一時ブロック、国別制限、リクエスト量、脅威インテリジェンス、WAF 定期レビュー、最後にウォールーム。',
   vid_warroom_h: 'ウォールーム', vid_warroom: '壁に映すリアルタイムボード：世界のイベントマップ、3D 防御地球 (拡大縮小、ドラッグ、自サイトへ戻る)、ブロック判定の流れ、サイト別の状況、誤検知レビュー、AI 分析と脅威インテリジェンス、アラートと変更、時間範囲、ブロックのみ表示とキー操作。',
   vid_yt: 'YouTube で見る',
-  fit_h: '向いている場面・向いていない場面', fit_sub: '1 台の nginx ホスト (libmodsecurity v3) のために作られています。少人数のチームが WAF の変更をすべて検査・承認し、追跡と監査ができるようにしたいサイトに向いています。',
-  fit_yes_h: '向いている', fy1: '1 台の nginx ホスト (Web サーバー、リバースプロキシ、またはその両方) で数十までのサイト：ポータル、SSO、メール、ERP、Nextcloud、社内ツール。',
-  fy2: '中程度のトラフィック：本番では数十サイトのリバースプロキシで 1 日約 15 万リクエスト。ダッシュボードは 40 万件の合成イベントで検証、証拠チェックはログを毎秒約 1 万行読みます。',
-  fy3: '記録が必要なチーム：誰が何をなぜ変えたか、承認、ロールバック、ISO/IEC 27001 と資通安全管理法。',
-  fit_no_h: '向いていない', fn1: '大規模・高トラフィックのサイト (毎秒数千リクエストが続く、1 日数千万リクエスト)：すべてが 1 台で動きます。イベントは SQLite、変更のたびにアクセスログを読み直してサンドボックスで再送します。CDN やクラウド WAF、専用の WAF クラスターを使ってください。',
-  fn2: 'ロードバランサーの後ろに複数の nginx：現在は単一ノードのみです。',
+  iprep_tier: 'IP レピュテーション', iprep_h: 'このアドレスは悪意あるものとして知られているか？', iprep_sub: 'IP 照会で、このサイト自身が見た証拠と、公開リスト、Shodan InternetDB、自組織の MISP をまとめ、判定の根拠を示します。',
+  iprep1: '判定と根拠：悪意あり、不審、記録なし (「安全」とは言いません)。各アドレスのポップアップカードにも表示します。',
+  iprep2: '毎日ダウンロードしてホスト上で照合する公開リスト：Spamhaus DROP、FireHOL level 1、abuse.ch Feodo、Emerging Threats、CINS Army、blocklist.de、Tor の出口ノード。',
+  iprep3: '自組織の MISP (attributes/restSearch、読み取りのみ)：フィードのイベントはどのフィードかで重みを判断。自己署名証明書はフィンガープリントでピン留め。',
+  iprep4: '外部へ接続するのは専用のジョブだけで、人が照会した外部アドレスのみ、1 日最大 500 件。API トークンは送信のきっかけになりません。',
+  iprep5: '自動ではブロックしません。判定は人の判断を助けるためのものです。',
+  fit_h: '向いている場面・向いていない場面', fit_sub: 'jt-waf-mgr はリクエストの経路にありません。各リクエストは、なしの場合と同じく nginx と ModSecurity、CRS が検査します。追加される処理は同じホストの nginx の横で動き、制約もそこにあります。',
+  fit_yes_h: '向いている', fy1: 'libmodsecurity v3 を使う 1 台の nginx ホスト (Web サーバー、リバースプロキシ、またはその両方) で、少人数のチームが WAF の変更をすべて検査・承認し、追跡と監査ができるようにしたい場合。',
+  fy2: '証拠チェックが読む範囲のアクセスログが約 900 万行まで (毎秒約 1 万行、15 分で打ち切り)。本番：数十サイト、1 日約 15 万リクエスト。',
+  fy3: 'WAF イベント：CPU 1 コアで毎秒約 750 件を保存 (計測)。通常のサイトの量を大きく上回り、攻撃の洪水はまとめます。',
+  fit_no_h: '現時点では向いていない', fn1: 'ロードバランサーの後ろの複数の nginx に分かれたサイト (大規模・高トラフィックのサイトによくある構成)：現在は単一ノードのみです。',
+  fn2: '非常に大量のログ (1 日数千万リクエストを数週間保持)：変更の証拠チェックが読み終わる前に止まります。',
   fn3: '他のプロキシやエンジン：Apache、HAProxy、Envoy、Traefik、ModSecurity v2、Coraza。',
   fn4: '完全自動の WAF：ルールの緩和には必ず人の承認が必要です。',
   modes_h: '3 つの使い方', modes_sub: 'jt-waf-mgr は nginx ホスト上で ModSecurity の横に置かれます。リクエストは jt-waf-mgr を通らず、停止しても nginx は最後のルールでサイトを守り続けます。',

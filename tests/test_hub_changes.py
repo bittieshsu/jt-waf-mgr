@@ -548,6 +548,20 @@ class TestWorkflow(unittest.TestCase):
 
 
 class TestEvaluate(unittest.TestCase):
+    def test_inside_request_refused_before_the_change_is_not_its_doing(self):
+        """0.4.95 (jt-wazuh-mgr, change #78): an external-only block's "same request from inside" may be refused by rules
+        already in place (internal protection, the CRS score); only the change's own rule matching it is a failure."""
+        env = TempEnv()
+        self.addCleanup(env.cleanup)
+        case = {'host': 'sso.example.com', 'path': '/.env', 'source': 'internal', 'expect': 200, 'origin': 'internal-same',
+                'absent_rules': [10285]}
+        refused = [{'status': 403, 'rules': [10205, 930130, 949110]}]
+        self.assertFalse(sandbox.evaluate([case], refused, env.cfg)['ok'])                      # not known to be old
+        self.assertTrue(sandbox.evaluate([dict(case, baseline_refused=True)], refused, env.cfg)['ok'])
+        self.assertFalse(sandbox.evaluate([dict(case, baseline_refused=True)],
+                                          [{'status': 403, 'rules': [10285, 949110]}], env.cfg)['ok'])   # its own rule
+        self.assertTrue(sandbox.evaluate([case], [{'status': 200, 'rules': []}], env.cfg)['ok'])
+
     def test_refused_by_another_rule_is_no_proof(self):
         env = TempEnv()
         self.addCleanup(env.cleanup)

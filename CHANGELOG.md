@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.95 (2026-11-18)
+
+- Sandbox: the "same request from inside" check of an external-only confident block no longer fails when rules already in place refuse that request from inside (internal protection, the CRS score, another confident block): such a request is run through the configuration as it is, and only the change's own rule matching it is a failure (reported by jt-waf-mgr's integration with jt-wazuh-mgr; the guard block was refused for the same reason).
+- README and the project site: when jt-waf-mgr fits and when it does not, with measured limits (the evidence check reads about 10,000 log lines a second for 15 minutes; the collector stores about 750 events a second on one core; single-node only); the project site also introduces IP reputation, with a screenshot.
+
 ## 0.4.94 (2026-11-18)
 
 - IP reputation: the IP lookup now says whether an outside address is known to be malicious, with the reasons -- this site's own evidence (blocks, confident rules, probing for secret files), public lists downloaded once a day and matched on the host (Spamhaus DROP, abuse.ch Feodo, FireHOL level 1, Emerging Threats compromised, CINS Army, blocklist.de, Tor exit nodes), Shodan InternetDB and your own MISP. The verdict is "malicious", "suspicious" or "no record" (never "safe"); the hover card shows it too. Nothing is blocked by itself.
