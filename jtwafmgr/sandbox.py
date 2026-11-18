@@ -276,7 +276,7 @@ http {
             results = []
             for i, c in enumerate(cases):
                 results.append(self._send(port, i, c))
-            audits = self._read_audit(root)
+            audits = self._settled_audit(root, results)
             for i, r in enumerate(results):
                 a = audits.get(str(i), {})
                 r['rules'] = a.get('rules', [])
@@ -338,6 +338,29 @@ http {
         except Exception as e:
             status = 'error:%s' % type(e).__name__
         return {'case': i, 'status': status}
+
+    AUDIT_WAIT = 2.0
+
+    def _settled_audit(self, root, results):
+        """nginx writes a transaction's audit record in its log phase, after the response has gone out: when the client
+        has its answer the record of the last request can still be on its way (a refused hub test then shows no rules and
+        fails "refused by its own rule"). Wait, at most AUDIT_WAIT seconds, until every refused request has a record and
+        the file has stopped growing. A refusal without a record (nginx itself, a rule without auditlog) only costs the wait."""
+        want = {str(i) for i, r in enumerate(results)
+                if isinstance(r['status'], int) and r['status'] >= 400 and r['status'] != 404}
+        path = os.path.join(root, 'logs', 'audit.log')
+        deadline = time.monotonic() + self.AUDIT_WAIT
+        last = -1
+        while True:
+            try:
+                size = os.path.getsize(path)
+            except OSError:
+                size = -1
+            audits = self._read_audit(root)
+            if (want <= set(audits) and size == last) or time.monotonic() >= deadline:
+                return audits
+            last = size
+            time.sleep(0.05)
 
     @staticmethod
     def _read_audit(root):

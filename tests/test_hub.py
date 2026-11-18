@@ -269,6 +269,15 @@ class TestUploads(unittest.TestCase):
         self.assertEqual(out['rules'][0]['related'], [{'name': 'Zimbra', 'sites': ['mail.example.com']}])
         one = json.loads(api_hub.hub_rule(app, Req(query={'name': 'example/vpatch-zimbra-xss'})).body)
         self.assertIn('SecRule ARGS_GET:errCode', one['text'])
+        self.assertFalse(out['outdated_index'])
+        # an index written by an older version (no upstream tests yet): the page says to sync first
+        ip = os.path.join(hub.hub_dir(env.cfg), hub.INDEX)
+        with open(ip) as fh:
+            old = json.load(fh)
+        old.pop('format', None)
+        with open(ip, 'w') as fh:
+            json.dump(old, fh)
+        self.assertTrue(json.loads(api_hub.hub_status(app, Req()).body)['outdated_index'])
         acts = [r[0] for r in app.db.q("SELECT action FROM audit WHERE action LIKE 'upload.%' ORDER BY id")]
         self.assertEqual(acts, ['upload.started', 'upload.finished'])
 

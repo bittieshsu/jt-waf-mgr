@@ -60,6 +60,7 @@
           </div>
         </div>
         <p class="muted small">{{ t('hub.rules_hint') }}</p>
+        <p v-if="data.outdated_index" class="alert warn small"><Icon name="warning" /> {{ t(isAdmin ? 'hub.outdated_admin' : 'hub.outdated') }}</p>
         <DataTable id="hub-rules" :columns="cols" :rows="shown" row-key="name" :page-size="50" :expanded="open" clickable
                    @row-click="(r) => openRule(r)">
           <template #cell-name="{ row }"><span class="mono small hubname">{{ safeText(row.name.replace(/^crowdsecurity\//, ''), 120) }}</span>
@@ -68,7 +69,10 @@
           <template #cell-label="{ row }">{{ safeText(row.label || row.description, 160) }}</template>
           <template #cell-related="{ row }"><template v-if="row.related.length"><span v-for="p in row.related" :key="p.name" class="chip ok">{{ safeText(p.name, 60) }}</span></template><span v-else class="muted">—</span></template>
           <template #cell-use="{ row }"><RouterLink v-if="row.open_change" class="badge b-int" :to="'/changes/' + row.open_change.change_id" @click.stop>{{ useText(row) }}</RouterLink>
-            <span v-else-if="row.applied" class="badge" :class="row.applied.upstream === 'same' ? 'b-ok' : 'b-warn'">{{ useText(row) }}</span><span v-else class="muted">—</span></template>
+            <span v-else-if="row.applied" class="badge" :class="row.applied.upstream === 'same' ? 'b-ok' : 'b-warn'">{{ useText(row) }}</span>
+            <button v-else-if="canPropose && row.ok && row.tests" type="button" class="btn small primary" @click.stop="applyRule(row)"><Icon name="add" />{{ t('hub.apply_btn') }}</button>
+            <span v-else-if="row.ok" class="muted small" :title="data.outdated_index ? '' : tOr('hub.why.' + row.tests_reason, row.tests_reason || '')">{{ t(data.outdated_index ? 'hub.use.need_sync' : 'hub.use.no_tests') }}</span>
+            <span v-else class="muted">—</span></template>
           <template #cell-ok="{ row }"><span class="badge" :class="row.ok ? 'b-ok' : 'b-warn'" :title="row.ok ? '' : tOr('hub.why.' + row.reason, row.reason)">{{ row.ok ? t('hub.convertible') : t('hub.unsupported') }}</span></template>
           <template #expand="{ row }">
             <div class="hubdetail">
@@ -100,6 +104,7 @@
                   <template v-else-if="canPropose">
                     <template v-if="!detail.applied">
                       <p v-if="!detail.ok" class="muted small">{{ t('hub.cannot_propose') }}</p>
+                      <p v-else-if="!(detail.tests || []).length && data.outdated_index" class="alert warn small">{{ t(isAdmin ? 'hub.outdated_admin' : 'hub.outdated') }}</p>
                       <p v-else-if="!(detail.tests || []).length" class="muted small">{{ t('hub.no_tests', { why: tOr('hub.why.' + detail.tests_reason, detail.tests_reason || '') }) }}</p>
                       <template v-else>
                         <p class="muted small">{{ t('hub.tests_note', { n: detail.tests.length }) }}</p>
@@ -239,6 +244,14 @@ async function openRule(r) {
     form.reason = ''
     if (canPropose.value && !sites.value.length) loadSites()
   } catch (e) { actionError.value = e }
+}
+// the "apply" button of a row: open it (never close it) and bring the form into view
+async function applyRule(r) {
+  if (open.value !== r.name) await openRule(r)
+  setTimeout(() => {
+    const el = document.getElementById('hub-site-' + r.name)
+    if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, 50)
 }
 async function loadSites() {
   try {

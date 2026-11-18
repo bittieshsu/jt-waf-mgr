@@ -639,7 +639,11 @@ async function audit(page, where) {
   ok((await page.locator('.hubuse button', { hasText: '提出更新' }).count()) === 1 && (await page.locator('.hubuse button', { hasText: '提出移除' }).count()) === 1,
      'crowdsec: a rule in use can be updated to the hub\'s version or removed');
   await hRow('vpatch-nextcloud-upload').click();
-  await hRow('vpatch-keycloak-redirect').click();
+  // 0.4.91: an "apply" button in the row itself opens the form; the index is current, so no "sync first" notice
+  ok((await page.locator('.alert.warn', { hasText: '立即同步' }).count()) === 0 &&
+     (await hRow('vpatch-keycloak-redirect').locator('button', { hasText: '套用' }).count()) === 1,
+     'crowdsec: a rule that can be proposed has an apply button in its row');
+  await hRow('vpatch-keycloak-redirect').locator('button', { hasText: '套用' }).click();
   await page.waitForSelector('.hubuse .hubsites', { timeout: 8000 }).catch(() => {});
   ok((await page.locator('.hubuse .hubsites .chip', { hasText: 'sso.example.com' }).count()) === 1 &&
      (await page.locator('.hubuse button', { hasText: '提出變更' }).isDisabled()),

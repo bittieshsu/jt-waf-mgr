@@ -85,6 +85,8 @@ def hub_status(app, req):
         'enabled': bool(app.cfg['hub']['enabled']), 'status': st, 'commit': idx.get('commit'), 'source': idx.get('source'),
         'synced_at': idx.get('synced_at'), 'previous_commit': idx.get('previous_commit'), 'counts': idx.get('counts') or {},
         'removed': idx.get('removed') or [], 'license_sha256': idx.get('license_sha256'),
+        # synced by an older version: no upstream tests in it yet, so nothing can be proposed until the next sync
+        'outdated_index': bool(idx.get('commit')) and idx.get('format') != hub.INDEX_FORMAT,
         'requested': os.path.exists(os.path.join(hub.hub_dir(app.cfg), hub.REQUEST)) or st.get('state') == 'running',
         'related_count': sum(1 for r in rules if r['related']), 'rules': rules,
         'applied_count': len(applied), 'outdated_count': sum(1 for a in applied.values() if a['upstream'] != 'same'),

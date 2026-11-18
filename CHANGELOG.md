@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.91 (2026-11-18)
+
+- The sandbox sometimes missed the rules matched by the last request: nginx writes the audit record after the response has gone out and the sandbox read it too early (about one run in four in a test). A refused request then showed no matched rules, and a CrowdSec rule failed "refused by its own rule". The sandbox now waits until every refused request has its record and the file has stopped growing (at most 2 seconds).
+- CrowdSec page: when the rule list was synced by an older version (no upstream tests yet) the page says to sync first; the "In use" column shows an "Apply" button for every rule that can be proposed, and the reason for those without tests. The upload hint is in plain words (a large file is uploaded in small pieces automatically) and says that the upstream tests are read too.
+
 ## 0.4.90 (2026-11-18)
 
 - CrowdSec virtual patching rules can now be applied (phase 2): on the CrowdSec page a converted rule is proposed for the sites you choose (preselected: the sites of the confirmed software it names), from outside only or from all sources except the known scanners. It is an ordinary change: checked, run in the sandbox, approved by a person. The rule file, its hash, the commit and the licence come from the synced rules, never from the request; the rule text keeps the hub's file and is converted again at every check. Each rule takes its own range of ids in 10400–10999 (one per "or" branch) and is written before the rule that adds the critical score, so CRS's blocking evaluation refuses the request.

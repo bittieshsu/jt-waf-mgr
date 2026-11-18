@@ -731,6 +731,41 @@ class TestSandboxBuild(unittest.TestCase):
         finally:
             env.cleanup()
 
+    def test_audit_record_written_after_the_response(self):
+        """nginx writes the audit record after the response: the sandbox waits for the record of a refused request
+        that is still on its way (it showed no rules, and a CrowdSec rule failed "refused by its own rule")."""
+        import threading
+        env = TempEnv(managed={'sandbox_dir': ''})
+        try:
+            sb = App(env.cfg).workflow.sandbox
+            root = tempfile.mkdtemp(dir=env.dir)
+            os.makedirs(os.path.join(root, 'logs'))
+            path = os.path.join(root, 'logs', 'audit.log')
+
+            def rec(i, rid):
+                return json.dumps({'transaction': {'unique_id': 'case-%d-x' % i, 'producer': {'secrules_engine': 'Enabled'},
+                                                   'messages': [{'details': {'ruleId': str(rid)}}]}}) + '\n'
+            with open(path, 'w') as fh:
+                fh.write(rec(0, 10205))
+
+            def late():
+                time.sleep(0.3)
+                with open(path, 'a') as fh:
+                    fh.write(rec(1, 10401))
+            th = threading.Thread(target=late)
+            th.start()
+            got = sb._settled_audit(root, [{'status': 403}, {'status': 403}, {'status': 200}])
+            th.join()
+            self.assertEqual(got['1']['rules'], [10401])
+            # a refusal that never gets a record costs the wait, no more
+            sb.AUDIT_WAIT = 0.2
+            t0 = time.monotonic()
+            got = sb._settled_audit(root, [{'status': 403}, {'status': 403}, {'status': 403}])
+            self.assertLess(time.monotonic() - t0, 1.0)
+            self.assertNotIn('2', got)
+        finally:
+            env.cleanup()
+
     def test_relative_file_names_in_copied_modsecurity_files(self):
         """A ModSecurity file copied into the sandbox keeps naming the production files: relative names are relative to
         the file they are in (GitHub issue #1, second report: SecUnicodeMapFile unicode.mapping)."""
