@@ -51,9 +51,10 @@
         </div>
         <label v-if="canRecheck" class="field"><span>{{ t('change.override') }}</span>
           <textarea v-model="override" rows="2" maxlength="2000" :placeholder="t('change.override_ph')"></textarea></label>
+        <p v-if="noteShort" class="muted small">{{ t('change.note_min', { n: c.approval_needs.note_min, have: note.trim().length }) }}</p>
         <ErrorBox :error="actionError" />
         <div class="actions">
-          <button v-if="canApprove" type="button" class="btn primary" :disabled="busy" @click="act('approve', { note, totp })"><Icon name="approve" />{{ t('change.approve') }}</button>
+          <button v-if="canApprove" type="button" class="btn primary" :disabled="busy || noteShort || (needsOtp && !/^\d{6}$/.test(totp))" @click="act('approve', { note, totp })"><Icon name="approve" />{{ t('change.approve') }}</button>
           <button v-if="canReject" type="button" class="btn danger" :disabled="busy || !note.trim()" :title="t('change.note_required')" @click="act('reject', { note })"><Icon name="reject" />{{ t('change.reject') }}</button>
           <button v-if="canRecheck" type="button" class="btn" :disabled="busy" @click="act('recheck', { evidence_override: override })"><Icon name="refresh" />{{ t('change.recheck') }}</button>
           <button v-if="canCancel" type="button" class="btn ghost" :disabled="busy" @click="act('cancel', {})"><Icon name="cancel" />{{ t('change.cancel') }}</button>
@@ -153,6 +154,10 @@ const fromAnalyst = computed(() => !!c.value && c.value.proposed_by === 'analyst
 // a whole category of CRS rules switched off: an admin approves, with a one-time code and a written reason
 const strict = computed(() => !!c.value && !!(c.value.spec && c.value.spec.strict))
 // the server says whether approving takes a fresh one-time code (changes.approval_needs, the rule approve() follows)
+// approving with a code needs a written reason of note_min characters: the button waits for it (a refusal would
+// otherwise spend the code; the server checks the reason first as well)
+const noteShort = computed(() => !!(c.value && c.value.approval_needs) && canApprove.value &&
+  note.value.trim().length < (c.value.approval_needs.note_min || 0))
 const needsOtp = computed(() => canApprove.value && !!c.value && !!(c.value.approval_needs && c.value.approval_needs.totp))
 const canApprove = computed(() => c.value && c.value.state === 'pending_approval' && hasRole('approver') &&
   (c.value.op !== 'adopt' || hasRole('admin')) && (!(c.value.spec && c.value.spec.strict) || c.value.direction === 'tighten' || hasRole('admin')))
@@ -167,6 +172,10 @@ const lastLog = (actions) => ((c.value && c.value.log) || []).filter((l) => acti
 function checkStep(key, r, x, rest) {
   if (x.op === 'rollback') return { state: 'skip', desc: t('guide.detail.not_needed') }
   if (x.state === 'checking') return key === 'static' ? { state: 'current', desc: t('guide.detail.running') } : { state: 'todo' }
+  // the checks are over and this one did not run: not part of this kind of change (an nginx update, HTTP/2 off...)
+  if (!r && ['pending_approval', 'approved', 'applying', 'applied', 'apply_failed', 'rolled_back'].includes(x.state)) {
+    return { state: 'skip', desc: t('guide.detail.not_this_kind') }
+  }
   if (!r) return { state: rest }
   if (!r.ok) {
     if (key === 'evidence' && x.evidence_override) return { state: 'done', desc: t('guide.detail.overridden') }
@@ -197,7 +206,7 @@ const steps = computed(() => {
   const apply = st === 'applying' ? { state: 'current', desc: t('guide.detail.applying') }
     : st === 'apply_failed' ? { state: 'fail', desc: t('guide.detail.restored') }
       : ['applied', 'rolled_back'].includes(st) ? { state: 'done' } : { state: rest }
-  const applied = st === 'applied' ? { state: 'done', desc: t('guide.detail.version', { v: x.applied_version }) }
+  const applied = st === 'applied' ? { state: 'done', desc: x.applied_version ? t('guide.detail.version', { v: x.applied_version }) : '' }
     : st === 'rolled_back' ? { state: 'done', desc: t('guide.detail.rolled_back') }
       : st === 'apply_failed' ? { state: 'skip' } : { state: rest }
   const by = t('guide.detail.by', { who: safeText(x.proposed_by, 64) }) + (x.proposed_via === 'api' ? ' (API)' : '')

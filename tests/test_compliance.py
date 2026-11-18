@@ -478,9 +478,10 @@ class TestMonitor(unittest.TestCase):
         with self.assertRaises(ApiError):                              # the same code twice: refused
             api.backup_download(self.app, Req(r['file'], {'totp': code}))
         acts = [x['action'] for x in self.app.db.q("SELECT action FROM audit WHERE action IN "
-                                                   "('backup.downloaded', 'auth.step_up_failed')")]
+                                                   "('backup.downloaded', 'auth.step_up_failed', 'auth.step_up_reused')")]
         self.assertEqual(acts.count('backup.downloaded'), 1)
-        self.assertEqual(acts.count('auth.step_up_failed'), 2)   # no code, a code used twice
+        # no code: a failure; the right code used twice: refused and recorded, not a wrong guess (0.5.0)
+        self.assertEqual((acts.count('auth.step_up_failed'), acts.count('auth.step_up_reused')), (1, 1))
 
     def test_daily_backup_schedule(self):
         from jtwafmgr.compliance import Monitor
@@ -542,8 +543,8 @@ class TestMonitor(unittest.TestCase):
         a.step_up('boss3', code, 'test')
         with self.assertRaises(AuthError) as cm:                  # the same code again
             a.step_up('boss3', code, 'test')
-        self.assertEqual(cm.exception.code, 'totp_required')
-        for _ in range(4):
+        self.assertEqual(cm.exception.code, 'totp_used')          # 0.5.0: said as such, not counted as a wrong code
+        for _ in range(5):
             with self.assertRaises(AuthError):
                 a.step_up('boss3', '000000', 'test')
         with self.assertRaises(AuthError) as cm:                  # five failures: locked for the window

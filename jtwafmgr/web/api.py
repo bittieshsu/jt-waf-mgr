@@ -1250,7 +1250,7 @@ def waf_pause_start(app, req):
         app.auth.step_up(req.user['username'], str(b.get('totp') or ''), 'waf.pause', req.client_ip)
     except AuthError as e:
         app.audit.log('waf.pause_denied', req.user['username'], src_ip=req.client_ip, result='denied', reason=e.code)
-        raise ApiError(e.status, e.code)
+        raise ApiError(e.status, e.code, e.code, **e.details)
     try:
         cid = pause.start(app, scope, b.get('host'), hours, b.get('reason'), req.user['username'])
     except ChangeError as e:

@@ -112,3 +112,14 @@ class TestRetireByVersion(unittest.TestCase):
         self.assertEqual(a['state'], 'handled')
         self.assertIn('10.1.0 – <10.1.4', a['note'])
         self.assertEqual(intel.retire_by_version(app, log=lambda m: None), [])     # nothing left open
+
+
+class TestDistroVersionIsLinear(unittest.TestCase):
+    def test_hostile_versions_are_quick(self):
+        # 0.5.0: CodeQL py/redos on the distribution version pattern (a long crafted version string)
+        import time
+        t = time.time()
+        for v in ('1' + '+deb' * 20000 + '!', '1+deb' + 'a' * 50000 + '!', '1-' + 'a' * 50000 + '!', '1' + '+dfsg.' * 9000 + '-'):
+            nvd._ours(v)
+        self.assertLess(time.time() - t, 1)
+        self.assertEqual(nvd._ours('2.9.14+dfsg-1.3~deb12u6'), ((2, 9, 14), True))

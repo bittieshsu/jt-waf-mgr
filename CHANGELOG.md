@@ -2,6 +2,13 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.0 (2026-11-19)
+
+- Approving with a one-time code: a note shorter than 10 characters was refused only after the code had been spent, so the same code then read "enter a one-time code" and counted as a wrong code until the account was locked for a while. The note is now checked first; the approve button waits for the note and the 6 digits, and says how long the note must be; a code already used reads "this code has already been used: wait for the next one" and is not counted as a wrong code; "too many attempts" shows the seconds to wait (it showed `{retry_after}`).
+- Change progress: an nginx update or another change without evidence check or sandbox showed those steps as still to do and "version {v}" when applied; they now read "not a step for this kind of change", and no version is shown where there is none.
+- The browser test now fails on any unfilled placeholder on a page, and checks that the approve button waits for the note and the code.
+- Version numbers: after 0.4.100 the numbering continues at 0.5.0 (no three-digit parts).
+
 ## 0.4.100 (2026-11-19)
 
 - Approving an nginx update: the change page did not show the one-time code field the server requires for it, so the update could not be approved from the web interface (only from the command line). The page now takes from the server what approving a change requires (`approval_needs`: a one-time code, a written reason), the same rule the approval itself follows, and says that an nginx update takes a code and a note of at least 10 characters. One code now covers every reason for asking (one's own nginx update asked for it twice, and a code is used only once). The browser test checks the field.

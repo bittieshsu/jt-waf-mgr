@@ -32,6 +32,9 @@ async function rawKeys(page, where) {
   const txt = await page.locator('body').innerText();
   const hits = KEYS.filter((k) => txt.includes(k))
   if (hits.length) problems.push(where + ': raw i18n keys visible: ' + hits.slice(0, 8).join(', '));
+  // a placeholder the text never got a value for ("版本 {v}", "{retry_after} 秒"; 0.5.0)
+  const ph = (txt.match(/(?<![%$\w])\{[a-z][a-z_]{0,24}\}/g) || []);
+  if (ph.length) problems.push(where + ': unfilled placeholders visible: ' + [...new Set(ph)].slice(0, 8).join(', '));
   return txt;
 }
 
@@ -140,6 +143,8 @@ async function audit(page, where) {
   // an nginx update asks its approver for a one-time code (0.4.100: the server required one the page did not ask for)
   await page.goto(base + '/changes/' + fs.readFileSync(R + '/nginx-change', 'utf8').trim(), { waitUntil: 'networkidle' });
   ok(await page.locator('input[autocomplete="one-time-code"]').count() === 1, 'nginx update approval asks for a one-time code');
+  await rawKeys(page, 'nginx change');
+  ok(await page.locator('button:has-text("核准並套用"):disabled').count() === 1, 'approve waits for the note and the code');
   // the nginx advisories: one aligned row each (title, severity and CVE columns start at the same place)
   await page.goto(base + '/nginx-update', { waitUntil: 'networkidle' });
   const cols = await page.evaluate(() => [...document.querySelectorAll('.secissues li')].map((li) =>

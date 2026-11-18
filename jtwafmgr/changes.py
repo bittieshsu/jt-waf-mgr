@@ -1545,14 +1545,15 @@ class Workflow:
             raise ChangeError('admin_required', 403)
         purpose = self._step_up_purpose(r, user['username'])
         if purpose:
-            # a fresh one-time code and a written reason (once, whatever the reasons for asking)
+            # a written reason and a fresh one-time code (once, whatever the reasons for asking). The reason is checked
+            # first: a code is used only once, and a refusal for a short note must not spend it (0.5.0)
+            if len((note or '').strip()) < 10:
+                raise ChangeError('note_required')
             from .auth import AuthError
             try:
                 self.app.auth.step_up(user['username'], totp or '', purpose)
             except AuthError as e:
-                raise ChangeError(e.code, e.status)
-            if len((note or '').strip()) < 10:
-                raise ChangeError('note_required')
+                raise ChangeError(e.code, e.status, **e.details)
         self.log(cid, user['username'], 'approved', note or '')
         # what was approved: the change's own rules (a carried approval needs exactly these again)
         self.log(cid, user['username'], 'approved_text', _own_lines_hash(r))

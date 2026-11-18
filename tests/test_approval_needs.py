@@ -30,3 +30,36 @@ class TestApprovalNeeds(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestApproveSpendsTheCodeOnlyOnce(unittest.TestCase):
+    """0.5.0: a short note was refused after the code had been spent; the same code then read "enter a code"."""
+
+    def test_short_note_keeps_the_code(self):
+        import time
+        from jtwafmgr import auth
+        from jtwafmgr.app import App
+        from jtwafmgr.changes import ChangeError
+        from tests.helpers import TempEnv
+        env = TempEnv()
+        self.addCleanup(env.cleanup)
+        app = App(env.cfg, start_collector=False)
+        app.auth.create_user('boss', 'admin', password='Long-Passw0rd-xyz')
+        secret = auth.totp_new_secret()
+        app.db.x('UPDATE users SET totp_secret=?, totp_enabled=1 WHERE username=?', (secret, 'boss'))
+        now = time.time()
+        cid = app.db.x("INSERT INTO changes(op, kind, spec, direction, state, reason, proposed_by, proposed_via, created_at, "
+                       "updated_at, rule_text, tests) VALUES ('nginx','system','{}','neutral','pending_approval','r','nginxup',"
+                       "'user',?,?,'','[]')", (now, now)).lastrowid
+        user = app.db.one("SELECT * FROM users WHERE username='boss'")
+        code = auth.totp_code(secret, int(time.time() // 30))
+        with self.assertRaises(ChangeError) as e:
+            app.workflow.approve(cid, user, totp=code, note='go')
+        self.assertEqual(e.exception.code, 'note_required')
+        self.assertFalse(app.db.one("SELECT totp_last_step FROM users WHERE username='boss'")[0])     # not spent
+        # spent once (as by a sign-in a moment ago): "already used", not counted as a wrong code
+        app.db.x('UPDATE users SET totp_last_step=? WHERE username=?', (int(time.time() // 30) + 1, 'boss'))
+        with self.assertRaises(ChangeError) as e:
+            app.workflow.approve(cid, user, totp=code, note='nginx security update')
+        self.assertEqual(e.exception.code, 'totp_used')
+        self.assertEqual(app.db.one("SELECT COUNT(*) FROM audit WHERE action='auth.step_up_failed'")[0], 0)

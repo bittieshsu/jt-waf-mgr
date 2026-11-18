@@ -87,7 +87,7 @@
         <template v-else>
           <p class="alert small" :class="sec.major_in_use ? 'error' : secUsed.length ? 'warn' : 'info'">
             {{ secUsed.length ? t('ngup.sec.used', { v: sec.version, n: secUsed.length }) : t('ngup.sec.not_used', { v: sec.version }) }}
-            <template v-if="sec.fixed_by_candidate"> {{ t('ngup.sec.fixed_by', { v: d.candidate }) }}</template>
+            <template v-if="sec.fixed_by_candidate"> {{ t('ngup.sec.fixed_by', { v: (c && c.candidate) || d.candidate || '' }) }}</template>
             <template v-if="!sec.exact"> {{ t('ngup.sec.distro') }}</template></p>
           <ul class="plainlist secissues">
             <li v-for="(i, n) in secSorted" :key="n">

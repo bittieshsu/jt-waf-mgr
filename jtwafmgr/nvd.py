@@ -134,8 +134,24 @@ def _v(s):
 
 
 # a distribution package's version: [epoch:]upstream[-revision], the upstream part with a repack or backport tag
-_DISTRO = re.compile(r'^(?:\d+:)?(?P<up>[0-9][0-9.]*)(?:[+~](?:dfsg|ds|repack|really[0-9.]*|deb\w*|bpo\w*|ubuntu\w*)[\w.]*)*'
-                     r'(?:-[\w.+~]+)?$', re.I)
+# (0.5.0: three linear pieces, checked one after the other -- the single pattern before backtracked badly on a long
+# hostile string, CodeQL py/redos)
+_DISTRO_UP = re.compile(r'(?:\d+:)?(?P<up>[0-9][0-9.]*)')
+_DISTRO_TAG = re.compile(r'(?:[+~](?:dfsg|ds|repack|really|deb|bpo|ubuntu)[\w.]*)*', re.I)
+_DISTRO_REV = re.compile(r'[\w.+~]+')
+
+
+def _distro_upstream(version):
+    """The upstream part of a distribution package's version, or None."""
+    s = str(version or '').strip()[:100]
+    m = _DISTRO_UP.match(s)
+    if not m:
+        return None
+    rest = s[m.end():]
+    head, dash, rev = rest.partition('-')
+    if not _DISTRO_TAG.fullmatch(head) or (dash and not _DISTRO_REV.fullmatch(rev)):
+        return None
+    return m.group('up')
 
 
 def _ours(version):
@@ -145,9 +161,9 @@ def _ours(version):
     v = _v(version)
     if v is not None:
         return v, False
-    m = _DISTRO.match(str(version or '').strip())
-    if m and re.search(r'[-:+~]', str(version)):
-        up = _v(m.group('up').rstrip('.'))
+    upstream = _distro_upstream(version)
+    if upstream and re.search(r'[-:+~]', str(version)):
+        up = _v(upstream.rstrip('.'))
         if up is not None:
             return up, True
     return None, False

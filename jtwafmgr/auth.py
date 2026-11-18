@@ -156,6 +156,11 @@ class Auth:
                             (step, username, step))
             used = cur.rowcount == 1
         if not used:
+            if step is not None:
+                # the right code, already used (by this action a moment ago, or a sign-in): not a wrong guess; the
+                # next code works (0.5.0: this read "enter a one-time code" and counted as a failure)
+                self.audit.log('auth.step_up_reused', username, src_ip=src_ip, result='denied', purpose=purpose)
+                raise AuthError('totp_used', 403)
             self.audit.log('auth.step_up_failed', username, src_ip=src_ip, result='failed', purpose=purpose,
                            failures=n + 1)
             raise AuthError('totp_required', 403)
