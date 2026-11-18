@@ -55,6 +55,29 @@ something you can read, and every change into a workflow you can trust:
 In every case jt-waf-mgr runs on the nginx host, beside the WAF: requests never pass through it, and if it stops,
 nginx and ModSecurity keep working with the last rules.
 
+## When it fits — and when it does not
+
+jt-waf-mgr is made for **one nginx host** with libmodsecurity v3 in front of the sites of a company, a school, a public
+agency or a managed-service customer, where a small team wants every WAF change checked, approved, traced and audited.
+
+**A good fit**
+- One nginx host (web server, reverse proxy or both) serving up to some tens of sites: portals, SSO, mail, ERP,
+  Nextcloud, internal tools.
+- Moderate traffic: in production it runs a reverse proxy with a few dozen sites and about 150,000 requests a day;
+  the dashboard was tested with 400,000 synthetic events (7 days answered in under a second), and the evidence check
+  reads about 10,000 access-log lines a second.
+- Teams that need the record: who changed what and why, approvals, rollback, ISO/IEC 27001 and Taiwan's Cyber
+  Security Management Act.
+
+**Not a fit**
+- **Large, high-traffic sites** (sustained thousands of requests a second, tens of millions a day: big e-commerce,
+  media or public platforms). Everything runs on one host: events in SQLite, every change checked by re-reading the
+  access logs and replayed in an nginx sandbox, and ModSecurity with CRS adds work to every request. Use a CDN or
+  cloud WAF, or a dedicated WAF cluster with its own management, there.
+- Several nginx nodes behind a load balancer: only single-node mode for now (multi-node management is paused).
+- Other proxies or engines (Apache, HAProxy, Envoy, Traefik, ModSecurity v2, Coraza).
+- A fully automatic WAF: loosening a rule always needs a person.
+
 ## Features
 
 - **Collector**: the ModSecurity JSON audit log (copytruncate and rename rotation, oversized and malformed records);

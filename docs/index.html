@@ -149,6 +149,10 @@ section#layers { border-top: 1px solid var(--border); }
 section { padding: 60px 0; } section.alt { background: #fff; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 h2 { font-size: 30px; margin: 0 0 10px; } h2 + p.sub { color: var(--muted); margin: 0 0 28px; font-size: 17px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 18px; }
+.fit-grid ul { margin: 8px 0 0; padding-left: 20px; }
+.fit-grid li { margin: 6px 0; line-height: 1.6; }
+.card.fit-yes h3 .ic { background: #e3f4ea; color: #1a7f45; box-shadow: none; }
+.card.fit-no h3 .ic { background: #fde8e8; color: #b42318; box-shadow: none; }
 .card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 20px 16px; box-shadow: var(--shadow); transition: .15s; }
 .card:hover { border-color: rgba(37, 99, 196, .35); box-shadow: 0 6px 22px rgba(37, 99, 196, .10); }
 section.alt .card { background: var(--panel-2); }
@@ -326,6 +330,16 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
     <div class="card"><h3><span class="ic">1</span><span data-t="m1_h"></span></h3><p data-t="m1"></p></div>
     <div class="card"><h3><span class="ic">2</span><span data-t="m2_h"></span></h3><p data-t="m2"></p></div>
     <div class="card"><h3><span class="ic">3</span><span data-t="m3_h"></span></h3><p data-t="m3"></p></div>
+  </div>
+</div></section>
+
+<section id="fit"><div class="wrap">
+  <h2 data-t="fit_h"></h2><p class="sub" data-t="fit_sub"></p>
+  <div class="grid fit-grid">
+    <div class="card fit-yes"><h3><span class="ic">✓</span><span data-t="fit_yes_h"></span></h3>
+      <ul><li data-t="fy1"></li><li data-t="fy2"></li><li data-t="fy3"></li></ul></div>
+    <div class="card fit-no"><h3><span class="ic">✕</span><span data-t="fit_no_h"></span></h3>
+      <ul><li data-t="fn1"></li><li data-t="fn2"></li><li data-t="fn3"></li><li data-t="fn4"></li></ul></div>
   </div>
 </div></section>
 
@@ -565,6 +579,14 @@ const T = {
   vid_full_h: 'Feature tour', vid_full: 'The dashboard, events and an event\'s detail, how a request is decided, AI event analysis, the change workflow and approval, rules, alerts, temporary IP blocks, country limits, request volume, threat intelligence and the periodic WAF review, then the war room.',
   vid_warroom_h: 'War room', vid_warroom: 'The live wall board: the global event map, the 3D defence globe (zoom, drag, back to this site), the decision flow, site activity, the false-positive review, AI analysis and threat intelligence, alerts and changes, time ranges, blocked only and the keys.',
   vid_yt: 'Watch on YouTube',
+  fit_h: 'When it fits — and when it does not', fit_sub: 'Made for one nginx host with libmodsecurity v3, run by a small team that wants every WAF change checked, approved, traced and audited.',
+  fit_yes_h: 'A good fit', fy1: 'One nginx host (web server, reverse proxy or both) with up to some tens of sites: portals, SSO, mail, ERP, Nextcloud, internal tools.',
+  fy2: 'Moderate traffic: in production a reverse proxy with a few dozen sites and about 150,000 requests a day; the dashboard tested with 400,000 synthetic events; the evidence check reads about 10,000 log lines a second.',
+  fy3: 'Teams that need the record: who changed what and why, approvals, rollback, ISO/IEC 27001 and the Cyber Security Management Act.',
+  fit_no_h: 'Not a fit', fn1: 'Large, high-traffic sites (sustained thousands of requests a second, tens of millions a day): everything runs on one host — events in SQLite, every change re-reads the access logs and is replayed in a sandbox. Use a CDN or cloud WAF, or a dedicated WAF cluster.',
+  fn2: 'Several nginx nodes behind a load balancer: single-node mode only for now.',
+  fn3: 'Other proxies or engines: Apache, HAProxy, Envoy, Traefik, ModSecurity v2, Coraza.',
+  fn4: 'A fully automatic WAF: loosening a rule always needs a person.',
   modes_h: 'Three ways to use it', modes_sub: 'jt-waf-mgr runs on the nginx host, beside ModSecurity: requests never pass through it, and nginx keeps protecting the sites with the last rules if it stops.',
   m1_h: 'nginx is the web server', m1: 'The sites live on the nginx host itself (static files, PHP-FPM ...). ModSecurity inspects every request before nginx answers it; jt-waf-mgr manages the rules, approvals and analysis.',
   m2_h: 'nginx as a reverse proxy', m2: 'The sites run on other servers. nginx with ModSecurity sits in front of them as the WAF and forwards only the requests that pass.',
@@ -770,6 +792,14 @@ const T = {
   vid_full_h: '功能介紹', vid_full: '儀表板、事件與事件明細、WAF 判斷流程、AI 事件分析、變更流程與核准、規則、警示、暫時封鎖 IP、國家限制、請求量、威脅情報、WAF 定期檢討，最後是戰情室。',
   vid_warroom_h: '戰情室', vid_warroom: '給牆面看的即時看板：全球事件地圖、3D 防禦地球 (縮放、拖動、轉回本站)、封鎖決策流、站台熱區、誤判檢討、AI 分析與威脅情報、警示與變更，以及時間範圍、只看封鎖與按鍵操作。',
   vid_yt: '在 YouTube 觀看',
+  fit_h: '適用場景', fit_sub: '為一台 nginx 主機 (libmodsecurity v3) 設計，適合由小團隊管理、希望每個 WAF 變更都經過檢查與核准、可追溯也可稽核的網站。',
+  fit_yes_h: '適合', fy1: '一台 nginx 主機 (網站伺服器、反向代理或兩者都有)，數十個以內的站台：入口網站、SSO、郵件、ERP、Nextcloud、內部工具。',
+  fy2: '中等流量：正式環境是一台反向代理，數十個站台、每天約 15 萬個請求；總覽用 40 萬筆合成事件測過；證據檢查每秒約讀 1 萬行記錄。',
+  fy3: '需要留下記錄的團隊：誰改了什麼、為什麼、誰核准、可以退回，對應 ISO/IEC 27001 與資通安全管理法。',
+  fit_no_h: '不適合', fn1: '大規模、高流量網站 (持續每秒數千個請求、每天數千萬個請求)：所有工作都在同一台主機——事件存在 SQLite，每個變更都要重讀存取記錄並在沙箱重送。請改用 CDN 或雲端 WAF，或專用的 WAF 叢集。',
+  fn2: '負載平衡後面有多台 nginx：目前只有單機模式。',
+  fn3: '其他代理或引擎：Apache、HAProxy、Envoy、Traefik、ModSecurity v2、Coraza。',
+  fn4: '完全自動的 WAF：放寬規則一定要由人核准。',
   modes_h: '三種使用方式', modes_sub: 'jt-waf-mgr 裝在 nginx 主機上、在 ModSecurity 旁邊：請求不會經過它；它停止時，nginx 仍以最後一版規則保護網站。',
   m1_h: 'nginx 本身就是網站伺服器', m1: '網站就在 nginx 這台主機上 (靜態網頁、PHP-FPM 等)。nginx 回應前 ModSecurity 先檢查每個請求，jt-waf-mgr 加強 WAF 的防護與管理。',
   m2_h: 'nginx 當反向代理', m2: '網站在後面其他的網站伺服器上；nginx 加上 ModSecurity 在前面提供 WAF 保護，只轉送通過檢查的請求。',
@@ -975,6 +1005,14 @@ const T = {
   vid_full_h: '機能紹介', vid_full: 'ダッシュボード、イベントとその詳細、リクエストの判定の流れ、AI イベント分析、変更フローと承認、ルール、アラート、IP の一時ブロック、国別制限、リクエスト量、脅威インテリジェンス、WAF 定期レビュー、最後にウォールーム。',
   vid_warroom_h: 'ウォールーム', vid_warroom: '壁に映すリアルタイムボード：世界のイベントマップ、3D 防御地球 (拡大縮小、ドラッグ、自サイトへ戻る)、ブロック判定の流れ、サイト別の状況、誤検知レビュー、AI 分析と脅威インテリジェンス、アラートと変更、時間範囲、ブロックのみ表示とキー操作。',
   vid_yt: 'YouTube で見る',
+  fit_h: '向いている場面・向いていない場面', fit_sub: '1 台の nginx ホスト (libmodsecurity v3) のために作られています。少人数のチームが WAF の変更をすべて検査・承認し、追跡と監査ができるようにしたいサイトに向いています。',
+  fit_yes_h: '向いている', fy1: '1 台の nginx ホスト (Web サーバー、リバースプロキシ、またはその両方) で数十までのサイト：ポータル、SSO、メール、ERP、Nextcloud、社内ツール。',
+  fy2: '中程度のトラフィック：本番では数十サイトのリバースプロキシで 1 日約 15 万リクエスト。ダッシュボードは 40 万件の合成イベントで検証、証拠チェックはログを毎秒約 1 万行読みます。',
+  fy3: '記録が必要なチーム：誰が何をなぜ変えたか、承認、ロールバック、ISO/IEC 27001 と資通安全管理法。',
+  fit_no_h: '向いていない', fn1: '大規模・高トラフィックのサイト (毎秒数千リクエストが続く、1 日数千万リクエスト)：すべてが 1 台で動きます。イベントは SQLite、変更のたびにアクセスログを読み直してサンドボックスで再送します。CDN やクラウド WAF、専用の WAF クラスターを使ってください。',
+  fn2: 'ロードバランサーの後ろに複数の nginx：現在は単一ノードのみです。',
+  fn3: '他のプロキシやエンジン：Apache、HAProxy、Envoy、Traefik、ModSecurity v2、Coraza。',
+  fn4: '完全自動の WAF：ルールの緩和には必ず人の承認が必要です。',
   modes_h: '3 つの使い方', modes_sub: 'jt-waf-mgr は nginx ホスト上で ModSecurity の横に置かれます。リクエストは jt-waf-mgr を通らず、停止しても nginx は最後のルールでサイトを守り続けます。',
   m1_h: 'nginx が Web サーバー', m1: 'サイトは nginx ホスト上にあります (静的ファイル、PHP-FPM など)。nginx が応答する前に ModSecurity が各リクエストを検査し、jt-waf-mgr がルール、承認、分析を管理します。',
   m2_h: 'nginx がリバースプロキシ', m2: 'サイトは別のサーバーにあります。ModSecurity を組み込んだ nginx が前段で WAF として保護し、通過したリクエストだけを転送します。',
