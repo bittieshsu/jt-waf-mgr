@@ -2,6 +2,13 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.4.100 (2026-11-19)
+
+- Approving an nginx update: the change page did not show the one-time code field the server requires for it, so the update could not be approved from the web interface (only from the command line). The page now takes from the server what approving a change requires (`approval_needs`: a one-time code, a written reason), the same rule the approval itself follows, and says that an nginx update takes a code and a note of at least 10 characters. One code now covers every reason for asking (one's own nginx update asked for it twice, and a code is used only once). The browser test checks the field.
+- After an upgrade, a tab restored from the browser's cache, or one that signed in again, ran the older program without offering a reload (it compared the server's version with what the server said when the tab loaded). The program now carries its own version and offers the reload at once; the page itself is never stored in the browser's cache.
+- Alerts: the source names "Threat intelligence", "nginx updates" and "Country lists" were shown as their keys. A new nginx security alert for the same nginx version replaces the open one instead of standing beside it.
+- Layout: the nginx advisories are aligned columns (in use first, then by severity); in Settings, the explanation of a switch uses the whole row instead of a narrow column.
+
 ## 0.4.99 (2026-11-19)
 
 - Threat intelligence, distribution packages: Debian and Ubuntu backport security fixes without changing the upstream version (libbrotli1 1.0.9-2+deb12u1 carries the fix for CVE-2026-111497, which upstream fixed in 1.0.10), so the upstream number of such a package no longer decides "affected". The installed package's own change log (/usr/share/doc/<package>/changelog.Debian.gz, on this host; nothing is downloaded) is read: when it names the CVE, the threat is set aside with the package as the reason and its open alert is handled. A distribution's version whose package or change log cannot be found here takes the "check" path ("check the distribution's security advisory") instead of the urgent one. Reported by jt-wazuh-mgr.

@@ -42,7 +42,7 @@
         <template #cell-created_at="{ row }"><span class="nowrap">{{ fmtShortTime(row.created_at) }}</span>
           <div v-if="row.count > 1" class="sub">{{ t('alerts.seen', { n: row.count, at: fmtShortTime(row.last_seen) }) }}</div></template>
         <template #cell-severity="{ row }"><span class="badge" :class="row.severity === 'critical' ? 'b-blocked' : 'b-warn'">{{ t('alerts.sev.' + row.severity) }}</span></template>
-        <template #cell-kind="{ row }"><b>{{ kindText(row) }}</b><div class="sub">{{ t('alerts.src.' + row.source) }}</div></template>
+        <template #cell-kind="{ row }"><b>{{ kindText(row) }}</b><div class="sub">{{ tOr('alerts.src.' + row.source, row.source) }}</div></template>
         <template #cell-summary="{ row }"><span class="mono small breakall">{{ safeText(row.summary, 160) }}</span>
           <div v-if="reasonText(row)" class="sub reason">{{ safeText(reasonText(row), 240) }}</div></template>
         <template #cell-state="{ row }"><span class="badge" :class="row.state === 'open' ? 'b-warn' : 'b-ok'">{{ t('alerts.state.' + row.state) }}</span>

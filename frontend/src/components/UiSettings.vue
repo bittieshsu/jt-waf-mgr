@@ -14,14 +14,16 @@
                        :enabled="!!form['analyst.enabled']" />
       <div class="srows">
         <template v-for="k in g.keys" :key="k">
-          <div v-if="s[k]" class="srow" :class="{ changed: isDirty(k) }">
+          <div v-if="s[k]" class="srow" :class="{ changed: isDirty(k), bool: s[k].type === 'bool' }">
             <div class="slabel">
               <label :for="'uiset-in-' + k">{{ t('uiset.' + k) }}</label>
               <span class="src" :class="s[k].source === 'ui' ? 'src-ui' : 'src-file'"
                     :title="s[k].source === 'ui' ? t('uiset.source_ui', { by: s[k].updated_by || '—', at: fmtMinute(s[k].updated_at) }) : t('uiset.source_file')">
                 {{ s[k].source === 'ui' ? t('uiset.src_ui_short') : t('uiset.src_file_short') }}</span>
-              <div v-if="hint(k)" class="shint">{{ hint(k) }}</div>
+              <div v-if="hint(k) && s[k].type !== 'bool'" class="shint">{{ hint(k) }}</div>
             </div>
+            <!-- a switch takes little room: its explanation runs under the label and the switch, the whole row wide -->
+            <div v-if="hint(k) && s[k].type === 'bool'" class="shint swide">{{ hint(k) }}</div>
             <div class="sctl">
               <label v-if="s[k].type === 'bool'" class="switch"><input :id="'uiset-in-' + k" v-model="form[k]" type="checkbox">
                 <span class="knob" aria-hidden="true"></span><span>{{ form[k] ? t('uiset.on') : t('uiset.off') }}</span></label>
@@ -524,6 +526,9 @@ onMounted(async () => {
 .src-ui { border-color: var(--accent); color: var(--accent); }
 .shint { color: var(--muted); font-size: .86em; margin-top: 3px; line-height: 1.45; }
 .sctl { min-width: 0; padding-top: 2px; }
+.srow.bool .slabel { grid-column: 1; grid-row: 1; }
+.srow.bool .sctl { grid-column: 2; grid-row: 1; }
+.srow.bool .swide { grid-column: 1 / -1; grid-row: 2; margin-top: -2px; max-width: 980px; }
 .w-sm { width: 9em; }
 .w-md { max-width: 280px; }
 .w-lg { width: 100%; max-width: 560px; }
@@ -551,5 +556,7 @@ onMounted(async () => {
 .sfoot + .teststate { margin-top: 10px; }
 @media (max-width: 760px) {
   .srow { grid-template-columns: 1fr; }
+  .srow.bool .sctl { grid-column: 1; grid-row: 2; }
+  .srow.bool .swide { grid-column: 1; grid-row: 3; }
 }
 </style>

@@ -90,12 +90,12 @@
             <template v-if="sec.fixed_by_candidate"> {{ t('ngup.sec.fixed_by', { v: d.candidate }) }}</template>
             <template v-if="!sec.exact"> {{ t('ngup.sec.distro') }}</template></p>
           <ul class="plainlist secissues">
-            <li v-for="(i, n) in sec.issues" :key="n">
-              <span class="badge" :class="i.in_use ? (['major', 'high', 'critical'].includes(i.severity) ? 'b-blocked' : 'b-warn') : 'b-logged'">{{ i.in_use ? t('ngup.sec.in_use') : t('ngup.sec.unused') }}</span>
-              <span class="gapl">{{ safeText(i.title, 200) }}</span>
-              <span v-if="i.severity" class="muted small gapl">({{ safeText(i.severity, 20) }})</span>
-              <span class="mono small gapl">{{ (i.cves || []).map((x) => safeText(x, 30)).join(', ') }}</span>
-              <span v-if="i.feature" class="muted small gapl">{{ t('ngup.sec.feature', { f: i.feature }) }}</span>
+            <li v-for="(i, n) in secSorted" :key="n">
+              <span><span class="badge" :class="i.in_use ? (['major', 'high', 'critical'].includes(i.severity) ? 'b-blocked' : 'b-warn') : 'b-logged'">{{ i.in_use ? t('ngup.sec.in_use') : t('ngup.sec.unused') }}</span></span>
+              <span class="si-title">{{ safeText(i.title, 200) }}</span>
+              <span class="muted small">{{ i.severity ? safeText(i.severity, 20) : '' }}</span>
+              <span class="mono small">{{ (i.cves || []).map((x) => safeText(x, 30)).join(', ') }}</span>
+              <span class="muted small">{{ i.feature ? t('ngup.sec.feature', { f: i.feature }) : '' }}</span>
             </li>
           </ul>
         </template>
@@ -168,6 +168,9 @@ async function protoSwitch(feature, mode) {
   } catch (e) { opError.value = e } finally { busy.value = false }
 }
 const secUsed = computed(() => (sec.value ? sec.value.issues.filter((i) => i.in_use) : []))
+// the ones in use first, then by severity
+const SEV = { critical: 0, high: 1, major: 1, medium: 2, minor: 3, low: 3 }
+const secSorted = computed(() => (sec.value ? sec.value.issues.slice().sort((a, b) => (b.in_use - a.in_use) || ((SEV[a.severity] ?? 4) - (SEV[b.severity] ?? 4))) : []))
 async function propose() {
   busy.value = true
   opError.value = null
@@ -232,5 +235,10 @@ onMounted(load)
 .protolist li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 0; }
 .protolist .protoname { min-width: 5em; font-weight: 600; }
 .protolist .grow { flex: 1 1 auto; }
-.secissues li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 0; padding: 4px 0; }
+/* one aligned row per advisory: in use, title, severity, CVE, feature (left-aligned columns; stacked on a phone) */
+.secissues li { display: grid; grid-template-columns: 5.5em minmax(0, 1fr) 5.5em 10.5em 9em; align-items: baseline; gap: 4px 12px;
+  justify-content: start; text-align: left; padding: 5px 0; border-bottom: 1px solid var(--border); }
+.secissues li:last-child { border-bottom: 0; }
+.secissues .si-title { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 720px) { .secissues li { grid-template-columns: 5.5em minmax(0, 1fr); } .secissues li > :nth-child(n+3) { grid-column: 2; } }
 </style>

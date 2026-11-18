@@ -251,8 +251,17 @@ def raise_alerts(app, st, log=print, feats=None):
     if not used:
         return a
     cves = sorted({c for i in used for c in i['cves']})
+    dedup = 'nginx-security:%s:%s' % (a['version'], ','.join(cves)[:200])
+    # 0.4.100: the list for this version changed (an advisory more, or one no longer counted): the new alert replaces
+    # the open one, not a second alert beside it
+    note = 'replaced by a newer alert for nginx %s (the list of advisories changed)' % a['version']
+    for old in app.db.q("SELECT id FROM alerts WHERE state='open' AND kind='nginx_security' AND dedup LIKE ? AND dedup<>?",
+                        ('nginx-security:%s:%%' % a['version'], dedup)):
+        if app.db.x("UPDATE alerts SET state='handled', handled_by='nginxup', handled_at=?, note=? WHERE id=? AND state='open'",
+                    (util.now(), note, old['id'])).rowcount == 1:
+            app.audit.log('alert.handled', 'nginxup', 'system', None, 'ok', alert_id=old['id'], kind='nginx_security', note=note)
     alerts.raise_alert(app.db, app.audit, 'nginxup', 'nginx_security', 'critical' if a['major_in_use'] else 'warning',
-                       'nginx-security:%s:%s' % (a['version'], ','.join(cves)[:200]),
+                       dedup,
                        {'reason': 'nginx %s has %d security issue(s) in features this configuration uses (%s): rules cannot '
                                   'refuse these; update nginx%s.' % (
                                       a['version'], len(used), ', '.join(cves)[:300] or ', '.join(i['title'] for i in used)[:300],

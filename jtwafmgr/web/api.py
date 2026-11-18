@@ -1990,7 +1990,10 @@ def change_get(app, req):
         r = _wf(app).get(int(req.params['id']))
     except (ValueError, ChangeError):
         raise ApiError(404, 'not_found')
-    return json_response(200, _wf(app).public(r, full=True))
+    out = _wf(app).public(r, full=True)
+    if req.user is not None:
+        out['approval_needs'] = _wf(app).approval_needs(r, req.user['username'])
+    return json_response(200, out)
 
 
 def change_create(app, req):

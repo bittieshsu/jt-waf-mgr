@@ -340,7 +340,9 @@ def static(path):
     ext = os.path.splitext(full)[1].lower()
     with open(full, 'rb') as fh:
         body = fh.read()
-    headers = [('Cache-Control', 'public, max-age=31536000, immutable' if '/assets/' in full else 'no-cache')]
+    # the page itself never from a cache: a tab restored by the browser would run the program of an older version
+    headers = [('Cache-Control', 'public, max-age=31536000, immutable' if '/assets/' in full
+                else 'no-store' if full.endswith('index.html') else 'no-cache')]
     return Response(200, body, _TYPES.get(ext) or mimetypes.guess_type(full)[0] or 'application/octet-stream', headers)
 
 

@@ -6,6 +6,9 @@ import path from 'node:path'
 
 const NM = process.env.JTWAF_NODE_MODULES || '/opt/jt-ipam/frontend/node_modules'
 const here = path.dirname(fileURLToPath(import.meta.url))
+// the program's own version, built in: an open tab compares it with the server's to offer a reload after an upgrade
+const { readFileSync } = await import('node:fs')
+const VERSION = /__version__ = '([^']+)'/.exec(readFileSync(path.join(here, '../jtwafmgr/__init__.py'), 'utf8'))[1]
 const { default: vue } = await import(path.join(NM, '@vitejs/plugin-vue/dist/index.mjs'))
 
 export default {
@@ -16,6 +19,7 @@ export default {
     __VUE_OPTIONS_API__: 'false',
     __VUE_PROD_DEVTOOLS__: 'false',
     __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'false',
+    __APP_VERSION__: JSON.stringify(VERSION),
   },
   resolve: {
     alias: {

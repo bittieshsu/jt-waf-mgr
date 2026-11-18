@@ -283,5 +283,22 @@ from jtwafmgr import review  # noqa: E402
 for k in range(8, 0, -1):
     rid, _ = review.run(app, 'schedule', now - k * 3 * 3600 + 60, notify=False)
     app.db.x('UPDATE reviews SET created_at=? WHERE id=?', (now - k * 3 * 3600 + 60, rid))
+# 0.4.100: an nginx update waiting for approval (its page must ask for a one-time code) and the nginx advisories
+_now = time.time()
+_cid = app.db.x("INSERT INTO changes(op, kind, spec, direction, state, reason, proposed_by, proposed_via, created_at, updated_at, "
+                "rule_text, tests) VALUES ('nginx','system',?, 'neutral','pending_approval',?, 'cli:approver','user',?,?,'','[]')",
+                (json.dumps({'installed': '1.30.6-1~bookworm', 'target': '1.30.7-1~bookworm'}),
+                 'nginx 1.30.6 -> 1.30.7 (synthetic)', _now, _now)).lastrowid
+open(R + '/nginx-change', 'w').write(str(_cid))
+os.makedirs(os.path.join(R, 'nginxup'), exist_ok=True)
+_iss = [('Infinite loop while reading the request body over TLS 1.3', 'major', ['CVE-2099-0101'], None, True),
+        ('Buffer overflow when using alias with try_files', 'minor', ['CVE-2099-0102'], 'alias', True),
+        ('Memory corruption in HTTP/2 flow control', 'major', ['CVE-2099-0103'], 'http2', False),
+        ('Use-after-free during response processing in the resolver', 'medium', ['CVE-2099-0104'], 'resolver', False)]
+json.dump({'state': 'ready', 'installed': '1.30.6-1~bookworm', 'candidate': '1.30.7-1~bookworm', 'target': '1.30.7-1~bookworm',
+           'security': {'version': '1.30.6', 'exact': True, 'fixed_by_candidate': True, 'major_in_use': True,
+                        'issues': [{'title': a, 'severity': b, 'cves': c, 'feature': f, 'in_use': u, 'fixed_in': ['1.30.7+'],
+                                    'advisory': '', 'candidate_fixes': True} for a, b, c, f, u in _iss]}},
+          open(os.path.join(R, 'nginxup', 'status.json'), 'w'))
 json.dump(sec, open(R + '/totp.json', 'w'))
 print('events', app.db.one('SELECT COUNT(*) n FROM events')['n'])

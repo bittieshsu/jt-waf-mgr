@@ -1504,54 +1504,51 @@ class Workflow:
         return out
 
     # --- decisions ------------------------------------------------------------------------
+    def approval_needs(self, r, username):
+        """What approving this change takes from this person besides the button: {'totp': bool, 'note_min': n}. The
+        change page shows the one-time code field from this (0.4.100: it once missed the nginx update's)."""
+        return {'totp': self._step_up_purpose(r, username) is not None,
+                'note_min': 10 if self._step_up_purpose(r, username) else 0}
+
+    def _step_up_purpose(self, r, username):
+        """The one fresh one-time code (and written reason) approving this change takes, or None: nginx itself, one's
+        own loosening, a whole CRS category off, the language model's loosening. One code covers all of them."""
+        if r['op'] == 'nginx':
+            return 'change.approve_nginx'
+        if r['direction'] == 'tighten':
+            return None
+        if self._own(r, username):
+            return 'change.approve_own'
+        if json.loads(r['spec'] or '{}').get('strict'):
+            return 'change.approve_category_off'
+        if r['proposed_by'] == 'analyst':
+            return 'change.approve_analyst_loosen'
+        return None
+
+    @staticmethod
+    def _own(r, username):
+        # a change proposed through an API token belongs to the person who created that token
+        return (r['proposed_by'] == username and r['proposed_via'] == 'user') or \
+            (r['proposed_via'] == 'api' and r['proposed_owner'] == username)
+
     def approve(self, cid, user, totp=None, note=''):
         r = self.get(cid)
         if r['state'] != 'pending_approval':
             raise ChangeError('invalid_state', 409, state=r['state'])
         if r['op'] in ('adopt', 'nginx') and user['role'] != 'admin':
             raise ChangeError('forbidden', 403)
-        if r['op'] == 'nginx':
-            # nginx itself changes: a fresh one-time code and a written reason, whoever proposed it
+        own = self._own(r, user['username'])
+        if own and not self.setting('approval.single_admin_mode'):
+            raise ChangeError('own_change', 403)
+        if r['direction'] != 'tighten' and json.loads(r['spec'] or '{}').get('strict') and user['role'] != 'admin':
+            # a whole category of CRS rules switched off: an administrator
+            raise ChangeError('admin_required', 403)
+        purpose = self._step_up_purpose(r, user['username'])
+        if purpose:
+            # a fresh one-time code and a written reason (once, whatever the reasons for asking)
             from .auth import AuthError
             try:
-                self.app.auth.step_up(user['username'], totp or '', 'change.approve_nginx')
-            except AuthError as e:
-                raise ChangeError(e.code, e.status)
-            if len((note or '').strip()) < 10:
-                raise ChangeError('note_required')
-        # a change proposed through an API token belongs to the person who created that token
-        own = (r['proposed_by'] == user['username'] and r['proposed_via'] == 'user') or \
-            (r['proposed_via'] == 'api' and r['proposed_owner'] == user['username'])
-        if own:
-            if not self.setting('approval.single_admin_mode'):
-                raise ChangeError('own_change', 403)
-            if r['direction'] != 'tighten':
-                # single admin approving their own loosening: fresh OTP and a written reason
-                from .auth import AuthError
-                try:
-                    self.app.auth.step_up(user['username'], totp or '', 'change.approve_own')
-                except AuthError as e:
-                    raise ChangeError(e.code, e.status)
-                if len((note or '').strip()) < 10:
-                    raise ChangeError('note_required')
-        if r['direction'] != 'tighten' and json.loads(r['spec'] or '{}').get('strict'):
-            # a whole category of CRS rules switched off: an admin, a fresh one-time code and a written reason
-            if user['role'] != 'admin':
-                raise ChangeError('admin_required', 403)
-            if not own:                     # one's own loosening above already took the code and the reason
-                from .auth import AuthError
-                try:
-                    self.app.auth.step_up(user['username'], totp or '', 'change.approve_category_off')
-                except AuthError as e:
-                    raise ChangeError(e.code, e.status)
-                if len((note or '').strip()) < 10:
-                    raise ChangeError('note_required')
-        elif r['proposed_by'] == 'analyst' and r['direction'] != 'tighten':
-            # loosening suggested by the language model (from request data an outsider can shape): fresh OTP and a
-            # written reason, like approving one's own loosening
-            from .auth import AuthError
-            try:
-                self.app.auth.step_up(user['username'], totp or '', 'change.approve_analyst_loosen')
+                self.app.auth.step_up(user['username'], totp or '', purpose)
             except AuthError as e:
                 raise ChangeError(e.code, e.status)
             if len((note or '').strip()) < 10:

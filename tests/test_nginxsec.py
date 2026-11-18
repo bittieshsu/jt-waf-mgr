@@ -105,6 +105,11 @@ class TestAdvisories(unittest.TestCase):
         self.assertEqual((r4['status'], r4['affected'], json.loads(r4['details'])['nginx_advisory']['result']), ('ignored', 'no', 'no'))
         r2 = app.db.one('SELECT status, details FROM intel_threats WHERE id=?', (rows['CVE-2099-0002'],))
         self.assertEqual((r2['status'], json.loads(r2['details'])['nginx_advisory']['result']), ('open', 'yes'))
+        # 0.4.100: another list of advisories for the same version replaces the open alert (not a second one beside it)
+        app.db.x("UPDATE alerts SET dedup='nginx-security:1.30.6:CVE-2009-0006,CVE-2099-0002' WHERE kind='nginx_security'")
+        nginxsec.raise_alerts(app, st, log=lambda m: None)
+        rows = app.db.q("SELECT state, dedup FROM alerts WHERE kind='nginx_security' ORDER BY id")
+        self.assertEqual([r['state'] for r in rows], ['handled', 'open'])
         # the page cannot be read: the last list is kept
         self.assertEqual(len(nginxsec.refresh(self.env.cfg, get=lambda url: '<html></html>', log=lambda m: None)), 6)
         # switched off: nothing is read or raised

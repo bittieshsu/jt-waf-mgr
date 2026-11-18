@@ -137,6 +137,14 @@ async function audit(page, where) {
   await page.locator('.rowacts button:has-text("草擬")').first().click();
   await page.waitForURL((u) => u.pathname === '/changes/new', { timeout: 10000 }).catch(() => {});
   ok(new URL(page.url()).pathname === '/changes/new', 'alert drafts a change');
+  // an nginx update asks its approver for a one-time code (0.4.100: the server required one the page did not ask for)
+  await page.goto(base + '/changes/' + fs.readFileSync(R + '/nginx-change', 'utf8').trim(), { waitUntil: 'networkidle' });
+  ok(await page.locator('input[autocomplete="one-time-code"]').count() === 1, 'nginx update approval asks for a one-time code');
+  // the nginx advisories: one aligned row each (title, severity and CVE columns start at the same place)
+  await page.goto(base + '/nginx-update', { waitUntil: 'networkidle' });
+  const cols = await page.evaluate(() => [...document.querySelectorAll('.secissues li')].map((li) =>
+    [...li.children].slice(1, 4).map((c) => Math.round(c.getBoundingClientRect().left)).join(',')));
+  ok(cols.length === 4 && new Set(cols).size === 1, 'nginx advisories in aligned columns (' + [...new Set(cols)].join(' | ') + ')');
   // every card title band folds, the state is remembered per page
   await page.goto(base + '/admin/settings', { waitUntil: 'networkidle' });
   await page.waitForTimeout(300);

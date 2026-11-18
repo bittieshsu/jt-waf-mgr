@@ -269,7 +269,9 @@ let ticks = 0
 async function checkVersion() {
   try {
     const m = await get('/meta')
-    if (state.meta.version && m && m.version && m.version !== state.meta.version) newVersion.value = m.version
+    // compared with the version built into this program, not with what the server said at load: a tab restored from
+    // the browser's cache (or one that signed in again) runs an older program while the server is already newer
+    if (m && m.version && m.version !== __APP_VERSION__) newVersion.value = m.version
   } catch { /* offline or signed out: try again later */ }
 }
 function onVisible() { if (document.visibilityState === 'visible') checkVersion() }
@@ -298,6 +300,7 @@ async function resumeAll() {
 
 let timer = null
 onMounted(() => {
+  if (state.meta.version && state.meta.version !== __APP_VERSION__) newVersion.value = state.meta.version   // loaded from cache
   timer = setInterval(() => { refreshPending(true); refreshAlerts(true); refreshPause(true); if (++ticks % 5 === 0) checkVersion() }, 60000)
   document.addEventListener('visibilitychange', onVisible)
   startCardFold()
