@@ -293,6 +293,48 @@ class Monitor:
             out[p] = '\n'.join(lines[:max_lines]) + ('\n…' if len(lines) > max_lines else '')
         return out
 
+    def _nginx_files(self, last, touched, dpkg_info='/var/lib/dpkg/info'):
+        """Every touched file is one an nginx change applied since the previous snapshot put there (0.5.9: the module
+        switch of change #96 was reported as an outside edit): a ModSecurity module with a SHA-256 root trusts (root
+        installs no other), or a file of the nginx package that change installed."""
+        from . import nginxswap
+        rows = self.db.q("SELECT spec FROM changes WHERE op='nginx' AND state='applied' AND updated_at >= ?",
+                         (last['ts'] - 1800,))
+        if not rows or not touched:
+            return False
+        trusted, owned = None, None
+        for p in touched:
+            if os.path.basename(p) == nginxswap.MODULE_NAME:
+                if trusted is None:
+                    trusted = nginxswap.trusted_modules()
+                try:
+                    with open(p, 'rb') as fh:
+                        if hashlib.sha256(fh.read()).hexdigest() in trusted:
+                            continue
+                except OSError:
+                    pass
+                return False
+            if owned is None:
+                owned = set()
+                for (spec,) in rows:
+                    try:
+                        sp = json.loads(spec or '{}')
+                    except ValueError:
+                        continue
+                    if sp.get('mode') == 'module':
+                        continue                    # a module switch installs no package
+                    pkg = sp.get('package') or 'nginx'
+                    if not re.fullmatch(r'[a-z0-9][a-z0-9+.-]{0,60}', pkg):
+                        continue
+                    try:
+                        with open(os.path.join(dpkg_info, pkg + '.list'), encoding='utf-8', errors='replace') as fh:
+                            owned.update(ln.strip() for ln in fh if ln.strip())
+                    except OSError:
+                        continue
+            if p not in owned:
+                return False
+        return True
+
     def _site_waf_files(self, last, touched):
         """Every touched file is one a site WAF switch wrote (applied since the previous snapshot) and still has exactly
         the contents it wrote (the root program reports each file's hash): a later edit of the same file is outside."""
@@ -373,6 +415,12 @@ class Monitor:
         # previous snapshot (and, switching on, each of them carries that change's marked line), and the managed snippet
         if touched and self._site_waf_files(last, touched):
             return 'jt-waf-mgr'
+        # nginx updated, rolled back or its ModSecurity module switched through an approved change (the root program)
+        try:
+            if touched and self._nginx_files(last, touched):
+                return 'jt-waf-mgr'
+        except Exception:       # noqa: BLE001 -- not proven ours
+            pass
         # the temporary IP block list and the country lists: written only by the apply program (from the database and
         # from the staged registry data), never by hand
         bf = self.cfg['blocks']['file']

@@ -74,6 +74,33 @@ class TestAnnouncements(Base):
         self.assertEqual(len(intel.rechecks_due(self.app.cfg, due, mark=True)), 1)
         self.assertEqual(intel.rechecks_due(self.app.cfg, due + 60), [])               # one search covers it
 
+    def test_no_time_or_long_out_is_no_notice(self):
+        # 0.5.9: the model offered releases already installed here (nginx 1.30.7, ModSecurity 3.0.17), without a time
+        anns = intel.clean_announcements({'announcements': [dict(PHP_NOTICE, release_at=''),
+                                                            dict(PHP_NOTICE, release_at='2026-11-01T00:00:00Z')]},
+                                         software.confirmed(self.app.db))
+        intel.announce(self.app, 9, anns, 1795096800, log=lambda m: None)
+        self.assertIsNone(self.app.db.one("SELECT 1 FROM alerts WHERE kind='security_release'"))
+        self.assertEqual(intel._read_rechecks(self.app.cfg), [])
+
+    def test_search_service_that_does_not_search(self):
+        self.assertFalse(intel.search_alert(self.app, 1, 25, 10, 'http://search.example.com/mcp'))
+        self.assertFalse(intel.search_alert(self.app, 1, 3, 3, 'http://search.example.com/mcp'))     # too few to say
+        self.assertTrue(intel.search_alert(self.app, 1, 25, 21, 'http://search.example.com/mcp'))
+        r = self.app.db.one("SELECT details FROM alerts WHERE dedup LIKE 'intel-search-empty:%'")
+        d = json.loads(r['details'])
+        self.assertIn('search.example.com', notify.alert_text('en', d))
+
+        class S:
+            def __init__(self):
+                self.searches = []
+
+            def run_tool(self, name, args):
+                self.searches.append(args['query'])
+                return '【摘要】PHP is a language' if 'PHP' in args['query'] else 'Result https://example.com/advisory'
+        out, asked, empty = intel.sweep(S(), software.confirmed(self.app.db), time.time(), log=lambda m: None)
+        self.assertEqual((asked - empty, empty), (len(out), 1))
+
     def test_old_answers_without_announcements(self):
         self.assertEqual(intel.clean_announcements({'threats': [], 'notes': ''}, []), [])
         self.assertEqual(intel.clean_announcements(None, []), [])

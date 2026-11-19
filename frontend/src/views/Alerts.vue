@@ -104,7 +104,7 @@ const cols = computed(() => [
 function kindText(r) { return tOr('alerts.kind.' + r.kind, r.kind) }
 // threat intelligence alerts carry a message key and its values: worded in the interface language (the stored
 // reason is the English one, kept for the audit trail)
-const MSGS = ['intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere', 'intel_distro', 'intel_release']
+const MSGS = ['intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere', 'intel_distro', 'intel_release', 'intel_search_empty']
 function reasonText(r) {
   const d = r.details || {}
   if (r.kind === 'nginx_module') {
@@ -116,6 +116,9 @@ function reasonText(r) {
       ready: d.ready && d.candidate ? t('alerts.nginx_security_ready', { v: String(d.candidate) }) : '' })
   }
   if (!MSGS.includes(d.msg)) return d.reason || ''
+  if (d.msg === 'intel_search_empty') {
+    return t('alerts.intel_search_empty', { n: String(d.n ?? ''), of: String(d.of ?? ''), service: String(d.service || '') })
+  }
   if (d.msg === 'intel_release') {
     // an announced security release (0.5.8): words from the vendor's page, shown as text
     const ids = (d.ids || []).map(String).slice(0, 10)

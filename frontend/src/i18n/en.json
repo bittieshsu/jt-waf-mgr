@@ -29,6 +29,7 @@
  "alerts.intel_release": "{product} has announced a security release for {at}{ids}: {title}. Applications here built on it: {products}. It is searched for again once it is out.{mit}",
  "alerts.intel_release_mit": " Interim advice: {m}",
  "alerts.intel_remove": "{product} is now {now} (it was {was} when the precaution rule for {cve} was written): check that the update fixes it, then remove rule {rule_id}.",
+ "alerts.intel_search_empty": "{n} of {of} threat intelligence searches gave no web page: the search service ({service}) is not searching, and the run looked only at the pages it may read directly. Check the search service.",
  "alerts.intel_urgent": "{cve} in {sw} is exploited in the wild and {affects}{vu}: update the software soon, or decide on a precaution rule.",
  "alerts.intro": "What the event analysis or the system found that someone has to follow up: an attack that may have passed, a false positive affecting users, an outside configuration change, an integrity problem... An approver marks it handled with a note; open alerts are reminded through the notifications.",
  "alerts.kind.apply_failed": "Apply failed",

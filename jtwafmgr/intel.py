@@ -1384,15 +1384,36 @@ def sweep_queries(products, now):
 
 
 def sweep(session, products, now, log=print):
-    """The program's own searches (sweep_queries), through the same search tool the model has. [(query, text)]."""
-    out = []
-    for q in sweep_queries(products, now):
+    """The program's own searches (sweep_queries), through the same search tool the model has: ([(query, text)],
+    how many were asked, how many gave no web page at all). A search that answers without a single address (an
+    encyclopedia summary, "no results") counts as empty: on 2026-11-19 the search service answered every query so and
+    the whole run searched nothing."""
+    out, empty = [], 0
+    qs = sweep_queries(products, now)
+    for q in qs:
         text = session.run_tool('web_search', {'query': q})
-        if isinstance(text, str) and text and not text.startswith('error:'):
-            out.append((q, util.clip(text, SWEEP_TEXT)))
-    if len(out) < len(session.searches):
-        log('intel: %d of %d searches gave nothing' % (len(session.searches) - len(out), len(session.searches)))
-    return out
+        if not isinstance(text, str) or not text or text.startswith('error:') or 'http' not in text:
+            empty += 1
+            continue
+        out.append((q, util.clip(text, SWEEP_TEXT)))
+    if empty:
+        log('intel: %d of %d searches gave no web page' % (empty, len(qs)))
+    return out, len(qs), empty
+
+
+SEARCH_EMPTY_SHARE = 0.8
+
+
+def search_alert(app, run_id, asked, empty, mcp_url):
+    """Most of the program's searches gave no web page: the search service is not searching (an alert, once a day)."""
+    if asked < 5 or empty < asked * SEARCH_EMPTY_SHARE:
+        return False
+    host = urllib.parse.urlsplit(mcp_url or '').hostname or ''
+    alerts.raise_alert(app.db, app.audit, 'intel', 'other', 'warning', 'intel-search-empty:%s' % time.strftime('%Y-%m-%d'),
+                       {'reason': '%d of %d searches of the threat intelligence gave no web page: the search service (%s) '
+                                  'does not search; the run looked only at the pages it may read directly.' % (empty, asked, host),
+                        'msg': 'intel_search_empty', 'n': empty, 'of': asked, 'service': host, 'run_id': run_id}, link='/intel')
+    return True
 
 
 def _release_time(s):
@@ -1460,6 +1481,12 @@ def announce(app, run_id, anns, now, log=print):
     db = app.db
     pending = [x for x in _read_rechecks(app.cfg) if not x.get('done')]
     for a in anns:
+        # a release still to come, or out in the last 12 hours: a release without a time, or older, is no notice (the
+        # model offered nginx 1.30.7 and ModSecurity 3.0.17, both already installed here, as "announced")
+        if not a['at'] or a['at'] < now - 12 * 3600:
+            log('intel: run %d: %s release not taken as a notice (%s)' % (
+                run_id, a['product'], 'no time given' if not a['at'] else 'out for more than 12 hours'))
+            continue
         hosts = sorted({h for n in a['products'] for h in software.hosts_of(db, n)})
         day = (a['release_at'] or '')[:10] or re.sub(r'[^a-z0-9]+', '-', a['title'].lower())[:60]
         alerts.raise_alert(db, app.audit, 'intel', 'security_release', 'warning', 'release:%s:%s' % (a['product'].lower(), day),
@@ -1560,10 +1587,10 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
             osv_lines.append('- %s (%s %s, %s): %s %s %s' % (name, o['package'], o['version'], o['ecosystem'], v['id'],
                                                             ' '.join(v['cves']), v['summary']))
     from . import techstack
-    swept = []
+    swept, asked, empty = [], 0, 0
     if c.get('mcp_url') and c.get('search', 'mcp') == 'mcp':
         try:
-            swept = sweep(session, products, now, log=log)
+            swept, asked, empty = sweep(session, products, now, log=log)
         except IntelError:
             raise
         except Exception as e:      # noqa: BLE001 -- the model still searches on its own
@@ -1628,6 +1655,10 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
         announce(app, rid, anns, util.now(), log=log)
     except Exception as e:      # noqa: BLE001 -- the threats stand; the notice comes with the next run
         log('intel: run %d: announcements failed: %s' % (rid, type(e).__name__))
+    try:
+        search_alert(app, rid, asked, empty, c.get('mcp_url'))
+    except Exception as e:      # noqa: BLE001
+        log('intel: run %d: search check failed: %s' % (rid, type(e).__name__))
     if c.get('patches', True):
         try:
             propose_hub_patches(app, rid, log=log)

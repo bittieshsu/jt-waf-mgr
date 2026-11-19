@@ -29,6 +29,7 @@
  "alerts.intel_release": "{product} 預定 {at} 發布安全更新{ids}：{title}。本站用到它的應用：{products}。發布後會自動再搜尋一次。{mit}",
  "alerts.intel_release_mit": "暫時處置：{m}",
  "alerts.intel_remove": "{product} 已更新為 {now} (寫 {cve} 的預先防護規則時是 {was})：確認新版已修補後，移除規則 {rule_id}。",
+ "alerts.intel_search_empty": "威脅情報的 {of} 次搜尋中有 {n} 次沒有任何網頁結果：搜尋服務 ({service}) 沒有在搜尋，這一輪只看了可以直接讀取的網站。請檢查搜尋服務。",
  "alerts.intel_urgent": "{sw} 的 {cve} 已被利用，{affects}{vu}：請盡快更新軟體，或決定是否加上預防規則。",
  "alerts.intro": "事件分析或系統發現、需要有人回頭處理的事：可能沒被封鎖的攻擊、影響使用者的誤判、設定被外部修改、完整性問題等。處理後由核准者標記並寫下備註；沒處理的會依通知設定定期再提醒。",
  "alerts.kind.apply_failed": "套用失敗",

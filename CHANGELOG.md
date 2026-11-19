@@ -2,6 +2,12 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.9 (2026-11-19)
+
+- Threat intelligence: a search service that answers without a single web page (an encyclopedia summary, "no results") is noticed: when most of the program's own searches come back so, an alert says the search service is not searching. On 2026-11-19 every search came back empty and the run silently looked only at the pages it may read directly.
+- Announced security releases: only a release with a time, still to come or out in the last 12 hours, is a notice. The model offered releases already installed here (nginx 1.30.7, ModSecurity 3.0.17) as announced.
+- Integrity: files an approved nginx change put in place (a ModSecurity module root trusts, the nginx package's own files) count as jt-waf-mgr's own change. Switching the module (0.5.1) raised a critical "changed outside jt-waf-mgr" alert, naming whoever was logged in at the time.
+
 ## 0.5.8 (2026-11-19)
 
 - Threat intelligence searches every product and every language and framework they are built on itself, once a run, and hands the results to the model. The model chose its own searches before: on 2026-11-19 it spent them on nginx and Zimbra and never looked at PHP, the day PHP announced a critical release for its sites' language.
