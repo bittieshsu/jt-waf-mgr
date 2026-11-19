@@ -363,6 +363,8 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
     <div class="card"><h3><span class="ic">⊘</span><span data-t="f14_h"></span></h3><p data-t="f14"></p></div>
     <div class="card"><h3><span class="ic">⌕</span><span data-t="f15_h"></span></h3><p data-t="f15"></p></div>
     <div class="card"><h3><span class="ic">◷</span><span data-t="f16_h"></span></h3><p data-t="f16"></p></div>
+    <div class="card"><h3><span class="ic">⚑</span><span data-t="f17_h"></span></h3><p data-t="f17"></p></div>
+    <div class="card"><h3><span class="ic">⤺</span><span data-t="f18_h"></span></h3><p data-t="f18"></p></div>
   </div>
 </div></section>
 
@@ -609,7 +611,7 @@ const T = {
   sp_sub: "jt-waf-mgr manages a WAF built from well-known open-source parts. This is what each part is, where it comes from and what we wrote ourselves. The rule list in the interface shows the same for every single rule.",
   sp1_h: "WAF engine",
   sp1_by: "Upstream open source · nginx (BSD-2-Clause), OWASP ModSecurity v3 and its nginx connector (Apache-2.0)",
-  sp1_1: "nginx: reverse proxy, TLS, HTTP/2, access rules. You install and configure it; jt-waf-mgr never writes its configuration (only the optional IP block list, which you include yourself).",
+  sp1_1: "nginx: reverse proxy, TLS, HTTP/2, access rules. You install and configure it. jt-waf-mgr changes it only through approved changes made by its root program, with nginx -t, health checks and the way back: the IP block list you include yourself, a marked include line per site (WAF on or off, the block page), HTTP/2 or HTTP/3 switched off for a while when nginx itself has a flaw, and the nginx package with its ModSecurity module.",
   sp1_2: "libmodsecurity v3: runs the rules on every request and writes the audit log.",
   sp1_3: "ModSecurity-nginx connector: loads ModSecurity into nginx.",
   sp2_h: "Detection rules",
@@ -672,6 +674,8 @@ const T = {
   f3_h: 'WAF model', f3: 'How a request is decided on your sites, drawn from the live configuration: engine per site, scoring, thresholds, exclusions and blocks.',
   f15_h: 'Threat intelligence', f15: 'A second LLM looks up new vulnerabilities in the web applications your sites run and writes a virtual patch for those a URL or header gives away, checked like any change, or proposes the CrowdSec Hub\'s own rule for it (its attack requests replayed in the sandbox); exploited ones are applied at once, with an alert. Only product names, versions and a few host facts leave the host.',
   f16_h: 'Periodic WAF review', f16: 'Every 3 hours: who may have been blocked by mistake, new internal hits, attacks that got through, what was done automatically, a line per focus site. Sent to your channels.',
+  f17_h: 'nginx\'s own flaws', f17: 'Flaws in nginx itself (HTTP/2, HTTP/3, TLS) happen before ModSecurity sees a request. nginx.org\'s security advisories are read every 6 hours and compared with the installed nginx and the features in use: an alert at once, HTTP/2 or HTTP/3 switched off for a while for a major advisory (back on after the update), and the next nginx tried with the ModSecurity module before the update is proposed.',
+  f18_h: 'nginx updates with a way back', f18: 'An administrator approves the update with a one-time code (or switches on applying security updates by themselves). Hot upgrade without stopping, health checks, the previous package and module put back on any failure; roll back later or switch module, also from the command line when nginx is down; a backup to download first.',
   f4_h: 'Self-hosted LLM analysis', f4: 'Your own OpenAI-compatible LLM server reviews recent events on a schedule and proposes narrow blocks and exclusions. The program decides, a person approves.',
   f5_h: 'Alerts to follow up', f5: 'An attack the site may have answered, users hit by a false positive, outside configuration changes, integrity problems: open until handled, reminded until then.',
   f6_h: 'Notifications', f6: 'E-mail, Telegram, Teams, Slack, Discord, Zulip, Nextcloud Talk and a signed webhook, with a matrix of events and channels and a test per channel.',
@@ -828,7 +832,7 @@ const T = {
   sp_sub: "jt-waf-mgr 管理的是由知名開源元件組成的 WAF。下面列出每個部分是什麼、來自哪裡，以及哪些是 jt-waf-mgr 自己寫的。介面的規則清單也會逐條標示撰寫者。",
   sp1_h: "WAF 引擎",
   sp1_by: "上游開源專案 · nginx（BSD-2-Clause）、OWASP ModSecurity v3 與 nginx 連接器（Apache-2.0）",
-  sp1_1: "nginx：反向代理、TLS、HTTP/2、存取限制。由你安裝與設定；jt-waf-mgr 不會寫入 nginx 設定（只有選用的 IP 封鎖清單檔，由你自己 include）。",
+  sp1_1: "nginx：反向代理、TLS、HTTP/2、存取限制。由你安裝與設定。jt-waf-mgr 只透過核准的變更、由 root 程式修改它（nginx -t、健康檢查、失敗還原）：由你自己 include 的 IP 封鎖清單、每個站台一行帶標記的 include（開關 WAF、封鎖頁）、nginx 本身有漏洞時暫時關閉 HTTP/2 或 HTTP/3，以及 nginx 套件與 ModSecurity 模組的更新。",
   sp1_2: "libmodsecurity v3：對每個請求執行規則，並寫出稽核記錄。",
   sp1_3: "ModSecurity-nginx 連接器：把 ModSecurity 載入 nginx。",
   sp2_h: "偵測規則",
@@ -891,6 +895,8 @@ const T = {
   f3_h: 'WAF 判斷流程', f3: '依實際設定畫出請求在你的站台上怎麼被判定：各站台引擎、計分、門檻、排除與封鎖。',
   f15_h: '威脅情報', f15: '第二層 LLM 搜尋你站台用的 Web 應用套件有沒有新漏洞，能從網址或標頭辨識的就寫出預先防護規則，或提出 CrowdSec Hub 的現成規則 (沙箱重送上游攻擊請求)，照一般流程檢查；已被利用的立即套用並發警示。只送出產品名稱、版本與少數主機資訊。',
   f16_h: 'WAF 定期檢討', f16: '每 3 小時：誰可能被誤封鎖、新的內部命中、沒被封鎖的攻擊、自動處理了什麼、每個重點站台一行。送到你的通知管道。',
+  f17_h: 'nginx 本身的漏洞', f17: 'nginx 本身的漏洞（HTTP/2、HTTP/3、TLS）發生在 ModSecurity 看到請求之前。每 6 小時讀取 nginx.org 的安全公告，比對已安裝的 nginx 與本站用到的功能：立即發出警示；嚴重公告時先暫時關閉 HTTP/2 或 HTTP/3（更新後自動恢復）；並先用下一版 nginx 試過 ModSecurity 模組，才提出更新。',
+  f18_h: '有退路的 nginx 更新', f18: '由管理者用一次性驗證碼核准（也可以開啟安全更新自動套用）。熱升級不中斷服務、健康檢查，任何一步失敗都裝回舊套件與舊模組；之後也能退回上一版或換模組，nginx 掛掉時用指令列處理；核准前可以先下載備份。',
   f4_h: '地端 LLM 分析', f4: '你自己的 OpenAI 相容 LLM 伺服器定期檢視事件，提出很窄的封鎖與排除。由程式決定，由人核准。',
   f5_h: '待處理警示', f5: '可能沒被封鎖的攻擊、影響使用者的誤判、設定被外部修改、完整性問題：處理前一直開著，並定期提醒。',
   f6_h: '通知', f6: 'Email、Telegram、Teams、Slack、Discord、Zulip、Nextcloud Talk 與簽章 webhook；事件 × 管道矩陣，每個管道都能測試。',
@@ -1047,7 +1053,7 @@ const T = {
   sp_sub: "jt-waf-mgr が管理するのは、よく知られたオープンソースの部品で構成された WAF です。各部品が何で、どこから来ていて、どこを私たちが書いたのかを示します。画面のルール一覧でも、ルールごとに作成元を表示します。",
   sp1_h: "WAF エンジン",
   sp1_by: "上流のオープンソース · nginx（BSD-2-Clause）、OWASP ModSecurity v3 と nginx コネクタ（Apache-2.0）",
-  sp1_1: "nginx：リバースプロキシ、TLS、HTTP/2、アクセス制限。インストールと設定はお客様が行い、jt-waf-mgr は nginx の設定を書きません（任意の IP ブロックリストだけで、include はお客様が行います）。",
+  sp1_1: "nginx：リバースプロキシ、TLS、HTTP/2、アクセス制限。インストールと設定はお客様が行います。jt-waf-mgr が変更するのは、承認された変更を root プログラムが行う場合だけです（nginx -t、ヘルスチェック、失敗時の戻し）：お客様が include する IP ブロックリスト、サイトごとの印付き include 行（WAF のオン・オフ、ブロックページ）、nginx 自体に欠陥があるときの HTTP/2・HTTP/3 の一時停止、nginx パッケージと ModSecurity モジュールの更新。",
   sp1_2: "libmodsecurity v3：すべてのリクエストにルールを適用し、監査ログを書きます。",
   sp1_3: "ModSecurity-nginx コネクタ：ModSecurity を nginx に読み込みます。",
   sp2_h: "検知ルール",
@@ -1110,6 +1116,8 @@ const T = {
   f3_h: 'WAF 判定フロー', f3: '現在の設定から、サイトでリクエストがどう判定されるか（サイトごとのエンジン、スコア、しきい値、除外、ブロック）を図示。',
   f15_h: '脅威インテリジェンス', f15: '第 2 層の LLM がサイトで使う Web アプリケーションの新しい脆弱性を検索し、URL やヘッダーで見分けられるものには狭い仮想パッチを書くか CrowdSec Hub のルールを提案し(上流の攻撃リクエストをサンドボックスで再送)、通常のチェックに通します。悪用済みで未修正なら即時適用と緊急アラート。送るのは製品名、バージョンと少しのホスト情報だけ。',
   f16_h: 'WAF 定期レビュー', f16: '3 時間ごと:誤ブロックの可能性、新しい内部の一致、通過した攻撃、自動処理の内容、重点サイトごとの 1 行。通知チャネルへ送信。',
+  f17_h: 'nginx 自体の欠陥', f17: 'nginx 自体の欠陥（HTTP/2、HTTP/3、TLS）は ModSecurity がリクエストを見る前に起きます。nginx.org のセキュリティ情報を 6 時間ごとに読み、インストール済みの nginx と使用中の機能に照らします。すぐにアラートを出し、重大な情報では HTTP/2・HTTP/3 を一時停止（更新後に自動で戻す）、次の nginx を ModSecurity モジュールで試してから更新を提案します。',
+  f18_h: '戻せる nginx 更新', f18: '管理者がワンタイムコードで承認します（セキュリティ更新の自動適用も選べます）。止めないホットアップグレードとヘルスチェック、失敗時は以前のパッケージとモジュールを自動で戻します。後から以前のバージョンに戻す・モジュールを切り替えることもでき、nginx が止まったときはコマンドで操作。承認前にバックアップをダウンロードできます。',
   f4_h: 'オンプレミス LLM 分析', f4: '自前の OpenAI 互換 LLM サーバーが定期的にイベントを確認し、狭いブロックと除外を提案。決めるのはプログラム、承認するのは人。',
   f5_h: '対応待ちアラート', f5: '防がれていない可能性のある攻撃、利用者に影響する誤検知、設定の外部変更、完全性の問題：対応されるまで開いたまま、定期的に再通知。',
   f6_h: '通知', f6: 'メール、Telegram、Teams、Slack、Discord、Zulip、Nextcloud Talk、署名付き webhook。イベント × チャネルのマトリクスとチャネルごとのテスト送信。',

@@ -269,9 +269,12 @@ settings (GeoIP, LLM, analysis, notifications, request volume, networks, policy)
 
 ### Let jt-waf-mgr change rules
 
-jt-waf-mgr writes only ModSecurity files and never writes nginx configuration. It reads nginx's configuration (to
-find the sites and ModSecurity's main file), runs `nginx -t` and reloads nginx. The management vhost and
-`modsecurity on;` in nginx are your own one-time edits. The one exception is optional: the temporary IP block list, a file of `deny` lines that you include once yourself.
+jt-waf-mgr writes ModSecurity files; it reads nginx's configuration (to find the sites and ModSecurity's main file),
+runs `nginx -t` and reloads nginx. The management vhost and `modsecurity on;` in nginx are your own one-time edits.
+It changes nginx itself only through approved changes made by its root program, each with `nginx -t`, health checks and
+the way back: the optional temporary IP block list (a file of `deny` lines you include once yourself), one marked
+include line per site (WAF on or off, the block page), HTTP/2 or HTTP/3 switched off for a while when nginx itself has a
+flaw (marked lines, put back exactly), and the nginx package with its ModSecurity module (update, rollback).
 
 To let jt-waf-mgr change rules: arm the apply program (`sudo ./install.sh --enable-apply`), set the health check URLs,
 and adopt the existing rule files under Rules → Managed rules (an admin approves the adoption like any change).

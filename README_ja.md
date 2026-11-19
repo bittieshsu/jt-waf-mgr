@@ -234,9 +234,12 @@ sudo openssl req -x509 -newkey rsa:3072 -nodes -days 825 -keyout /etc/ssl/privat
 
 ### jt-waf-mgr にルールを変更させる
 
-jt-waf-mgr が書き込むのは ModSecurity のファイルだけで、nginx の設定は決して書き込みません。nginx の設定を読み（サイトと
-ModSecurity のメイン設定ファイルを見つけるため）、`nginx -t` を実行し、nginx を reload します。管理用 vhost と nginx の
-`modsecurity on;` は、管理者自身が一度だけ行う編集です。唯一の例外は任意の一時 IP ブロックのリストで、`deny` 行だけのファイルをお客様が一度 include します。
+jt-waf-mgr が書き込むのは ModSecurity のファイルです。nginx の設定を読み（サイトと ModSecurity のメイン設定ファイルを
+見つけるため）、`nginx -t` を実行し、nginx を reload します。管理用 vhost と nginx の `modsecurity on;` は、管理者自身が
+一度だけ行う編集です。nginx 自体を変更するのは、承認された変更を root プログラムが行う場合だけで、毎回 `nginx -t`、
+ヘルスチェック、失敗時の戻しを伴います：任意の一時 IP ブロックのリスト（`deny` 行だけのファイルをお客様が一度 include）、
+サイトごとの印付き include 行（WAF のオン・オフ、ブロックページ）、nginx 自体に欠陥があるときの HTTP/2・HTTP/3 の一時停止
+（印付きで元どおりに戻せる）、nginx パッケージと ModSecurity モジュールの更新と戻し。
 
 jt-waf-mgr にルールを変更させるには、適用プログラムを有効にし（`sudo ./install.sh --enable-apply`）、ヘルスチェック URL を
 設定し、「ルール → 管理対象ルール」で既存のルールファイルを取り込みます（通常の変更と同様に admin が承認）。それまでは何も

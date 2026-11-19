@@ -370,7 +370,7 @@ body.zm-on { overflow: hidden; }
   <p class="note" data-t="units_note"></p>
   <div class="reccard">
     <h3 data-t="out_h"></h3>
-    <ul class="ticks"><li data-t="out_1"></li><li data-t="out_2"></li><li data-t="out_3"></li><li data-t="out_4"></li></ul>
+    <ul class="ticks"><li data-t="out_1"></li><li data-t="out_2"></li><li data-t="out_3"></li><li data-t="out_5"></li><li data-t="out_6"></li><li data-t="out_4"></li></ul>
   </div>
 </div></section>
 
@@ -1127,6 +1127,8 @@ const T = {
   out_1: 'After adoption, the managed ModSecurity files /etc/nginx/modsec/jt-waf-mgr/before-crs.conf and after-crs.conf. Adoption also points the Include lines of the main ModSecurity file at them, once.',
   out_2: 'The optional IP block list /etc/nginx/jt-waf-mgr/blocked-ips.conf, which you include once inside http { } yourself.',
   out_3: 'When it manages the CRS: crs-<version> directories and the crs link; at a first installation also crs-setup.conf and two Include lines.',
+  out_5: 'Approved site changes: one marked include line per server block (ModSecurity on or off for that site, the block page), and HTTP/2 or HTTP/3 switched off for a while (each edited line marked, with its original kept) when nginx itself has a flaw.',
+  out_6: 'An approved nginx update, rollback or module switch: the nginx package (dpkg, hot upgrade) and its ModSecurity module, by the separate root unit jt-waf-mgr-nginxswap; the previous package and module are kept to go back.',
   out_4: 'Nothing else in the nginx configuration. Copies of records go out to log servers and notification channels.',
   ev_h: 'Event collection',
   ev_sub: 'The collector runs inside the web service and follows the ModSecurity JSON audit log, which has one line for every request a rule matched.',
@@ -1382,6 +1384,8 @@ const T = {
   out_1: '納管之後的 ModSecurity 受管理檔案 /etc/nginx/modsec/jt-waf-mgr/before-crs.conf 與 after-crs.conf。納管時也會把 ModSecurity 主設定的 Include 行改成指向它們，只改這一次。',
   out_2: '選用的 IP 封鎖清單 /etc/nginx/jt-waf-mgr/blocked-ips.conf，由你自己在 http { } 裡 include 一次。',
   out_3: '由它管理 CRS 時：crs-<版本> 目錄與 crs 連結；第一次安裝時另有 crs-setup.conf 與兩行 Include。',
+  out_5: '核准過的站台變更：每個 server 區塊一行帶標記的 include（該站 ModSecurity 開或關、封鎖頁），以及 nginx 本身有漏洞時暫時關閉 HTTP/2 或 HTTP/3（每一行都有標記並保留原文）。',
+  out_6: '核准過的 nginx 更新、退回或換模組：由獨立的 root unit jt-waf-mgr-nginxswap 更新 nginx 套件（dpkg、熱升級）與 ModSecurity 模組；舊套件與舊模組會保留以便退回。',
   out_4: 'nginx 設定的其他部分一律不寫。記錄的副本會送到記錄伺服器與通知管道。',
   ev_h: '事件收集',
   ev_sub: '收集器在網頁服務裡執行，持續讀取 ModSecurity 的 JSON 稽核記錄檔；每個命中規則的請求在檔案裡是一行。',
@@ -1637,6 +1641,8 @@ const T = {
   out_1: '取り込み後の ModSecurity 管理ファイル /etc/nginx/modsec/jt-waf-mgr/before-crs.conf と after-crs.conf。取り込み時に一度だけ、ModSecurity メインファイルの Include 行をこれらに向けます。',
   out_2: '任意の IP ブロックリスト /etc/nginx/jt-waf-mgr/blocked-ips.conf。http { } 内での include はお客様が一度だけ行います。',
   out_3: 'CRS を管理するとき：crs-<バージョン> ディレクトリと crs リンク。初回インストールでは crs-setup.conf と 2 行の Include も。',
+  out_5: '承認されたサイトの変更：server ブロックごとの印付き include 行（そのサイトの ModSecurity のオン・オフ、ブロックページ）と、nginx 自体に欠陥があるときの HTTP/2・HTTP/3 の一時停止（変更した行はすべて印付きで原文を保持）。',
+  out_6: '承認された nginx の更新・戻し・モジュール切り替え：独立した root ユニット jt-waf-mgr-nginxswap が nginx パッケージ（dpkg、ホットアップグレード）と ModSecurity モジュールを更新します。以前のパッケージとモジュールは戻すために保管します。',
   out_4: 'それ以外の nginx 設定には書き込みません。記録のコピーはログサーバーと通知チャネルに送られます。',
   ev_h: 'イベントの収集',
   ev_sub: 'コレクターは Web サービスの中で動き、ModSecurity の JSON 監査ログを追跡します。ルールに一致したリクエストごとに 1 行です。',

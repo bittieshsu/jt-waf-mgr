@@ -214,8 +214,11 @@ sudo openssl req -x509 -newkey rsa:3072 -nodes -days 825 -keyout /etc/ssl/privat
 
 ### 讓 jt-waf-mgr 修改規則
 
-jt-waf-mgr 只寫 ModSecurity 的檔案，永遠不寫 nginx 設定。它會讀 nginx 設定（找出站台與 ModSecurity 主設定檔）、執行
-`nginx -t` 並 reload nginx。管理介面的 vhost 與 nginx 裡的 `modsecurity on;` 是管理者自己做一次的修改。唯一的例外是選用的暫時封鎖 IP 清單：只有 `deny` 行的一個檔案，由你自己 include 一次。
+jt-waf-mgr 寫的是 ModSecurity 的檔案；它會讀 nginx 設定（找出站台與 ModSecurity 主設定檔）、執行 `nginx -t` 並 reload
+nginx。管理介面的 vhost 與 nginx 裡的 `modsecurity on;` 是管理者自己做一次的修改。nginx 本身只會透過核准的變更、由 root
+程式修改，每次都經過 `nginx -t`、健康檢查並可還原：選用的暫時封鎖 IP 清單（只有 `deny` 行的一個檔案，由你自己 include
+一次）、每個站台一行帶標記的 include（開關 WAF、封鎖頁）、nginx 本身有漏洞時暫時關閉 HTTP/2 或 HTTP/3（每行都有標記、
+可原樣還原），以及 nginx 套件與 ModSecurity 模組的更新與退回。
 
 要讓 jt-waf-mgr 修改規則：啟用套用程式（`sudo ./install.sh --enable-apply`）、設定健康檢查網址，再到「規則 → 受管理的
 規則」納管現有規則檔（由 admin 核准，跟一般變更一樣）。在那之前什麼都不會寫入。沒有站台規則檔也能納管。
