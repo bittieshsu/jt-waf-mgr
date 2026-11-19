@@ -11,7 +11,7 @@
       <button type="button" class="btn small ghost" :title="t('ruletext.copy_hint')" @click="copy"><Icon :name="copied ? 'check' : 'copy'" />{{ copied ? t('common.copied') : t('common.copy') }}</button>
       <span v-if="copyFailed" class="muted small" role="status">{{ t('ruletext.copy_failed') }}</span>
     </div>
-    <pre ref="box" class="code rt" :class="{ nowrap: !wrap, numbered: lineNumbers }"><span v-for="(l, i) in lines" :key="i" class="rl"><span v-if="lineNumbers" class="ln" aria-hidden="true">{{ l.n ?? '' }}</span><span class="lc" :style="hang(l)"><span v-if="l.ind" class="ind">{{ safeText(l.ind) }}</span><RulePieces :pieces="l.pieces" /></span></span></pre>
+    <pre ref="box" class="code rt" :class="{ nowrap: !wrap, numbered: lineNumbers }"><span v-for="(l, i) in lines" :key="i" class="rl" :class="l.d"><span v-if="lineNumbers" class="ln" aria-hidden="true">{{ l.n ?? '' }}</span><span class="lc" :style="hang(l)"><span v-if="l.ind" class="ind">{{ safeText(l.ind) }}</span><RulePieces :pieces="l.pieces" /></span></span></pre>
   </div>
 </template>
 
@@ -37,6 +37,9 @@ const props = defineProps({
   text: { type: String, default: '' },
   wrap: { type: Boolean, default: true },
   lineNumbers: { type: Boolean, default: false },
+  // a "before / after" preview (HTTP/2 off, a site's WAF switch): lines that start with "- " are taken out (red),
+  // with "+ " put in (green); 0.5.2
+  diff: { type: Boolean, default: false },
 })
 const formatted = formattedPref
 const box = ref(null)
@@ -63,7 +66,9 @@ function splitIndent(l) {
     }
     pieces.shift()
   }
-  return { n: l.n, ind, pieces }
+  const first = pieces.map((p) => p.text).join('')
+  const d = props.diff ? (/^- /.test(first) ? 'del' : /^\+ /.test(first) ? 'add' : null) : null
+  return { n: l.n, ind, pieces, d }
 }
 
 const lines = computed(() => (formatted.value
@@ -108,6 +113,9 @@ async function copy() {
 .rt-bar .seg button, .rt-bar > .btn { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 10px; font-size: 13px; line-height: 1.2; box-sizing: border-box; }
 pre.rt { word-break: normal; overflow-wrap: anywhere; line-height: 1.55; }
 pre.rt .rl { display: block; min-height: 1.55em; }
+pre.rt .rl.add { background: var(--ok-bg); box-shadow: inset 3px 0 0 var(--ok); }
+pre.rt .rl.del { background: var(--blocked-bg); box-shadow: inset 3px 0 0 var(--blocked); }
+pre.rt .rl.add .lc, pre.rt .rl.del .lc { color: var(--text); }
 pre.rt .lc { display: block; }
 pre.rt .ind { white-space: pre; }
 pre.rt.numbered .rl { display: grid; grid-template-columns: 4ch 1fr; gap: 10px; }

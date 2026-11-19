@@ -167,6 +167,7 @@ class TestBackup(Base):
             self.assertIn(n, restore)                    # named among what was left out
         self.assertIn('nginx/' + os.path.basename(conf), manifest)
         self.assertIn('nginx 1.30.7-1~bookworm (held)', restore)
+        self.assertEqual(restore.count('apt-mark hold nginx'), 3)          # the manual steps in full, in all three languages
         self.assertGreater(info['files'], 0)
         self.assertEqual(info['skipped'], 3)
 

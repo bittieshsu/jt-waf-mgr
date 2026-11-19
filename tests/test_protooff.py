@@ -239,6 +239,8 @@ class TestWorkflow(unittest.TestCase):
         cid = self.wf.propose_proto('http2', 'off', 'advisory', 'appr', role='approver')
         r = self.wf.get(cid)
         self.assertEqual((r['op'], r['direction']), ('proto', 'tighten'))
+        self.assertIn('(change #%d)' % cid, r['rule_text'])         # 0.5.2: its own number, not "change #0"
+        self.assertNotIn('(change #0)', r['rule_text'])
         with self.assertRaises(ChangeError) as cm:
             self.wf.propose_proto('http3', 'off', 'again', 'appr', role='approver')
         self.assertEqual(cm.exception.code, 'proto_change_pending')

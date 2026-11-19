@@ -2,6 +2,12 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.2 (2026-11-19)
+
+- Temporary IP blocks: adding a block (the API for fail2ban and others, or the page) is refused with 409 `list_not_loaded` while nginx does not include the block list in http { }. The block used to be written and reported as done while nginx never read the list, so the caller believed the address blocked.
+- Change previews: lines taken out show in red and lines put in show in green (HTTP/2 or HTTP/3 off and back on, a site's WAF switch, the block page), and the marks show the change's own number (they read "change #0").
+- The backup's manual steps (RESTORE.txt) are complete in Japanese too (they were a summary); the nginx update job's descriptions say every 6 hours (they said daily). Reported by the blog writer.
+
 ## 0.5.1 (2026-11-19)
 
 - If an nginx update goes wrong: the nginx updates page and the approval page of an nginx update now show, before anyone approves, what happens by itself (the previous package and module kept, health checks, everything put back on failure, a critical alert if even that fails), how to go back and what to do when the page cannot be reached.

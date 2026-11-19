@@ -62,8 +62,16 @@ ModSecurity 模組：{module} (SHA-256 {module_sha})
 nginx パッケージ：{package} {installed}{held_ja}
 ModSecurity モジュール：{module} (SHA-256 {module_sha})
 内容：nginx/ (当時の nginx 設定、秘密鍵を除く)、module/、MANIFEST.sha256
-更新と jt-waf-mgr のロールバックがどちらも失敗したときだけ、root で手動で戻します (手順は上の英語の 1～5)。
-nginx 経由で管理画面に入れないとき：ssh -L 8095:127.0.0.1:8095 このホスト、Chrome または Edge で http://localhost:8095。
+更新と jt-waf-mgr の戻しがどちらも成功しなかったときだけ、root で手動で戻します：
+  1. ファイルの確認：sha256sum -c MANIFEST.sha256
+  2. モジュール：install -m 644 module/{module_name} {module}
+  3. 設定：変更されたファイルだけをコピーします (先に diff -ru nginx/ {conf_dir}/ で確認)
+  4. nginx -t が通ってから systemctl reload nginx (モジュールを切り替えるには nginx をホット切り替え：USR2、新しいマスターが
+     応答したら古いマスターに QUIT)
+  5. 以前の nginx パッケージに戻すとき：apt-get install {package}={installed}、その後 apt-mark hold {package}
+jt-waf-mgr の「以前の nginx に戻す」(Web 画面または上のコマンド) を優先してください。nginx 経由で管理画面に入れないとき：
+ssh -L 8095:127.0.0.1:8095 このホスト、自分の PC の Chrome または Edge で http://localhost:8095 を開きます (管理画面自体は
+nginx を必要としません)。
 """
 
 

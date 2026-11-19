@@ -1,6 +1,6 @@
 """Getting ready for an nginx update before it happens, so that the WAF is never left behind (with nginxmod.py).
 
-jt-waf-mgr-nginxup.service (daily timer, or "check now" / a module upload on the page) -- a job that may reach the
+jt-waf-mgr-nginxup.service (a timer every 6 hours, after apt's lists for nginx are refreshed; or "check now" / a module upload on the page) -- a job that may reach the
 package repositories, never the web service:
 
 1. asks apt which nginx the next update brings (the candidate); nothing to do while it is the installed one;

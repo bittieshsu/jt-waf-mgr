@@ -6,10 +6,15 @@ set -eu
 HERE=$(cd "$(dirname "$0")" && pwd); TOP=$(cd "$HERE/../.." && pwd)
 W=$(mktemp -d "${TMPDIR:-/tmp}/jtwaf-e2e.XXXXXX"); SHOTS=${1:-$W/shots}; mkdir -p "$SHOTS"
 PORT=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
+# the fixture site, with the IP block list included at the http level as an administrator would (0.5.2: blocks are
+# refused while nginx does not load the list)
+cp -r "$TOP/tests/fixtures/site" "$W/site"
+mkdir -p "$W/nginx-blocks" && : > "$W/nginx-blocks/blocked-ips.conf"
+sed -i "0,/include mime.types;/s||include mime.types;\n    include $W/nginx-blocks/blocked-ips.conf;|" "$W/site/nginx.conf"
 cat > "$W/config.toml" <<CONF
 [paths]
 db = "$W/c.db"
-nginx_conf = "$TOP/tests/fixtures/site/nginx.conf"
+nginx_conf = "$W/site/nginx.conf"
 audit_log = "$W/modsec_audit.log"
 nginx_bin = "/nonexistent/nginx"
 [server]

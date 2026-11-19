@@ -379,6 +379,7 @@ class TestWorkflow(unittest.TestCase):
         r = self.wf.get(cid)
         self.assertEqual((r['op'], r['direction']), ('site_waf', 'tighten'))
         self.assertIn(sitewaf.MARK, r['rule_text'])
+        self.assertIn('(change #%d)' % cid, r['rule_text'])
         with self.assertRaises(ChangeError) as cm:
             self.wf.propose_site_waf('enable', 'a.example.com', 'again', 'appr', role='approver')
         self.assertEqual(cm.exception.code, 'site_change_pending')

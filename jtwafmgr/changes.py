@@ -1084,8 +1084,11 @@ class Workflow:
                 'auto': bool(auto and actor == 'nginxup')}
         # off: less of nginx answers (a protocol), nothing more is let through; on: back as the person had it
         direction = 'tighten' if mode == 'off' else 'neutral'
-        return self._insert('proto', 'system', None, None, spec, direction, reason, actor, 'user', protooff.preview(p), [],
-                            None if actor == 'nginxup' else actor)
+        cid = self._insert('proto', 'system', None, None, spec, direction, reason, actor, 'user', protooff.preview(p), [],
+                           None if actor == 'nginxup' else actor)
+        # the preview with this change's own number in the marks (it read "change #0" until the number was known)
+        self.db.x('UPDATE changes SET rule_text=? WHERE id=?', (protooff.preview(p, cid), cid))
+        return cid
 
     def proto_off_changes(self, feature):
         """The applied changes that switched the feature off: only their marked lines are ever put back."""
@@ -1161,8 +1164,10 @@ class Workflow:
         if kind == 'page':
             spec['skipped'] = p.get('skipped') or []
         direction = 'neutral' if kind == 'page' else 'tighten' if mode == 'enable' else 'loosen'
-        return self._insert('site_waf', 'site_page' if kind == 'page' else 'site_waf', None, None, spec, direction,
-                            reason, actor, 'user', sitewaf.preview(p), [], actor)
+        cid = self._insert('site_waf', 'site_page' if kind == 'page' else 'site_waf', None, None, spec, direction,
+                           reason, actor, 'user', sitewaf.preview(p), [], actor)
+        self.db.x('UPDATE changes SET rule_text=? WHERE id=?', (sitewaf.preview(p, cid), cid))
+        return cid
 
     def _site_checks(self, cid, r):
         from . import sitewaf

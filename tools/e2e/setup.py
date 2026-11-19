@@ -295,6 +295,11 @@ _cid = app.db.x("INSERT INTO changes(op, kind, spec, direction, state, reason, p
                 (json.dumps({'installed': '1.30.6-1~bookworm', 'target': '1.30.7-1~bookworm'}),
                  'nginx 1.30.6 -> 1.30.7 (synthetic)', _now, _now)).lastrowid
 open(R + '/nginx-change', 'w').write(str(_cid))
+# 0.5.2: an HTTP/2 change whose preview shows the lines taken out (red) and put in (green)
+_pc = app.db.x("INSERT INTO changes(op, kind, spec, direction, state, reason, proposed_by, proposed_via, created_at, updated_at, "
+               "rule_text, tests) VALUES ('proto','system','{}','tighten','applied','nginx advisory (synthetic)','nginxup','user',?,?,?,'[]')",
+               (_now, _now, '/etc/nginx/conf.d/app.example.com.conf:3\n  - http2 on;\n  + # jt-waf-mgr: http2 off (change #9): http2 on;')).lastrowid
+open(R + '/proto-change', 'w').write(str(_pc))
 os.makedirs(os.path.join(R, 'nginxup'), exist_ok=True)
 _iss = [('Infinite loop while reading the request body over TLS 1.3', 'major', ['CVE-2099-0101'], None, True),
         ('Buffer overflow when using alias with try_files', 'minor', ['CVE-2099-0102'], 'alias', True),

@@ -190,6 +190,11 @@ class Blocks:
         b = self.cfg['blocks']
         if not b['enabled']:
             raise BlockError('blocks_off', 409)
+        if not self.loaded():
+            # 0.5.2: nginx does not include the list: a block would be written and reported as done while nothing is
+            # refused (fail2ban would think the address blocked). Refused, recorded, with the way to fix it
+            self._refuse(actor, via, src_ip, 'list_not_loaded', ip=ip, source=source)
+            raise BlockError('list_not_loaded', 409, file=b['file'])
         source = str(source or ('ui' if via == 'user' else '')).strip()
         reason = ' '.join(str(reason or '').split())[:300]
         try:
@@ -395,6 +400,16 @@ class Blocks:
                                link='/blocks')
 
     # --- status ---------------------------------------------------------------------------------
+    def loaded(self):
+        """Whether nginx includes the list at the http{} level (the configuration as it is on disk; nginx -t passes on
+        every write, so what is on disk is what runs after the reload)."""
+        try:
+            from .nginxconf import NginxConfig
+            h = NginxConfig(self.cfg['paths']['nginx_conf']).http()
+            return h is not None and any(_includes(d, self.cfg['blocks']['file']) for d in h.children)
+        except Exception:       # noqa: BLE001 -- an unreadable configuration: nothing can be said to be loaded
+            return False
+
     def status(self):
         """Whether the list file is loaded at the http{} level, and the servers / locations it does not cover."""
         path = self.cfg['blocks']['file']

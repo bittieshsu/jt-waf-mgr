@@ -77,7 +77,7 @@
       </section>
       <section v-if="c.rule_text" class="card">
         <h2><Icon name="code" /> {{ t('rule.text') }}</h2>
-        <RuleText :text="c.rule_text" line-numbers />
+        <RuleText :text="c.rule_text" line-numbers :diff="['proto', 'site_waf'].includes(c.op)" />
       </section>
 
       <section v-if="c.diff && Object.keys(c.diff).length" class="card">

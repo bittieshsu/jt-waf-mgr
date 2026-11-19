@@ -146,6 +146,8 @@ async function audit(page, where) {
   await rawKeys(page, 'nginx change');
   ok(await page.locator('button:has-text("核准並套用"):disabled').count() === 1, 'approve waits for the note and the code');
   ok(await page.locator('.nginxsafety').count() === 1, 'nginx change page shows what happens if it goes wrong (0.5.1)');
+  await page.goto(base + '/changes/' + fs.readFileSync(R + '/proto-change', 'utf8').trim(), { waitUntil: 'networkidle' });
+  ok(await page.locator('pre.rt .rl.del').count() === 1 && await page.locator('pre.rt .rl.add').count() === 1, 'change preview: removed line red, added line green');
   // the nginx advisories: one aligned row each (title, severity and CVE columns start at the same place)
   await page.goto(base + '/nginx-update', { waitUntil: 'networkidle' });
   ok(await page.locator('.nginxsafety button:has-text("提出退回上一版")').count() === 1, 'nginx updates page offers the way back (0.5.1)');
@@ -377,10 +379,10 @@ async function audit(page, where) {
      'traffic: tiles, charts and one row per site');
   await page.goto(base + '/traffic?range=7d&host=shop.example.com', { waitUntil: 'networkidle' });
   ok((await page.locator('.datatable tbody tr').count()) === 1, 'traffic: one site');
-  // temporary IP blocks: the list, the include hint (the e2e nginx does not load the file), adding and ending one
+  // temporary IP blocks: the list (the e2e nginx includes it since 0.5.2: no include hint), adding and ending one
   await page.goto(base + '/blocks', { waitUntil: 'networkidle' });
-  ok((await page.locator('.datatable').first().locator('tbody tr').count()) === 3 && (await page.locator('.alert.warn pre.codeblock').innerText()).includes('blocked-ips.conf'),
-     'blocks: active list and the include line');
+  ok((await page.locator('.datatable').first().locator('tbody tr').count()) === 3 && (await page.locator('.alert.warn pre.codeblock').count()) === 0,
+     'blocks: active list, loaded by nginx (no include hint)');
   await page.locator('.card.form input.mono').fill('203.0.113.99');
   await page.locator('.card.form .field.grow input').fill('e2e test');
   await page.locator('.card.form button.primary').click();

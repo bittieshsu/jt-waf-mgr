@@ -594,7 +594,8 @@ How it works: jt-waf-mgr keeps the list in its database, and its root apply prog
 administrator includes that file once inside `http { }`; jt-waf-mgr never edits nginx's configuration itself. A
 `deny` at the http level covers every site, also the ones without ModSecurity, except servers and locations with
 `allow` / `deny` lines of their own (the Blocked IPs page lists them). A block applies to new requests and connections from the reload on; a connection that was already open when the address was blocked (a WebSocket, a long download) is not cut and lasts until it closes. Until the feature is switched on in Settings,
-every call answers 409 `blocks_off`.
+every call answers 409 `blocks_off`. Since 0.5.2, adding a block answers 409 `list_not_loaded` while nginx does not include
+the list file in http { } (a list nginx never reads would let the caller believe the address blocked).
 
 - **`POST /blocks`** (scope `blocks:write`): body `{"ip", "ttl", "source", "reason"}`.
   - `ip`: one address (IPv4 or IPv6). Ranges are for people in the web interface only (up to /24 or /64).

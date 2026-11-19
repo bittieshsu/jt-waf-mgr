@@ -188,6 +188,23 @@ class LogicTest(unittest.TestCase):
         self.assertFalse(st['included'])
         self.assertEqual(st['included_in'], 'server')
 
+    def test_refused_while_nginx_does_not_load_the_list(self):
+        # 0.5.2: a block written to a list nginx never reads would be reported as done while nothing is refused
+        from jtwafmgr.blocks import BlockError
+        from tests import helpers
+        site = os.path.join(self.env.dir, 'site')
+        shutil.copytree(FIXTURE_SITE, site, symlinks=True)
+        conf = os.path.join(site, 'nginx.conf')
+        self.env.cfg.data['paths']['nginx_conf'] = conf
+        self.b.loaded = helpers._blocks_loaded.__get__(self.b)          # the real check for this test
+        with self.assertRaises(BlockError) as cm:
+            self.b.add('203.0.113.41', 3600, 'fail2ban', 'ssh brute force', 'mail1', via='token', token_id='t1')
+        self.assertEqual((cm.exception.code, cm.exception.status), ('list_not_loaded', 409))
+        self.assertTrue(self.env.cfg and self.b.app.db.one("SELECT 1 FROM audit WHERE action='block.refused' AND details LIKE '%list_not_loaded%'"))
+        path = self.env.cfg['blocks']['file']
+        wr(conf, rd(conf).replace('http {', 'http {\n    include %s;' % path, 1))
+        self.assertTrue(self.b.add('203.0.113.41', 3600, 'fail2ban', 'ssh brute force', 'mail1', via='token', token_id='t1'))
+
     def test_list_has_no_allow(self):
         # nginx stops at the first allow / deny that matches within a level: an "allow all" at the end of this file
         # would turn an administrator's own "deny" after the include (same http{}) from 403 into 200

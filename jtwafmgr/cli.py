@@ -298,7 +298,7 @@ def cmd_nginx_module_trust(args):
 
 
 def cmd_nginx_update_check(args):
-    """Run by jt-waf-mgr-nginxup.service (daily timer, "check now" or a module upload); also usable by hand."""
+    """Run by jt-waf-mgr-nginxup.service (every 6 hours, "check now" or a module upload); also usable by hand."""
     from . import nginxup
     from .app import App
     cfg = config_mod.load(args.config if os.path.exists(args.config) or args.config != config_mod.DEFAULT_PATH else None)
