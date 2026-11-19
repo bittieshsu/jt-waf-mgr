@@ -367,10 +367,11 @@ onMounted(() => { load(); loadSources() })
 /* the second-tier card: two panels of one width, a row per line with a thin rule between */
 /* an expanded threat: lead paragraph, three panels side by side (one column on narrow screens), sources, buttons */
 .thd { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 2px; }
+/* the details take the table's width and never set it: a long reference address (shown on one line, cut with …)
+   used to widen the whole table, so the panels had to be scrolled to sideways on a laptop screen */
+.thd { contain: inline-size; }
 .thd-lead { margin: 0; max-width: 120ch; line-height: 1.6; }
-.thd-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-@media (max-width: 1200px) { .thd-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 760px) { .thd-grid { grid-template-columns: minmax(0, 1fr); } }
+.thd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 12px; }   /* by the room there is, not the screen */
 .thd-panel { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px 6px; background: var(--card); min-width: 0; }
 .thd-panel h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
 .thd-panel dl.kv { grid-template-columns: minmax(0, 1fr); gap: 0; margin: 0; }

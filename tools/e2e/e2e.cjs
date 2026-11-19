@@ -301,6 +301,13 @@ async function audit(page, where) {
   await page.goto(base + '/intel', { waitUntil: 'networkidle' });
   await page.locator('#intel-threats tbody tr, .datatable tbody tr').first().click();
   ok(await page.locator('tr.dt-expand .thd').count() === 1, 'intel: threat details open under the row');
+  // a long reference address must not widen the table (it did: the panels sat off to the right on a laptop)
+  for (const w of [1360, 1024]) {
+    await page.setViewportSize({ width: w, height: 950 }); await page.waitForTimeout(300);
+    const over = await page.locator('#intel-threats .tablewrap, .tablewrap:has(tr.dt-expand)').first().evaluate((el) => el.scrollWidth - el.clientWidth);
+    ok(over <= 1, 'intel: the open threat fits the table at ' + w + 'px (no sideways scroll, ' + over + 'px over)');
+  }
+  await page.setViewportSize({ width: 1360, height: 950 });
   // system check: the background parts are all there
   await page.goto(base + '/admin/system', { waitUntil: 'networkidle' });
   const sysText = await page.locator('main').innerText();

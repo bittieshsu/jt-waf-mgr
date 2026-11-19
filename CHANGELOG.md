@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.3 (2026-11-19)
+
+- Threat intelligence: an open threat's three panels (versions, the attack, exploitation) fit the table's width. A long reference address used to widen the whole table, so on a laptop screen the panels had to be scrolled to sideways; the address is now cut with … (the full address on hover), and the panels sit three in a row whenever there is room for them.
+
 ## 0.5.2 (2026-11-19)
 
 - Temporary IP blocks: adding a block (the API for fail2ban and others, or the page) is refused with 409 `list_not_loaded` while nginx does not include the block list in http { }. The block used to be written and reported as done while nginx never read the list, so the caller believed the address blocked.

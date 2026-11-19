@@ -212,7 +212,8 @@ _sw.save(app.db, 'admin', 'Grafana', '', ['mon.example.com'], confirmed_flag=Fal
 _th = [{'id': 'CVE-2026-90001', 'product': 'Keycloak', 'our_version': '26.0.5', 'summary': 'Example: a crafted redirect_uri lets an attacker take over a session.',
         'affected_versions': '< 26.0.7', 'fixed_version': '26.0.7', 'affected': 'yes', 'exploited': True, 'exploited_evidence': 'Example KEV entry',
         'severity': 'critical', 'attack_vector': 'url', 'request_pattern': 'GET /realms/*/protocol/openid-connect/auth with redirect_uri containing a second scheme',
-        'references': ['https://nvd.nist.gov/vuln/detail/CVE-2026-90001']},
+        'references': ['https://nvd.nist.gov/vuln/detail/CVE-2026-90001',
+                       'https://community.example.com/t/cve-2026-90001-keycloak-redirect-uri-session-takeover-mitigation-guidance-using-a-web-application-firewall/77630']},
        {'id': 'CVE-2026-90002', 'product': 'nginx', 'our_version': '1.22.1-9+deb12u2', 'summary': 'Example: memory disclosure in a module that is not loaded here.',
         'affected_versions': '1.25.0 - 1.27.3', 'fixed_version': '1.27.4', 'affected': 'no', 'exploited': False, 'exploited_evidence': '',
         'severity': 'medium', 'attack_vector': 'header', 'request_pattern': '', 'references': ['https://nginx.org/en/security_advisories.html']}]
