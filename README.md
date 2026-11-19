@@ -139,9 +139,14 @@ measuring on your own traffic before you rely on it; a CDN or cloud WAF is the o
   alert. A Debian package installed here is checked against its own change log and, optionally, the Debian security
   tracker (fixed in the installed version, not affected, or another program's CVE: set aside; fixed in a newer
   package: update it).
-  For one seen in the URL or a header it writes a virtual patch (a narrow confident block, checked like any change:
-  evidence, sandbox); one for an exploited vulnerability that affects you applies at once, past the daily limit, and
-  a critical alert asks a person if its checks fail. Token limits per day and month.
+  For one seen in the URL, a header or a parameter's name (in the query string, a form or an upload) it writes one
+  virtual patch per vulnerability for every site it reaches (a narrow confident block, checked like any change: the
+  evidence where the access logs can show it, always the sandbox) and applies it without a person once the checks
+  pass, within the daily limit; one for an exploited vulnerability that affects you goes past the limit, and a critical
+  alert asks a person if its checks fail. The program searches every product, and the languages and frameworks it is
+  built on (a PHP flaw reaches every PHP application), itself each run; an announced security release raises an alert,
+  and the search runs again once it is out. A person can also hand it a page or a text (a news article, a vendor
+  advisory) to read now. Token limits per day and month; a run ends within 45 minutes.
 - **IP reputation**: the IP lookup puts together what this site saw of an address with public lists downloaded once a day
   (Spamhaus DROP, FireHOL level 1, abuse.ch Feodo, Emerging Threats, CINS Army, blocklist.de, Tor exit nodes; matched on
   the host), Shodan InternetDB and your own MISP, with a verdict and its reasons. Off by default; nothing is blocked by itself.
