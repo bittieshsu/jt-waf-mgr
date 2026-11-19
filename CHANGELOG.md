@@ -2,6 +2,16 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.4 (2026-11-19)
+
+- IP lookup: the chart titles under the number cards (blocked vs logged for 7 and 30 days, the location) keep a gap from the cards; they sat right against them.
+- Change reasons the system writes (rules written again, event analysis, threat intelligence, nginx updates, HTTP/2 off and on, pausing the WAF) read in the page's language. They were stored and shown in English only; the stored text stays English (CLI, audit trail, the rules file), and reasons written by earlier versions are recognised too, so a change already waiting (such as rules written again in 0.4.93) reads in Chinese now. Words a person or a model wrote inside a reason are shown as written.
+- Change titles: nginx updates, HTTP/2 or HTTP/3 switches and WAF pauses have names (the page showed op.proto and the like).
+- Chart titles that follow another chart (its legend or bars) keep room above them, on every page (events: attack types and the country map sat right under the legend above).
+- Events: the note for the `_other` site filter sits on its own row; inside the field it made that field taller and pushed the filter row out of line.
+- CrowdSec rules: several CVE numbers stand one a line, so the description keeps its room.
+- War room globe: zoom in, zoom out and reset size (buttons and keys) glide to the new size instead of jumping; the wheel and a pinch still follow the hand.
+
 ## 0.5.3 (2026-11-19)
 
 - Threat intelligence: an open threat's three panels (versions, the attack, exploitation) fit the table's width. A long reference address used to widen the whole table, so on a laptop screen the panels had to be scrolled to sideways; the address is now cut with … (the full address on hover), and the panels sit three in a row whenever there is room for them.

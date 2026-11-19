@@ -270,11 +270,11 @@ def security(app, st, log=print, get=None):
         from .changes import ChangeError
         cves = sorted({c for i in used for c in i['cves']})
         try:
+            from . import reasons
             cid = app.workflow.propose_nginx(
-                'nginx %s -> %s: nginx.org security advisories for features this configuration uses (%s). Rules cannot '
-                'refuse these; the ModSecurity module was verified with the new nginx (%s).' % (
-                    a['version'], st.get('target'), ', '.join(cves)[:600] or ', '.join(i['title'] for i in used)[:600],
-                    st.get('detail') or 'ready'), 'nginxup', role='admin', auto=True)
+                reasons.text('nginx_update', version=a['version'], target=st.get('target'),
+                             cves=', '.join(cves)[:600] or ', '.join(i['title'] for i in used)[:600],
+                             detail=st.get('detail') or 'ready'), 'nginxup', role='admin', auto=True)
             st['proposed_change'] = cid
             log('nginxup: update proposed as change #%d' % cid)
         except ChangeError as e:
@@ -415,12 +415,9 @@ def mitigate(app, a, log=print):
     for f, mode in todo:
         name = f.upper().replace('HTTP', 'HTTP/')
         cves = sorted({c for i in a['issues'] if i['feature'] == f for c in i['cves']})
-        reason = ('nginx %s: nginx.org security advisory in %s (%s), which this configuration uses; rules cannot refuse it. '
-                  '%s off until nginx is updated (browsers fall back to an older protocol).' % (
-                      a['version'], name, ', '.join(cves)[:400], name)
-                  if mode == 'off' else
-                  'nginx %s is vulnerable to no advisory in %s any more: the lines switched off for it go back as they were.' % (
-                      a['version'], name))
+        from . import reasons
+        reason = (reasons.text('proto_off', version=a['version'], proto=name, cves=', '.join(cves)[:400], proto2=name)
+                  if mode == 'off' else reasons.text('proto_on', version=a['version'], proto=name))
         try:
             cid = wf.propose_proto(f, mode, reason, 'nginxup', auto=bool(a.get('exact')))
         except ChangeError as e:

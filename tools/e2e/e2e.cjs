@@ -32,6 +32,9 @@ async function rawKeys(page, where) {
   const txt = await page.locator('body').innerText();
   const hits = KEYS.filter((k) => txt.includes(k))
   if (hits.length) problems.push(where + ': raw i18n keys visible: ' + hits.slice(0, 8).join(', '));
+  // dynamic keys with no entry at all (op.proto showed as it is in 0.5.0-0.5.3)
+  const dyn = txt.match(/(?<![\w.\/-])(?:op|kind|state|direction|outcome|creason)\.[a-z_]{2,}(?![\w.\/-])/g) || [];
+  if (dyn.length) problems.push(where + ': untranslated keys visible: ' + [...new Set(dyn)].slice(0, 8).join(', '));
   // a placeholder the text never got a value for ("版本 {v}", "{retry_after} 秒"; 0.5.0)
   const ph = (txt.match(/(?<![%$\w])\{[a-z][a-z_]{0,24}\}/g) || []);
   if (ph.length) problems.push(where + ': unfilled placeholders visible: ' + [...new Set(ph)].slice(0, 8).join(', '));
@@ -148,6 +151,12 @@ async function audit(page, where) {
   ok(await page.locator('.nginxsafety').count() === 1, 'nginx change page shows what happens if it goes wrong (0.5.1)');
   await page.goto(base + '/changes/' + fs.readFileSync(R + '/proto-change', 'utf8').trim(), { waitUntil: 'networkidle' });
   ok(await page.locator('pre.rt .rl.del').count() === 1 && await page.locator('pre.rt .rl.add').count() === 1, 'change preview: removed line red, added line green');
+  // 0.5.4: a reason the system wrote reads in the page's language (it was always English)
+  await rawKeys(page, 'HTTP/2 change');
+  const why = await page.locator('main').innerText();
+  ok(why.includes('安全公告指出 HTTP/2 有漏洞') && !why.includes('security advisory in'), 'change reason written by the system shows in Chinese');
+  await page.goto(base + '/changes', { waitUntil: 'networkidle' });
+  ok(!(await page.locator('main').innerText()).includes('security advisory in'), 'change list: the system\'s reasons in Chinese');
   // the nginx advisories: one aligned row each (title, severity and CVE columns start at the same place)
   await page.goto(base + '/nginx-update', { waitUntil: 'networkidle' });
   ok(await page.locator('.nginxsafety button:has-text("提出退回上一版")').count() === 1, 'nginx updates page offers the way back (0.5.1)');
@@ -288,6 +297,9 @@ async function audit(page, where) {
      (await page.locator('.iprep .reasons li', { hasText: 'CINS Army' }).count()) === 1 &&
      (await page.locator('.iprep .kvpanel', { hasText: 'MISP' }).count()) === 1,
      'lookup: the IP reputation card shows the verdict, the lists and MISP');
+  // the chart titles under the number cards keep a gap (they sat right against the cards)
+  const tileGap = await page.evaluate(() => { const a = document.querySelector('.tiles'); const b = a && a.nextElementSibling; return a && b ? b.getBoundingClientRect().top - a.getBoundingClientRect().bottom : -1; });
+  ok(tileGap >= 14, 'lookup: a gap between the number cards and the charts (' + tileGap + 'px)');
   await page.goto(base + '/admin/settings#uiset-iprep', { waitUntil: 'networkidle' });
   await page.waitForSelector('section.card:has(h2:has-text("IP 情資清單")) tbody tr', { timeout: 8000 }).catch(() => {});
   ok((await page.locator('section.card:has(h2:has-text("IP 情資清單")) tbody tr').count()) === 8, 'settings: the IP reputation lists are listed');
@@ -669,6 +681,9 @@ async function audit(page, where) {
   const hRow = (n) => page.locator('.datatable tbody tr').filter({ hasText: n }).first();
   ok((await page.locator('.hubtiles .tile').count()) === 6 && (await hRow('vpatch-nextcloud-upload').locator('.badge', { hasText: '上游有新版' }).count()) === 1,
      'crowdsec: an "in use" tile; the rule in use shows that the hub changed it');
+  // several CVE numbers: one a line (they stretched the column and squeezed the description)
+  const cveTops = await hRow('vpatch-php2shell').locator('.cvelist .chip').evaluateAll((l) => l.map((e) => Math.round(e.getBoundingClientRect().top)));
+  ok(cveTops.length === 3 && new Set(cveTops).size === 3, 'crowdsec: several CVE numbers, one a line (' + cveTops.join(',') + ')');
   await hRow('vpatch-nextcloud-upload').click();
   await page.waitForSelector('.hubuse', { timeout: 8000 }).catch(() => {});
   ok((await page.locator('.hubuse button', { hasText: '提出更新' }).count()) === 1 && (await page.locator('.hubuse button', { hasText: '提出移除' }).count()) === 1,

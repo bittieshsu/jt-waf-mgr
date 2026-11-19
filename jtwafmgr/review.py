@@ -21,7 +21,7 @@ import json
 import re
 import time
 
-from . import util
+from . import reasons, util
 from .blocks import UNMISTAKABLE
 
 # attack types (util.FAMILIES): a score-only block with none of them (only protocol, body or other checks) may be a
@@ -164,7 +164,8 @@ def build(app, since, until):
     out['analysis'] = {'runs': len(runs), 'errors': sum(1 for r in runs if r['error']),
                        'proposals': sum(len(json.loads(r['proposals'] or '[]')) for r in runs)}
     out['changes'] = [{'id': r['id'], 'op': r['op'], 'kind': r['kind'], 'direction': r['direction'], 'state': r['state'],
-                       'by': r['proposed_by'], 'rule_id': r['rule_id'], 'reason': util.clip((r['reason'] or '').split('\n', 1)[0], 160)}
+                       'by': r['proposed_by'], 'rule_id': r['rule_id'], 'reason': util.clip((r['reason'] or '').split('\n', 1)[0], 160),
+                       'reason_parts': (reasons.parse(r['reason']) or [])[:1] or None}
                       for r in db.q('SELECT id, op, kind, direction, state, proposed_by, rule_id, reason FROM changes '
                                     'WHERE updated_at>=? AND updated_at<? ORDER BY id', (since, until))][:LIST_MAX]
     out['applied'] = db.one("SELECT COUNT(*) FROM audit WHERE action='change.applied' AND ts>=? AND ts<?", (since, until))[0]

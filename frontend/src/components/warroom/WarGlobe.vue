@@ -43,10 +43,21 @@ const ZMIN = 0.6, ZMAX = 3
 let zoom = 1
 const pointers = new Map()        // the fingers / pointers down now (two of them: a pinch)
 let pinch = null
-function setZoom(z) { zoom = Math.max(ZMIN, Math.min(ZMAX, z)); kick() }
+let zoomGoal = null               // the buttons and keys glide to a size; the wheel and a pinch follow the hand
+const clampZoom = (z) => Math.max(ZMIN, Math.min(ZMAX, z))
+function setZoom(z) { zoomGoal = null; zoom = clampZoom(z); kick() }
+function glideZoom(z) { zoomGoal = clampZoom(z); kick() }
 function wheel(e) { setZoom(zoom * Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015))) }
-function zoomBy(f) { setZoom(zoom * f) }
-function zoomReset() { setZoom(1) }
+function zoomBy(f) { glideZoom((zoomGoal ?? zoom) * f) }
+function zoomReset() { glideZoom(1) }
+// about a third of a second, evenly in scale (log), easing out; at once when motion is reduced
+function easeZoom(dt) {
+  if (zoomGoal === null) return
+  if (still.value) { zoom = zoomGoal; zoomGoal = null; return }
+  const a = Math.log(zoom), b = Math.log(zoomGoal)
+  if (Math.abs(b - a) < 0.003) { zoom = zoomGoal; zoomGoal = null; return }
+  zoom = Math.exp(a + (b - a) * (1 - Math.exp(-dt * 12)))
+}
 // turn to where we are (the destination), the way a picked country is turned to
 function centerUs() {
   const d = props.destination
@@ -296,7 +307,7 @@ function drawTracers(dest, font) {
 // ---- the loop: runs only while something moves; otherwise one frame per change ----
 function busy() {
   if (document.hidden || !ctx) return false
-  if (aim || drag || fling) return true
+  if (aim || drag || fling || zoomGoal !== null) return true
   if (props.paused || still.value) return false
   return tracers.list.length > 0 || (props.spin && !focusCc.value)
 }
@@ -309,6 +320,7 @@ function frame(ts) {
   const dt = Math.min(0.1, interval / 1000)
   if (canFly()) tracers.step(dt)
   turn(dt)
+  easeZoom(dt)
   const t0 = performance.now()
   draw()
   shed(interval, performance.now() - t0)
@@ -364,6 +376,7 @@ function down(e) {
   cv.value.setPointerCapture(e.pointerId)
   if (pointers.size === 2) {        // a second finger: pinch to zoom, no turning meanwhile
     const [a, b] = [...pointers.values()]
+    zoomGoal = null
     pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, z: zoom }
     drag = null
     return

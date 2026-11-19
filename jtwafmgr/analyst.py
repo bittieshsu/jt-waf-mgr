@@ -30,7 +30,7 @@ import re
 import time
 import traceback
 
-from . import llm, rulegen, util
+from . import llm, reasons, rulegen, util
 from .changes import FINAL, ChangeError
 from .evidence import Evidence, _Rx, path_views, request_filename, request_uri, transform
 
@@ -808,12 +808,12 @@ def _msg(label, key):
 
 
 def _reason(rec, c, model, window_hours):
-    nums = ('[jt analyst] model %s, confidence %.2f. Last %dh, external sources only: %d events, %d sources; '
-            'hosts: %s; families: %s; rules: %s; statuses: %s.' % (
-                _clean(model, 80) or '?', rec['confidence'], window_hours, c['events'], c['sources'],
-                ', '.join(c['hosts'][:5]) + (' (+%d)' % (c['host_count'] - 5) if c['host_count'] > 5 else ''),
-                ', '.join(c['families']) or '-', ', '.join(str(r['id']) for r in c['rules']) or '-',
-                ', '.join('%s x%d' % kv for kv in c['statuses'].items()) or '-'))
+    nums = reasons.text(
+        'analyst_block', model=_clean(model, 80) or '?', confidence='%.2f' % rec['confidence'], hours=window_hours,
+        events=c['events'], sources=c['sources'],
+        hosts=', '.join(c['hosts'][:5]) + (' (+%d)' % (c['host_count'] - 5) if c['host_count'] > 5 else ''),
+        families=', '.join(c['families']) or '-', rules=', '.join(str(r['id']) for r in c['rules']) or '-',
+        statuses=', '.join('%s x%d' % kv for kv in c['statuses'].items()) or '-')
     return ((rec['reason'] or '(no reason given)') + '\n' + nums)[:2000]
 
 
@@ -1249,14 +1249,13 @@ def _alerts(app, a, st, by_id, fp_by_id, verdicts, model_alerts, adopted, model,
         elif not adopted:
             skip('not_adopted')
         else:
-            only_ext = '' if c['internal_sources'] else (
-                'ALL FROM EXTERNAL SOURCES: no internal user was blocked; check that this is really normal use.\n')
-            reason = (only_ext + '[jt analyst] false positive, model %s, confidence %.2f. Scope: host %s, %s path %s, '
-                      'method %s, rules %s, %s. Last %dh: %d blocked requests from %d sources (%d internal).\n%s' % (
-                          _clean(model, 80) or '?', v['confidence'], c['host'], spec['path']['mode'], spec['path']['value'],
-                          spec.get('method') or 'any', ', '.join(str(r) for r in spec['rule_ids']),
-                          ('targets ' + ', '.join(spec['targets'])) if spec.get('targets') else 'WHOLE RULE removed there',
-                          a['window_hours'], c['events'], c['sources'], c['internal_sources'], v.get('reason') or ''))[:2000]
+            only_ext = '' if c['internal_sources'] else reasons.text('analyst_all_external') + '\n'
+            reason = (only_ext + reasons.text(
+                'analyst_fp' if spec.get('targets') else 'analyst_fp_whole', model=_clean(model, 80) or '?',
+                confidence='%.2f' % v['confidence'], host=c['host'], mode=spec['path']['mode'], path=spec['path']['value'],
+                method=spec.get('method') or 'any', rules=', '.join(str(r) for r in spec['rule_ids']),
+                targets=', '.join(spec.get('targets') or []), hours=a['window_hours'], events=c['events'],
+                sources=c['sources'], internal=c['internal_sources']) + '\n' + (v.get('reason') or ''))[:2000]
             try:
                 change_id = app.workflow.propose('add', 'exclusion', spec, reason, ACTOR, via='api', owner=ACTOR)
                 made += 1

@@ -88,7 +88,7 @@
           <ul v-if="(rv.changes || []).length" class="rvlist">
             <li v-for="c in rv.changes" :key="c.id"><RouterLink :to="'/changes/' + c.id">#{{ c.id }}</RouterLink>
               <DirectionBadge class="gapl" :direction="c.direction" /> <StateBadge :state="c.state" />
-              <span class="gapl">{{ c.reason }}</span></li>
+              <span class="gapl">{{ safeText(reasonText(c).split('\n')[0], 160) }}</span></li>
           </ul>
           <p v-if="(rv.confident_by_rule || []).length" class="small">{{ t('review.confident') }}
             <span v-for="p in rv.confident_by_rule" :key="p[0]" class="gapl"><span class="mono">{{ p[0] }}</span> ×{{ fmtNum(p[1]) }}</span></p>
@@ -114,12 +114,13 @@
 </template>
 
 <script setup>
+import { reasonText } from '../changeReason.js'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { get, post } from '../api.js'
 import { t } from '../i18n.js'
 import { hasRole } from '../store.js'
-import { fmtMinute, fmtNum } from '../util.js'
+import { fmtMinute, fmtNum, safeText } from '../util.js'
 import Icon from '../components/Icon.vue'
 import ErrorBox from '../components/ErrorBox.vue'
 import Loading from '../components/Loading.vue'

@@ -51,7 +51,7 @@
       <template #cell-created_at="{ row }">{{ fmtShortTime(row.created_at) }}</template>
       <template #cell-what="{ row }">{{ t('op.' + row.op) }} · {{ t('kind.' + row.kind) }}<span v-if="row.rule_id" class="mono muted gapl">{{ row.rule_id }}</span></template>
       <template #cell-summary="{ row }"><TruncText :text="row.summary || ''" :max="2000" expand />
-        <div class="sub"><TruncText :text="row.reason || ''" :max="2000" expand /></div></template>
+        <div class="sub"><TruncText :text="reasonText(row)" :max="2000" expand /></div></template>
       <template #cell-direction="{ row }"><DirectionBadge :direction="row.direction" /></template>
       <template #cell-state="{ row }"><StateBadge :state="row.state" />
         <div v-if="row.error" class="sub warn"><TruncText :text="row.error" :max="80" /></div></template>
@@ -68,6 +68,7 @@ import { get, post } from '../api.js'
 import RowTimeline from '../components/RowTimeline.vue'
 import { inWindow } from '../timeWindow.js'
 import { t, tOr } from '../i18n.js'
+import { reasonText } from '../changeReason.js'
 import { hasRole, pending, refreshPending, state } from '../store.js'
 import { safeText, fmtShortTime, fmtNum } from '../util.js'
 import ErrorBox from '../components/ErrorBox.vue'
@@ -149,7 +150,7 @@ const cols = computed(() => [
   { key: 'id', label: t('change.id'), required: true, align: 'num', value: (c) => c.id },
   { key: 'created_at', label: t('change.created'), nowrap: true, text: (c) => fmtShortTime(c.created_at) },
   { key: 'what', label: t('change.what'), nowrap: true, value: (c) => t('op.' + c.op) + ' · ' + t('kind.' + c.kind) + (c.rule_id ? ' ' + c.rule_id : '') },
-  { key: 'summary', label: t('change.summary'), class: 'c-fill', text: (c) => (c.summary || '') + ' ' + (c.reason || '') },
+  { key: 'summary', label: t('change.summary'), class: 'c-fill', text: (c) => (c.summary || '') + ' ' + reasonText(c) },
   { key: 'direction', label: t('change.direction'), value: (c) => t('direction.' + c.direction) },
   { key: 'state', label: t('change.state'), value: (c) => t('cstate.' + c.state), text: (c) => t('cstate.' + c.state) + ' ' + (c.error || '') },
   { key: 'proposed_by', label: t('change.proposed_by'), nowrap: true, value: (c) => (c.proposed_by === 'analyst' ? t('change.by_analyst') : c.proposed_by || ''),

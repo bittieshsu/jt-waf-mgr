@@ -347,6 +347,7 @@ input[type=checkbox] { padding: 0; }
 .check { display: flex; gap: 6px; align-items: center; color: var(--text); padding: 2px 0; }
 .filters { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(170px, 100%), 1fr)); gap: 8px 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; align-items: end; }
 .filters.inline { display: flex; flex-wrap: wrap; }
+.filters > .filternote { grid-column: 1 / -1; margin: 0; }
 .card .filters { border: none; padding: 0; background: transparent; }
 .filteractions { grid-column: 1 / -1; }
 .inline-field { flex-direction: row; }
@@ -671,7 +672,10 @@ table.grid td.nowrap { white-space: nowrap; }
 .chartgrid.halves { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 760px) { .chartgrid.halves { grid-template-columns: minmax(0, 1fr); } }
 .chartgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 12px 20px; margin-bottom: 14px; }
+.tiles + .chartgrid { margin-top: 18px; }   /* chart titles right under the number cards read as part of them */
 .charthead { font-size: 13.5px; font-weight: 600; color: var(--muted); margin: 0 0 6px; }
+/* a chart title after another chart (its legend, bars) starts a new block: room above it, on every page */
+.charthead:not(:first-child) { margin-top: 20px; }
 .brand { display: inline-flex; align-items: center; gap: 7px; }
 .brand-logo { display: block; }
 

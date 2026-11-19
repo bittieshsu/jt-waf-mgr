@@ -23,7 +23,7 @@ import threading
 import time
 import traceback
 
-from . import rulegen, util
+from . import reasons, rulegen, util
 from . import managed
 from .managed import Managed, sha256
 
@@ -110,7 +110,8 @@ class Workflow:
              'updated_at': util.iso(r['updated_at']), 'spec': json.loads(r['spec']),
              'summary': summarize(r['kind'], json.loads(r['spec']), r['op']), 'error': r['error'],
              'applied_version': r['applied_version'], 'proposed_owner': r['proposed_owner'],
-             'proposed_ip': self._proposed_ip(r['id'])}
+             'proposed_ip': self._proposed_ip(r['id']),
+             'reason_parts': reasons.parse(r['reason'])}     # the system's own sentences, for the page to translate
         if full:
             checks = json.loads(r['checks'] or '{}')
             d.update({'rule_text': r['rule_text'], 'checks': checks, 'tests': json.loads(r['tests'] or '[]'),
@@ -555,12 +556,7 @@ class Workflow:
         ids = []
         for ops, ts in groups:
             rids = ', '.join(str(o.pop('_rule_id')) for o in ops)
-            reason = util.clip('Rules written again by the rule generator of jt-waf-mgr %s from their own settings, asked '
-                               'by %s: %s. Path rules now also see the path cut at an encoded "?" (%%3F), normalised; '
-                               'exclusions and redactions scoped to a path need it both as sent and normalised and never '
-                               'apply to a path with an encoded "?". The network lists in force now (internal networks, '
-                               'known scanners) are written in, as in any new rule: compare the rule text.'
-                               % (__version__, owner, rids), 2000)
+            reason = util.clip(reasons.text('regen', version=__version__, owner=owner, rules=rids), 2000)
             ids.append(self.propose_bundle(ops, reason, self.REGEN_ACTOR, via='api', tests=ts, owner=owner))
         return {'changes': ids, 'without_tests': missing}
 

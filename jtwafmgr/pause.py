@@ -14,7 +14,7 @@ import json
 import re
 import threading
 
-from . import util
+from . import reasons, util
 from .changes import ChangeError
 from .rulegen import pause_ids
 
@@ -187,7 +187,8 @@ def start(app, scope, host, hours, reason, actor):
         event = {'action': 'waf.paused', 'actor': actor,
                  'details': {'scope': scope, 'host': what if scope == 'site' else None, 'hours': hours,
                              'until': util.iso(entry['until']) if entry['until'] else None, 'reason': reason}}
-        return _propose(wf, ops, 'loosen', 'WAF paused (%s, %s): %s' % (what, ('%d h' % hours) if hours else 'until resumed', reason),
+        return _propose(wf, ops, 'loosen', reasons.text('paused', what=what, duration=('%d h' % hours) if hours else 'until resumed',
+                                                        reason=reason),
                         actor, event)
 
 
@@ -219,7 +220,8 @@ def _resume(app, actor, host, all_, reason):
         return None
     what = 'everything' if all_ else (host or 'all sites')
     event = {'action': 'waf.resumed', 'actor': actor, 'details': {'what': what, 'reason': reason or None}}
-    return _propose(wf, ops, 'tighten', 'WAF resumed (%s)%s' % (what, (': ' + reason) if reason else ''), actor, event)
+    return _propose(wf, ops, 'tighten', reasons.text('resumed_why', what=what, reason=reason) if reason
+                    else reasons.text('resumed', what=what), actor, event)
 
 
 def _clean(x):

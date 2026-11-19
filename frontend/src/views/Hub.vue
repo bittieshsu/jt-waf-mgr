@@ -81,7 +81,7 @@
           <template #cell-name="{ row }"><span class="mono small hubname">{{ safeText(row.name.replace(/^crowdsecurity\//, ''), 120) }}</span>
             <span v-if="row.scope === 'cross'" class="badge b-ext gapl" :title="t('hub.cross_hint')">{{ t('hub.cross') }}</span>
             <span v-if="row.change === 'new' || row.change === 'changed'" class="badge b-int gapl">{{ t('hub.change.' + row.change) }}</span></template>
-          <template #cell-cves="{ row }"><span v-for="c in row.cves.slice(0, 3)" :key="c" class="chip tag mono">{{ safeText(c, 30) }}</span><span v-if="!row.cves.length" class="muted">—</span></template>
+          <template #cell-cves="{ row }"><span v-if="row.cves.length" class="cvelist"><span v-for="c in row.cves.slice(0, 3)" :key="c" class="chip tag mono">{{ safeText(c, 30) }}</span></span><span v-else class="muted">—</span></template>
           <template #cell-label="{ row }">{{ safeText(row.label || row.description, 160) }}</template>
           <template #cell-related="{ row }"><template v-if="row.related.length"><span v-for="p in row.related" :key="p.name" class="chip" :class="p.tech ? 'tag' : 'ok'"
             :title="p.tech ? t('hub.via_tech', { tech: p.name, via: p.via.join(', ') }) : ''">{{ safeText(p.name, 60) }}<span v-if="p.tech" class="muted"> ({{ safeText(p.via.join(', '), 80) }})</span></span></template><span v-else class="muted">—</span></template>
@@ -244,7 +244,7 @@ const tiles = computed(() => {
 const cols = computed(() => [
   ...(canPropose.value && pickable.value.length ? [{ key: 'sel', label: '', sortable: false, filterable: false, required: true, nowrap: true, text: () => '' }] : []),
   { key: 'name', label: t('hub.c_name'), class: 'c-name' },
-  { key: 'cves', label: 'CVE', nowrap: true, text: (r) => r.cves.join(' ') },
+  { key: 'cves', label: 'CVE', text: (r) => r.cves.join(' ') },
   { key: 'label', label: t('hub.c_label'), class: 'c-fill', text: (r) => r.label || r.description || '' },
   { key: 'related', label: t('hub.c_related'), text: (r) => r.related.map((p) => p.name).join(' ') },
   { key: 'ok', label: t('hub.c_state'), nowrap: true, text: (r) => (r.ok ? t('hub.convertible') : t('hub.unsupported')) },
@@ -395,6 +395,9 @@ onUnmounted(() => clearInterval(timer))
 </script>
 
 <style scoped>
+/* several CVE numbers: one a line, so the column stays narrow and the description keeps its room */
+.cvelist { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.cvelist .chip { white-space: nowrap; }
 .hubtiles { margin: 0 0 14px; }
 .hubtwice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
 .hubbatch { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; margin: 0 0 10px; }

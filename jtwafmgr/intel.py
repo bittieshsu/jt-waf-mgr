@@ -34,7 +34,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from . import __version__, alerts, llm, software, util
+from . import __version__, alerts, llm, reasons, software, util
 
 REQUEST = 'intel.request'
 # "may affect us": our version is inside the range, or not known (a product confirmed by name only) -- an exploited
@@ -827,11 +827,11 @@ def propose_patches(app, run_id, ask=None, log=print, session=None):
             if session is not None:
                 session.spend(a, b)             # the same budget as the search (raises when it is used up)
             spec, tests = _patch_spec(p, dict(t, id=r['cve'], product=r['product']), samples, hosts, test_host)
-            reason = util.clip('Virtual patch for %s in %s %s (%s%s), until the software is updated. %s Attack: %s. Rule: %s. '
-                               'References: %s' % (r['cve'], r['product'], known_version(t.get('our_version')) or '(version not known)', r['severity'],
-                                                   ', exploited in the wild' if r['exploited'] else '', t.get('summary') or '',
-                                                   t.get('request_pattern') or '', util.clip(str(p.get('explanation') or ''), 300),
-                                                   ' '.join(t.get('references') or [])), 2000)
+            reason = util.clip(reasons.text(
+                'intel_patch_x' if r['exploited'] else 'intel_patch', cve=r['cve'], product=r['product'],
+                version=known_version(t.get('our_version')) or '(version not known)', severity=r['severity'],
+                summary=t.get('summary') or '', attack=t.get('request_pattern') or '',
+                rule=util.clip(str(p.get('explanation') or ''), 300), refs=' '.join(t.get('references') or [])), 2000)
             cid = app.workflow.propose('add', 'confident_block', spec, reason, 'intel', via='api', owner='intel', tests=tests)
         except IntelError as e:
             if e.code == 'budget_reached':
@@ -903,8 +903,8 @@ def propose_hub_patches(app, run_id, log=print):
             # in force for other sites: the product's sites added (a person approves: a changed rule counts as loosening)
             try:
                 cid = app.workflow.propose('modify', None, {'hosts': sorted(set(have.get('hosts') or []) | set(hosts))},
-                                           util.clip('Add %s to the CrowdSec rule %s for %s in %s.' % (
-                                               ', '.join(missing), hr['name'], r['cve'], r['product']), 2000),
+                                           util.clip(reasons.text('intel_hub_add', hosts=', '.join(missing), rule=hr['name'],
+                                                                  cve=r['cve'], product=r['product']), 2000),
                                            'intel', via='api', item_id=item['id'], owner='intel')
             except ChangeError as e:
                 log('intel: run %d: CrowdSec rule %s: sites not added (%s)' % (run_id, hr['name'], e.code))
@@ -912,11 +912,11 @@ def propose_hub_patches(app, run_id, log=print):
             db.x("UPDATE intel_threats SET patch_change_id=?, patch_note='crowdsec' WHERE id=?", (cid, r['id']))
             out.append(cid)
             continue
-        reason = util.clip('Virtual patch for %s in %s %s (%s%s): the CrowdSec Hub rule %s (%s), until the software is updated. '
-                           '%s References: %s' % (r['cve'], r['product'], known_version(t.get('our_version')) or '(version not known)',
-                                                  r['severity'] or 'severity not known', ', exploited in the wild' if r['exploited'] else '',
-                                                  hr['name'], hr.get('label') or '', t.get('summary') or '',
-                                                  ' '.join(t.get('references') or [])), 2000)
+        reason = util.clip(reasons.text(
+            'intel_hub_x' if r['exploited'] else 'intel_hub', cve=r['cve'], product=r['product'],
+            version=known_version(t.get('our_version')) or '(version not known)', severity=r['severity'] or 'severity not known',
+            rule=hr['name'], label=hr.get('label') or '', summary=t.get('summary') or '',
+            refs=' '.join(t.get('references') or [])), 2000)
         note, cid = 'crowdsec', None
         try:
             cid = app.workflow.propose('add', 'crowdsec', {'name': hr['name'], 'hosts': hosts, 'source': 'external'}, reason,

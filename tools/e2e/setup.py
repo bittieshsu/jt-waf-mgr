@@ -231,7 +231,7 @@ from jtwafmgr import hub as _hub, rulegen as _rg  # noqa: E402
 
 def _hubrule(name, label, cve, cond):
     return ('name: example/%s\ndescription: "%s (synthetic)"\nrules:\n%s\nlabels:\n  type: exploit\n  label: "%s"\n'
-            '  classification:\n   - cve.%s\n' % (name, label, cond, label, cve)).encode()
+            '  classification:\n%s' % (name, label, cond, label, ''.join('   - cve.%s\n' % c for c in cve.split()))).encode()
 
 
 _uri = '  - and:\n    - zones:\n      - URI\n      transform:\n      - lowercase\n      match:\n        type: endsWith\n        value: %s\n' \
@@ -248,7 +248,7 @@ for _n, _l, _c, _cond, _t in (
         ('vpatch-shop-sqli', 'Example Shop - SQL injection', 'CVE-2026-90005', _uri % ('/cart.php', 'id', 'union select'), None),
         # cross-application (0.4.92): a flaw of PHP (related to Nextcloud through its stack) and one of React (no site
         # known to run it: offered for all sites)
-        ('vpatch-php2shell', 'PHP2Shell - RCE', 'CVE-2026-90006', _uri % ('.php', 'cmd', 'system('), '/index.php?cmd=system(id)'),
+        ('vpatch-php2shell', 'PHP2Shell - RCE', 'CVE-2026-90006 CVE-2026-90008 CVE-2026-90009', _uri % ('.php', 'cmd', 'system('), '/index.php?cmd=system(id)'),
         ('vpatch-react-rce', 'React - RCE', 'CVE-2026-90007', _uri % ('/', 'action', '__proto__'), '/?action=__proto__')):
     _files['appsec-rules/crowdsecurity/%s.yaml' % _n] = _hubrule(_n, _l, _c, _cond)
     if _t:
@@ -296,10 +296,11 @@ _cid = app.db.x("INSERT INTO changes(op, kind, spec, direction, state, reason, p
                 (json.dumps({'installed': '1.30.6-1~bookworm', 'target': '1.30.7-1~bookworm'}),
                  'nginx 1.30.6 -> 1.30.7 (synthetic)', _now, _now)).lastrowid
 open(R + '/nginx-change', 'w').write(str(_cid))
+from jtwafmgr import reasons as _reasons  # noqa: E402
 # 0.5.2: an HTTP/2 change whose preview shows the lines taken out (red) and put in (green)
 _pc = app.db.x("INSERT INTO changes(op, kind, spec, direction, state, reason, proposed_by, proposed_via, created_at, updated_at, "
-               "rule_text, tests) VALUES ('proto','system','{}','tighten','applied','nginx advisory (synthetic)','nginxup','user',?,?,?,'[]')",
-               (_now, _now, '/etc/nginx/conf.d/app.example.com.conf:3\n  - http2 on;\n  + # jt-waf-mgr: http2 off (change #9): http2 on;')).lastrowid
+               "rule_text, tests) VALUES ('proto','system','{}','tighten','applied',?,'nginxup','user',?,?,?,'[]')",
+               (_reasons.text('proto_off', version='1.30.6', proto='HTTP/2', cves='CVE-2099-0103', proto2='HTTP/2'), _now, _now, '/etc/nginx/conf.d/app.example.com.conf:3\n  - http2 on;\n  + # jt-waf-mgr: http2 off (change #9): http2 on;')).lastrowid
 open(R + '/proto-change', 'w').write(str(_pc))
 os.makedirs(os.path.join(R, 'nginxup'), exist_ok=True)
 _iss = [('Infinite loop while reading the request body over TLS 1.3', 'major', ['CVE-2099-0101'], None, True),

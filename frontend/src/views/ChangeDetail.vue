@@ -31,7 +31,7 @@
           <dt>{{ t('change.applied_version') }}</dt><dd class="mono"><RouterLink v-if="c.applied_version" to="/versions">{{ c.applied_version }}</RouterLink><template v-else>—</template></dd>
         </dl>
         <h2><Icon name="info" /> {{ t('change.reason') }}</h2>
-        <pre class="code">{{ safeMultiline(c.reason) }}</pre>
+        <pre class="code">{{ safeMultiline(reasonText(c)) }}</pre>
         <div v-if="c.evidence_override" class="alert warn">{{ t('change.evidence_override') }}: {{ safeText(c.evidence_override, 2000) }}</div>
       </section>
 
@@ -114,6 +114,7 @@
 </template>
 
 <script setup>
+import { reasonText } from '../changeReason.js'
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { get, post } from '../api.js'
 import { t, tOr } from '../i18n.js'
