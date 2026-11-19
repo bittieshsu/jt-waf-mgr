@@ -59,12 +59,14 @@ class TestDistroPackage(unittest.TestCase):
 
     def test_check(self):
         c = distropkg.check
-        self.assertEqual(c('Brotli', '1.0.9-2+deb12u1', 'CVE-2099-11111'), {'result': 'fixed', 'package': 'libbrotli1'})
-        self.assertEqual(c('Brotli', '1.0.9-2+deb12u1', 'CVE-2099-1111'), {'result': 'not_listed', 'package': 'libbrotli1'})  # not a prefix
+        self.assertEqual(c('Brotli', '1.0.9-2+deb12u1', 'CVE-2099-11111'),
+                         {'result': 'fixed', 'package': 'libbrotli1', 'source': 'brotli', 'debian': True})
+        self.assertEqual(c('Brotli', '1.0.9-2+deb12u1', 'CVE-2099-1111')['result'], 'not_listed')  # not a prefix
         self.assertEqual(c('Brotli', '1.0.9-2+deb12u1', 'CVE-2099-33333')['result'], 'not_listed')
         self.assertEqual(c('Brotli', '1.0.9-2+deb12u1', 'CVE-2099-22222')['result'], 'unknown')   # a fix taken back
         self.assertEqual(c('Brotli', '1.0.9-2+deb12u2', 'CVE-2099-11111')['result'], 'unknown')     # not the installed version
-        self.assertEqual(c('Gone', '3.0-1', 'CVE-2099-11111'), {'result': 'unknown', 'package': 'libgone1'})   # no change log here
+        self.assertEqual(c('Gone', '3.0-1', 'CVE-2099-11111'),
+                         {'result': 'unknown', 'package': 'libgone1', 'source': 'gone', 'debian': False})   # no change log here
         self.assertIsNone(c('Old', '1.0-1', 'CVE-2099-11111'))                   # only its configuration left: not installed
         self.assertEqual(c('Example', '2.4.1-3~bpo12+1', 'CVE-2099-11111')['result'], 'unknown')   # names its distribution
         self.assertIsNone(c('Odoo', '18.0-20260404', 'CVE-2099-11111'))        # another host's application, not a package

@@ -216,7 +216,10 @@ _th = [{'id': 'CVE-2026-90001', 'product': 'Keycloak', 'our_version': '26.0.5', 
                        'https://community.example.com/t/cve-2026-90001-keycloak-redirect-uri-session-takeover-mitigation-guidance-using-a-web-application-firewall/77630']},
        {'id': 'CVE-2026-90002', 'product': 'nginx', 'our_version': '1.22.1-9+deb12u2', 'summary': 'Example: memory disclosure in a module that is not loaded here.',
         'affected_versions': '1.25.0 - 1.27.3', 'fixed_version': '1.27.4', 'affected': 'no', 'exploited': False, 'exploited_evidence': '',
-        'severity': 'medium', 'attack_vector': 'header', 'request_pattern': '', 'references': ['https://nginx.org/en/security_advisories.html']}]
+        'severity': 'medium', 'attack_vector': 'header', 'request_pattern': '', 'references': ['https://nginx.org/en/security_advisories.html'],
+        # 0.5.5: what the Debian security tracker said about the installed package
+        'distro_check': {'result': 'not_listed', 'package': 'nginx', 'source': 'nginx', 'debian': True},
+        'debian_check': {'result': 'fixed', 'release': 'bookworm', 'fixed_version': '1.22.1-9+deb12u2', 'source': 'nginx', 'package': 'nginx'}}]
 _rid = app.db.x("INSERT INTO intel_runs(node_id, started_at, finished_at, trigger, provider, model, tokens_in, tokens_out, searches, fetched, threats, note) "
                 "VALUES ('waf1', ?, ?, 'schedule', 'openai', 'local-model', 48200, 3100, ?, ?, ?, 'Two relevant vulnerabilities.')",
                 (now - 5400, now - 5100, json.dumps(['Keycloak 26.0 vulnerability 2026', 'nginx security advisory 2026']),

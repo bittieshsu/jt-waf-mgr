@@ -32,10 +32,11 @@
           <div class="tile stat"><div class="tl"><Icon name="timer" />{{ t('lookup.last_seen') }}</div><div class="tv small">{{ data.last_seen ? fmtTime(data.last_seen) : '—' }}</div>
             <div v-if="data.last_seen" class="ts">{{ ago(data.last_seen) }}</div></div>
         </div>
-        <div class="chartgrid">
-          <div><h3 class="charthead">{{ t('chart.ip_split', { period: t('lookup.d7_events') }) }}</h3><SegBar :parts="split(data.d7)" :label="t('lookup.d7_events')" /></div>
-          <div><h3 class="charthead">{{ t('chart.ip_split', { period: t('lookup.d30_events') }) }}</h3><SegBar :parts="split(data.d30)" :label="t('lookup.d30_events')" /></div>
-          <div v-if="mapItems.length"><h3 class="charthead">{{ t('lookup.location') }}</h3>
+        <!-- 0.5.5: the two share bars stacked beside the map (side by side they left the map's height empty below them) -->
+        <div class="chartgrid" :class="{ lookgrid: mapItems.length }">
+          <div class="splits"><h3 class="charthead">{{ t('chart.ip_split', { period: t('lookup.d7_events') }) }}</h3><SegBar :parts="split(data.d7)" :label="t('lookup.d7_events')" />
+            <h3 class="charthead">{{ t('chart.ip_split', { period: t('lookup.d30_events') }) }}</h3><SegBar :parts="split(data.d30)" :label="t('lookup.d30_events')" /></div>
+          <div v-if="mapItems.length" class="lookmap"><h3 class="charthead">{{ t('lookup.location') }}</h3>
             <WorldMap :items="mapItems" :series="outcomeSeries" :label="t('lookup.location')" marker /></div>
         </div>
         <EventTimeline v-if="data.d30.events" :query="{ src_ip: data.ip, since: since30 }" :title="t('lookup.timeline')"
@@ -221,6 +222,8 @@ function ago(iso) { return fmtAgo(iso, lang.value) }
 </script>
 
 <style scoped>
+.lookgrid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
+@media (max-width: 760px) { .lookgrid { grid-template-columns: minmax(0, 1fr); } }
 .iprep .plainlist li { display: flex; justify-content: flex-start; align-items: baseline; gap: 8px; margin: 4px 0; text-align: left; }
 .iprep .plainlist li .badge { flex: none; }
 .iprep .plainlist li .gapl { margin-left: 0; }

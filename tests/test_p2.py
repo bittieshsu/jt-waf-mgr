@@ -288,6 +288,31 @@ class TestWorkflow(unittest.TestCase):
         self.assertEqual((it['deleted'], it['enabled']), (0, 1))
         self.assertEqual(self.wf.get(cid3)['state'], 'rolled_back')
 
+    def test_an_approved_change_is_sent_once(self):
+        """0.5.6: the web service's worker and an approval in another process (the CLI) both saw one change approved
+        and both sent it; the second rendering replaced the version's hashes and the files looked edited outside."""
+        self.adopt()
+        cid = self.wf.propose('add', 'exclusion', {'host': {'mode': 'exact', 'value': 'app.example.com'},
+                                                   'path': {'mode': 'exact', 'value': '/search'},
+                                                   'action': 'remove_target_by_id', 'rule_ids': [941100], 'targets': ['ARGS:q']},
+                              'search box false positive', 'op')
+        self.wf.run_checks(cid)
+        self.assertEqual(self.wf.get(cid)['state'], 'pending_approval')
+        # approved, not yet sent: two senders at once
+        self.app.db.x("UPDATE changes SET state='approved' WHERE id=?", (cid,))
+        self.wf._send(cid)
+        time.sleep(1.1)                 # a second rendering would carry another time in its header
+        self.wf._send(cid)
+        reqs = [n for n in os.listdir(self.spool) if n.endswith('.req')]
+        self.assertEqual(len(reqs), 1)
+        self.assertEqual(len(self.app.db.q("SELECT 1 FROM change_log WHERE change_id=? AND action='apply_requested'", (cid,))), 1)
+        req = jload(os.path.join(self.spool, reqs[0]))
+        v = self.app.db.one('SELECT hashes FROM versions WHERE version=?', (req['version'],))
+        self.assertEqual(json.loads(v['hashes']), req['sha256'])
+        self.fake_apply()
+        self.assertEqual(self.wf.get(cid)['state'], 'applied')
+        self.assertFalse(self.wf.managed.disk_state()['drift'])
+
     def test_failed_apply_and_drift_and_stale(self):
         self.adopt()
         spec = {'target': 'path', 'regex': r'^/wp-login\.php$', 'msg': 'WordPress login probe'}

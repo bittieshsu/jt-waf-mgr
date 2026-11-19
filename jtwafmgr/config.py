@@ -188,6 +188,7 @@ DEFAULTS = {
         'kev': False,                  # download CISA's Known Exploited Vulnerabilities catalog daily (kev.py, ~1.5 MB)
         'osv': False,                  # ask osv.dev about the installed Debian / Ubuntu package versions (osv.py)
         'nvd': False,                  # ask NVD for the official CVSS score of each CVE found (nvd.py)
+        'debian': False,               # ask Debian's security tracker about CVEs of installed Debian packages (debtracker.py)
         'librenms_token': '',          # LibreNMS API token: its version is read from /api/v0/system (software.py)
         'days': 30,                    # look for vulnerabilities published or updated in this many days
         'daily_tokens': 400000,        # 0: no limit

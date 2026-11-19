@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.5.4
+# jt-waf-mgr v0.5.6
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -136,7 +136,9 @@ measuring on your own traffic before you rely on it; a CDN or cloud WAF is the o
   allow-list, and "exploited" counts only when it read the CISA catalog itself in that run, or -- with the KEV catalog
   switched on (downloaded daily, about 1.5 MB) -- when the catalog lists it. A product can be confirmed
   by name alone; an exploited vulnerability that affects (or, without a version, may affect) you raises a critical
-  alert.
+  alert. A Debian package installed here is checked against its own change log and, optionally, the Debian security
+  tracker (fixed in the installed version, not affected, or another program's CVE: set aside; fixed in a newer
+  package: update it).
   For one seen in the URL or a header it writes a virtual patch (a narrow confident block, checked like any change:
   evidence, sandbox); one for an exploited vulnerability that affects you applies at once, past the daily limit, and
   a critical alert asks a person if its checks fail. Token limits per day and month.
@@ -212,7 +214,7 @@ measuring on your own traffic before you rely on it; a CDN or cloud WAF is the o
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # a fixed place for the releases
-V=0.5.4; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.6; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # the release, its signature, the public key
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -437,7 +439,7 @@ the file next to the current values and writes only what you tick).
 
 ```sh
 cd /opt/jt-waf-mgr-install   # the new release, unpacked into the same current
-V=0.5.4; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.6; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # every check, nothing changed

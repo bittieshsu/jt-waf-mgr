@@ -2,6 +2,15 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.6 (2026-11-19)
+
+- Changes: an approved change is handed to the apply program once. An approval made from the command line while the web service was running could send it twice; the second rendering (a second later in its header) replaced the version's recorded hashes, so the files just written looked edited outside jt-waf-mgr and the next apply would stop for it.
+
+## 0.5.5 (2026-11-19)
+
+- Threat intelligence: the Debian security tracker (Settings, threat intelligence; off by default). For a threat on a Debian package installed here whose change log does not name the CVE, the intelligence job asks security-tracker.debian.org for that CVE (only its id is sent; at most 20 a run, answers kept a day). Fixed in the installed version, marked not affected, or listed for other packages only (a CVE of another program attributed to a library: "use after free in XML in Google Chrome" is Chromium's, not libxml2's) sets the threat aside and handles its alerts; fixed in a newer package of the release says to update it, and an exploited one then takes the urgent path. Packages from elsewhere (nginx.org's nginx) are never compared with Debian's versions.
+- IP lookup: the two blocked-vs-logged bars stand one above the other beside the map; side by side they left the map's height empty below them.
+
 ## 0.5.4 (2026-11-19)
 
 - IP lookup: the chart titles under the number cards (blocked vs logged for 7 and 30 days, the location) keep a gap from the cards; they sat right against them.

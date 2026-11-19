@@ -86,6 +86,10 @@
                       <dt>{{ t('intel.nvd_versions') }}</dt><dd><span class="mono small">{{ (row.version_check.ranges || []).join(', ') || '—' }}</span>
                         <div class="small" :class="row.version_check.result === 'no' ? 'ok' : 'warn'">{{ t('intel.nvd_versions_' + row.version_check.result + (row.version_check.distro ? '_distro' : ''), { products: (row.version_check.products || []).join(', ') }) }}</div></dd>
                     </template>
+                    <!-- 0.5.5: Debian's security tracker on the installed Debian package -->
+                    <template v-if="row.debian_check && row.debian_check.result !== 'unknown'">
+                      <dt>{{ t('intel.debian_check') }}</dt><dd class="small" :class="['fixed', 'not_affected', 'not_tracked'].includes(row.debian_check.result) ? 'ok' : 'warn'">{{ t('intel.debian_r.' + row.debian_check.result, { source: row.debian_check.source || '', release: row.debian_check.release || '', fixed: row.debian_check.fixed_version || '' }) }}</dd>
+                    </template>
                     <dt>{{ t('intel.fixed_version') }}</dt><dd class="mono">{{ row.fixed_version || '—' }}</dd>
                     <dt>{{ t('intel.d_ours') }}</dt><dd><span class="mono">{{ row.our_version || '—' }}</span>
                       <span class="badge tiny gapl" :class="AFF[row.affected]">{{ t('intel.affected.' + row.affected) }}</span></dd>
@@ -242,6 +246,7 @@ const sources = computed(() => {
     { key: 'kev', on: !!kev.enabled, detail: kev.enabled ? (kev.fetched_at ? t('intel.kev_v', { n: fmtNum(kev.entries), at: fmtMinute(kev.fetched_at) }) : t('intel.kev_next')) : '' },
     { key: 'osv', on: !!osv.enabled, detail: osv.enabled ? (osv.ecosystem ? t('intel.osv_eco', { eco: osv.ecosystem }) : t('intel.osv_none')) : '' },
     { key: 'nvd', on: !!nvd.enabled, detail: nvd.enabled ? t('intel.nvd_does') : '' },
+    { key: 'debian', on: !!(s.debian || {}).enabled, detail: (s.debian || {}).enabled ? t('intel.debian_does') : '' },
   ]
 })
 const openCount = computed(() => (data.value ? data.value.threats.filter((x) => x.status === 'open').length : 0))

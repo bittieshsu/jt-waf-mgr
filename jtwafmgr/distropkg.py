@@ -35,8 +35,9 @@ def _words(name):
     return {w for w in re.findall(r'[a-z0-9]+', (name or '').lower()) if len(w) >= 4 and w not in GENERIC}
 
 
-def packages(product, version, status=None):
-    """The installed packages of this exact version whose name or source names the product: [(package, source)]."""
+def packages(product, version, status=None, maintainers=None):
+    """The installed packages of this exact version whose name or source names the product: [(package, source)].
+    maintainers: a dict filled with each package's Maintainer field (0.5.5: Debian's own package or not)."""
     words = _words(product)
     if not words or not version:
         return []
@@ -57,6 +58,8 @@ def packages(product, version, status=None):
         names = re.sub(r'[^a-z0-9]', '', (pkg + ' ' + src).lower())
         if any(w in names for w in words):
             out.append((pkg, src))
+            if maintainers is not None:
+                maintainers[pkg] = (f.get('Maintainer') or '').strip()
     return out
 
 
@@ -72,13 +75,26 @@ def _changelog(pkg, doc_dir=None):
     return None
 
 
+def is_debian(pkg, version, maintainer):
+    """Debian's own package (its security tracker speaks for it): a Debian security update's version (+deb12u1), or a
+    Debian maintainer (an address at debian.org or debian.net). nginx.org's own "1.30.7-1~bookworm" is not."""
+    if re.search(r'[+~]deb\d+u\d', version or ''):
+        return True
+    return bool(re.search(r'@(?:[\w.-]+\.)?debian\.(?:org|net)\b', maintainer or '', re.I))
+
+
 def check(product, version, cve, status=None, doc_dir=None):
-    """{'result': 'fixed' | 'not_listed' | 'unknown', 'package': name or ''} for a distribution's version, or None
-    (not a distribution's version)."""
+    """{'result': 'fixed' | 'not_listed' | 'unknown', 'package': name or '', 'source': its source package or '',
+    'debian': Debian's own package} for a distribution's version, or None (not a distribution's version)."""
     version = str(version or '').strip()
     if not is_distro_version(version) or not re.match(r'^CVE-\d{4}-\d{4,7}$', cve or ''):
         return None
-    pkgs = packages(product, version, status)
+    maint = {}
+    pkgs = packages(product, version, status, maint)
+
+    def out(result, pkg):
+        src = dict(pkgs).get(pkg, '')
+        return {'result': result, 'package': pkg, 'source': src, 'debian': bool(pkg) and is_debian(pkg, version, maint.get(pkg))}
     read = None
     for pkg, _src in pkgs:
         text = _changelog(pkg, doc_dir)
@@ -88,13 +104,13 @@ def check(product, version, cve, status=None, doc_dir=None):
         lines = [ln for ln in text.splitlines() if re.search(r'(?<![\w-])%s(?!\d)' % re.escape(cve), ln)]
         if lines:
             if any(re.search(r'\brevert', ln, re.I) for ln in lines):
-                return {'result': 'unknown', 'package': pkg}      # a fix taken back: a person reads it
-            return {'result': 'fixed', 'package': pkg}
+                return out('unknown', pkg)      # a fix taken back: a person reads it
+            return out('fixed', pkg)
     if read:
-        return {'result': 'not_listed', 'package': read}
+        return out('not_listed', read)
     if not pkgs and not DISTRO_TAG.search(version):
         return None         # not installed here and nothing says a distribution built it ('18.0-20260404')
-    return {'result': 'unknown', 'package': pkgs[0][0] if pkgs else ''}
+    return out('unknown', pkgs[0][0] if pkgs else '')
 
 
 def apply(t, status=None, doc_dir=None):

@@ -300,6 +300,11 @@ async function audit(page, where) {
   // the chart titles under the number cards keep a gap (they sat right against the cards)
   const tileGap = await page.evaluate(() => { const a = document.querySelector('.tiles'); const b = a && a.nextElementSibling; return a && b ? b.getBoundingClientRect().top - a.getBoundingClientRect().bottom : -1; });
   ok(tileGap >= 14, 'lookup: a gap between the number cards and the charts (' + tileGap + 'px)');
+  // 0.5.5: the two share bars stand one above the other beside the map (side by side, the map's height was left empty)
+  const look = await page.evaluate(() => { const s = document.querySelector('.lookgrid .splits'), m = document.querySelector('.lookgrid .lookmap');
+    if (!s || !m) return null; const a = s.getBoundingClientRect(), b = m.getBoundingClientRect();
+    return { bars: s.querySelectorAll('.charthead').length, besides: b.left >= a.right, ratio: a.height / b.height }; });
+  ok(look && look.bars === 2 && look.besides && look.ratio > 0.6, 'lookup: both share bars beside the map, filling its height (' + JSON.stringify(look) + ')');
   await page.goto(base + '/admin/settings#uiset-iprep', { waitUntil: 'networkidle' });
   await page.waitForSelector('section.card:has(h2:has-text("IP 情資清單")) tbody tr', { timeout: 8000 }).catch(() => {});
   ok((await page.locator('section.card:has(h2:has-text("IP 情資清單")) tbody tr').count()) === 8, 'settings: the IP reputation lists are listed');
@@ -320,6 +325,12 @@ async function audit(page, where) {
     ok(over <= 1, 'intel: the open threat fits the table at ' + w + 'px (no sideways scroll, ' + over + 'px over)');
   }
   await page.setViewportSize({ width: 1360, height: 950 });
+  // 0.5.5: the Debian security tracker's answer on a Debian package's threat, and the source in the list
+  await page.goto(base + '/intel', { waitUntil: 'networkidle' });
+  await page.locator('.datatable tbody tr', { hasText: 'CVE-2026-90002' }).first().click();
+  ok(await page.locator('tr.dt-expand .thd dd', { hasText: 'Debian 已在 1.22.1-9+deb12u2 修正' }).count() === 1,
+     'intel: the Debian security tracker says the installed package has the fix');
+  ok(await page.locator('.kvpanel dt', { hasText: 'Debian 安全追蹤' }).count() === 1, 'intel: the Debian security tracker among the sources');
   // system check: the background parts are all there
   await page.goto(base + '/admin/system', { waitUntil: 'networkidle' });
   const sysText = await page.locator('main').innerText();

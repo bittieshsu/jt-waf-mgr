@@ -1737,6 +1737,21 @@ class Workflow:
         return {p: hashes.get(p) for p in files}
 
     def _send(self, cid):
+        """Hand an approved change to the apply program -- once. The web service's worker and a person's approval in
+        another process (the CLI) can both see it approved at the same moment: whoever moves it from approved to
+        applying sends it; the other leaves it. (0.5.6: both sent one change in production; the second rendering, a second
+        later in its header, replaced the version's recorded hashes, and the files on disk then looked edited outside.)"""
+        if self.db.x("UPDATE changes SET state='applying', updated_at=? WHERE id=? AND state='approved'",
+                     (util.now(), cid)).rowcount != 1:
+            return
+        try:
+            self._send_claimed(cid)
+        except Exception:
+            # as before the claim: still approved, the worker tries again
+            self.db.x("UPDATE changes SET state='approved' WHERE id=? AND state='applying'", (cid,))
+            raise
+
+    def _send_claimed(self, cid):
         r = self.get(cid)
         if r['op'] == 'crs':
             return self._send_crs(cid, r)

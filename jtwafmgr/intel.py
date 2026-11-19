@@ -47,8 +47,10 @@ def unverified(t):
     facts could not confirm: it gets a warning to check, not the urgent path (a version match alone over-reports)."""
     if (t.get('version_check') or {}).get('result') == 'elsewhere':
         return True             # 0.4.98: NVD names other products only (the model's product is likely wrong)
-    if (t.get('distro_check') or {}).get('result') == 'unknown':
-        return True             # 0.4.99: a distribution's package whose change log is not found here (backports)
+    if (t.get('distro_check') or {}).get('result') == 'unknown' and \
+            (t.get('debian_check') or {}).get('result') not in ('update', 'open'):
+        return True             # 0.4.99: a distribution's package whose change log is not found here (backports);
+        #                         0.5.5: unless Debian's security tracker says this release is still affected
     return bool(t.get('preconditions')) and t.get('conditions_met') != 'yes'
 
 
@@ -1118,6 +1120,7 @@ def status(app):
             'confirmed_software': len(software.confirmed(db)),
             'kev': __import__('jtwafmgr.kev', fromlist=['status']).status(cfg),
             'nvd': {'enabled': bool(c.get('nvd'))},
+            'debian': {'enabled': bool(c.get('debian'))},
             'osv': {'enabled': bool(c.get('osv')), 'ecosystem': __import__('jtwafmgr.osv', fromlist=['ecosystem']).ecosystem()},
             'last_run': run_summary(last) if last else None}
 
@@ -1235,43 +1238,60 @@ def retire_by_version(app, log=print):
 
 
 DISTRO_NOTE = 'the installed %s package names %s in its change log: the distribution has backported the fix to %s'
+DEBIAN_NOTES = {   # 0.5.5: the Debian security tracker's answer
+    'fixed': 'the Debian security tracker: %(cve)s is fixed in %(source)s %(fixed_version)s for %(release)s; %(version)s is installed',
+    'not_affected': 'the Debian security tracker: %(source)s in %(release)s is not affected by %(cve)s',
+    'not_tracked': 'the Debian security tracker lists other packages only for %(cve)s, not %(source)s: it is not a flaw of this package',
+}
 
 
 def retire_by_distro(app, log=print):
     """0.4.99: open threats whose product is installed here as a distribution's package that names the CVE in its
     installed change log (a backported fix: 1.0.9-2+deb12u1 carries a fix upstream made in 1.0.10) are set aside
     ("ignored", by intel) and their open alerts handled. Returns the threat ids set aside."""
-    from . import distropkg
+    from . import distropkg, debtracker
     db = app.db
     done = []
+    lookup = debtracker.Lookup(app.cfg, log=log) if app.cfg['intel'].get('debian') else None
     for r in db.q("SELECT id, cve, product, affected, details FROM intel_threats WHERE status='open'"):
         try:
             t = json.loads(r['details'] or '{}')
         except ValueError:
             continue
         t.update(id=r['cve'], product=r['product'], affected=r['affected'])
-        before = t.get('distro_check')
+        before = (t.get('distro_check'), t.get('debian_check'))
         dc = distropkg.apply(t)
         if not dc:
             continue
-        if dc['result'] != 'fixed':
-            if dc != before:
+        ver = known_version(t.get('our_version'))
+        deb = None
+        if dc['result'] != 'fixed' and lookup is not None:
+            try:
+                deb = debtracker.apply(t, lookup)       # 0.5.5: Debian's security tracker for the rest
+            except Exception as e:      # noqa: BLE001 -- the threat stands as before
+                log('intel: Debian security tracker: %s' % type(e).__name__)
+        if dc['result'] != 'fixed' and (deb or {}).get('result') not in debtracker.NOT_AFFECTING:
+            if (dc, t.get('debian_check')) != before:
                 db.x('UPDATE intel_threats SET details=? WHERE id=?', (json.dumps(t, ensure_ascii=False), r['id']))
             continue
-        ver = known_version(t.get('our_version'))
-        note = DISTRO_NOTE % (dc['package'], r['cve'], ver)
+        if dc['result'] == 'fixed':
+            note, why = DISTRO_NOTE % (dc['package'], r['cve'], ver), 'distro_changelog'
+        else:
+            note, why = DEBIAN_NOTES[deb['result']] % dict(deb, cve=r['cve'], version=ver), 'debian_tracker'
         db.x("UPDATE intel_threats SET affected='no', details=?, status='ignored', status_by='intel', status_at=? WHERE id=?",
              (json.dumps(t, ensure_ascii=False), util.now(), r['id']))
         app.audit.log('intel.threat_status', 'intel', 'system', None, 'ok', threat_id=r['id'], status='ignored',
-                      reason='distro_changelog', package=dc['package'], cve=r['cve'])
+                      reason=why, package=dc['package'], cve=r['cve'])
         done.append(r['id'])
         for pre in ('intel', 'intel-check', 'intel-patch'):
             for a in db.q("SELECT id, kind FROM alerts WHERE state='open' AND dedup=?", ('%s:%s:%s' % (pre, r['cve'], r['product']),)):
                 if db.x("UPDATE alerts SET state='handled', handled_by='intel', handled_at=?, note=? WHERE id=? AND state='open'",
                         (util.now(), note, a['id'])).rowcount == 1:
                     app.audit.log('alert.handled', 'intel', 'system', None, 'ok', alert_id=a['id'], kind=a['kind'], note=note)
+    if lookup is not None:
+        lookup.save()
     if done:
-        log('intel: %d threats set aside: the distribution package carries the fix' % len(done))
+        log('intel: %d threats set aside: the distribution package carries the fix or is not affected' % len(done))
     return done
 
 
@@ -1379,13 +1399,19 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None):
             nvd.enrich(cfg, threats, log=log)
         except Exception as e:      # noqa: BLE001 -- the threats stand without the official scores
             log('nvd: failed: %s' % type(e).__name__)
-        from . import distropkg
+        from . import distropkg, debtracker
+        lookup = debtracker.Lookup(cfg, log=log) if c.get('debian') else None
         for t in threats:
             try:
-                # a distribution's package: its installed change log says whether the fix is in (0.4.99)
+                # a distribution's package: its installed change log says whether the fix is in (0.4.99), Debian's
+                # security tracker the rest (0.5.5)
                 distropkg.apply(t)
+                if lookup is not None:
+                    debtracker.apply(t, lookup)
             except Exception as e:      # noqa: BLE001 -- the threat stands as the model said
                 log('intel: distribution package check failed: %s' % type(e).__name__)
+        if lookup is not None:
+            lookup.save()
         note = util.clip(str(answer.get('notes') or ''), 1000) if isinstance(answer, dict) else ''
     except Exception as e:      # noqa: BLE001 -- recorded, notified; the next run starts afresh
         code = e.code if isinstance(e, IntelError) else 'internal_%s' % type(e).__name__
