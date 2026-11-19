@@ -421,7 +421,7 @@ def cmd_nginx(app, args):
     except ChangeError as e:
         raise CliError('%s %s' % (e.code, e.details or ''))
     if cid:
-        print('change #%d proposed; approve it (an administrator, a note of 10 characters or more, a fresh code):' % cid)
+        print('change #%d proposed; approve it (an administrator, a note of 4 characters or more, a fresh code):' % cid)
         print('  jt-waf-mgr changes approve %d --note "..." --totp CODE --as ADMIN' % cid)
         return 0
     # backup

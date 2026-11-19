@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.7 (2026-11-19)
+
+- Changes: approving with a one-time code (nginx updates and module switches, one's own loosening, a whole CRS category off, the event analysis's loosening) takes a note of 4 characters instead of 10; restoring the managed files after an outside edit too.
+- Change page: what the approve button still waits for (a longer note, the one-time code) stands in red right above it; a grey line under the form went unseen and the button just looked broken. An nginx change no longer offers the evidence-check override, which it has no use for.
+
 ## 0.5.6 (2026-11-19)
 
 - Changes: an approved change is handed to the apply program once. An approval made from the command line while the web service was running could send it twice; the second rendering (a second later in its header) replaced the version's recorded hashes, so the files just written looked edited outside jt-waf-mgr and the next apply would stop for it.

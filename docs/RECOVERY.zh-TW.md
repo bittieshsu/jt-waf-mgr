@@ -23,7 +23,7 @@ jt-waf-mgr changes approve <編號> --note "退回 nginx：站台出問題" --to
 jt-waf-mgr nginx backup -o /var/tmp/nginx-backup.tar.gz --totp <驗證碼> --as <管理者>
 ```
 
-退回和其他 nginx 變更一樣：管理者用一次性驗證碼與至少 10 個字的說明核准，root 程式不中斷服務地換回去，同樣經過健康檢查。
+退回和其他 nginx 變更一樣：管理者用一次性驗證碼與至少 4 個字的說明核准，root 程式不中斷服務地換回去，同樣經過健康檢查。
 
 ## 3. 手動退回 (jt-waf-mgr 也無法處理時)
 

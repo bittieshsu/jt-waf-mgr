@@ -64,7 +64,7 @@ class TestRollbackAndModule(Base):
         self.assertEqual((spec['mode'], spec['from_change'], spec['installed'], spec['target']), ('rollback', upd, NEW, OLD))
         self.wf._nginx_checks(cid, r)
         self.assertEqual(self.wf.get(cid)['state'], 'pending_approval')
-        self.assertEqual(self.wf.approval_needs(self.wf.get(cid), 'boss'), {'totp': True, 'note_min': 10})
+        self.assertEqual(self.wf.approval_needs(self.wf.get(cid), 'boss'), {'totp': True, 'note_min': 4})
         # the request carries only the change to undo: root finds the files itself
         self.wf._send_nginx(cid, self.wf.get(cid))
         with open(os.path.join(self.env.cfg['managed']['spool'], 'nginx-c%d.req' % cid)) as fh:

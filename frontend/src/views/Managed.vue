@@ -19,7 +19,7 @@
         <div v-if="canRestore && m.current_version" class="driftfix">
           <label class="field"><span>{{ t('managed.restore_note') }}</span>
             <input v-model="restoreNote" maxlength="500" :placeholder="t('managed.restore_note_ph')" /></label>
-          <button type="button" class="btn small danger" :disabled="restoring || restoreNote.trim().length < 10" @click="restore">
+          <button type="button" class="btn small danger" :disabled="restoring || restoreNote.trim().length < 4" @click="restore">
             <Icon name="rollback" />{{ t('managed.restore_files', { v: m.current_version }) }}</button>
         </div>
       </div>

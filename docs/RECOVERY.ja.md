@@ -23,7 +23,7 @@ jt-waf-mgr changes approve <ID> --note "nginx を戻す：サイトが壊れた"
 jt-waf-mgr nginx backup -o /var/tmp/nginx-backup.tar.gz --totp <コード> --as <管理者>
 ```
 
-戻しは他の nginx 変更と同じく、管理者がワンタイムコードと 10 文字以上の説明で承認し、root プログラムがサービスを止めずに戻します (ヘルスチェックも同じ)。
+戻しは他の nginx 変更と同じく、管理者がワンタイムコードと 4 文字以上の説明で承認し、root プログラムがサービスを止めずに戻します (ヘルスチェックも同じ)。
 
 ## 3. 手動で戻す (jt-waf-mgr でも戻せないとき)
 

@@ -51,12 +51,14 @@
           <label v-if="needsOtp" class="field"><span>{{ t('change.totp') }}</span>
             <input v-model.trim="totp" inputmode="numeric" autocomplete="one-time-code" maxlength="7" class="mono" placeholder="123456"></label>
         </div>
-        <label v-if="canRecheck" class="field"><span>{{ t('change.override') }}</span>
+        <label v-if="canRecheck && c.op !== 'nginx'" class="field"><span>{{ t('change.override') }}</span>
           <textarea v-model="override" rows="2" maxlength="2000" :placeholder="t('change.override_ph')"></textarea></label>
-        <p v-if="noteShort" class="muted small">{{ t('change.note_min', { n: c.approval_needs.note_min, have: note.trim().length }) }}</p>
+        <!-- what the approve button still waits for, in red next to it (0.5.7: a grey line went unseen) -->
+        <p v-if="noteShort" class="needs-more"><Icon name="warning" />{{ t('change.note_min', { n: c.approval_needs.note_min, have: note.trim().length }) }}</p>
+        <p v-else-if="otpMissing" class="needs-more"><Icon name="warning" />{{ t('change.otp_missing') }}</p>
         <ErrorBox :error="actionError" />
         <div class="actions">
-          <button v-if="canApprove" type="button" class="btn primary" :disabled="busy || noteShort || (needsOtp && !/^\d{6}$/.test(totp))" @click="act('approve', { note, totp })"><Icon name="approve" />{{ t('change.approve') }}</button>
+          <button v-if="canApprove" type="button" class="btn primary" :disabled="busy || noteShort || otpMissing" @click="act('approve', { note, totp })"><Icon name="approve" />{{ t('change.approve') }}</button>
           <button v-if="canReject" type="button" class="btn danger" :disabled="busy || !note.trim()" :title="t('change.note_required')" @click="act('reject', { note })"><Icon name="reject" />{{ t('change.reject') }}</button>
           <button v-if="canRecheck" type="button" class="btn" :disabled="busy" @click="act('recheck', { evidence_override: override })"><Icon name="refresh" />{{ t('change.recheck') }}</button>
           <button v-if="canCancel" type="button" class="btn ghost" :disabled="busy" @click="act('cancel', {})"><Icon name="cancel" />{{ t('change.cancel') }}</button>
@@ -162,6 +164,7 @@ const strict = computed(() => !!c.value && !!(c.value.spec && c.value.spec.stric
 // otherwise spend the code; the server checks the reason first as well)
 const noteShort = computed(() => !!(c.value && c.value.approval_needs) && canApprove.value &&
   note.value.trim().length < (c.value.approval_needs.note_min || 0))
+const otpMissing = computed(() => needsOtp.value && !/^\d{6}$/.test(totp.value))
 const needsOtp = computed(() => canApprove.value && !!c.value && !!(c.value.approval_needs && c.value.approval_needs.totp))
 const canApprove = computed(() => c.value && c.value.state === 'pending_approval' && hasRole('approver') &&
   (c.value.op !== 'adopt' || hasRole('admin')) && (!(c.value.spec && c.value.spec.strict) || c.value.direction === 'tighten' || hasRole('admin')))

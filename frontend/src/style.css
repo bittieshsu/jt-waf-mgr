@@ -513,6 +513,7 @@ table.grid tbody tr.dt-expand:hover td { background: var(--panel-2); }
 .control.st-met > .cardhead:first-child, .control.st-met > h2:first-child { box-shadow: inset 4px 0 0 var(--ok); }
 .control.st-organisational > .cardhead:first-child, .control.st-organisational > h2:first-child { box-shadow: inset 4px 0 0 var(--border-strong); }
 .refs { margin: 4px 0 8px; }
+.needs-more { color: var(--blocked); font-size: 13.5px; font-weight: 500; margin: 6px 0; display: flex; align-items: center; gap: 6px; }
 .needs { background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; margin: 6px 0 8px; }
 .chgpaths { display: flex; flex-direction: column; gap: 6px; }
 .seg .count { opacity: .8; font-size: 12px; margin-left: 3px; }

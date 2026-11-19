@@ -27,6 +27,8 @@ from . import reasons, rulegen, util
 from . import managed
 from .managed import Managed, sha256
 
+# the written reason an approval with a one-time code takes (0.5.7: 10 was too many to type)
+NOTE_MIN = 4
 FINAL = ('applied', 'rejected', 'cancelled', 'failed', 'apply_failed', 'rolled_back')
 OPS = ('add', 'modify', 'disable', 'enable', 'delete')
 DEFAULT_SETTINGS = {
@@ -1615,7 +1617,7 @@ class Workflow:
         """What approving this change takes from this person besides the button: {'totp': bool, 'note_min': n}. The
         change page shows the one-time code field from this (0.4.100: it once missed the nginx update's)."""
         return {'totp': self._step_up_purpose(r, username) is not None,
-                'note_min': 10 if self._step_up_purpose(r, username) else 0}
+                'note_min': NOTE_MIN if self._step_up_purpose(r, username) else 0}
 
     def _step_up_purpose(self, r, username):
         """The one fresh one-time code (and written reason) approving this change takes, or None: nginx itself, one's
@@ -1654,7 +1656,7 @@ class Workflow:
         if purpose:
             # a written reason and a fresh one-time code (once, whatever the reasons for asking). The reason is checked
             # first: a code is used only once, and a refusal for a short note must not spend it (0.5.0)
-            if len((note or '').strip()) < 10:
+            if len((note or '').strip()) < NOTE_MIN:
                 raise ChangeError('note_required')
             from .auth import AuthError
             try:

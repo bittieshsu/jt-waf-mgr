@@ -539,7 +539,7 @@ class TestWorkflow(unittest.TestCase):
             self.wf.approve(cid, self.user('boss'), '000000', 'a long enough note')
         self.assertEqual(cm.exception.code, 'totp_required')
         with self.assertRaises(ChangeError) as cm:
-            self.wf.approve(cid, self.user('boss'), auth.totp_code(self.secret, int(time.time() // 30)), 'short')
+            self.wf.approve(cid, self.user('boss'), auth.totp_code(self.secret, int(time.time() // 30)), 'abc')
         self.assertEqual(cm.exception.code, 'note_required')
 
     def test_raw_admin_only_and_api_cannot_approve(self):

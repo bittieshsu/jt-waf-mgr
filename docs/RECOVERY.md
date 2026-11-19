@@ -32,7 +32,7 @@ jt-waf-mgr nginx backup -o /var/tmp/nginx-backup.tar.gz --totp <code> --as <admi
 ```
 
 A rollback is a change like any other nginx change: an administrator approves it with a one-time code and a note of at
-least 10 characters, and the root program moves nginx back without stopping it, with the same health checks.
+least 4 characters, and the root program moves nginx back without stopping it, with the same health checks.
 
 ## 3. Rolling back by hand (when jt-waf-mgr cannot)
 

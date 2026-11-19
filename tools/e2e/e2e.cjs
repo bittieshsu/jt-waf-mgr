@@ -148,6 +148,15 @@ async function audit(page, where) {
   ok(await page.locator('.card.form input[autocomplete="one-time-code"]').count() === 1, 'nginx update approval asks for a one-time code');
   await rawKeys(page, 'nginx change');
   ok(await page.locator('button:has-text("核准並套用"):disabled').count() === 1, 'approve waits for the note and the code');
+  // 0.5.7: what the button waits for is said in red next to it, a 4-character note is enough, and an nginx change
+  // does not offer the evidence override (it has no evidence check)
+  ok(await page.locator('.card.form .needs-more').count() === 1, 'approve says what it still waits for');
+  ok(await page.locator('.card.form textarea').count() === 0, 'nginx change has no evidence override field');
+  await page.locator('.card.form input[maxlength="2000"]').fill('確認更新');
+  ok(/驗證碼/.test(await page.locator('.card.form .needs-more').innerText()), 'after a 4-character note only the code is missing');
+  await page.locator('.card.form input[autocomplete="one-time-code"]').fill('123456');
+  ok(await page.locator('.card.form .needs-more').count() === 0 && await page.locator('button:has-text("核准並套用"):enabled').count() === 1,
+    'a 4-character note and a code enable approve');
   ok(await page.locator('.nginxsafety').count() === 1, 'nginx change page shows what happens if it goes wrong (0.5.1)');
   await page.goto(base + '/changes/' + fs.readFileSync(R + '/proto-change', 'utf8').trim(), { waitUntil: 'networkidle' });
   ok(await page.locator('pre.rt .rl.del').count() === 1 && await page.locator('pre.rt .rl.add').count() === 1, 'change preview: removed line red, added line green');

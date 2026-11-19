@@ -16,7 +16,7 @@ class TestApprovalNeeds(unittest.TestCase):
         return Workflow.approval_needs(Workflow.__new__(Workflow), r, user)
 
     def test_cases(self):
-        self.assertEqual(self.needs(row(op='nginx', direction='neutral', by='cli:jason')), {'totp': True, 'note_min': 10})
+        self.assertEqual(self.needs(row(op='nginx', direction='neutral', by='cli:jason')), {'totp': True, 'note_min': 4})
         self.assertTrue(self.needs(row(op='nginx', direction='neutral', by='bob'))['totp'])       # own: one code covers both
         self.assertEqual(self.needs(row()), {'totp': False, 'note_min': 0})                      # someone else's tightening
         self.assertFalse(self.needs(row(direction='loosen'))['totp'])                            # someone else's loosening
