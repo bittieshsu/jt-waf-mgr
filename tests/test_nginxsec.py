@@ -76,6 +76,19 @@ class TestAdvisories(unittest.TestCase):
         a = nginxsec.assess(self.env.cfg, '1.30.6-1~bookworm', None, advs)
         self.assertFalse(a['major_in_use'])
 
+    def test_a_distribution_package_with_the_fix_in_its_change_log(self):
+        advs = nginxsec.parse(PAGE)
+        fixed = {'CVE-2099-0002'}
+        a = nginxsec.assess(self.env.cfg, '1.28.3-2ubuntu1.12', None, advs,
+                            distro=lambda cve: 'fixed' if cve in fixed else 'not_listed')
+        by = {i['cves'][0]: i for i in a['issues']}
+        self.assertTrue(by['CVE-2099-0002']['backported'])
+        self.assertFalse(by['CVE-2099-0002']['in_use'])             # HTTP/2 is used, but the fix is in
+        self.assertFalse(by['CVE-2099-0001']['backported'])
+        # nginx.org's own package is the release itself: its version decides, nothing is read
+        a = nginxsec.assess(self.env.cfg, '1.30.6-1~bookworm', None, advs, distro=lambda cve: self.fail('read'))
+        self.assertFalse(any(i['backported'] for i in a['issues']))
+
     def _app(self):
         from jtwafmgr.app import App
         return App(self.env.cfg, start_collector=False)

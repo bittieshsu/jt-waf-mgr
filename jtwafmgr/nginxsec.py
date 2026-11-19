@@ -224,13 +224,17 @@ def load(cfg):
         return []
 
 
-def assess(cfg, installed, candidate=None, advs=None, feats=None):
+def assess(cfg, installed, candidate=None, advs=None, feats=None, distro=None):
     """The advisories the installed nginx is vulnerable to: {'version', 'exact', 'issues': [...], 'fixed_by_candidate',
-    'major_in_use'}; each issue {'title', 'severity', 'cves', 'feature', 'in_use', 'fixed_in', 'advisory'}."""
+    'major_in_use'}; each issue {'title', 'severity', 'cves', 'feature', 'in_use', 'backported', 'fixed_in', 'advisory'}.
+    distro(cve): a distribution package's own word on a CVE ('fixed' ...; default: its installed change log)."""
     advs = load(cfg) if advs is None else advs
     ver, exact = upstream(installed)
     cand, _ = upstream(candidate)
     feats = features(cfg) if feats is None else feats
+    if distro is None and not exact:
+        from . import distropkg
+        distro = lambda cve: (distropkg.check('nginx', installed, cve) or {}).get('result')   # noqa: E731
     issues = []
     for a in advs:
         if not ver or is_vulnerable(ver, a) is not True:
@@ -238,12 +242,17 @@ def assess(cfg, installed, candidate=None, advs=None, feats=None):
         if (a.get('severity') or '').strip().lower() == 'none':
             continue            # 0.4.99: nginx.org's "Severity: none" (CVE-2009-4487, every version): no flaw to fix
         f = feature_of(a)
-        issues.append({'title': a['title'], 'severity': a.get('severity') or '', 'cves': a.get('cves') or [],
-                       'feature': f, 'in_use': True if f is None else bool(feats.get(f)),
+        cves = a.get('cves') or []
+        # 0.5.12: a distribution's nginx (Ubuntu's 1.28.3-2ubuntu1.12) whose installed change log lists the fix for
+        # every CVE of the advisory: fixed here, whatever the upstream version says
+        back = not exact and bool(cves) and distro is not None and all(distro(c) == 'fixed' for c in cves)
+        issues.append({'title': a['title'], 'severity': a.get('severity') or '', 'cves': cves,
+                       'feature': f, 'in_use': not back and (True if f is None else bool(feats.get(f))), 'backported': back,
                        'fixed_in': [n for n in a.get('not_vulnerable') or []][:4], 'advisory': a.get('advisory') or '',
                        'candidate_fixes': bool(cand) and is_vulnerable(cand, a) is False})
+    open_ = [i for i in issues if not i['backported']]
     return {'version': ver, 'exact': exact, 'issues': issues,
-            'fixed_by_candidate': bool(issues) and all(i['candidate_fixes'] for i in issues),
+            'fixed_by_candidate': bool(open_) and all(i['candidate_fixes'] for i in open_),
             'major_in_use': any(i['severity'] in ('major', 'high', 'critical') and i['in_use'] for i in issues)}
 
 
@@ -275,7 +284,8 @@ def raise_alerts(app, st, log=print, feats=None):
                         'msg': 'nginx_security', 'installed': a['version'], 'exact': a['exact'],
                         'candidate': st.get('candidate'), 'ready': st.get('state') == 'ready', 'cves': cves[:20],
                         'issues': [{k: i[k] for k in ('title', 'severity', 'feature', 'cves')} for i in used][:20],
-                        'not_in_use': [i['title'] for i in a['issues'] if not i['in_use']][:20]},
+                        'not_in_use': [i['title'] for i in a['issues'] if not i['in_use'] and not i['backported']][:20],
+                        'backported': [c for i in a['issues'] if i['backported'] for c in i['cves']][:20]},
                        link='/nginx-update')
     log('nginxsec: nginx %s: %d advisories in use (%s)' % (a['version'], len(used), ', '.join(cves)[:200]))
     return a

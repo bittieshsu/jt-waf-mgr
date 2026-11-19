@@ -226,6 +226,13 @@ class _Rx:
         return self.c.search(b if self.bytes else b.decode('latin-1'))
 
 
+def log_site(path):
+    """The site a log file is named after (cloud.example.com.access.log.3.gz), or '(default)' for nginx's shared
+    access.log and its rotations (access.log.38.gz was once taken for a site's name)."""
+    m = re.match(r'(.+?)\.(?:access|combined)\.log(?:\.\d+)?(?:\.gz)?$', path.rsplit('/', 1)[-1])
+    return m.group(1).lower() if m else '(default)'
+
+
 class AccessLogs:
     def __init__(self, cfg):
         self.cfg = cfg
@@ -245,7 +252,7 @@ class AccessLogs:
         """Yields dicts: host, method, uri, status, ip, ua, esc (values carry nginx's default \\xHH
         escaping). Stops at the deadline."""
         for f in self.files():
-            host_from_name = re.sub(r'\.(?:access|combined)\.log.*$', '', f.rsplit('/', 1)[-1])
+            host_from_name = log_site(f)
             opener = gzip.open if f.endswith('.gz') else open
             try:
                 fh = opener(f, 'rt', encoding='utf-8', errors='replace')
@@ -271,7 +278,7 @@ class AccessLogs:
                         m = COMBINED.match(line)
                         if m:
                             t = line.find('[')
-                            yield {'host': host_from_name if host_from_name not in ('access', 'access.log') else '(default)',
+                            yield {'host': host_from_name,
                                    'method': m.group(2), 'uri': m.group(3), 'status': m.group(4), 'ip': m.group(1),
                                    'ua': m.group(5), 'esc': True, 'time': line[t + 1:t + 27] if t > 0 else ''}
 

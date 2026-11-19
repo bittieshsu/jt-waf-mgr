@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.12 (2026-11-20)
+
+- nginx update page and alerts: a distribution's nginx (Ubuntu, Debian) counts an nginx.org advisory as fixed when the package's installed change log lists the fix for its CVEs, shown as "Fixed by the distribution". Ubuntu 26.04's nginx 1.28.3-2ubuntu1.12 was reported vulnerable to 16 advisories in use; its change log lists the fix for 15 of them.
+- Evidence check: lines of nginx's shared access.log and its rotations (access.log.38.gz) belong to the default site; the file's name was listed as a site.
+
 ## 0.5.11 (2026-11-20)
 
 - Threat intelligence asks for one virtual patch per vulnerability, for every site of every application it reaches. A PHP flaw on three applications was asked about three times (two minutes each), and the answers differed: a patch for one application, "not possible" for the other two. Flaws left so are asked about once more, together.

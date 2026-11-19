@@ -91,7 +91,7 @@
             <template v-if="!sec.exact"> {{ t('ngup.sec.distro') }}</template></p>
           <ul class="plainlist secissues">
             <li v-for="(i, n) in secSorted" :key="n">
-              <span><span class="badge" :class="i.in_use ? (['major', 'high', 'critical'].includes(i.severity) ? 'b-blocked' : 'b-warn') : 'b-logged'">{{ i.in_use ? t('ngup.sec.in_use') : t('ngup.sec.unused') }}</span></span>
+              <span><span class="badge" :class="i.in_use ? (['major', 'high', 'critical'].includes(i.severity) ? 'b-blocked' : 'b-warn') : i.backported ? 'b-ok' : 'b-logged'">{{ i.in_use ? t('ngup.sec.in_use') : i.backported ? t('ngup.sec.backported') : t('ngup.sec.unused') }}</span></span>
               <span class="si-title">{{ safeText(i.title, 200) }}</span>
               <span class="muted small">{{ i.severity ? safeText(i.severity, 20) : '' }}</span>
               <span class="mono small">{{ (i.cves || []).map((x) => safeText(x, 30)).join(', ') }}</span>
@@ -173,7 +173,7 @@ async function protoSwitch(feature, mode) {
 const secUsed = computed(() => (sec.value ? sec.value.issues.filter((i) => i.in_use) : []))
 // the ones in use first, then by severity
 const SEV = { critical: 0, high: 1, major: 1, medium: 2, minor: 3, low: 3 }
-const secSorted = computed(() => (sec.value ? sec.value.issues.slice().sort((a, b) => (b.in_use - a.in_use) || ((SEV[a.severity] ?? 4) - (SEV[b.severity] ?? 4))) : []))
+const secSorted = computed(() => (sec.value ? sec.value.issues.slice().sort((a, b) => (b.in_use - a.in_use) || (!!a.backported - !!b.backported) || ((SEV[a.severity] ?? 4) - (SEV[b.severity] ?? 4))) : []))
 async function propose() {
   busy.value = true
   opError.value = null
