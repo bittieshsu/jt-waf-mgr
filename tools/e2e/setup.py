@@ -60,6 +60,9 @@ app.monitor.check_chain(); app.monitor.backup()
 from jtwafmgr import alerts, uisettings
 # the war room's destination (a synthetic location): the maps draw arcs and tracers to it
 uisettings.set_many(app, {'warroom.dest_label': 'EDGE', 'warroom.dest_lat': '25.03', 'warroom.dest_lon': '121.56'}, 'admin')
+# the threat intelligence set up (an address nothing answers on: no search runs here), so pages can be handed in
+uisettings.set_many(app, {'intel.enabled': True, 'intel.url': 'http://127.0.0.1:9/v1', 'intel.model': 'example-model',
+                          'intel.mcp_url': 'http://127.0.0.1:9/mcp'}, 'admin')
 uisettings.set_many(app, {'notify.enabled': True, 'notify.base_url': 'https://waf.example.com', 'notify.webhook_enabled': True,
                           'notify.webhook_url': 'https://hooks.example.com/waf', 'notify.webhook_secret': 'e2e-signing-secret-0123456789',
                           'llm.enabled': True, 'llm.url': 'http://192.0.2.10:8080/v1', 'llm.model': 'example-model',

@@ -343,6 +343,16 @@ async function audit(page, where) {
   ok(await page.locator('tr.dt-expand .thd dd', { hasText: 'Debian 已在 1.22.1-9+deb12u2 修正' }).count() === 1,
      'intel: the Debian security tracker says the installed package has the fix');
   ok(await page.locator('.kvpanel dt', { hasText: 'Debian 安全追蹤' }).count() === 1, 'intel: the Debian security tracker among the sources');
+  // 0.5.10: hand a page to the threat intelligence -- it waits in the list, without the tracking parameter
+  const subCard = page.locator('section.card', { hasText: '交給威脅情報分析' });
+  const subBtn = subCard.locator('button', { hasText: '分析' });
+  ok(await subBtn.isDisabled(), 'intel: analyze waits for an address or a text');
+  await subCard.locator('input[inputmode="url"]').fill('https://news.example.com/php-advisory?fbclid=abc&id=7');
+  await subBtn.click();
+  await subCard.locator('tbody tr').first().waitFor({ timeout: 5000 }).catch(() => {});
+  const subRow = await subCard.locator('tbody tr').first().innerText().catch(() => '');
+  ok(/news\.example\.com\/php-advisory\?id=7/.test(subRow) && /等待中/.test(subRow) && !/fbclid/.test(subRow),
+     'intel: a page handed in waits, without its tracking parameter');
   // system check: the background parts are all there
   await page.goto(base + '/admin/system', { waitUntil: 'networkidle' });
   const sysText = await page.locator('main').innerText();

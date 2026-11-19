@@ -1440,7 +1440,26 @@ def dns_check(app, req):
 def intel_status(app, req):
     from .. import intel, software
     return json_response(200, {'status': intel.status(app), 'threats': intel.threats(app.db), 'runs': intel.runs(app.db, 30),
-                               'software': software.listing(app.db)})
+                               'software': software.listing(app.db), 'submissions': intel.submissions(app.db)})
+
+
+def intel_submit(app, req):
+    """A page (https address) or a text for the threat intelligence to read and judge now (0.5.10); audited by
+    intel.submit (who, the address, the text's length)."""
+    from .. import intel
+    b = req.body()
+    if not isinstance(b.get('url', ''), str) or not isinstance(b.get('text', ''), str):
+        raise ApiError(422, 'invalid_request')
+    why = intel.readiness(app.cfg)
+    if why:
+        raise ApiError(409, 'not_ready', why)
+    try:
+        sid = intel.submit(app, req.user['username'], url=b.get('url') or '', text=b.get('text') or '', src_ip=req.client_ip)
+    except intel.IntelError as e:
+        raise ApiError(409 if e.code == 'too_many_waiting' else 422, e.code)
+    except OSError as e:
+        raise ApiError(500, 'request_failed', 'could not queue the search', error=e.strerror)
+    return json_response(202, {'id': sid, 'submissions': intel.submissions(app.db)})
 
 
 def intel_run(app, req):
@@ -1843,6 +1862,7 @@ def register(router):
     R('POST', V + '/events/{id}/analysis', event_analyze, ('role', 'operator', None))
     R('GET', V + '/intel', intel_status, viewer('events:read'))
     R('POST', V + '/intel/run', intel_run, ('role', 'approver', None))
+    R('POST', V + '/intel/submissions', intel_submit, ('role', 'approver', None))
     R('POST', V + '/intel/threats/{id}', intel_threat, ('role', 'approver', None))
     R('POST', V + '/intel/software', software_add, ('role', 'approver', None))
     R('POST', V + '/intel/software/guess', software_guess, ('role', 'approver', None))

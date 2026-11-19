@@ -463,6 +463,22 @@ SCHEMA = [
     """,
     # 17: a failed event analysis keeps what happened on each try (status, server, the start of the answer)
     lambda c: _add_column(c, 'analyst_runs', 'error_log', "TEXT NOT NULL DEFAULT '[]'"),
+    # 18: a page or a text a person hands to the threat intelligence ("analyze this"): read and judged by the next run
+    """
+    CREATE TABLE IF NOT EXISTS intel_submissions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at REAL NOT NULL,
+        created_by TEXT NOT NULL,
+        url TEXT NOT NULL DEFAULT '',
+        text TEXT NOT NULL DEFAULT '',
+        state TEXT NOT NULL DEFAULT 'pending',
+        run_id INTEGER,
+        result TEXT NOT NULL DEFAULT '{}',
+        error TEXT NOT NULL DEFAULT '',
+        done_at REAL
+    );
+    CREATE INDEX IF NOT EXISTS intel_submissions_state ON intel_submissions(state);
+    """,
 ]
 
 

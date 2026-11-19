@@ -36,8 +36,9 @@ DEFAULT_SETTINGS = {
     'apply.auto_tighten': False,                # tightening that passed every check applies without approval
     'apply.auto_tighten_daily_limit': 10,
     'apply.auto_tighten_analyst': False,        # the event analysis' confident blocks too (same conditions)
-    'apply.auto_tighten_intel': True,           # threat intelligence's virtual patches (URL / header ones; same conditions;
-                                                # one for a vulnerability exploited in the wild and affecting us skips the daily limit)
+    'apply.auto_tighten_intel': True,           # threat intelligence's virtual patches (external only, the sandbox passed; the
+                                                # access logs' evidence clean where they can show it -- a body parameter's name
+                                                # cannot be: the sandbox alone, 0.5.10; exploited and affecting us: no daily limit)
     'sandbox.required': True,
     'health.urls': [],                          # ["https://app.example.com/", ...] checked before/after apply
     'apply.wait_old_workers_seconds': 120,
@@ -1551,17 +1552,17 @@ class Workflow:
         if r['op'] != 'add' or r['kind'] != 'confident_block':
             return
         spec = json.loads(r['spec'])
-        body = spec.get('target') in rulegen.BODY_TARGETS
-        if spec.get('target') not in ('path', 'uri', 'ua', 'host', 'header') and not (body and urgent):
+        if spec.get('target') not in rulegen.BLOCK_TARGETS:
             return
         if (spec.get('source') or 'external') != 'external':     # blocking internal sources always needs a person
             return
         ev = json.loads(r['checks']).get('evidence', {})
-        # a parameter name (0.5.8) cannot be looked for in the access logs (no bodies there): only a virtual patch for
-        # a vulnerability exploited in the wild that affects us goes without a person, on the sandbox's word alone
-        # (2026-11-14: exploited and unpatched -> block at once, body rules too; the checks must still pass)
-        if not (body and urgent and ev.get('ok') and ev.get('skipped')) and (
-                not ev.get('ok') or ev.get('external_success', 1) or ev.get('internal_other', 1)):
+        # what the access logs cannot show (a parameter's name in the body, a header other than User-Agent / Host): a
+        # threat intelligence virtual patch goes on the sandbox's word (its attack refused, the regression samples
+        # through). 2026-11-20 the user: "fully automatic, no administrator approval" for these; 0.5.8 allowed it
+        # only for a vulnerability exploited in the wild that affects us.
+        unseen = ev.get('ok') and ev.get('skipped') and by == 'intel'
+        if not unseen and (not ev.get('ok') or ev.get('external_success', 1) or ev.get('internal_other', 1)):
             return
         day = datetime.date.today().isoformat()
         n = self.db.one("SELECT COUNT(*) FROM change_log WHERE action='auto_approved' AND date(ts, 'unixepoch', 'localtime')=?",

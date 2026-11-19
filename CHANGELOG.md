@@ -2,6 +2,13 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.10 (2026-11-20)
+
+- upgrade.sh: the upgrade backups are ordered by the time in their name. A plain sort put upgrade-0.5.9-to-0.5.10-... before the older backups, so `--rollback` without a directory would have taken an old one and the clean-up would have removed the newest.
+- Threat intelligence: hand it a page or a text (Threat intelligence, "Hand it to the threat intelligence"; API `POST /intel/submissions`). A news article, a vendor advisory, a post: its https address (tracking parameters such as fbclid dropped; read from that one site, public addresses only) or its pasted text. The job reads it within minutes, without the whole search, and handles what concerns the software here like its own findings: threats, virtual patches, alerts. Pages that show nothing to a program (social sites behind a login) are reported as unreadable: paste their text.
+- Threat intelligence asks about each source on its own: each search result worth it (languages and frameworks first, then those naming critical or exploited flaws; 12 at most) and each page handed in gets its own short question. A small local model reading 25 search results at once once reported nothing at all. A flaw reported under a language (PHP) reaches each application here built on it.
+- Fully automatic virtual patches: a threat intelligence virtual patch the access logs cannot check (a parameter name in the body, a header other than User-Agent and Host) is applied without a person once the sandbox passes, like the URL ones (the user: "fully automatic, no administrator approval"). Still only tightening, only from outside, within the daily limit unless the vulnerability is exploited and affects us; the event analysis' blocks keep needing clean evidence.
+
 ## 0.5.9 (2026-11-19)
 
 - Threat intelligence: a search service that answers without a single web page (an encyclopedia summary, "no results") is noticed: when most of the program's own searches come back so, an alert says the search service is not searching. On 2026-11-19 every search came back empty and the run silently looked only at the pages it may read directly.

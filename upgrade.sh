@@ -65,6 +65,9 @@ as_svc() {
 }
 version_of() { sed -n "s/^__version__ = '\([0-9A-Za-z.+-]*\)'.*/\1/p" "$1/jtwafmgr/__init__.py" 2>/dev/null | head -1; }
 vnum() { echo "$1" | awk -F. '{ printf "%05d%05d%05d", $1, $2, $3 }'; }
+# the upgrade backups, oldest first, by the time at the end of their name (a plain sort put upgrade-0.5.9-to-0.5.10-...
+# before upgrade-0.5.8-to-0.5.9-...: the newest backup was taken for the oldest)
+backups_by_time() { ls -1d "$BACKUPS"/upgrade-* 2>/dev/null | awk -F- '{ print $(NF-1) $NF "\t" $0 }' | sort | cut -f2-; }
 conf_get() {  # <python expression on cfg>, evaluated by the INSTALLED code
     PYTHONPATH="$LIB" python3 -I -B -c "
 import sys; sys.path.insert(0, '$LIB')
@@ -180,7 +183,7 @@ record() {  # one line per upgrade / rollback, next to the backups
 
 # --- rollback on request ------------------------------------------------------------------
 if [ "$MODE" = rollback ]; then
-    [ -n "$RB_DIR" ] || RB_DIR=$(ls -1d "$BACKUPS"/upgrade-* 2>/dev/null | sort | tail -1)
+    [ -n "$RB_DIR" ] || RB_DIR=$(backups_by_time | tail -1)
     [ -n "$RB_DIR" ] && [ -d "$RB_DIR" ] || die "no upgrade backup found in $BACKUPS"
     OLD=$(cat "$RB_DIR/version.old"); CUR=$(version_of "$LIB")
     LISTEN=$(conf_get "cfg['server']['listen']")
@@ -313,7 +316,7 @@ trap - EXIT INT TERM
 record upgrade "$OLD" "$NEW" ok "$B"
 
 # keep the newest backups only
-ls -1d "$BACKUPS"/upgrade-* 2>/dev/null | sort | head -n "-$KEEP" | while read -r d; do rm -rf "$d"; done
+backups_by_time | head -n "-$KEEP" | while read -r d; do rm -rf "$d"; done
 say ""
 say "upgraded $OLD -> $NEW. Backup: $B"
 say "undo with: sudo ./upgrade.sh --rollback $B   (the database returns to the moment of the backup)"

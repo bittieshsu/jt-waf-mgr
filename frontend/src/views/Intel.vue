@@ -51,6 +51,29 @@
         </div>
       </section>
 
+      <!-- a page or a text handed in for the threat intelligence to read and judge now (0.5.10) -->
+      <section class="card form">
+        <h2><Icon name="send" /> {{ t('intel.sub_title') }}</h2>
+        <p class="muted small">{{ t('intel.sub_hint') }}</p>
+        <template v-if="isApprover">
+          <label class="field"><span>{{ t('intel.sub_url') }}</span>
+            <input v-model.trim="subUrl" maxlength="2000" inputmode="url" placeholder="https://"></label>
+          <label class="field"><span>{{ t('intel.sub_text') }}</span>
+            <textarea v-model="subText" rows="3" maxlength="20000" :placeholder="t('intel.sub_text_ph')"></textarea></label>
+          <div class="actions">
+            <button type="button" class="btn primary" :disabled="busy || !st.ready || (!subUrl && !subText.trim())" @click="submitSource"><Icon name="send" />{{ t('intel.sub_go') }}</button>
+          </div>
+        </template>
+        <DataTable v-if="(data.submissions || []).length" id="intel-submissions" :columns="subCols" :rows="data.submissions" row-key="id" :page-size="10" :default-sort="null">
+          <template #cell-created_at="{ row }"><span class="nowrap">{{ fmtMinute(row.created_at) }}</span></template>
+          <template #cell-what="{ row }"><span v-if="row.url" class="mono small breakall">{{ safeText(row.url, 300) }}</span><span v-else class="small">{{ safeText(row.text, 200) }}</span></template>
+          <template #cell-state="{ row }"><span class="badge" :class="subBadge(row.state)">{{ t('intel.sub_state.' + row.state) }}</span>
+            <div v-if="row.error" class="small warn">{{ safeText(row.error, 300) }}</div></template>
+          <template #cell-result="{ row }"><span class="small">{{ subResult(row) }}</span>
+            <div v-for="x in (row.result.threats || []).slice(0, 6)" :key="x" class="mono small">{{ x }}</div></template>
+        </DataTable>
+      </section>
+
       <!-- what was found -->
       <section class="card">
         <div class="cardhead">
@@ -329,6 +352,29 @@ async function act(fn) {
   try { await fn() } catch (e) { error.value = e } finally { busy.value = false }
 }
 const runNow = () => act(async () => { data.value.status = await post('/intel/run', {}) })
+// a page or a text for the threat intelligence (0.5.10): read and judged by its own service within minutes
+const subUrl = ref('')
+const subText = ref('')
+const subCols = computed(() => [
+  { key: 'created_at', label: t('intel.sub_col.time'), required: true },
+  { key: 'created_by', label: t('intel.sub_col.by') },
+  { key: 'what', label: t('intel.sub_col.what'), class: 'c-fill', value: (r) => r.url || r.text },
+  { key: 'state', label: t('intel.sub_col.state'), value: (r) => t('intel.sub_state.' + r.state) },
+  { key: 'result', label: t('intel.sub_col.result'), value: (r) => subResult(r) },
+])
+function subBadge(s) { return s === 'done' ? 'b-ok' : s === 'failed' ? 'b-blocked' : 'b-warn' }
+function subResult(r) {
+  if (r.state !== 'done') return ''
+  const n = (r.result.threats || []).length
+  const a = (r.result.announcements || []).length
+  return n || a ? t('intel.sub_found', { n, a }) : t('intel.sub_nothing')
+}
+const submitSource = () => act(async () => {
+  const r = await post('/intel/submissions', { url: subUrl.value, text: subText.value })
+  data.value.submissions = r.submissions
+  subUrl.value = ''
+  subText.value = ''
+})
 // the guess reads the logs and asks the applications for their versions: a few seconds, a spinner meanwhile
 const guessing = ref(false)
 const guess = () => act(async () => {
