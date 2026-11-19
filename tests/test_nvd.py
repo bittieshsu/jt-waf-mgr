@@ -141,11 +141,12 @@ class TestBuiltOn(unittest.TestCase):
 
     def test_the_alert_says_so_in_each_language(self):
         from jtwafmgr import notify
-        d = {'msg': 'intel_built_on', 'cve': 'CVE-2026-109619', 'product': 'Nextcloud', 'tech': 'PHP', 'patch_change': 86}
+        d = {'msg': 'intel_built_on', 'cve': 'CVE-2026-109619', 'product': 'Nextcloud', 'tech': 'PHP', 'patch_rule': 10402}
         zh = notify.alert_text('zh-TW', d)
         self.assertIn('PHP', zh)
-        self.assertIn('#86', zh)
-        self.assertNotIn('{', notify.alert_text('en', dict(d, patch_change=None)) + notify.alert_text('ja', d))
+        self.assertIn('規則 10402', zh)
+        self.assertIn('重新啟動', zh)                                       # a worker left running keeps the old PHP
+        self.assertNotIn('{', notify.alert_text('en', dict(d, patch_rule=None)) + notify.alert_text('ja', d))
 
 
 if __name__ == '__main__':

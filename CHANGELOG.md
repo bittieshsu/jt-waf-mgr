@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.14 (2026-11-20)
+
+- Threat intelligence: a threat's virtual patch follows the rule in force. A CrowdSec rule removed as a duplicate (its sibling covers every site) kept being named as the patch, and threats whose rule is in force named the rollback that had last rewritten every rule. Links to a rule no longer in force are dropped and matched again to a rule that is (a rule a person removed is not proposed again), and the alert names the rule (rule 10402), not a change.
+- The warning for a flaw in the language an application is built on (PHP) also says to restart the running PHP processes or rebuild the container image: a PHP-FPM worker left running keeps the old version, and the command-line `php -v` does not show it.
+
 ## 0.5.13 (2026-11-20)
 
 - Threat intelligence: an exploited flaw in the language an application is built on (PHP for Nextcloud, LibreNMS, Z-Push) gets its own warning: the flaw is in PHP, whose version on that host is not known here, so check that PHP there is updated; a virtual patch already refusing the attack is named. NVD lists only php for such a CVE, and the warning used to call it "probably attributed to the wrong product; set it aside", the wrong advice for a flaw that does reach those applications.

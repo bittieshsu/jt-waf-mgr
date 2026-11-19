@@ -952,6 +952,39 @@ def hub_rule_for(cfg, cve):
     return sorted(hits, key=lambda r: (not (r.get('name') or '').startswith('crowdsecurity/'), r.get('name') or ''))[0] if hits else None
 
 
+def unlink_patches(db):
+    """Threats linked to a virtual patch no longer in force lose the link, so the next steps match them to a rule that
+    is (0.5.14: a CrowdSec rule removed as a duplicate kept naming its change, and a rollback that rewrote every rule
+    was named as the patch). A rule a person removed is not proposed again from here (patch_note 'removed')."""
+    n = 0
+    for r in db.q("SELECT t.id, c.op, c.rule_id, c.item_id FROM intel_threats t JOIN changes c ON c.id=t.patch_change_id "
+                  "WHERE c.state='applied'"):
+        if r['op'] not in ('add', 'modify') or (r['rule_id'] is None and r['item_id'] is None):
+            note = ''                       # names no rule of its own: matched again
+        elif db.one('SELECT 1 FROM managed_rules WHERE deleted=0 AND (rule_id=? OR id=?)', (r['rule_id'], r['item_id'])):
+            continue
+        else:
+            note = 'removed'
+        db.x('UPDATE intel_threats SET patch_change_id=NULL, patch_note=? WHERE id=?', (note, r['id']))
+        n += 1
+    return n
+
+
+def patch_rule(db, threat_id):
+    """The rule id of the threat's virtual patch, while it is in force (enabled, not removed); else None."""
+    r = db.one("SELECT m.rule_id FROM intel_threats t JOIN changes c ON c.id=t.patch_change_id "
+               "JOIN managed_rules m ON (m.rule_id=c.rule_id OR m.id=c.item_id) "
+               "WHERE t.id=? AND c.state='applied' AND m.deleted=0 AND m.enabled=1 AND m.rule_id IS NOT NULL", (threat_id,))
+    return r[0] if r else None
+
+
+def _origin_change(db, item):
+    """The change that added a managed rule (its change_id names the last change that wrote it: a rollback rewrites
+    them all)."""
+    r = db.one("SELECT id FROM changes WHERE op='add' AND state='applied' AND rule_id=? ORDER BY id LIMIT 1", (item['rule_id'],))
+    return r[0] if r else item.get('change_id')
+
+
 def propose_hub_patches(app, run_id, log=print):
     """Open threats without a virtual patch whose CVE has a CrowdSec Hub rule: the hub's rule (written and tested
     upstream, for any part of the request) is proposed for the product's sites instead of a rule from the model. Exploited
@@ -982,13 +1015,15 @@ def propose_hub_patches(app, run_id, log=print):
         item = next((it for it in app.workflow.managed.items() if it['kind'] == 'crowdsec'
                      and json.loads(it['spec'] or '{}').get('name') == hr['name']), None)
         t = json.loads(r['details'] or '{}')
+        if item is None and r['patch_note'] == 'removed':
+            continue                # its rule was removed: not added again from here
         if item is not None:
             have = json.loads(item['spec'])
             missing = [] if have.get('all_sites') else sorted(set(hosts) - set(have.get('hosts') or []))
             if item['enabled'] and not missing:
                 # in force for every site of the product: that change stands for the threat
                 db.x("UPDATE intel_threats SET patch_change_id=?, patch_note='crowdsec' WHERE id=?",
-                     (item.get('change_id'), r['id']))
+                     (_origin_change(db, item), r['id']))
                 continue
             if not item['enabled']:
                 continue            # a person switched it off: not switched on again from here
@@ -1963,6 +1998,10 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
         log('intel: run %d: search check failed: %s' % (rid, type(e).__name__))
     if c.get('patches', True):
         try:
+            unlink_patches(db)
+        except Exception as e:      # noqa: BLE001 -- the links are looked at again next run
+            log('intel: run %d: patch links not checked: %s' % (rid, type(e).__name__))
+        try:
             propose_hub_patches(app, rid, log=log)
         except Exception as e:      # noqa: BLE001 -- the model's patches below still run
             log('intel: run %d: CrowdSec rules stopped: %s' % (rid, getattr(e, 'code', type(e).__name__)))
@@ -2021,15 +2060,16 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
             # the flaw is in the language the application is built on (0.5.12): its version there is not known here;
             # a virtual patch already in place is said
             tech = util.clip(str(vc.get('tech') or ''), 60)
-            pr = db.one("SELECT c.id FROM intel_threats t JOIN changes c ON c.id=t.patch_change_id WHERE t.id=? AND c.state='applied'",
-                        (t.get('threat_id') or 0,))
+            # (0.5.14) the rule in force is named, not a change: a rollback rewrites every rule's change
+            pr = patch_rule(db, t.get('threat_id') or 0)
             alerts.raise_alert(db, app.audit, 'intel', 'exploited_vulnerability', 'warning', 'intel-check:%s:%s' % (t['id'], t['product']),
                                {'reason': '%s is exploited in the wild; the flaw is in %s, which %s is built on, and the %s version on '
-                                          'its host is not known here: check that %s there is updated.%s' % (
-                                              t['id'], tech, t['product'], tech, tech,
-                                              (' A virtual patch (change #%d) already refuses the attack.' % pr[0]) if pr else ''),
+                                          'its host is not known here: check that %s there is updated and that the running %s processes '
+                                          'were restarted or the container image rebuilt; the command-line version alone does not '
+                                          'tell.%s' % (t['id'], tech, t['product'], tech, tech, tech,
+                                                       (' A virtual patch (rule %d) already refuses the attack.' % pr) if pr else ''),
                                 'msg': 'intel_built_on', 'cve': t['id'], 'product': t['product'], 'sw_version': ver, 'tech': tech,
-                                'patch_change': pr[0] if pr else None, 'run_id': rid}, link='/intel')
+                                'patch_rule': pr, 'run_id': rid}, link='/intel')
             continue
         if vc.get('result') == 'elsewhere':
             # NVD's analysis names other products only: likely attributed to the wrong product (0.4.98)

@@ -133,7 +133,7 @@ function reasonText(r) {
     vu: ver || d.msg === 'intel_remove' ? '' : t('alerts.ver_unknown'),
     affects: t(d.affected === 'yes' ? 'alerts.aff_yes' : 'alerts.aff_maybe'),
     now: ver, was: String(d.sw_was || ''), rule_id: String(d.rule_id || ''), products: String(d.products || ''),
-    tech: String(d.tech || ''), patch: d.patch_change ? t('alerts.intel_patched', { id: String(d.patch_change) }) : '',
+    tech: String(d.tech || ''), patch: d.patch_rule ? t('alerts.intel_patched', { rule: String(d.patch_rule) }) : '',
   })
 }
 // an alert becomes a change: find a recent event of that site and path (paths in alerts are decoded and lower case,

@@ -547,6 +547,48 @@ class TestWorkflow(unittest.TestCase):
         self.assertEqual((ops[0]['spec']['rule_count'], ops[1]['rule_id']), (3, 10403))
 
 
+    def test_patch_links_follow_the_rule_in_force(self):
+        """0.5.14: a threat kept naming a CrowdSec change whose rule was removed as a duplicate, and threats linked to a
+        rule in force named the rollback that had rewritten every rule last."""
+        from jtwafmgr import software
+        orig = software.hosts_of
+        software.hosts_of = lambda db, name: ['app.example.com']
+        self.addCleanup(setattr, software, 'hosts_of', orig)
+        db = self.app.db
+        name = 'crowdsecurity/vpatch-two-ways'
+        a = self.wf.propose('add', 'crowdsec', {'name': name, 'all_sites': True}, 'x', 'op')
+        self.wf.run_checks(a)
+        self.approve(a)
+        self.fake_apply()
+        self.assertEqual(self.wf.get(a)['state'], 'applied')
+        item = next(it for it in self.wf.managed.items() if it['kind'] == 'crowdsec')
+        # a rollback rewrote the rule last; a removed duplicate rule still named by another threat
+        now = time.time()
+        rb = db.x("INSERT INTO changes(op, kind, spec, direction, state, reason, proposed_by, proposed_via, created_at, updated_at) "
+                  "VALUES ('rollback', 'system', '{}', 'neutral', 'applied', 'x', 'boss', 'ui', ?, ?)", (now, now)).lastrowid
+        db.x('UPDATE managed_rules SET change_id=? WHERE id=?', (rb, item['id']))
+        gone = db.x("INSERT INTO managed_rules(rule_id, kind, placement, position, spec, text, deleted, origin, created_by, created_at, updated_at) "
+                    "VALUES (10450, 'crowdsec', 'before', 99, ?, '', 1, 'created', 'intel', ?, ?)", (json.dumps({'name': name}), now, now)).lastrowid
+        dup = db.x("INSERT INTO changes(op, kind, rule_id, spec, direction, state, reason, proposed_by, proposed_via, created_at, updated_at) "
+                   "VALUES ('add', 'crowdsec', 10450, '{}', 'tighten', 'applied', 'x', 'intel', 'api', ?, ?)", (now, now)).lastrowid
+        ids = {}
+        for product, cid in (('A', rb), ('B', dup)):
+            ids[product] = db.x("INSERT INTO intel_threats(cve, product, first_seen, last_seen, affected, exploited, severity, details, "
+                                "patch_change_id, patch_note) VALUES ('CVE-2099-0002', ?, ?, ?, 'unknown', 1, 'critical', '{}', ?, 'crowdsec')",
+                                (product, now, now, cid)).lastrowid
+        self.assertIsNone(intel.patch_rule(db, ids['B']))                  # its rule was removed
+        self.assertEqual(intel.unlink_patches(db), 2)
+        self.assertEqual(db.one('SELECT patch_note FROM intel_threats WHERE id=?', (ids['B'],))[0], 'removed')
+        self.assertEqual(intel.propose_hub_patches(self.app, 1, log=lambda *a: None), [])    # nothing new proposed
+        for product in ('A', 'B'):                                    # both linked to the change that added the rule in force
+            self.assertEqual(db.one('SELECT patch_change_id FROM intel_threats WHERE id=?', (ids[product],))[0], a)
+            self.assertEqual(intel.patch_rule(db, ids[product]), item['rule_id'])
+        self.assertEqual(intel.unlink_patches(db), 0)
+        # the rule removed and no other in force: not proposed again
+        db.x('UPDATE managed_rules SET deleted=1 WHERE id=?', (item['id'],))
+        self.assertEqual(intel.unlink_patches(db), 2)
+        self.assertEqual(intel.propose_hub_patches(self.app, 2, log=lambda *a: None), [])
+
     def test_same_rule_never_added_twice(self):
         """0.4.98: the threat intelligence's change for two sites and a person's for all sites were both applied (the
         second was proposed while the first was on its way)."""
