@@ -2,6 +2,12 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.11 (2026-11-20)
+
+- Threat intelligence asks for one virtual patch per vulnerability, for every site of every application it reaches. A PHP flaw on three applications was asked about three times (two minutes each), and the answers differed: a patch for one application, "not possible" for the other two. Flaws left so are asked about once more, together.
+- Threat intelligence keeps to its own time limit: past 45 minutes a run stops asking (pages handed in come first, then its own search results, then the virtual patches) and ends with what it found. A run the unit stopped at 60 minutes recorded nothing and stayed "running" on the page; such a run is now closed as interrupted.
+- A page handed in from a site that refuses programs (HTTP 401, 403, 429 or 503, often its bot protection) says so and asks for the page's text, instead of a bare error.
+
 ## 0.5.10 (2026-11-20)
 
 - upgrade.sh: the upgrade backups are ordered by the time in their name. A plain sort put upgrade-0.5.9-to-0.5.10-... before the older backups, so `--rollback` without a directory would have taken an old one and the clean-up would have removed the newest.

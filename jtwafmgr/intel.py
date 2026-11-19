@@ -421,14 +421,21 @@ TOOLS_DOC = {
 class Session:
     """Runs the tools for the model and keeps the record of what was searched and read."""
 
-    def __init__(self, cfg, mcp=None, fetch=None, budget=None):
+    def __init__(self, cfg, mcp=None, fetch=None, budget=None, seconds=None):
         self.cfg = cfg['intel']
+        # the run's own time limit (0.5.11): the unit is stopped after 60 minutes, and a run cut off by it records
+        # nothing; past this the run stops asking and finishes with what it has
+        self.deadline = time.monotonic() + seconds if seconds else None
         self.mcp = mcp
         self.fetch = fetch or (lambda url, domains: fetch_url(url, domains))
         self.searches, self.fetched = [], []
         self.tokens_in = self.tokens_out = 0
         self.budget = budget            # tokens this run may still use (None: no limit)
         self.cisa_ids = set()           # CVE ids read on a CISA page in this run (what makes a threat urgent)
+
+    def out_of_time(self, reserve=0):
+        """True when fewer than `reserve` seconds of the run's time are left (no limit: never)."""
+        return self.deadline is not None and time.monotonic() + reserve > self.deadline
 
     def spend(self, tin, tout):
         """Count every response's tokens as it comes (a run that fails half way still records what it used) and stop
@@ -526,6 +533,8 @@ def ask_openai(cfg, session, system, user):
     headers = {'Authorization': 'Bearer ' + key} if key else {}
     msgs = [{'role': 'system', 'content': system}, {'role': 'user', 'content': user}]
     for _ in range(c['max_rounds']):
+        if session.out_of_time(2 * c['timeout_seconds']):
+            break                   # the answer from what was found so far
         d = _json_call(base + '/chat/completions', {'model': c['model'], 'messages': msgs, 'tools': session.openai_tools(),
                                                     'tool_choice': 'auto', 'temperature': 0}, headers, c['timeout_seconds'])
         if not isinstance(d, dict):
@@ -770,6 +779,7 @@ def multipart(fields):
     return out + ('--%s\r\nContent-Disposition: form-data; name="file"; filename="a.txt"\r\nContent-Type: text/plain\r\n'
                   '\r\nhello\r\n--%s--\r\n' % (BOUNDARY, BOUNDARY))
 PATCH_PER_RUN = 5
+PATCH_ASKS_PER_RUN = 8         # questions about patches a run asks at most (one per vulnerability)
 URGENT_PER_DAY = 5           # urgent virtual patches applied past the daily limit, at most this many a day
 COMMON_HEADER_VALUES = ['mozilla/5.0 (windows nt 10.0; win64; x64) applewebkit/537.36 (khtml, like gecko) chrome/130.0 safari/537.36',
                         'application/json', 'text/html,application/xhtml+xml', 'gzip, deflate, br', 'keep-alive', 'en-us,en;q=0.9',
@@ -857,27 +867,45 @@ def _query_names(path):
 
 
 def propose_patches(app, run_id, ask=None, log=print, session=None):
-    """For open threats seen in the URL or a header: ask for a narrow match, check it, propose it as an ordinary
-    confident-block change (owner 'intel'). Returns (proposed, tokens in, tokens out)."""
+    """For open threats whose attack can be told apart (the URL, a header, a parameter's name): ask for a narrow match
+    once per vulnerability, check it, propose it as an ordinary confident-block change (owner 'intel') for every site of
+    every product it reaches (0.5.11: a PHP flaw on three applications was asked about three times, two minutes each).
+    Returns (proposed, tokens in, tokens out)."""
     from .changes import ChangeError
     cfg, db = app.cfg, app.db
     ask = ask or ask_json
+    if not db.get_meta('fix.intel_patch_siblings'):
+        # before 0.5.11 each product was asked about on its own, and the same flaw got a patch for one application
+        # and "not possible" for the next: those are asked about once more, together
+        db.x("UPDATE intel_threats SET patch_note='' WHERE patch_change_id IS NULL AND patch_note='not_possible' AND cve IN "
+             "(SELECT cve FROM intel_threats WHERE patch_change_id IS NOT NULL)")
+        db.set_meta('fix.intel_patch_siblings', '1')
     rows = db.q("SELECT * FROM intel_threats WHERE status='open' AND patch_change_id IS NULL AND patch_note='' "
                 "AND affected IN ('yes', 'unknown') ORDER BY exploited DESC, (severity='critical') DESC, (severity='high') DESC, id")
     samples = app.workflow.samples(400)
     test_host = next((x['host'] for x in samples if x.get('host')), None)
-    proposed, tin, tout = [], 0, 0
+    groups = {}
     for r in rows:
-        if len(proposed) >= PATCH_PER_RUN:
-            break
         t = json.loads(r['details'] or '{}')
         if t.get('attack_vector') not in ('url', 'header', 'body') or not t.get('request_pattern') or not (
                 r['exploited'] or r['severity'] in ('critical', 'high')):
             continue
-        hosts = software.hosts_of(db, r['product'])          # every entry of the product (two servers: both sites)
+        groups.setdefault(r['cve'], []).append((r, t))
+    proposed, tin, tout, asked = [], 0, 0, 0
+    for cve, items in groups.items():
+        if len(proposed) >= PATCH_PER_RUN or asked >= PATCH_ASKS_PER_RUN:
+            break
+        if session is not None and session.out_of_time(cfg['intel']['timeout_seconds']):
+            log('intel: run %d: out of time: the other virtual patches wait for the next run' % run_id)
+            break
+        asked += 1
+        r, t = items[0]
+        products = [x[0]['product'] for x in items]
+        # every entry of every product (two servers: both sites)
+        hosts = sorted({h for name in products for h in software.hosts_of(db, name)})
         user = ('Vulnerability: %s in %s (our version %s)\nSummary: %s\nAffected versions: %s\nWhere: %s\n'
                 'What the attack request looks like: %s\nReferences: %s' % (
-                    t.get('id'), r['product'], t.get('our_version') or 'unknown', t.get('summary'), t.get('affected_versions'),
+                    cve, ', '.join(products), t.get('our_version') or 'unknown', t.get('summary'), t.get('affected_versions'),
                     t.get('attack_vector'), t.get('request_pattern'), ', '.join(t.get('references') or [])))
         note, cid = '', None
         try:
@@ -885,9 +913,10 @@ def propose_patches(app, run_id, ask=None, log=print, session=None):
             tin, tout = tin + a, tout + b
             if session is not None:
                 session.spend(a, b)             # the same budget as the search (raises when it is used up)
-            spec, tests = _patch_spec(p, dict(t, id=r['cve'], product=r['product']), samples, hosts, test_host)
+            spec, tests = _patch_spec(p, dict(t, id=cve, product=' '.join(products)), samples, hosts, test_host)
+            exploited = any(x[0]['exploited'] for x in items)
             reason = util.clip(reasons.text(
-                'intel_patch_x' if r['exploited'] else 'intel_patch', cve=r['cve'], product=r['product'],
+                'intel_patch_x' if exploited else 'intel_patch', cve=cve, product=', '.join(products),
                 version=known_version(t.get('our_version')) or '(version not known)', severity=r['severity'],
                 summary=t.get('summary') or '', attack=t.get('request_pattern') or '',
                 rule=util.clip(str(p.get('explanation') or ''), 300), refs=' '.join(t.get('references') or [])), 2000)
@@ -898,14 +927,17 @@ def propose_patches(app, run_id, ask=None, log=print, session=None):
             note = e.code
         except ChangeError as e:
             note = 'refused_%s' % ((e.details or {}).get('reason') or e.code)
-        db.x('UPDATE intel_threats SET patch_change_id=?, patch_note=? WHERE id=?', (cid, note, r['id']))
+        for x, _t in items:
+            db.x('UPDATE intel_threats SET patch_change_id=?, patch_note=? WHERE id=?', (cid, note, x['id']))
         if cid:
             proposed.append(cid)
-            log('intel: run %d: virtual patch for %s proposed as change #%d' % (run_id, r['cve'], cid))
+            log('intel: run %d: virtual patch for %s (%s) proposed as change #%d' % (run_id, cve, ', '.join(products), cid))
         else:
-            log('intel: run %d: no virtual patch for %s (%s)' % (run_id, r['cve'], note))
-            if is_urgent(dict(json.loads(r['details'] or '{}'), exploited=r['exploited'], affected=r['affected'])):
-                _patch_alert(app, r, 'no rule could be written (%s)' % note)
+            log('intel: run %d: no virtual patch for %s (%s)' % (run_id, cve, note))
+            for x, _t in items:
+                if is_urgent(dict(json.loads(x['details'] or '{}'), exploited=x['exploited'], affected=x['affected'])):
+                    _patch_alert(app, x, 'no rule could be written (%s)' % note)
+                    break
     return proposed, tin, tout
 
 
@@ -1614,6 +1646,11 @@ def _read_submission(session, r):
     host = (urllib.parse.urlsplit(r['url']).hostname or '').lower()
     session.fetched.append(r['url'])
     text = session.fetch(r['url'], [host])
+    m = re.match(r'error: HTTP (40[13]|429|503)\b', text)
+    if m:
+        # 0.5.10: The Hacker News answered 403 to any program (its bot protection's challenge) -- never worked around
+        raise IntelError('unreadable', 'the site refuses programs (HTTP %s, often its bot protection): paste its text instead'
+                         % m.group(1))
     if text.startswith(('refused:', 'error:')):
         raise IntelError('unreadable', util.clip(text, 200))
     if allowed(host, ['cisa.gov']):
@@ -1703,6 +1740,9 @@ def focus(cfg, session, products, sources, now, ask=None, log=print):
                                        if techstack.app_techs(p['name']) else '') for p in products)
     threats, anns = [], []
     for i, (label, text) in enumerate(sources):
+        if session.out_of_time(cfg['intel']['timeout_seconds']):
+            log('intel: out of time: %d of %d sources not asked about' % (len(sources) - i, len(sources)))
+            break
         user = 'Software of this site:\n%s\n\nSource: %s\n-----\n%s\n-----\nToday is %s.' % (
             listing, label, util.clip(text, FOCUS_TEXT), time.strftime('%Y-%m-%d', time.localtime(now)))
         try:
@@ -1777,7 +1817,7 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
     c = cfg['intel']
     provider = c['provider']
     model = (c['model'] or ANTHROPIC_MODEL) if provider == 'anthropic' else openai_target(cfg)[1]
-    session = Session(cfg, budget=_budget_left(cfg, db))
+    session = Session(cfg, budget=_budget_left(cfg, db), seconds=RUN_SECONDS)
     rid = db.x("INSERT INTO intel_runs(node_id, started_at, trigger, provider, model) VALUES (?,?,?,?,?)",
                (cfg['node']['id'], now, trigger, provider, model)).lastrowid
 
@@ -1847,8 +1887,8 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
         threats = clean(answer, products)
         anns = clean_announcements(answer, products)
         # each worthwhile search result, and each page or text handed in, asked about on its own (0.5.10)
-        sources = focus_sources(swept, products) if mode == 'full' else []
-        sub_of, sub_errors = {}, {}
+        # (what a person handed in first: when time runs short, the program's own results wait)
+        sources, sub_of, sub_errors = [], {}, {}
         for r in subs:
             try:
                 label, text = _read_submission(session, r)
@@ -1857,6 +1897,7 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
                 continue
             sub_of[len(sources)] = r['id']
             sources.append((label, text))
+        sources += focus_sources(swept, products) if mode == 'full' else []
         ft, fa = focus(cfg, session, products, sources, now, ask=focus_ask, log=log)
         more = []
         for t in ft:
@@ -2143,9 +2184,20 @@ def run_test(app, log=print):
     return out
 
 
+RUN_SECONDS = 45 * 60          # the unit stops a run after 60 minutes (TimeoutStartSec); the last question may take 10
+
+
+def interrupted(db, cfg, now):
+    """A run the unit stopped (its time limit, a restart) never wrote its end: close it as interrupted, so the page
+    does not show it running for ever."""
+    return db.x("UPDATE intel_runs SET finished_at=?, error='interrupted: stopped before it ended (time limit or restart)' WHERE finished_at IS NULL AND node_id=? "
+                "AND started_at < ?", (now, cfg['node']['id'], now - 3660)).rowcount
+
+
 def run_job(app, log=print):
     """jt-waf-mgr-intel.service: run when asked, or when intel.interval_hours has passed (a connection test first)."""
     cfg, db = app.cfg, app.db
+    interrupted(db, cfg, util.now())
     run_test(app, log)
     what = _requested(cfg)
     asked = what == 'search'

@@ -96,6 +96,13 @@ class TestSubmit(Base):
         self.assertEqual(s['state'], 'failed')
         self.assertIn('paste its text', s['error'])
 
+    def test_a_site_that_refuses_programs(self):
+        sid = intel.submit(self.app, 'appr', url='https://news.example.com/behind-a-challenge')
+        self.run_submissions('error: HTTP 403')
+        s = self.app.db.one('SELECT * FROM intel_submissions WHERE id=?', (sid,))
+        self.assertEqual(s['state'], 'failed')
+        self.assertIn('refuses programs (HTTP 403', s['error'])
+
     def test_a_text_handed_in(self):
         sid = intel.submit(self.app, 'appr', text=ARTICLE)
         self.run_submissions('')
@@ -166,6 +173,71 @@ class TestFullyAutomatic(Base):
         # evidence that was checked and is not clean: a person decides
         self.assertFalse(self.auto(self.change('intel', target='path',
                                                evidence={'ok': True, 'external_success': 3, 'internal_other': 0})))
+
+
+
+class TestOnePatchPerVulnerability(Base):
+    def test_a_language_flaw_on_two_applications_is_asked_about_once(self):
+        software.save(self.app.db, 'test', 'Z-Push', '', hosts=['push.example.com'])
+        now = time.time()
+        det = {'attack_vector': 'body', 'request_pattern': 'a multipart upload with a field named PHP_SESSION_UPLOAD_PROGRESS',
+               'summary': 'RCE', 'references': ['https://www.php.net/']}
+        for product in ('Nextcloud', 'Z-Push'):
+            self.app.db.x("INSERT INTO intel_threats(cve, product, first_seen, last_seen, affected, exploited, severity, details) "
+                          "VALUES ('CVE-2026-115560', ?, ?, ?, 'unknown', 0, 'critical', ?)", (product, now, now, json.dumps(det)))
+        asked, seen = [], []
+
+        def ask(cfg, system, user, schema, name):
+            asked.append(user)
+            return ({'possible': True, 'target': 'arg_name', 'header': '', 'regex': '^php_session_upload_progress$',
+                     'attack_examples': ['php_session_upload_progress'], 'benign_examples': ['file'], 'explanation': 'x'}, 10, 5)
+
+        def propose(op, kind, spec, reason, actor, **k):
+            seen.append(spec)
+            return 101
+        self.app.workflow.propose = propose
+        out, _, _ = intel.propose_patches(self.app, 1, ask=ask, log=lambda m: None)
+        self.assertEqual((out, len(asked)), ([101], 1))
+        self.assertIn('Nextcloud, Z-Push', asked[0])
+        self.assertEqual(seen[0]['host'], {'mode': 'any', 'value': ''})          # both applications' sites
+        self.assertEqual([r['patch_change_id'] for r in self.app.db.q("SELECT patch_change_id FROM intel_threats")], [101, 101])
+
+
+class TestTimeLimit(Base):
+    def test_a_run_out_of_time_stops_asking_and_still_ends(self):
+        sess = intel.Session(self.app.cfg, seconds=1)
+        sess.deadline = time.monotonic() - 1
+        asked = []
+        th, an = intel.focus(self.app.cfg, sess, software.confirmed(self.app.db), [('a', 'x'), ('b', 'y')], time.time(),
+                             ask=lambda *a: asked.append(a) or (FOUND, 1, 1), log=lambda m: None)
+        self.assertEqual((asked, th), ([], []))
+        self.assertFalse(intel.Session(self.app.cfg).out_of_time(10 ** 6))      # no limit given: never
+
+    def test_a_run_the_unit_stopped_is_closed(self):
+        now = time.time()
+        for ago in (2 * 3600, 600):
+            self.app.db.x("INSERT INTO intel_runs(node_id, started_at, trigger, provider, model) VALUES (?, ?, 'release', 'openai', 'm')",
+                          (self.app.cfg['node']['id'], now - ago))
+        self.assertEqual(intel.interrupted(self.app.db, self.app.cfg, now), 1)
+        rows = self.app.db.q('SELECT error, finished_at FROM intel_runs ORDER BY started_at')
+        self.assertTrue(rows[0]['error'].startswith('interrupted') and rows[0]['finished_at'])
+        self.assertIsNone(rows[1]['finished_at'])           # still within the unit's hour: may be running
+
+    def test_a_flaw_patched_for_one_application_is_asked_again_for_the_others(self):
+        now = time.time()
+        det = json.dumps({'attack_vector': 'body', 'request_pattern': 'a field named PHP_SESSION_UPLOAD_PROGRESS', 'summary': 'RCE'})
+        for product, cid, note in (('Keycloak', 97, ''), ('Nextcloud', None, 'not_possible')):
+            self.app.db.x("INSERT INTO intel_threats(cve, product, first_seen, last_seen, affected, exploited, severity, details, "
+                          "patch_change_id, patch_note) VALUES ('CVE-2026-115560', ?, ?, ?, 'unknown', 0, 'critical', ?, ?, ?)",
+                          (product, now, now, det, cid, note))
+        asked = []
+        self.app.workflow.propose = lambda *a, **k: 120
+        intel.propose_patches(self.app, 1, ask=lambda cfg, s, user, *a: asked.append(user) or (
+            {'possible': False, 'target': 'arg_name', 'header': '', 'regex': '', 'attack_examples': [], 'benign_examples': [],
+             'explanation': 'x'}, 1, 1), log=lambda m: None)
+        self.assertEqual(len(asked), 1)
+        self.assertIn('Nextcloud', asked[0])
+        intel.propose_patches(self.app, 2, ask=lambda *a: self.fail('asked again'), log=lambda m: None)   # only once
 
 
 if __name__ == '__main__':
