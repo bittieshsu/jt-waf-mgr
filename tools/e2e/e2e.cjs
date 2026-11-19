@@ -140,6 +140,9 @@ async function audit(page, where) {
   ok(await page.evaluate(() => document.documentElement.dataset.theme) === 'dark', 'theme persists across pages');
   // an alert becomes a change draft
   await page.goto(base + '/alerts', { waitUntil: 'networkidle' });
+  // an announced security release (0.5.8) reads as a sentence, with the interim advice
+  ok(/PHP 預定 .*發布安全更新 \(CVE-2026-115560\).*暫時處置：session\.upload_progress\.enabled=0/.test(await page.locator('main').innerText()),
+    'alerts: an announced security release is worded');
   await page.locator('.rowacts button:has-text("草擬")').first().click();
   await page.waitForURL((u) => u.pathname === '/changes/new', { timeout: 10000 }).catch(() => {});
   ok(new URL(page.url()).pathname === '/changes/new', 'alert drafts a change');

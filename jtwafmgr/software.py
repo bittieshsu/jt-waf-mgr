@@ -491,6 +491,29 @@ def _json_at(v, path):
     return v
 
 
+def sync_host_versions(app, log=print, path=DPKG_STATUS):
+    """This host's own packages: the installed version is a fact, not a guess, so a guessed entry follows it and keeps
+    its confirmation (0.5.8: nginx 1.30.7, installed by an approved update, was still searched for as 1.30.6 until
+    someone pressed "guess again"). A person's entry is never changed. Returns the names updated."""
+    db = app.db
+    found = {}
+    for pkg, ver in sorted(dpkg_packages(path).items()):
+        name = product_of(pkg)
+        if name and name not in found:
+            found[name] = (pkg, ver)
+    changed = []
+    for r in db.q("SELECT id, name, version FROM software WHERE source='guess' AND kind='host'"):
+        f = found.get(r['name'])
+        if f and f[1] and f[1] != r['version']:
+            db.x('UPDATE software SET version=?, evidence=?, updated_at=?, updated_by=? WHERE id=?',
+                 (f[1], 'dpkg: %s %s' % f, util.now(), PROBE_ACTOR, r['id']))
+            app.audit.log('software.version_detected', PROBE_ACTOR, 'system', None, 'ok', name=r['name'],
+                          old=r['version'] or None, new=f[1], package=f[0])
+            log('software: %s %s -> %s (installed package)' % (r['name'], r['version'], f[1]))
+            changed.append(r['name'])
+    return changed
+
+
 def detect_versions(app, fetch=fetch_local, log=print):
     """For each application in the list that tells its version (version_sources()['auto']) and has a site: read it
     and fill it in. A version a person typed is never replaced; one read before is kept current. Returns

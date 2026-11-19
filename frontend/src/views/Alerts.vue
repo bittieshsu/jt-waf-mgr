@@ -104,7 +104,7 @@ const cols = computed(() => [
 function kindText(r) { return tOr('alerts.kind.' + r.kind, r.kind) }
 // threat intelligence alerts carry a message key and its values: worded in the interface language (the stored
 // reason is the English one, kept for the audit trail)
-const MSGS = ['intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere', 'intel_distro']
+const MSGS = ['intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere', 'intel_distro', 'intel_release']
 function reasonText(r) {
   const d = r.details || {}
   if (r.kind === 'nginx_module') {
@@ -116,6 +116,13 @@ function reasonText(r) {
       ready: d.ready && d.candidate ? t('alerts.nginx_security_ready', { v: String(d.candidate) }) : '' })
   }
   if (!MSGS.includes(d.msg)) return d.reason || ''
+  if (d.msg === 'intel_release') {
+    // an announced security release (0.5.8): words from the vendor's page, shown as text
+    const ids = (d.ids || []).map(String).slice(0, 10)
+    return t('alerts.intel_release', { product: String(d.product || ''), at: d.release_at ? fmtShortTime(d.release_at) : '-',
+      ids: ids.length ? ' (' + ids.join(', ') + ')' : '', title: String(d.title || d.summary || ''), products: String(d.products || ''),
+      mit: d.mitigation ? t('alerts.intel_release_mit', { m: String(d.mitigation) }) : '' })
+  }
   const ver = String(d.sw_version || '').trim()
   const product = String(d.product || '')
   return t('alerts.' + d.msg, {

@@ -34,6 +34,10 @@ ANSWER = {'notes': 'checked', 'threats': [
      'references': ['https://nginx.org/en/security_advisories.html', 'javascript:alert(1)']}]}
 
 
+def sweep(*names):
+    return ['%s security advisory %s' % (n, time.strftime('%B %Y')) for n in names]
+
+
 class Fake(http.server.BaseHTTPRequestHandler):
     """One server for all fakes: /v1/chat/completions (OpenAI), /v1/messages (Anthropic), /mcp (MCP)."""
     script = []          # replies for the LLM, in order
@@ -239,7 +243,8 @@ class TestRun(Base):
         r = self.app.db.one('SELECT * FROM intel_runs WHERE id=?', (rid,))
         self.assertIsNone(r['error'])
         self.assertEqual((r['tokens_in'], r['tokens_out']), (2000, 400))
-        self.assertEqual(json.loads(r['searches']), ['Example CMS CVE'])
+        # 0.5.8: the program's own searches first (every product), then the model's
+        self.assertEqual(json.loads(r['searches']), sweep('Example CMS', 'nginx') + ['Example CMS CVE'])
         kept = json.loads(r['threats'])
         self.assertEqual([t['id'] for t in kept], ['CVE-2026-11111', 'CVE-2026-44444'])
         ng = kept[1]
@@ -350,7 +355,7 @@ class TestRun(Base):
         self.assertNotIn('temperature', b)
         self.assertEqual(calls[1][1]['messages'][-1]['content'][0]['type'], 'tool_result')
         self.assertEqual(calls[2][1]['messages'][-1]['role'], 'assistant')          # pause_turn: resent as is
-        self.assertEqual(json.loads(r['searches']), ['nginx CVE', 'x'])
+        self.assertEqual(json.loads(r['searches'])[-2:], ['nginx CVE', 'x'])
         self.assertEqual(len(json.loads(r['threats'])), 2)
         # the provider's own search tools
         c['search'] = 'provider'
@@ -444,15 +449,16 @@ class TestPatches(Base):
             return 77
 
         self.app.workflow.propose = propose
-        answers = iter([self.good(), dict(self.good(), possible=False)])
+        # 0.5.8: a body attack is asked about too (a parameter's name can be matched); here the model finds none
+        answers = iter([self.good(), dict(self.good(), possible=False), dict(self.good(), possible=False)])
         out, a, b = intel.propose_patches(self.app, 1, ask=lambda *x: (next(answers), 10, 5), log=lambda m: None)
-        self.assertEqual((out, a, b), ([77], 20, 10))
+        self.assertEqual((out, a, b), ([77], 30, 15))
         self.assertEqual(seen[0][0], 'confident_block')
         self.assertEqual((seen[0][2], seen[0][3]), ('intel', 'intel'))
         rows = {r['cve']: r for r in self.app.db.q('SELECT * FROM intel_threats')}
         self.assertEqual(rows['CVE-2026-11111']['patch_change_id'], 77)
         self.assertEqual(rows['CVE-2026-22222']['patch_note'], 'not_possible')
-        self.assertEqual(rows['CVE-2026-33333']['patch_note'], '')          # a body attack: no URL / header patch
+        self.assertEqual(rows['CVE-2026-33333']['patch_note'], 'not_possible')
         # exploited, affects us, and no rule could be written: a person decides now
         self.assertTrue(self.app.db.one("SELECT 1 FROM alerts WHERE dedup LIKE 'intel-patch:CVE-2026-22222%'"))
         # the patch is in force and a person updated the software: the patch may go

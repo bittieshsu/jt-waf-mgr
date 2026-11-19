@@ -78,6 +78,7 @@
             <input v-model="bl.regex" class="mono" maxlength="1000" spellcheck="false" placeholder="^/(?:wp-login\.php|xmlrpc\.php)"></label>
         </div>
         <p v-if="['path', 'uri', 'raw_uri', 'ua', 'host'].includes(bl.target)" class="muted small">{{ t('wizard.lowercase_note') }}</p>
+        <p v-if="bl.target === 'arg_name'" class="muted small">{{ t('wizard.arg_name_note') }}</p>
         <FieldErr :err="err('target') || err('header') || err('regex')" />
         <label class="field"><span>{{ t('wizard.exceptions') }}</span>
           <textarea v-model="bl.exceptions" rows="2" class="mono" maxlength="5000" spellcheck="false" placeholder="^/remote\.php/dav"></textarea>
@@ -242,7 +243,7 @@ watch(showGuide, (v) => { try { localStorage.setItem(GUIDE_KEY, v ? '1' : '0') }
 const methodOptions = computed(() => [{ value: '', label: t('wizard.any_method') }].concat(METHODS.map((m) => ({ value: m, label: m }))))
 const sourceOptions = computed(() => ['all', 'internal', 'external'].map((x) => ({ value: x, label: t('wizard.source_opt.' + x) })))
 const actionOptions = computed(() => ACTIONS.map((a) => ({ value: a, label: t('wizard.action_opt.' + a) })))
-const targetOptions = computed(() => ['path', 'uri', 'raw_uri', 'ua', 'host', 'header'].map((x) => ({ value: x, label: t('wizard.target_opt.' + x) })))
+const targetOptions = computed(() => ['path', 'uri', 'raw_uri', 'ua', 'host', 'header', 'arg_name'].map((x) => ({ value: x, label: t('wizard.target_opt.' + x) })))
 const placementOptions = computed(() => ['before', 'after'].map((x) => ({ value: x, label: t('placement.' + x) })))
 
 const kinds = computed(() => ['exclusion', 'confident_block', 'country', 'redaction', 'plugin'].concat(hasRole('admin') ? ['raw'] : []))

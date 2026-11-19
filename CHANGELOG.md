@@ -2,6 +2,13 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.8 (2026-11-19)
+
+- Threat intelligence searches every product and every language and framework they are built on itself, once a run, and hands the results to the model. The model chose its own searches before: on 2026-11-19 it spent them on nginx and Zimbra and never looked at PHP, the day PHP announced a critical release for its sites' language.
+- Announced security releases (a date set, the details withheld, or just published) for a product or a technology it is built on raise an alert and a notification: which applications and sites here are built on it, when, the vendor's interim advice; once the release is out the search runs again by itself (the hourly timer), so the CVEs and the attack can be acted on.
+- Virtual patches on a parameter's name: a confident block can match the name of a parameter in the query string or the body (a form, a multipart upload part; e.g. PHP's PHP_SESSION_UPLOAD_PROGRESS), in phase 2 before the rule adding the critical score. Threat intelligence writes them for attacks in the body too. The access logs have no bodies, so the evidence check cannot look for them: such a change needs a person, except a virtual patch for a vulnerability exploited in the wild that affects us (the sandbox must still pass). Tested on real nginx with libmodsecurity 3.0.9 and 3.0.17.
+- Software list: a host package's version follows the installed package before each search (nginx updated through jt-waf-mgr was still searched for as the version before).
+
 ## 0.5.7 (2026-11-19)
 
 - Changes: approving with a one-time code (nginx updates and module switches, one's own loosening, a whole CRS category off, the event analysis's loosening) takes a note of 4 characters instead of 10; restoring the managed files after an outside edit too.

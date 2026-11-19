@@ -11,7 +11,7 @@ from . import util
 
 KINDS = ('attack_in_progress', 'attack_passed', 'false_positive', 'integrity', 'config_outside', 'apply_failed',
          'backup_failed', 'auth_attack', 'crs_update', 'traffic_spike', 'traffic_errors', 'exploited_vulnerability',
-         'nginx_module', 'nginx_security', 'other')
+         'nginx_module', 'nginx_security', 'security_release', 'other')
 SEVERITIES = ('critical', 'warning')
 STATES = ('open', 'handled')
 

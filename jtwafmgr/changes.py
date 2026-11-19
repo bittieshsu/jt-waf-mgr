@@ -178,6 +178,13 @@ class Workflow:
             text = (self._enable_text(kind, item_id) or {}).get('text') or text
         if kind == 'crowdsec' and op in ('add', 'modify'):
             spec = self._hub_spec(spec, json.loads(item['spec']) if item else None)
+        if kind == 'confident_block' and op == 'add' and isinstance(spec, dict) and spec.get('target') in rulegen.BODY_TARGETS:
+            # phase 2 (a parameter name, 0.5.8), like the hub's rules: before the rule adding the critical score
+            spec = dict(spec)
+            spec.pop('before_rule_id', None)
+            score = (self.cfg['waf'].get('score_rule_ids') or [None])[0]
+            if score and any(it['rule_id'] == score and it['placement'] == 'before' for it in self.managed.items()):
+                spec['before_rule_id'] = score
         if op in ('add', 'modify'):
             if op == 'add' and kind == 'crowdsec':
                 try:
@@ -1544,12 +1551,17 @@ class Workflow:
         if r['op'] != 'add' or r['kind'] != 'confident_block':
             return
         spec = json.loads(r['spec'])
-        if spec.get('target') not in ('path', 'uri', 'ua', 'host', 'header'):
+        body = spec.get('target') in rulegen.BODY_TARGETS
+        if spec.get('target') not in ('path', 'uri', 'ua', 'host', 'header') and not (body and urgent):
             return
         if (spec.get('source') or 'external') != 'external':     # blocking internal sources always needs a person
             return
         ev = json.loads(r['checks']).get('evidence', {})
-        if not ev.get('ok') or ev.get('external_success', 1) or ev.get('internal_other', 1):
+        # a parameter name (0.5.8) cannot be looked for in the access logs (no bodies there): only a virtual patch for
+        # a vulnerability exploited in the wild that affects us goes without a person, on the sandbox's word alone
+        # (2026-11-14: exploited and unpatched -> block at once, body rules too; the checks must still pass)
+        if not (body and urgent and ev.get('ok') and ev.get('skipped')) and (
+                not ev.get('ok') or ev.get('external_success', 1) or ev.get('internal_other', 1)):
             return
         day = datetime.date.today().isoformat()
         n = self.db.one("SELECT COUNT(*) FROM change_log WHERE action='auto_approved' AND date(ts, 'unixepoch', 'localtime')=?",

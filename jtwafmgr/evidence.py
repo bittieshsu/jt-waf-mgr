@@ -341,6 +341,8 @@ class Evidence:
         than User-Agent / Host)."""
         target = spec.get('target', 'path')
         var, tr = rulegen.BLOCK_TARGETS[target]
+        if target in rulegen.BODY_TARGETS:
+            return None             # parameter names: the access log has the query string only, never the body
         if target == 'header':
             var = 'REQUEST_HEADERS:' + (spec.get('header') or '')
         if var == 'REQUEST_FILENAME':
@@ -370,7 +372,9 @@ class Evidence:
                 raise ValueError('unknown target')
             view = self.rule_view(spec)
             if view is None:
-                out[i] = {'ok': True, 'skipped': 'headers other than User-Agent are not in the access log', 'complete': False}
+                out[i] = {'ok': True, 'complete': False,
+                          'skipped': 'request bodies are not in the access log' if target in rulegen.BODY_TARGETS
+                          else 'headers other than User-Agent are not in the access log'}
                 continue
             host_cond = rulegen._host_cond(spec.get('host'))
             # rules with the same variable and transformations see the same values: worked out once a line (0.4.93: a

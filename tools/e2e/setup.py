@@ -92,6 +92,13 @@ alerts.raise_alert(app.db, app.audit, 'analyst', 'attack_passed', 'critical', 'a
                    {'path': '/.env', 'host': 'app.example.com', 'count': 3, 'reason': '<b>not markup</b> probe answered 200'}, link='/analysis')
 alerts.raise_alert(app.db, app.audit, 'analyst', 'false_positive', 'warning', 'false_positive:shop.example.com/api/notes',
                    {'path': '/api/notes', 'host': 'shop.example.com', 'count': 12, 'reason': 'rich text editor content'}, link='/changes')
+# an announced security release of a language the sites are built on (0.5.8)
+alerts.raise_alert(app.db, app.audit, 'intel', 'security_release', 'warning', 'release:php:2026-11-19',
+                   {'msg': 'intel_release', 'product': 'PHP', 'title': 'Security releases for all supported branches',
+                    'release_at': '2026-11-19T22:00:00+08:00', 'ids': ['CVE-2026-115560'], 'summary': 'critical issues',
+                    'mitigation': 'session.upload_progress.enabled=0', 'references': ['https://www.php.net/'],
+                    'products': 'Example CMS', 'hosts': ['app.example.com'], 'reason': 'PHP announced a security release'},
+                   link='/intel')
 # request volume (traffic.py): a week of hourly counts for three synthetic sites, with a daily rhythm
 import math
 h0 = int(now // 3600) * 3600

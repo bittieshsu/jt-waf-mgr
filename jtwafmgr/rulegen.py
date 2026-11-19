@@ -37,7 +37,13 @@ BLOCK_TARGETS = {
     'ua': ('REQUEST_HEADERS:User-Agent', 't:none,t:lowercase'),
     'host': ('REQUEST_HEADERS:Host', 't:none,t:lowercase'),
     'header': (None, 't:none'),
+    # a parameter's name: in the query string or the body (a form, multipart parts -- a file's field too), phase 2.
+    # 0.5.8: e.g. PHP's PHP_SESSION_UPLOAD_PROGRESS field (CVE-2026-115560); libmodsecurity 3.0.9 and 3.0.17 put
+    # multipart part names in ARGS_NAMES, quoted or not (tested on real nginx)
+    'arg_name': ('ARGS_NAMES', 't:none,t:lowercase'),
 }
+# targets only seen once the request body is read
+BODY_TARGETS = ('arg_name',)
 TARGET_RE = re.compile(r'^(?:ARGS|ARGS_GET|ARGS_POST|ARGS_NAMES|ARGS_GET_NAMES|ARGS_POST_NAMES|REQUEST_COOKIES|'
                        r'REQUEST_COOKIES_NAMES|REQUEST_HEADERS|REQUEST_HEADERS_NAMES|XML|REQUEST_BODY|REQUEST_URI|'
                        r'REQUEST_URI_RAW|REQUEST_FILENAME|REQUEST_BASENAME|FILES|FILES_NAMES|QUERY_STRING)'
@@ -632,10 +638,17 @@ def _confident(spec, rid, cfg, internal):
             conds.append(('REMOTE_ADDR', '!@ipMatch ' + _ip_list(cfg.known_scanners), 't:none'))
     else:
         raise SpecError('source', 'invalid_source')
-    first = "id:%d,phase:1,pass,log,msg:'jt confident block: %s',tag:'jt-confident-block'" % (rid, msg)
+    phase = 2 if target in BODY_TARGETS else 1
+    first = "id:%d,phase:%d,pass,log,msg:'jt confident block: %s',tag:'jt-confident-block'" % (rid, phase, msg)
     text = _chain(conds, first, 'setvar:tx.jt_block=1,ctl:ruleEngine=On')
     norm = {'target': target, 'header': spec.get('header') or '', 'regex': rx, 'exceptions': exc,
             'host': spec.get('host') or {'mode': 'any'}, 'msg': msg, 'reference': ref, 'source': source}
+    before = spec.get('before_rule_id')
+    if phase == 2 and before not in (None, ''):
+        # a phase-2 match goes before the rule that adds the critical score for jt_block (set by changes.py)
+        if not isinstance(before, int) or isinstance(before, bool) or before <= 0:
+            raise SpecError('before_rule_id', 'invalid_rule_id')
+        norm['before_rule_id'] = before
     return norm, text, 'before'
 
 
