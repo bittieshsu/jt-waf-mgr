@@ -80,9 +80,6 @@ class TestNvd(unittest.TestCase):
                                                                    'update': '*', 'si': '', 'se': '', 'ei': '', 'ee': '1.0'}]))
 
 
-if __name__ == '__main__':
-    unittest.main()
-
 
 class TestRetireByVersion(unittest.TestCase):
     def test_open_threat_ruled_out_by_nvd_is_set_aside_with_its_alert(self):
@@ -123,3 +120,33 @@ class TestDistroVersionIsLinear(unittest.TestCase):
             nvd._ours(v)
         self.assertLess(time.time() - t, 1)
         self.assertEqual(nvd._ours('2.9.14+dfsg-1.3~deb12u6'), ((2, 9, 14), True))
+
+
+class TestBuiltOn(unittest.TestCase):
+    """0.5.12: a PHP flaw reported for Nextcloud is not "attributed to the wrong product" because NVD names php."""
+    PHP = [{'vendor': 'php', 'product': 'php', 'version': '*', 'update': '*', 'si': '8.4.0', 'se': '', 'ei': '', 'ee': '8.4.15'},
+           {'vendor': 'paloaltonetworks', 'product': 'pan-os', 'version': '*', 'update': '*', 'si': '', 'se': '', 'ei': '', 'ee': '11'}]
+
+    def test_the_language_named_by_nvd(self):
+        self.assertEqual(nvd.built_on('Nextcloud', self.PHP), 'PHP')
+        self.assertIsNone(nvd.built_on('Keycloak', self.PHP))                  # Java
+        t = {'id': 'CVE-2026-109619', 'product': 'Nextcloud', 'our_version': '34.0.5', 'affected': 'unknown'}
+        nvd.apply_versions(t, self.PHP)
+        self.assertEqual((t['version_check']['result'], t['version_check']['tech'], t['affected']), ('built_on', 'PHP', 'unknown'))
+        from jtwafmgr import intel
+        self.assertFalse(intel.is_urgent(dict(t, exploited=True)))           # a warning to check the host's PHP
+        t = {'id': 'CVE-2026-109619', 'product': 'Keycloak', 'our_version': '26.0.5', 'affected': 'unknown'}
+        nvd.apply_versions(t, self.PHP)
+        self.assertEqual(t['version_check']['result'], 'elsewhere')
+
+    def test_the_alert_says_so_in_each_language(self):
+        from jtwafmgr import notify
+        d = {'msg': 'intel_built_on', 'cve': 'CVE-2026-109619', 'product': 'Nextcloud', 'tech': 'PHP', 'patch_change': 86}
+        zh = notify.alert_text('zh-TW', d)
+        self.assertIn('PHP', zh)
+        self.assertIn('#86', zh)
+        self.assertNotIn('{', notify.alert_text('en', dict(d, patch_change=None)) + notify.alert_text('ja', d))
+
+
+if __name__ == '__main__':
+    unittest.main()

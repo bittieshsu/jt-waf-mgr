@@ -46,8 +46,9 @@ MAY_AFFECT = ('yes', 'unknown')
 def unverified(t):
     """An exploited vulnerability with preconditions (a C library, a build or configuration option...) that the host
     facts could not confirm: it gets a warning to check, not the urgent path (a version match alone over-reports)."""
-    if (t.get('version_check') or {}).get('result') == 'elsewhere':
-        return True             # 0.4.98: NVD names other products only (the model's product is likely wrong)
+    if (t.get('version_check') or {}).get('result') in ('elsewhere', 'built_on'):
+        return True             # 0.4.98: NVD names other products only (the model's product is likely wrong); 0.5.12:
+        #                         or the language it is built on, whose version on that host is not known
     if (t.get('distro_check') or {}).get('result') == 'unknown' and \
             (t.get('debian_check') or {}).get('result') not in ('update', 'open'):
         return True             # 0.4.99: a distribution's package whose change log is not found here (backports);
@@ -2015,6 +2016,20 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
                                           'confirms it; check the distribution\'s security advisory.' % (t['id'], t['product'], ver),
                                 'msg': 'intel_distro', 'cve': t['id'], 'product': t['product'], 'sw_version': ver,
                                 'package': t['distro_check'].get('package') or '', 'run_id': rid}, link='/intel')
+            continue
+        if vc.get('result') == 'built_on':
+            # the flaw is in the language the application is built on (0.5.12): its version there is not known here;
+            # a virtual patch already in place is said
+            tech = util.clip(str(vc.get('tech') or ''), 60)
+            pr = db.one("SELECT c.id FROM intel_threats t JOIN changes c ON c.id=t.patch_change_id WHERE t.id=? AND c.state='applied'",
+                        (t.get('threat_id') or 0,))
+            alerts.raise_alert(db, app.audit, 'intel', 'exploited_vulnerability', 'warning', 'intel-check:%s:%s' % (t['id'], t['product']),
+                               {'reason': '%s is exploited in the wild; the flaw is in %s, which %s is built on, and the %s version on '
+                                          'its host is not known here: check that %s there is updated.%s' % (
+                                              t['id'], tech, t['product'], tech, tech,
+                                              (' A virtual patch (change #%d) already refuses the attack.' % pr[0]) if pr else ''),
+                                'msg': 'intel_built_on', 'cve': t['id'], 'product': t['product'], 'sw_version': ver, 'tech': tech,
+                                'patch_change': pr[0] if pr else None, 'run_id': rid}, link='/intel')
             continue
         if vc.get('result') == 'elsewhere':
             # NVD's analysis names other products only: likely attributed to the wrong product (0.4.98)

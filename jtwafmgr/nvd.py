@@ -286,6 +286,17 @@ def enrich(cfg, threats, get=None, now=None, sleep=time.sleep, log=print):
     return asked
 
 
+def built_on(product, entries):
+    """The language / framework the product is built on that NVD's entries name (PHP for Nextcloud), or None."""
+    from . import techstack
+    flat = lambda s: re.sub(r'[^a-z0-9]', '', str(s or '').lower())      # noqa: E731
+    named = {flat(e.get('product')) for e in entries} | {flat('%s %s' % (e.get('vendor'), e.get('product'))) for e in entries}
+    for tech in techstack.app_techs(product):
+        if flat(tech) and flat(tech) != flat(product) and flat(tech) in named:
+            return tech
+    return None
+
+
 def apply_versions(t, entries):
     """NVD's affected versions against our version of the threat's product: outside them -> the threat does not affect
     us (t['affected'] = 'no'; the model's answer kept as t['affected_model']); the comparison is kept in
@@ -294,6 +305,12 @@ def apply_versions(t, entries):
     vc = version_check(t.get('product'), known_version(t.get('our_version')), entries)
     if not vc:
         return None
+    if vc['result'] == 'elsewhere':
+        tech = built_on(t.get('product'), entries)
+        if tech:
+            # 0.5.12: NVD names the language the product is built on (php for Nextcloud): not a wrong product, the
+            # flaw is in that language, whose version on the application's host is not known here
+            vc = dict(vc, result='built_on', tech=tech)
     t['version_check'] = vc
     if vc['result'] == 'no' and t.get('affected') != 'no':
         t['affected_model'], t['affected'] = t.get('affected'), 'no'

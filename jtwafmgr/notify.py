@@ -139,6 +139,8 @@ TEXT = {
         'r.intel_urgent': '{sw} 的 {cve} 已被利用，{affects}{vu}：請盡快更新軟體，或決定是否加上預防規則。',
         'r.intel_check': '{sw} 的 {cve} 已被利用，但只在特定條件下才會受影響{vu}；無法確認本站是否符合，請確認是否適用。',
         'r.intel_elsewhere': '{cve} 已被利用，但 NVD 只列出 {products}，沒有 {product}：可能歸錯產品，請確認後標記不適用。',
+        'r.intel_built_on': '{cve} 已被利用；漏洞在 {product} 所用的 {tech}，本站不知道那台主機的 {tech} 版本：請確認主機上的 {tech} 已更新。{patch}',
+        'r.intel_patched': '虛擬修補 (變更 #{id}) 已在封鎖這種攻擊。',
         'r.intel_search_empty': '威脅情報的 {of} 次搜尋中有 {n} 次沒有任何網頁結果：搜尋服務 ({service}) 沒有在搜尋，這一輪只看了可以直接讀取的網站。請檢查搜尋服務。',
         'r.intel_release': '{product} 預定 {at} 發布安全更新{ids}：{title}。本站用到它的應用：{products}。發布後會自動再搜尋一次。{mit}',
         'r.intel_release_mit': '暫時處置：{m}',
@@ -240,6 +242,8 @@ TEXT = {
         'r.intel_urgent': '{cve} in {sw} is exploited in the wild and {affects}{vu}: update the software soon, or decide on a precaution rule.',
         'r.intel_check': '{cve} in {sw} is exploited in the wild, but only under certain conditions{vu}; whether this site meets them could not be confirmed: check whether it applies.',
         'r.intel_elsewhere': '{cve} is exploited in the wild, but NVD lists only {products}, not {product}: probably attributed to the wrong product; check it and set it aside.',
+        'r.intel_built_on': '{cve} is exploited in the wild; the flaw is in {tech}, which {product} is built on, and the {tech} version on its host is not known here: check that {tech} there is updated. {patch}',
+        'r.intel_patched': 'A virtual patch (change #{id}) already refuses the attack.',
         'r.intel_search_empty': '{n} of {of} threat intelligence searches gave no web page: the search service ({service}) is not searching, and the run looked only at the pages it may read directly. Check the search service.',
         'r.intel_release': '{product} has announced a security release for {at}{ids}: {title}. Applications here built on it: {products}. It is searched for again once it is out.{mit}',
         'r.intel_release_mit': ' Interim advice: {m}',
@@ -342,6 +346,8 @@ TEXT = {
         'r.intel_urgent': '{sw} の {cve} は悪用されており、{affects}{vu}：早めにソフトウェアを更新するか、予防ルールを決めてください。',
         'r.intel_check': '{sw} の {cve} は悪用されていますが、特定の条件でのみ影響します{vu}。当サイトが該当するかは確認できませんでした：該当するか確認してください。',
         'r.intel_elsewhere': '{cve} は悪用されていますが、NVD に記載されているのは {products} だけで {product} はありません。製品の割り当て誤りの可能性があります：確認してから対象外にしてください。',
+        'r.intel_built_on': '{cve} は悪用されています。脆弱性は {product} が使う {tech} にあり、そのホストの {tech} のバージョンは不明です：ホストの {tech} が更新済みか確認してください。{patch}',
+        'r.intel_patched': '仮想パッチ (変更 #{id}) がこの攻撃をすでに拒否しています。',
         'r.intel_search_empty': '脅威インテリジェンスの検索 {of} 回のうち {n} 回で Web ページが 1 件も得られませんでした。検索サービス ({service}) が検索していないため、この実行では直接読めるサイトだけを確認しました。検索サービスを確認してください。',
         'r.intel_release': '{product} は {at} にセキュリティリリースを予告しています{ids}：{title}。これを使うこのサイトのアプリケーション：{products}。公開後にもう一度自動で検索します。{mit}',
         'r.intel_release_mit': '暫定対処：{m}',
@@ -595,7 +601,7 @@ def _link(cfg, path):
     return base + path if base and path else None
 
 
-ALERT_MSGS = ('intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere', 'intel_distro', 'intel_release', 'intel_search_empty')
+ALERT_MSGS = ('intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere', 'intel_built_on', 'intel_distro', 'intel_release', 'intel_search_empty')
 
 
 def alert_text(lang, d):
@@ -617,6 +623,9 @@ def alert_text(lang, d):
           'products': _v(d.get('products'), 200)}
     if msg == 'intel_remove':
         kw['vu'] = ''
+    if msg == 'intel_built_on':
+        kw.update(tech=_v(d.get('tech'), 60),
+                  patch=_t(lang, 'r.intel_patched', id=_v(d.get('patch_change'), 10)) if d.get('patch_change') else '')
     if msg == 'intel_search_empty':
         kw.update(n=_v(d.get('n'), 6), of=_v(d.get('of'), 6), service=_v(d.get('service'), 100))
     if msg == 'intel_release':

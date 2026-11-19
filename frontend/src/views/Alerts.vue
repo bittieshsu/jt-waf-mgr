@@ -104,7 +104,7 @@ const cols = computed(() => [
 function kindText(r) { return tOr('alerts.kind.' + r.kind, r.kind) }
 // threat intelligence alerts carry a message key and its values: worded in the interface language (the stored
 // reason is the English one, kept for the audit trail)
-const MSGS = ['intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere', 'intel_distro', 'intel_release', 'intel_search_empty']
+const MSGS = ['intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere', 'intel_built_on', 'intel_distro', 'intel_release', 'intel_search_empty']
 function reasonText(r) {
   const d = r.details || {}
   if (r.kind === 'nginx_module') {
@@ -133,6 +133,7 @@ function reasonText(r) {
     vu: ver || d.msg === 'intel_remove' ? '' : t('alerts.ver_unknown'),
     affects: t(d.affected === 'yes' ? 'alerts.aff_yes' : 'alerts.aff_maybe'),
     now: ver, was: String(d.sw_was || ''), rule_id: String(d.rule_id || ''), products: String(d.products || ''),
+    tech: String(d.tech || ''), patch: d.patch_change ? t('alerts.intel_patched', { id: String(d.patch_change) }) : '',
   })
 }
 // an alert becomes a change: find a recent event of that site and path (paths in alerts are decoded and lower case,

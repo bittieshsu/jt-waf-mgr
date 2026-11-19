@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.13 (2026-11-20)
+
+- Threat intelligence: an exploited flaw in the language an application is built on (PHP for Nextcloud, LibreNMS, Z-Push) gets its own warning: the flaw is in PHP, whose version on that host is not known here, so check that PHP there is updated; a virtual patch already refusing the attack is named. NVD lists only php for such a CVE, and the warning used to call it "probably attributed to the wrong product; set it aside", the wrong advice for a flaw that does reach those applications.
+
 ## 0.5.12 (2026-11-20)
 
 - nginx update page and alerts: a distribution's nginx (Ubuntu, Debian) counts an nginx.org advisory as fixed when the package's installed change log lists the fix for its CVEs, shown as "Fixed by the distribution". Ubuntu 26.04's nginx 1.28.3-2ubuntu1.12 was reported vulnerable to 10 advisories in use; its change log lists the fix for 9 of them (and for 16 of the 25 advisories its version falls in).
