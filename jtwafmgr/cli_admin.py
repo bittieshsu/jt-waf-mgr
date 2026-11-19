@@ -12,6 +12,9 @@ single-admin mode, a fresh one-time code where the web interface asks for one).
   jt-waf-mgr tokens list | revoke ID
   jt-waf-mgr intel threats | status ID open|handled|ignored | versions   (compare open threats with NVD's affected versions)
   jt-waf-mgr review run
+  jt-waf-mgr nginx status | rollback --reason R | module SHA256 --reason R | backup -o FILE --totp CODE
+                     (rollback / module are changes an administrator approves with `changes approve ID --totp CODE`;
+                      they work when nginx itself is down and the management page cannot be reached)
 """
 import json
 import re
@@ -380,8 +383,64 @@ def register(sub):
     i.add_argument('status', nargs='?', choices=('open', 'handled', 'ignored'))
     r = common(sub.add_parser('review', help='run the periodic WAF review now'))
     r.add_argument('action', choices=('run',))
+    n = common(sub.add_parser('nginx', help='nginx and its ModSecurity module: status, roll back, switch module, backup'))
+    n.add_argument('action', choices=('status', 'rollback', 'module', 'backup'))
+    n.add_argument('id', nargs='?', help='module: the SHA-256 of a trusted module')
+    n.add_argument('--reason')
+    n.add_argument('-o', '--output', help='backup: write the archive to this file (mode 600)')
+    n.add_argument('--totp', help='backup: a fresh one-time code')
     return {'blocks': cmd_blocks, 'alerts': cmd_alerts, 'changes': cmd_changes, 'settings': cmd_settings,
-            'tokens': cmd_tokens, 'intel': cmd_intel, 'review': cmd_review}
+            'tokens': cmd_tokens, 'intel': cmd_intel, 'review': cmd_review, 'nginx': cmd_nginx}
+
+
+def cmd_nginx(app, args):
+    """0.5.1: what the nginx updates page does for the way back, also when nginx (and so the page) is down."""
+    import os
+    from . import nginxbackup, nginxup
+    from .changes import ChangeError
+    wf = app.workflow
+    if args.action == 'status':
+        st = nginxup.read_status(app.cfg)
+        wb = wf.nginx_way_back()
+        out = {'installed': st.get('installed'), 'candidate': st.get('candidate'), 'held': st.get('held'),
+               'check': st.get('state'), 'checked_at': st.get('checked_at'), 'way_back': wb,
+               'auto_update': bool(app.cfg['nginxup'].get('auto_update')),
+               'health_urls': len(wf.setting('health.urls') or [])}
+        if not _out(out, args.json):
+            for k, v in out.items():
+                print('%-12s %s' % (k, v if not isinstance(v, dict) else json.dumps(v, ensure_ascii=False)))
+        return 0
+    p = _person(app, args, 'admin')
+    try:
+        if args.action == 'rollback':
+            cid = wf.propose_nginx_rollback(args.reason, p['username'], role=p['role'])
+        elif args.action == 'module':
+            cid = wf.propose_nginx_module(args.id, args.reason, p['username'], role=p['role'])
+        else:
+            cid = None
+    except ChangeError as e:
+        raise CliError('%s %s' % (e.code, e.details or ''))
+    if cid:
+        print('change #%d proposed; approve it (an administrator, a note of 10 characters or more, a fresh code):' % cid)
+        print('  jt-waf-mgr changes approve %d --note "..." --totp CODE --as ADMIN' % cid)
+        return 0
+    # backup
+    if not args.output:
+        raise CliError('backup -o FILE')
+    if os.path.exists(args.output):
+        raise CliError('%s exists: name a new file' % args.output)
+    from .auth import AuthError
+    try:
+        app.auth.step_up(p['username'], args.totp or '', 'nginx.backup', 'cli')
+    except AuthError as e:
+        raise CliError(e.code)
+    path, info = nginxbackup.build(app.cfg, nginxup.read_status(app.cfg), out_dir=os.path.dirname(os.path.abspath(args.output)))
+    os.chmod(path, 0o600)
+    os.rename(path, args.output)
+    app.audit.log('nginx.backup_downloaded', p['username'], 'user', 'cli', 'ok', severity='warning', file=os.path.basename(args.output),
+                  size=info['size'], sha256=info['sha256'], files=info['files'], skipped=info['skipped'])
+    print('%s  %s (%d files, %d left out: see RESTORE.txt)' % (info['sha256'], args.output, info['files'], info['skipped']))
+    return 0
 
 
 def run(handler, app, args):

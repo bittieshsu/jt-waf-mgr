@@ -285,6 +285,11 @@ for k in range(8, 0, -1):
     app.db.x('UPDATE reviews SET created_at=? WHERE id=?', (now - k * 3 * 3600 + 60, rid))
 # 0.4.100: an nginx update waiting for approval (its page must ask for a one-time code) and the nginx advisories
 _now = time.time()
+# 0.5.1: the update before it, applied (the way back the nginx updates page offers)
+app.db.x("INSERT INTO changes(op, kind, spec, direction, state, reason, proposed_by, proposed_via, created_at, updated_at, "
+         "rule_text, tests) VALUES ('nginx','system',?, 'neutral','applied',?, 'admin','user',?,?,'','[]')",
+         (json.dumps({'mode': 'update', 'package': 'nginx', 'installed': '1.30.5-1~bookworm', 'target': '1.30.6-1~bookworm',
+                      'module_sha256': 'd' * 64}), 'nginx 1.30.5 -> 1.30.6 (synthetic)', _now - 86400, _now - 86400))
 _cid = app.db.x("INSERT INTO changes(op, kind, spec, direction, state, reason, proposed_by, proposed_via, created_at, updated_at, "
                 "rule_text, tests) VALUES ('nginx','system',?, 'neutral','pending_approval',?, 'cli:approver','user',?,?,'','[]')",
                 (json.dumps({'installed': '1.30.6-1~bookworm', 'target': '1.30.7-1~bookworm'}),

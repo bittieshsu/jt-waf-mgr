@@ -864,7 +864,81 @@ class Workflow:
         return cid
 
     # --- nginx update (nginxup.py checks it, nginxswap.py does it as root) -------------------------------------------
-    def propose_nginx(self, reason, actor, role=None):
+    def nginx_way_back(self):
+        """The applied nginx change a rollback would undo: the newest applied one (an update, finished update, module
+        switch or rollback), when nothing else changed nginx since (the root program checks the files itself)."""
+        from . import nginxup
+        r = self.db.one("SELECT * FROM changes WHERE op='nginx' AND state='applied' ORDER BY id DESC LIMIT 1")
+        if not r:
+            return None
+        spec = json.loads(r['spec'] or '{}')
+        st = nginxup.read_status(self.cfg)
+        now = st.get('installed')
+        # what it installed (target) and what was there before (installed); the same for a rollback, read backwards
+        back, to = spec.get('target'), spec.get('installed')
+        return {'change_id': r['id'], 'mode': spec.get('mode'), 'installed_by_it': back, 'back_to': to,
+                'applied_at': util.iso(r['updated_at']), 'current': now, 'matches': not now or now == back}
+
+    def propose_nginx_rollback(self, reason, actor, role=None):
+        """Back to the nginx package and module before the newest applied nginx change (0.5.1): the root program kept
+        them. An admin approves it with a one-time code like any nginx change."""
+        if role != 'admin':
+            raise ChangeError('forbidden', 403)
+        reason = (reason or '').strip()
+        if not reason or len(reason) > 2000:
+            raise ChangeError('reason_required')
+        open_ = self.db.one("SELECT id FROM changes WHERE op='nginx' AND state NOT IN (%s)" % ','.join('?' * len(FINAL)), FINAL)
+        if open_:
+            raise ChangeError('nginx_change_pending', 409, change_id=open_[0])
+        wb = self.nginx_way_back()
+        if not wb:
+            raise ChangeError('nothing_to_roll_back', 409)
+        if not wb['matches']:
+            raise ChangeError('nginx_changed_since', 409, installed=wb['current'], expected=wb['installed_by_it'])
+        old = json.loads(self.get(wb['change_id'])['spec'])
+        spec = {'mode': 'rollback', 'from_change': wb['change_id'], 'package': old.get('package'),
+                'installed': wb['installed_by_it'], 'target': wb['back_to']}
+        return self._insert_nginx(spec, reason, actor)
+
+    def propose_nginx_module(self, sha256, reason, actor, role=None):
+        """Another trusted ModSecurity module for the installed nginx (0.5.1): a module built against another
+        libmodsecurity, or the one before. Root has its own copy (trusted with nginx-module-trust)."""
+        from . import nginxup
+        from .nginxswap import trusted_modules
+        if role != 'admin':
+            raise ChangeError('forbidden', 403)
+        reason = (reason or '').strip()
+        if not reason or len(reason) > 2000:
+            raise ChangeError('reason_required')
+        sha256 = str(sha256 or '').strip().lower()
+        if not re.fullmatch(r'[0-9a-f]{64}', sha256):
+            raise ChangeError('invalid_request', 422)
+        if sha256 not in trusted_modules():
+            raise ChangeError('module_not_trusted', 409)
+        open_ = self.db.one("SELECT id FROM changes WHERE op='nginx' AND state NOT IN (%s)" % ','.join('?' * len(FINAL)), FINAL)
+        if open_:
+            raise ChangeError('nginx_change_pending', 409, change_id=open_[0])
+        st = nginxup.read_status(self.cfg)
+        inst = st.get('installed')
+        if not inst:
+            raise ChangeError('nginx_not_ready', 409, state=st.get('state'))
+        spec = {'mode': 'module', 'package': st.get('package') or 'nginx', 'installed': inst, 'target': inst,
+                'module_sha256': sha256}
+        return self._insert_nginx(spec, reason, actor)
+
+    def _insert_nginx(self, spec, reason, actor):
+        t = util.now()
+        with self.db.tx() as c:
+            cid = c.execute('INSERT INTO changes(op, kind, spec, direction, state, reason, proposed_by, created_at, updated_at) '
+                            "VALUES ('nginx', 'system', ?, 'neutral', 'checking', ?, ?, ?, ?)",
+                            (json.dumps(spec), reason, actor, t, t)).lastrowid
+        self.log(cid, actor, 'proposed', summarize('system', spec, 'nginx'))
+        self.app.audit.log('change.proposed', actor, 'user', None, 'ok', change_id=cid, op='nginx', mode=spec['mode'],
+                           nginx_from=spec.get('installed'), nginx_to=spec.get('target'))
+        self._wake.set()
+        return cid
+
+    def propose_nginx(self, reason, actor, role=None, auto=False):
         """Update nginx (or finish an update someone installed) with the module the nginxup job verified for exactly
         that package: approved by an admin (never automatic), done by the root program without stopping nginx."""
         from . import nginxup
@@ -881,6 +955,8 @@ class Workflow:
             raise ChangeError('nginx_not_ready', 409, state=st.get('state'))
         spec = {k: st.get(k) for k in ('mode', 'package', 'target', 'installed', 'module_sha256', 'package_sha256')}
         spec['module_path'] = os.path.join(nginxup.module_dir(self.cfg, st['target']), nginxup.MODULE_NAME)
+        if auto and actor == 'nginxup':
+            spec['auto'] = True         # only the job's own call: nginxup.auto_update may then apply it by itself
         t = util.now()
         with self.db.tx() as c:
             cid = c.execute('INSERT INTO changes(op, kind, spec, direction, state, reason, proposed_by, created_at, updated_at) '
@@ -898,6 +974,17 @@ class Workflow:
         spec = json.loads(r['spec'])
         st = nginxup.read_status(self.cfg)
         checks = {'started_at': util.iso(util.now())}
+        if spec.get('mode') in ('rollback', 'module'):
+            # the root program checks the kept files (or root's copy of the module) and the running nginx itself; here
+            # only that nginx is still the one the change was proposed for
+            same = st.get('installed') == spec.get('installed') or not st.get('installed')
+            checks['static'] = {'ok': same, 'detail': 'checked again by the root program before anything changes'}
+            checks['finished_at'] = util.iso(util.now())
+            if not same:
+                self._finish_checks(cid, checks, 'failed', 'nginx changed since the change was proposed; propose it again')
+                return
+            self._finish_checks(cid, checks, 'pending_approval', None)
+            return
         same = st.get('state') == 'ready' and all(st.get(k) == spec.get(k) for k in ('mode', 'package', 'target', 'module_sha256', 'package_sha256'))
         try:
             same = same and nginxup.sha256_file(spec['module_path']) == spec['module_sha256']
@@ -909,12 +996,29 @@ class Workflow:
             self._finish_checks(cid, checks, 'failed', 'the verified module or package changed since; check again and propose again')
             return
         self._finish_checks(cid, checks, 'pending_approval', None)
+        if r['proposed_by'] == 'nginxup' and spec.get('auto') is True and self.cfg['nginxup'].get('auto_update'):
+            # 0.5.1: "apply nginx security updates by themselves" (off by default, an administrator switches it on with
+            # a one-time code): the update the job verified for an advisory in use goes ahead without a person; the
+            # same root steps (health checks, put back on failure), a notification either way
+            self.log(cid, 'system', 'auto_approved', 'nginx security update applied by itself (nginxup.auto_update)')
+            self.app.audit.log('change.approved', 'system', 'system', None, 'ok', change_id=cid, auto=True, op='nginx')
+            self._queue_apply(cid, 'system')
+            try:
+                from . import notify
+                notify.enqueue(self.db, self.cfg, 'change.auto_nginx', {'change_id': cid, 'from': spec.get('installed'),
+                                                                        'to': spec.get('target')}, severity='warning')
+            except Exception:       # noqa: BLE001 -- the update goes ahead; the change page says it
+                pass
 
     def _send_nginx(self, cid, r):
         spec = json.loads(r['spec'])
-        self._write_request({'request_id': 'nginx-c%d' % cid, 'action': 'nginx_update', 'change_id': cid,
-                             'mode': spec['mode'], 'package': spec['package'], 'version': spec['target'],
-                             'module_sha256': spec['module_sha256'], 'health_urls': self.setting('health.urls')})
+        req = {'request_id': 'nginx-c%d' % cid, 'action': 'nginx_update', 'change_id': cid,
+               'mode': spec['mode'], 'package': spec['package'], 'health_urls': self.setting('health.urls')}
+        if spec['mode'] == 'rollback':
+            req['from_change'] = spec['from_change']        # root finds the way back in what it kept itself
+        else:
+            req.update(version=spec['target'], module_sha256=spec['module_sha256'])
+        self._write_request(req)
         self._state(cid, 'applying')
         self.log(cid, 'system', 'apply_requested', summarize('system', spec, 'nginx'))
 
@@ -923,7 +1027,9 @@ class Workflow:
         ok = res.get('result') == 'ok'
         summary = str(res.get('summary', ''))[:1000]
         spec = json.loads(r['spec'])
-        if ok:          # the module question is settled: earlier alerts close (before any new one below is raised)
+        if ok and spec.get('mode') in ('update', 'finish'):
+            # the module question is settled: earlier alerts close (before any new one below is raised); a rollback
+            # brings the old nginx back, so its alerts come back with the next check
             self.db.x("UPDATE alerts SET state='handled', handled_by='system', handled_at=?, note=? WHERE kind IN ('nginx_module', 'nginx_security') "
                       "AND state='open'", (util.now(), 'nginx updated with a verified module (change #%d)' % cid))
         for flag, why in (('half', 'update_half_done'), ('not_held', 'hold_lost')):
@@ -2057,6 +2163,10 @@ def _check_tests(tests, internal=False):
 
 def summarize(kind, spec, op):
     if op == 'nginx':
+        if spec.get('mode') == 'rollback':
+            return 'nginx %s: back to %s and the module before change #%s' % (spec.get('installed'), spec.get('target') or 'the previous package', spec.get('from_change'))
+        if spec.get('mode') == 'module':
+            return 'nginx %s: switch to the ModSecurity module %s' % (spec.get('installed'), str(spec.get('module_sha256'))[:12])
         if spec.get('mode') == 'finish':
             return 'nginx %s: finish the update with a verified ModSecurity module' % spec.get('target')
         return 'nginx %s -> %s with a verified ModSecurity module' % (spec.get('installed'), spec.get('target'))

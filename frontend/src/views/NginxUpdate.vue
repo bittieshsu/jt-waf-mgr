@@ -123,6 +123,8 @@
           <span>{{ t('crsupd.reason') }}</span>
           <textarea v-model="protoReason" rows="2" maxlength="2000" class="w-lg" :placeholder="t('ngup.proto.reason_hint')"></textarea></label>
       </section>
+      <!-- 0.5.1: if an update goes wrong -- what happens by itself, the way back, the command line, a copy to keep -->
+      <NginxSafety v-if="d.safety" :safety="d.safety" @changed="load" />
       <UiSettings v-if="isAdmin" :groups="['nginxup']" @saved="load" />
       <ErrorBox :error="opError" />
     </template>
@@ -139,6 +141,7 @@ import ErrorBox from '../components/ErrorBox.vue'
 import Loading from '../components/Loading.vue'
 import Icon from '../components/Icon.vue'
 import CodeBlock from '../components/CodeBlock.vue'
+import NginxSafety from '../components/NginxSafety.vue'
 import { uploadInParts } from '../upload.js'
 import UiSettings from '../components/UiSettings.vue'
 

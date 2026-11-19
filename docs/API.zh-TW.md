@@ -191,6 +191,14 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 HTTP/2、HTTP/3 有幾處設定開啟 (`on`)，以及目前暫時關閉了幾行 (`off_by_us`、`change_ids`)。`POST /nginx/proto` (審核者，
 `feature` 為 `http2` 或 `http3`，`mode` 為 `off` 或 `on`，帶 `reason`) 提出暫時關閉該功能或原樣恢復，為 op `proto` 的變更。
 
+0.5.1 起 `safety` 說明升級失敗時會發生什麼、可以怎麼退回：`way_back` (最近一次套用的 nginx 變更：`change_id`、`mode`、
+`installed_by_it`、`back_to`、`applied_at`、`current`、`matches`)、`auto_update`、`health_urls` (數量)、`trusted_modules`
+(`sha256`、`note`、`running`)。`POST /nginx/rollback` (管理者，帶 `reason`) 提出退回到那次變更之前的套件與模組 (root 用自己保留的
+檔案；沒有可退回時回 `nothing_to_roll_back`，之後有人改過時回 `nginx_changed_since`)；`POST /nginx/module` (管理者，`sha256`、
+`reason`) 提出讓目前的 nginx 改用另一個已信任的模組。兩者都是 op `nginx` 的變更 (`mode` 為 `rollback` 或 `module`)，要管理者的
+一次性驗證碼與說明才能核准。`POST /nginx/backup` (管理者，帶 `totp`) 回傳 `.tar.gz`：nginx 設定 (不含私鑰與密碼檔)、使用中的模組與
+`RESTORE.txt`，每次下載都會記錄。把 `nginxup.auto_update` 設為 `true` (`PATCH /settings/ui`) 時，同一個請求要帶 `totp`。
+
 ### 4.2 事件
 
 **`GET /events`**：scope `events:read`。事件清單，新的在前。參數（全部選填）：

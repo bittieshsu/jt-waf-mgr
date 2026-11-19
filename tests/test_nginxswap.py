@@ -393,3 +393,102 @@ class TestApplyRequests(unittest.TestCase):
         for bad in ('openssl', 'libc6', '', None):
             with self.assertRaises(Fail):
                 a.check_nginx({'action': 'nginx_hold', 'package': bad})
+
+
+class TestWayBack(TestPrepare):
+    """0.5.1: back to the package and module before an applied change -- from what root kept itself."""
+
+    OLDMOD = b'\x7fELF module before'
+
+    def kept(self, record=True, change=5):
+        d = os.path.join(nginxswap.work_dir(self.state), 'c%d-20261119-000000-x' % change)
+        for n, b in (('new.deb', self.debs[NEW]), ('old.deb', self.debs[OLD]), (nginxswap.MODULE_NAME, self.mod),
+                     ('previous-' + nginxswap.MODULE_NAME, self.OLDMOD)):
+            self.put(os.path.join(d, n), b)
+        if record:
+            with open(os.path.join(d, nginxswap.DONE), 'w') as fh:
+                json.dump({'mode': 'update', 'package': PKG, 'version': NEW, 'previous': OLD, 'module_sha256': sha(self.mod),
+                           'previous_module_sha256': sha(self.OLDMOD), 'old_deb_sha256': sha(self.debs[OLD]),
+                           'new_deb_sha256': sha(self.debs[NEW])}, fh)
+        self.put(self.target, self.mod)             # that change's module runs now
+        return d
+
+    def fake(self, installed=NEW):
+        f = Fake(self.t, self.index, installed=installed, unit=self.unit_ok())
+        run = f.__call__
+        debs = self.debs
+
+        def g(cmd, cwd=None, timeout=300):
+            if cmd[:2] == ['dpkg-deb', '-f']:
+                with open(cmd[2], 'rb') as fh:
+                    b = fh.read()
+                return 0, {'Version': NEW if b == debs[NEW] else OLD, 'Package': PKG}[cmd[3]]
+            return run(cmd, cwd, timeout)
+        g.calls = f.calls
+        return g
+
+    def rb(self, **kw):
+        return {'change_id': 9, 'mode': 'rollback', 'package': PKG, 'from_change': 5, **kw}
+
+    def test_rollback_takes_the_kept_files(self):
+        self.kept()
+        res = self.prepare(req=self.rb(), fake=self.fake())
+        self.assertEqual(res['result'], 'ok')
+        p = self.plan
+        self.assertEqual((p['mode'], p['version'], p['previous']), ('rollback', OLD, NEW))
+        for k, want in (('new_deb', self.debs[OLD]), ('old_deb', self.debs[NEW]), ('module', self.OLDMOD)):
+            with open(p[k], 'rb') as fh:
+                self.assertEqual(fh.read(), want, k)
+        self.assertTrue(self.tried[0].endswith('/unpacked/usr/sbin/nginx'))     # the previous nginx with its module
+
+    def test_kept_by_an_older_version_without_a_record(self):
+        self.kept(record=False)
+        self.assertEqual(self.prepare(req=self.rb(), fake=self.fake())['result'], 'ok')
+        self.assertEqual(self.plan['version'], OLD)
+
+    def test_rollback_refusals(self):
+        self.kept()
+        self.assertIn('skip what came after', self.assertRefused('preflight', req=self.rb(), fake=self.fake(installed='1.30.8-1~bookworm')))
+        self.put(self.target, b'\x7fELF another module')
+        self.assertIn('module in place', self.assertRefused('preflight', req=self.rb(), fake=self.fake()))
+        self.assertIn('kept nothing', self.assertRefused('preflight', req=self.rb(from_change=6), fake=self.fake()))
+        with self.assertRaises(nginxswap.SwapFail):
+            nginxswap.check_request(self.rb(from_change=-1))
+
+    def test_module_switch_keeps_nginx(self):
+        self.put(self.target, b'\x7fELF old module')
+        res = self.prepare(req=self.req(mode='module', version=OLD), fake=Fake(self.t, self.index, installed=OLD, unit=self.unit_ok()))
+        self.assertEqual(res['result'], 'ok')
+        self.assertEqual((self.plan['new_deb'], self.plan['old_deb'], self.plan['version']), (None, None, OLD))
+        self.assertRefused('preflight', req=self.req(mode='module', version=NEW), fake=Fake(self.t, self.index, installed=OLD))
+
+    def test_prune_keeps_the_way_back(self):
+        base = nginxswap.work_dir(self.state)
+        keep = self.kept(change=1)
+        os.utime(keep, (1, 1))                      # the oldest of all
+        for i in range(2, 8):
+            os.makedirs(os.path.join(base, 'c%d-x' % i))
+            os.utime(os.path.join(base, 'c%d-x' % i), (i, i))
+        nginxswap.prune(base)
+        left = sorted(os.listdir(base))
+        self.assertIn(os.path.basename(keep), left)
+        self.assertEqual(len([x for x in left if x.startswith('c')]), 5)       # 4 newest attempts + the way back
+
+
+class TestSwapRecordsTheWayBack(TestSwap):
+    def test_done_written_and_module_switch_moves_nginx_twice_on_failure(self):
+        self.dpkg()
+        nginxswap.swap(self.plan, lambda urls: {u: 200 for u in urls}, [])
+        with open(os.path.join(self.work, nginxswap.DONE)) as fh:
+            done = json.load(fh)
+        self.assertEqual((done['version'], done['previous'], done['module_sha256']), (NEW, OLD, sha(self.mod)))
+        # a module switch that fails its health check: the old module goes back and nginx moves to it again
+        moves = []
+        nginxswap.hot_upgrade = lambda wait=15: (moves.append(1), self.pid.__setitem__(0, self.pid[0] + 1))
+        plan = dict(self.plan, mode='module', new_deb=None, old_deb=None, version=OLD, previous=OLD)
+        self.put(self.target, b'\x7fELF running module')
+        calls = iter([{'u': 200}, {'u': 502}])
+        with self.assertRaises(nginxswap.SwapFail):
+            nginxswap.swap(dict(plan, health_urls=['u']), lambda urls: next(calls), [])
+        self.assertEqual(self.module_now(), b'\x7fELF running module')
+        self.assertEqual(len(moves), 2)             # to the new module, and back to the old one

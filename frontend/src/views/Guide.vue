@@ -14,14 +14,14 @@
       <h2><Icon name="map" /> {{ t('guide.arch.title') }}</h2>
       <p class="muted small">{{ t('guide.arch.hint') }}</p>
       <div class="archwrap">
-        <svg ref="archEl" class="archsvg" viewBox="0 0 1000 745" role="group" :aria-label="t('guide.arch.title')">
+        <svg ref="archEl" class="archsvg" viewBox="0 0 1000 830" role="group" :aria-label="t('guide.arch.title')">
           <defs>
             <marker id="arch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M0,0 L10,5 L0,10 z" class="arch-arrowhead" />
             </marker>
           </defs>
-          <rect class="arch-group" x="190" y="282" width="640" height="450" rx="12" />
-          <text class="arch-grouplabel" x="816" y="720" text-anchor="end">jt-waf-mgr · {{ t('guide.arch.service') }}</text>
+          <rect class="arch-group" x="190" y="282" width="640" height="535" rx="12" />
+          <text class="arch-grouplabel" x="816" y="805" text-anchor="end">jt-waf-mgr · {{ t('guide.arch.service') }}</text>
           <path v-for="e in edges" :key="e.key" class="arch-edge" :class="{ hot: e.from === sel || e.to === sel, main: e.main }" :d="e.d" marker-end="url(#arch-arrow)" />
           <g v-for="e in edges" :key="'l' + e.key">
             <text v-if="e.label" class="arch-edgelabel" :x="e.lx" :y="e.ly" :text-anchor="e.anchor || 'middle'">{{ t(e.label) }}</text>
@@ -80,7 +80,7 @@ import { state, hasRole } from '../store.js'
 import Icon from '../components/Icon.vue'
 import FlowSteps from '../components/FlowSteps.vue'
 
-// Layout of the architecture diagram (viewBox 1000 x 745).
+// Layout of the architecture diagram (viewBox 1000 x 830).
 const nodes = [
   { key: 'clients', x: 20, y: 40, w: 170, h: 70, kind: 'ext', icon: 'globe' },
   { key: 'nginx', x: 330, y: 28, w: 300, h: 94, kind: 'core', sub: true, icon: 'shield', to: '/crs' },
@@ -105,6 +105,9 @@ const nodes = [
   { key: 'llm2', x: 20, y: 630, w: 150, h: 60, kind: 'ext', sub: true, icon: 'search' },
   { key: 'channels', x: 848, y: 520, w: 146, h: 60, kind: 'ext', sub: true, icon: 'chat' },
   { key: 'sources', x: 848, y: 630, w: 146, h: 60, kind: 'ext', sub: true, icon: 'globe' },
+  // 0.5.1 drawn: IP reputation (iprep.py, its own unit) -- public lists once a day, InternetDB and MISP asked online
+  { key: 'iprep', x: 300, y: 735, w: 170, h: 60, kind: 'svc', sub: true, icon: 'fingerprint', to: '/admin/settings', role: 'admin' },
+  { key: 'ipsources', x: 848, y: 735, w: 146, h: 60, kind: 'ext', sub: true, icon: 'network' },
 ]
 const N = Object.fromEntries(nodes.map((n) => [n.key, n]))
 function mid(k, side) {
@@ -142,6 +145,8 @@ const edges = [
   edge('d-no', 'database', 'b', 'notify', 't', { d: 'M495,380 L495,488 L720,488 L720,520', label: 'guide.edge.queue', lx: 610, ly: 482 }),
   edge('no-ch', 'notify', 'r', 'channels', 'l', { label: 'guide.edge.sends' }),
   edge('src-up', 'sources', 'l', 'updaters', 'r', { label: 'guide.edge.download', lx: 824, ly: 622 }),
+  edge('ips-ip', 'ipsources', 'l', 'iprep', 'r', { label: 'guide.edge.lists_lookup', lx: 660, ly: 759 }),
+  edge('ip-d', 'iprep', 't', 'database', 'b', { d: 'M375,735 L375,380', label: 'guide.edge.results', lx: 381, ly: 727, anchor: 'start' }),
 ]
 const sel = ref('nginx')
 // a name or sub line longer than its box (some languages run long) is squeezed to fit, never cut or spilled

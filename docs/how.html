@@ -243,7 +243,7 @@ body.zm-on { overflow: hidden; }
 <section id="arch"><div class="wrap">
   <h2 data-t="arch_h"></h2><p class="sub" data-t="arch_sub"></p>
   <figure class="fig" id="fig-arch">
-    <svg class="archsvg" viewBox="0 0 1200 750" role="img" aria-labelledby="arch-title">
+    <svg class="archsvg" viewBox="0 0 1200 830" role="img" aria-labelledby="arch-title">
       <title id="arch-title" data-t="arch_h"></title>
       <defs>
         <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
@@ -279,7 +279,8 @@ body.zm-on { overflow: hidden; }
       <path class="e" d="M505,360 L505,535 L615,535 L615,560" marker-end="url(#ar)"/>
       <path class="e" d="M780,560 L780,510" marker-end="url(#ar)"/>
       <path class="e" d="M945,560 L945,540 L850,540 L850,510" marker-end="url(#ar)"/>
-      <path class="e" d="M870,490 L1110,490 L1110,680" marker-end="url(#ar)"/>
+      <path class="e" d="M870,490 L1192,490 L1192,788 L1185,788" marker-end="url(#ar)"/>
+      <path class="e" d="M1110,620 L1110,680" marker-end="url(#ar)"/>
       <path class="e" d="M285,620 L285,680" marker-end="url(#ar)"/>
       <path class="e" d="M450,620 L450,680" marker-end="url(#ar)"/>
       <path class="e" d="M615,620 L615,680" marker-end="url(#ar)"/>
@@ -306,7 +307,8 @@ body.zm-on { overflow: hidden; }
       <text class="el" x="560" y="529" text-anchor="middle" data-t="e_queue" data-w="90"></text>
       <text class="el" x="786" y="542" data-t="e_files" data-w="80"></text>
       <text class="el" x="951" y="556" data-t="e_staged" data-w="85"></text>
-      <text class="el" x="1116" y="600" data-t="e_syslog" data-w="70"></text>
+      <text class="el" x="1186" y="482" text-anchor="end" data-t="e_syslog" data-w="70"></text>
+      <text class="el" x="1116" y="655" data-t="e_lookup" data-w="70"></text>
       <text class="el" x="291" y="655" data-t="e_asks" data-w="140"></text>
       <text class="el" x="456" y="655" data-t="e_public" data-w="140"></text>
       <text class="el" x="621" y="655" data-t="e_sends" data-w="140"></text>
@@ -340,7 +342,9 @@ body.zm-on { overflow: hidden; }
       <g class="n ext"><rect x="540" y="680" width="150" height="56" rx="8"/><text class="nm" x="615" y="704" text-anchor="middle" data-t="d_channels" data-w="136"></text><text class="sb" x="615" y="722" text-anchor="middle" data-t="d_channels_s" data-w="136"></text></g>
       <g class="n ext"><rect x="705" y="680" width="150" height="56" rx="8"/><text class="nm" x="780" y="704" text-anchor="middle" data-w="136">MaxMind · RIR</text><text class="sb" x="780" y="722" text-anchor="middle" data-t="d_geo_s" data-w="136"></text></g>
       <g class="n ext"><rect x="870" y="680" width="150" height="56" rx="8"/><text class="nm" x="945" y="704" text-anchor="middle">GitHub</text><text class="sb" x="945" y="722" text-anchor="middle" data-t="d_github_s" data-w="136"></text></g>
-      <g class="n ext"><rect x="1035" y="680" width="150" height="56" rx="8"/><text class="nm" x="1110" y="704" text-anchor="middle" data-t="d_logsrv" data-w="136"></text><text class="sb" x="1110" y="722" text-anchor="middle" data-t="d_logsrv_s" data-w="136"></text></g>
+      <g class="n unit"><rect x="1035" y="560" width="150" height="60" rx="8"/><text class="nm" x="1110" y="586" text-anchor="middle" data-t="d_iprep" data-w="136"></text><text class="sb mono" x="1110" y="605" text-anchor="middle" data-w="136">iprep</text></g>
+      <g class="n ext"><rect x="1035" y="680" width="150" height="56" rx="8"/><text class="nm" x="1110" y="704" text-anchor="middle" data-t="d_ipsrc" data-w="136"></text><text class="sb" x="1110" y="722" text-anchor="middle" data-t="d_ipsrc_s" data-w="136"></text></g>
+      <g class="n ext"><rect x="1035" y="760" width="150" height="56" rx="8"/><text class="nm" x="1110" y="784" text-anchor="middle" data-t="d_logsrv" data-w="136"></text><text class="sb" x="1110" y="802" text-anchor="middle" data-t="d_logsrv_s" data-w="136"></text></g>
     </svg>
     <div class="figbar">
       <div class="legend">
@@ -361,6 +365,7 @@ body.zm-on { overflow: hidden; }
     <div class="card"><h3><span class="ic">✉</span><span data-t="u4_h"></span></h3><p class="by mono">jt-waf-mgr-notify.service</p><ul class="src"><li data-t="u4_1"></li><li data-t="u4_2"></li></ul></div>
     <div class="card"><h3><span class="ic">◐</span><span data-t="u5_h"></span></h3><p class="by mono">jt-waf-mgr-geoip.service</p><ul class="src"><li data-t="u5_1"></li><li data-t="u5_2"></li></ul></div>
     <div class="card"><h3><span class="ic">↻</span><span data-t="u6_h"></span></h3><p class="by mono">jt-waf-mgr-crs.service</p><ul class="src"><li data-t="u6_1"></li><li data-t="u6_2"></li></ul></div>
+    <div class="card"><h3><span class="ic">⌖</span><span data-t="u7_h"></span></h3><p class="by mono">jt-waf-mgr-iprep.service</p><ul class="src"><li data-t="u7_1"></li><li data-t="u7_2"></li></ul></div>
   </div>
   <p class="note" data-t="units_note"></p>
   <div class="reccard">
@@ -1113,6 +1118,10 @@ const T = {
   u6_h: 'CRS update',
   u6_1: 'Daily timer and "check now"; does nothing unless jt-waf-mgr manages the CRS (off by default).',
   u6_2: 'Writes only /var/lib/jt-waf-mgr. Network: not limited (GitHub). It never changes nginx: switching the CRS is an approved change.',
+  u7_h: 'IP reputation',
+  u7_1: 'Daily timer for the public lists (Spamhaus DROP, FireHOL, Emerging Threats, Feodo, CINS, blocklist.de...), matched on this host; a lookup request when someone opens an outside address asks Shodan InternetDB and the organisation\'s MISP (read-only key, pinned certificate if wanted). Off by default.',
+  u7_2: 'Sends only the outside address looked up; the web service never connects out. Writes only /var/lib/jt-waf-mgr/iprep and the results in the database.',
+  d_iprep: 'IP reputation', d_ipsrc: 'Reputation sources', d_ipsrc_s: 'lists, InternetDB, MISP', e_lookup: 'lists, lookups',
   units_note: 'Every unit that runs as jtwaf has ProtectSystem=strict, no capabilities, a system call filter and no new privileges. Inside an LXC container systemd cannot enforce the address rules (IPAddressDeny / IPAddressAllow).',
   out_h: 'What jt-waf-mgr writes outside its own directory',
   out_1: 'After adoption, the managed ModSecurity files /etc/nginx/modsec/jt-waf-mgr/before-crs.conf and after-crs.conf. Adoption also points the Include lines of the main ModSecurity file at them, once.',
@@ -1364,6 +1373,10 @@ const T = {
   u6_h: 'CRS 更新',
   u6_1: '每日計時器與「立即檢查」；除非由 jt-waf-mgr 管理 CRS（預設關閉），否則不做任何事。',
   u6_2: '只寫入 /var/lib/jt-waf-mgr。網路：不限制（GitHub）。它不會改動 nginx：切換 CRS 是一筆要核准的變更。',
+  u7_h: 'IP 情資',
+  u7_1: '每日計時器下載公開清單（Spamhaus DROP、FireHOL、Emerging Threats、Feodo、CINS、blocklist.de 等），在本機比對；有人查詢外部 IP 時，再線上問 Shodan InternetDB 與組織自己的 MISP（唯讀金鑰，可釘選憑證指紋）。預設關閉。',
+  u7_2: '只送出要查的那個外部 IP，網頁服務本身不連外。只寫入 /var/lib/jt-waf-mgr/iprep 與資料庫裡的比對結果。',
+  d_iprep: 'IP 情資', d_ipsrc: '外部情資', d_ipsrc_s: '公開清單、InternetDB、MISP', e_lookup: '清單、查詢',
   units_note: '所有以 jtwaf 執行的 unit 都設了 ProtectSystem=strict、沒有任何 capability、系統呼叫過濾與 NoNewPrivileges。在 LXC 容器裡，systemd 無法強制執行位址限制（IPAddressDeny、IPAddressAllow）。',
   out_h: 'jt-waf-mgr 在自己目錄以外會寫入的檔案',
   out_1: '納管之後的 ModSecurity 受管理檔案 /etc/nginx/modsec/jt-waf-mgr/before-crs.conf 與 after-crs.conf。納管時也會把 ModSecurity 主設定的 Include 行改成指向它們，只改這一次。',
@@ -1615,6 +1628,10 @@ const T = {
   u6_h: 'CRS 更新',
   u6_1: '毎日のタイマーと「今すぐ確認」。jt-waf-mgr が CRS を管理する設定（既定はオフ）でなければ何もしません。',
   u6_2: '書き込むのは /var/lib/jt-waf-mgr だけ。ネットワーク：制限なし（GitHub）。nginx は変更しません。CRS の切り替えは承認が必要な変更です。',
+  u7_h: 'IP レピュテーション',
+  u7_1: '毎日のタイマーで公開リスト（Spamhaus DROP、FireHOL、Emerging Threats、Feodo、CINS、blocklist.de など）をダウンロードしてこのホストで照合し、外部アドレスが照会されると Shodan InternetDB と組織の MISP（読み取り専用キー、証明書の固定も可）にオンラインで問い合わせます。既定はオフ。',
+  u7_2: '送るのは照会した外部アドレスだけで、Web サービス自体は外部に接続しません。書き込むのは /var/lib/jt-waf-mgr/iprep とデータベースの照合結果だけです。',
+  d_iprep: 'IP レピュテーション', d_ipsrc: '外部の脅威情報', d_ipsrc_s: 'リスト、InternetDB、MISP', e_lookup: 'リスト、照会',
   units_note: 'jtwaf で動くユニットはすべて ProtectSystem=strict、ケーパビリティなし、システムコールフィルター、NoNewPrivileges です。LXC コンテナ内では、systemd はアドレス制限（IPAddressDeny、IPAddressAllow）を強制できません。',
   out_h: 'jt-waf-mgr が自分のディレクトリの外に書き込むもの',
   out_1: '取り込み後の ModSecurity 管理ファイル /etc/nginx/modsec/jt-waf-mgr/before-crs.conf と after-crs.conf。取り込み時に一度だけ、ModSecurity メインファイルの Include 行をこれらに向けます。',

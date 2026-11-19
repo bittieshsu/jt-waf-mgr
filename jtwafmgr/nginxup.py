@@ -225,6 +225,9 @@ def run(app, log=print, now=None):
             st.update(_prepare(cfg, up, 'update', [], log))
     except Exception as e:      # noqa: BLE001 -- reported; tried again next time
         st.update(state='error', error=('%s: %s' % (type(e).__name__, e))[:300])
+    # the verified state first: proposing the update reads it (0.5.1: proposing right after the module was verified
+    # read the state before, "no module yet", and was refused as not ready)
+    _write_status(cfg, st)
     try:
         security(app, st, log)
     except Exception as e:      # noqa: BLE001 -- the update check stands; the advisories are read again next run
@@ -271,7 +274,7 @@ def security(app, st, log=print, get=None):
                 'nginx %s -> %s: nginx.org security advisories for features this configuration uses (%s). Rules cannot '
                 'refuse these; the ModSecurity module was verified with the new nginx (%s).' % (
                     a['version'], st.get('target'), ', '.join(cves)[:600] or ', '.join(i['title'] for i in used)[:600],
-                    st.get('detail') or 'ready'), 'nginxup', role='admin')
+                    st.get('detail') or 'ready'), 'nginxup', role='admin', auto=True)
             st['proposed_change'] = cid
             log('nginxup: update proposed as change #%d' % cid)
         except ChangeError as e:

@@ -56,6 +56,9 @@ docs/OFFLINE.ja.md
 docs/API.md
 docs/API.zh-TW.md
 docs/API.ja.md
+docs/RECOVERY.md
+docs/RECOVERY.zh-TW.md
+docs/RECOVERY.ja.md
 docs/index.html
 docs/how.html
 docs/shots/

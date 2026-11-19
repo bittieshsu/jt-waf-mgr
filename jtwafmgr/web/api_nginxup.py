@@ -5,9 +5,10 @@ import os
 import re
 import shutil
 import tempfile
+import time
 
 from .. import nginxmod, nginxup, util
-from .server import ApiError, json_response
+from .server import ApiError, Response, json_response
 
 V = '/api/v1'
 DESC_KEYS = {'module': str, 'sha256': str, 'nginx_version': str, 'nginx_package': str, 'connector': str,
@@ -62,7 +63,85 @@ def update_status(app, req):
         'update': up.get('update'), 'held': up.get('held'), 'supported': up.get('supported'),
         'hand_built': up.get('hand_built') or [], 'module_packages': [m for m in up.get('modules') or [] if m.get('package')],
         'check': job, 'waiting': waiting, 'checked_at': st.get('checked_at'),
-        'open_change': _open_change(app), 'proto': _proto_state(app)})
+        'open_change': _open_change(app), 'proto': _proto_state(app), 'safety': _safety(app, job)})
+
+
+def _safety(app, job):
+    """What happens if an update goes wrong, and the way back (0.5.1): shown before anyone approves."""
+    from .api import _wf
+    try:
+        wb = _wf(app).nginx_way_back()
+    except Exception:       # noqa: BLE001 -- nothing applied yet
+        wb = None
+    try:
+        from ..nginxswap import module_target, sha256_file, trusted_entries
+        entries = trusted_entries()
+        try:
+            running = sha256_file(module_target(app.cfg['paths']['nginx_bin']))
+        except Exception:       # noqa: BLE001 -- no module in place
+            running = ''
+    except Exception:       # noqa: BLE001
+        entries, running = [], ''
+    # only modules for the installed nginx (the note the build script gives names it; one that does not say stays)
+    inst = (job or {}).get('installed') or ''
+    mods = [{'sha256': k, 'note': util.clip(v, 200), 'running': k == running} for k, v in entries[-40:]
+            if k == running or not inst or not re.search(r'\bnginx [0-9]', v) or ('nginx ' + inst) in v][-20:]
+    return {'way_back': wb, 'auto_update': bool(app.cfg['nginxup'].get('auto_update')),
+            'health_urls': len(_wf(app).setting('health.urls') or []), 'trusted_modules': mods,
+            'listen': app.cfg['server']['listen']}
+
+
+def rollback(app, req):
+    """Admin: back to the nginx package and module before the newest applied nginx change (a change approved with a
+    one-time code, like any nginx change)."""
+    from ..changes import ChangeError
+    from .api import _change_error, _wf
+    b = req.body()
+    if not isinstance(b, dict):
+        raise ApiError(400, 'bad_request', 'an object')
+    try:
+        cid = _wf(app).propose_nginx_rollback(b.get('reason'), req.user['username'], role=req.user['role'])
+    except ChangeError as e:
+        raise _change_error(e)
+    return json_response(202, {'change_id': cid})
+
+
+def module_switch(app, req):
+    """Admin: another trusted ModSecurity module for the installed nginx."""
+    from ..changes import ChangeError
+    from .api import _change_error, _wf
+    b = req.body()
+    if not isinstance(b, dict):
+        raise ApiError(400, 'bad_request', 'an object')
+    try:
+        cid = _wf(app).propose_nginx_module(b.get('sha256'), b.get('reason'), req.user['username'], role=req.user['role'])
+    except ChangeError as e:
+        raise _change_error(e)
+    return json_response(202, {'change_id': cid})
+
+
+def backup(app, req):
+    """Admin: the nginx configuration and the module in use as one archive, with the steps to put them back (a fresh
+    one-time code each time, recorded). Private key files are left out."""
+    from .. import nginxbackup
+    from ..auth import AuthError
+    b = req.body()
+    try:
+        app.auth.step_up(req.user['username'], str((b or {}).get('totp') or ''), 'nginx.backup', req.client_ip)
+    except AuthError as e:
+        raise ApiError(e.status, e.code, e.code, **e.details)
+    try:
+        path, info = nginxbackup.build(app.cfg, nginxup.read_status(app.cfg))
+    except OSError as e:
+        raise ApiError(500, 'backup_failed', str(e)[:200])
+    fh = open(path, 'rb')
+    os.unlink(path)             # gone once sent (the open file stays readable)
+    name = 'nginx-backup-%s-%s.tar.gz' % (re.sub(r'[^A-Za-z0-9_.-]', '_', app.cfg['node']['id'])[:40],
+                                          time.strftime('%Y%m%d-%H%M%S'))
+    app.audit.log('nginx.backup_downloaded', req.user['username'], src_ip=req.client_ip, severity='warning', file=name,
+                  size=info['size'], sha256=info['sha256'], files=info['files'], skipped=info['skipped'])
+    return Response(200, b'', 'application/gzip', [('Content-Disposition', 'attachment; filename="%s"' % name),
+                                                   ('X-Content-SHA256', info['sha256'])], stream=fh, length=info['size'])
 
 
 def _proto_state(app):
@@ -190,3 +269,6 @@ def register(router):
     R('POST', V + '/nginx/update/propose', update_propose, ('admin',))
     R('POST', V + '/nginx/hold', hold, ('admin',))
     R('POST', V + '/nginx/proto', proto, ('role', 'approver', None))
+    R('POST', V + '/nginx/rollback', rollback, ('admin',))
+    R('POST', V + '/nginx/module', module_switch, ('admin',))
+    R('POST', V + '/nginx/backup', backup, ('admin',))

@@ -2,6 +2,15 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.1 (2026-11-19)
+
+- If an nginx update goes wrong: the nginx updates page and the approval page of an nginx update now show, before anyone approves, what happens by itself (the previous package and module kept, health checks, everything put back on failure, a critical alert if even that fails), how to go back and what to do when the page cannot be reached.
+- Roll back to the previous nginx: the root program keeps the previous package and module of the newest successful updates; "Propose rolling back" (or `jt-waf-mgr nginx rollback`) proposes going back to them as a change an administrator approves with a one-time code. Root checks that nginx is still what that change installed, verifies the kept package against apt's index (or the SHA-256 kept with it) and the old module with the old nginx, then moves nginx back without stopping it, with the same health checks and the way back on failure.
+- Use another ModSecurity module: a module root trusts (built against another libmodsecurity, for example) can be switched to for the installed nginx, the same way (`jt-waf-mgr nginx module SHA256`).
+- Download a backup: the nginx configuration, the module in use and the steps to put them back by hand (three languages), in one file, before approving (`jt-waf-mgr nginx backup`). Private key and password files are left out; each download takes a one-time code and is recorded.
+- When the management page cannot be reached through nginx: the web service does not need nginx; an SSH tunnel to `127.0.0.1:8095` and `http://localhost:8095` in Chrome or Edge works (checked), and the command line can show, roll back and approve. A manual in three languages: docs/RECOVERY.md.
+- New setting "Apply nginx security updates by themselves" (Settings → nginx updates): off by default; when an administrator switches it on (with a one-time code), the update the job verified for an nginx.org advisory that affects this site is applied without waiting for approval, with the same steps and a notification.
+
 ## 0.5.0 (2026-11-19)
 
 - Approving with a one-time code: a note shorter than 10 characters was refused only after the code had been spent, so the same code then read "enter a one-time code" and counted as a wrong code until the account was locked for a while. The note is now checked first; the approve button waits for the note and the 6 digits, and says how long the note must be; a code already used reads "this code has already been used: wait for the next one" and is not counted as a wrong code; "too many attempts" shows the seconds to wait (it showed `{retry_after}`).

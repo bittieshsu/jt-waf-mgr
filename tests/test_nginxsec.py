@@ -91,14 +91,14 @@ class TestAdvisories(unittest.TestCase):
                                   json.dumps({'id': cve, 'our_version': '1.30.6-1~bookworm'}))).lastrowid
         st = {'installed': '1.30.6-1~bookworm', 'candidate': '1.30.7-1~bookworm', 'state': 'ready', 'target': '1.30.7-1~bookworm'}
         proposed = []
-        app.workflow.propose_nginx = lambda reason, actor, role=None: (proposed.append((actor, role, reason)), 99)[1]
+        app.workflow.propose_nginx = lambda reason, actor, role=None, auto=False: (proposed.append((actor, role, reason, auto)), 99)[1]
         a = nginxup.security(app, st, log=lambda m: None, get=lambda url: PAGE)
         self.assertTrue(a['major_in_use'])
         al = app.db.one("SELECT kind, severity, details FROM alerts WHERE kind='nginx_security'")
         self.assertEqual((al['kind'], al['severity']), ('nginx_security', 'critical'))
         d = json.loads(al['details'])
         self.assertEqual((d['cves'], d['ready'], d['not_in_use']), (['CVE-2099-0001', 'CVE-2099-0002'], True, ['Use-after-free in HTTP/3']))
-        self.assertEqual((st['proposed_change'], proposed[0][:2]), (99, ('nginxup', 'admin')))
+        self.assertEqual((st['proposed_change'], proposed[0][:2], proposed[0][3]), (99, ('nginxup', 'admin'), True))
         self.assertIn('CVE-2099-0002', proposed[0][2])
         # the threat for a CVE fixed by our version is set aside; the one we are vulnerable to stays, noted
         r4 = app.db.one('SELECT status, affected, details FROM intel_threats WHERE id=?', (rows['CVE-2099-0004'],))

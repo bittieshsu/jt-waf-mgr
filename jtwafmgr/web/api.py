@@ -2603,6 +2603,18 @@ def ui_settings_patch(app, req):
     b = req.body()
     if not isinstance(b, dict) or not b:
         raise ApiError(400, 'bad_request', 'an object of settings')
+    totp = b.pop('totp', None)
+    for k in uisettings.OTP_TO_ENABLE:
+        sec, name = k.split('.', 1)
+        if b.get(k) is True and not app.cfg.data.get(sec, {}).get(name):
+            # 0.5.1: nginx updated without a person from now on: an administrator, a fresh one-time code, recorded
+            from ..auth import AuthError
+            try:
+                app.auth.step_up(req.user['username'], str(totp or ''), 'settings.' + k, req.client_ip)
+            except AuthError as e:
+                raise ApiError(e.status, e.code, e.code, **e.details)
+    if not b:
+        raise ApiError(400, 'bad_request', 'an object of settings')
     try:
         changed = uisettings.set_many(app, b, req.user['username'], src_ip=req.client_ip)
     except uisettings.SettingError as e:

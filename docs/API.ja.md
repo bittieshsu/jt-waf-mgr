@@ -210,6 +210,15 @@ nginx パッケージを固定します (適用プログラムが apt-mark hold 
 (`off_by_us`、`change_ids`) です。`POST /nginx/proto` (承認者、`feature` は `http2` か `http3`、`mode` は `off` か `on`、
 `reason`) で、その機能の一時停止または元に戻す操作を op `proto` の変更として提案します。
 
+0.5.1 から `safety` は更新に失敗したときの動作と戻し方を示します：`way_back` (直近に適用した nginx 変更：`change_id`、`mode`、
+`installed_by_it`、`back_to`、`applied_at`、`current`、`matches`)、`auto_update`、`health_urls` (数)、`trusted_modules`
+(`sha256`、`note`、`running`)。`POST /nginx/rollback` (管理者、`reason`) はその変更の前のパッケージとモジュールへ戻すことを提案します
+(root が保管したファイルを使用。戻せるものがなければ `nothing_to_roll_back`、その後変更があれば `nginx_changed_since`)。
+`POST /nginx/module` (管理者、`sha256`、`reason`) は現在の nginx で別の信頼済みモジュールを使うことを提案します。どちらも op `nginx`
+の変更 (`mode` は `rollback` か `module`) で、承認には管理者のワンタイムコードと説明が必要です。`POST /nginx/backup` (管理者、
+`totp`) は nginx 設定 (秘密鍵とパスワードファイルを除く)、使用中のモジュール、`RESTORE.txt` を含む `.tar.gz` を返し、ダウンロードは
+すべて記録されます。`nginxup.auto_update` を `true` にする (`PATCH /settings/ui`) ときは同じリクエストに `totp` が必要です。
+
 ### 4.2 イベント
 
 **`GET /events`**：スコープ `events:read`。イベントの一覧、新しい順。パラメーター（すべて任意）：

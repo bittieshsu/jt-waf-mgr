@@ -20,7 +20,7 @@
           <dl class="facts">
             <div><dt>{{ t('event.time') }}</dt><dd>{{ fmtTime(ev.ts) }}</dd></div>
             <div><dt>{{ t('event.source') }}</dt>
-              <dd><span class="mono" :data-ip="ev.src_ip">{{ safeText(ev.src_ip, 45) }}</span><template v-if="ev.client_port">:<span class="mono">{{ ev.client_port }}</span></template> <OriginBadge :origin="ev.origin" /> <GeoTag :geo="ev.src_geo" full /></dd></div>
+              <dd><RouterLink class="mono" :data-ip="ev.src_ip" :to="'/lookup/' + encodeURIComponent(ev.src_ip)" :title="t('event.ip_lookup')">{{ safeText(ev.src_ip, 45) }}</RouterLink><template v-if="ev.client_port">:<span class="mono">{{ ev.client_port }}</span></template> <OriginBadge :origin="ev.origin" /> <GeoTag :geo="ev.src_geo" full /></dd></div>
             <div><dt>{{ t('event.host') }}</dt><dd class="mono breakall">{{ safeText(ev.host, 255) }}<template v-if="ev.server_port">:{{ ev.server_port }}</template></dd></div>
             <div><dt>{{ t('event.status') }}</dt><dd class="mono">{{ ev.status }}</dd></div>
             <div><dt>{{ t('event.http_version') }}</dt><dd class="mono">{{ safeText(ev.http_version, 10) || '—' }}</dd></div>
@@ -163,7 +163,8 @@ const flow = computed(() => {
   const score = e.anomaly_score === null || e.anomaly_score === undefined ? '—' : e.anomaly_score
   const blocked = e.outcome === 'blocked'
   return [
-    { key: 'src', label: t('guide.evd.source', { ip: safeText(e.src_ip, 45) }), desc: t('origin.' + (e.origin || 'external')) + ' · ' + safeText(e.host, 80), icon: 'globe', state: 'done' },
+    { key: 'src', label: t('guide.evd.source', { ip: safeText(e.src_ip, 45) }), desc: t('origin.' + (e.origin || 'external')) + ' · ' + safeText(e.host, 80), icon: 'globe', state: 'done',
+      to: '/lookup/' + encodeURIComponent(e.src_ip) },
     { key: 'matched', label: t('guide.evd.matched', { n: (e.matches || []).length }), desc: (e.families || []).map((f) => t('family.' + f)).join(', '), icon: 'shield', state: 'done' },
     { key: 'score', label: t('guide.evd.score', { n: score }), icon: 'chart', state: 'done' },
     { key: 'result', label: t(blocked ? 'guide.evd.blocked' : 'guide.evd.logged', { status: e.status ?? '—' }),

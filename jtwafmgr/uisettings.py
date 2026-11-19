@@ -25,6 +25,8 @@ BOUND = {'iprep.misp_url': ('iprep.misp_api_key',), 'llm.url': ('llm.api_key',),
          'notify.nextcloud_url': ('notify.nextcloud_secret',), 'notify.smtp_host': ('notify.smtp_password',),
          'notify.webhook_url': ('notify.webhook_token', 'notify.webhook_secret')}
 SECRET = object()
+# switching these ON takes a fresh one-time code (an administrator; 0.5.1): nginx is then updated without a person
+OTP_TO_ENABLE = ('nginxup.auto_update',)
 # a provider choice and the settings that belong to that provider: switching keeps the old provider's values (key
 # included, server side only) and brings back what was used with the new one, so switching back restores them
 PROVIDER_SETS = {'intel.provider': ('intel.url', 'intel.api_key', 'intel.model')}
@@ -53,6 +55,7 @@ EDITABLE = {
     'nginxup.advisories': ('bool', {}),
     'nginxup.auto_propose': ('bool', {}),
     'nginxup.auto_mitigate': ('bool', {}),
+    'nginxup.auto_update': ('bool', {}),
     'llm.monthly_tokens': ('int', {'min': 0, 'max': 2000000000}),
     # scheduled event analysis
     'analyst.enabled': ('bool', {}),

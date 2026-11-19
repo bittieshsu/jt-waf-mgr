@@ -12,6 +12,8 @@ from jtwafmgr.web import api as _api
 _software.OFFLINE = True          # the sites are never asked for real (the tests also run on a production host)
 from jtwafmgr import iprep as _iprep  # noqa: E402
 _iprep.TEST_NETS = True           # documentation addresses stand for outside ones (never a real address in a test)
+from jtwafmgr import nginxsec as _nginxsec  # noqa: E402
+_nginxsec.OFFLINE = True          # nginx.org's advisories are never read from a test (a test passes its own page)
 from jtwafmgr import distropkg as _distropkg  # noqa: E402
 _distropkg.DPKG_STATUS = _distropkg.DOC_DIR = '/nonexistent/jtwaf-test'   # never this host's packages (a test passes its own)
 

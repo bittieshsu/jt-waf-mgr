@@ -35,6 +35,8 @@
         <div v-if="c.evidence_override" class="alert warn">{{ t('change.evidence_override') }}: {{ safeText(c.evidence_override, 2000) }}</div>
       </section>
 
+      <!-- 0.5.1: an nginx change waiting to go: what happens if it goes wrong, and a copy to keep, before approving -->
+      <NginxSafety v-if="c.op === 'nginx' && ['pending_approval', 'approved', 'applying'].includes(c.state)" compact />
       <!-- actions -->
       <section v-if="canApprove || canReject || canCancel || canRecheck" class="card form">
         <h2><Icon name="approve" /> {{ t('change.actions') }}</h2>
@@ -118,6 +120,7 @@ import { t, tOr } from '../i18n.js'
 import { state, hasRole, refreshPending } from '../store.js'
 import { safeText, safeMultiline, fmtTime } from '../util.js'
 import ErrorBox from '../components/ErrorBox.vue'
+import NginxSafety from '../components/NginxSafety.vue'
 import Loading from '../components/Loading.vue'
 import StateBadge from '../components/StateBadge.vue'
 import DirectionBadge from '../components/DirectionBadge.vue'

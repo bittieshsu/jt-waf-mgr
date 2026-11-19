@@ -185,10 +185,15 @@ def feature_of(adv):
     return None
 
 
+OFFLINE = False                 # the tests set it: nginx.org is never asked from a test (they also run on production)
+
+
 def fetch(get=None, timeout=30):
     """The page (nginx.org, HTTPS, size-limited)."""
     if get:
         return get(URL)
+    if OFFLINE:
+        raise OSError('offline (tests)')
     req = urllib.request.Request(URL, headers={'User-Agent': 'jt-waf-mgr nginx-update-check'})
     with urllib.request.urlopen(req, timeout=timeout) as r:          # noqa: S310 -- a fixed https URL
         return r.read(MAX_PAGE + 1)[:MAX_PAGE].decode('utf-8', 'replace')

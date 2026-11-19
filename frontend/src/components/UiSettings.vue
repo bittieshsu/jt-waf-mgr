@@ -102,10 +102,15 @@
           </div>
         </template>
       </div>
+      <!-- switching nginx updates to "by themselves" takes a fresh one-time code (0.5.1) -->
+      <div v-if="otpNeeded(g)" class="alert warn otpask">
+        <span>{{ t('uiset.otp_to_enable') }}</span>
+        <input v-model.trim="otp[g.key]" inputmode="numeric" autocomplete="one-time-code" maxlength="7" class="mono w-sm" placeholder="123456">
+      </div>
       <ErrorBox :error="saveError[g.key]" />
       <p v-if="badField(g.key)" class="alert warn">{{ t('uiset.bad_field', { field: badField(g.key) }) }}</p>
       <div class="sfoot">
-        <button type="button" class="btn primary" :disabled="busy[g.key] || !dirty(g).length" @click="save(g)"><Icon name="save" />{{ t('common.save') }}</button>
+        <button type="button" class="btn primary" :disabled="busy[g.key] || !dirty(g).length || (otpNeeded(g) && !/^\d{6}$/.test(otp[g.key] || ''))" @click="save(g)"><Icon name="save" />{{ t('common.save') }}</button>
         <button type="button" class="btn ghost" :disabled="busy[g.key] || !dirty(g).length" @click="reset(g)"><Icon name="cancel" />{{ t('uiset.undo') }}</button>
         <button v-if="g.channel" type="button" class="btn" :disabled="busy[g.key] || tests[g.channel] === 'waiting'" @click="sendTest(g)">
           <Icon name="send" />{{ dirty(g).length ? t('uiset.notify.save_and_test') : t('uiset.notify.test') }}</button>
@@ -154,7 +159,7 @@ const GROUPS = [
   { key: 'n_webhook', icon: 'link', channel: 'webhook', keys: ['notify.webhook_enabled', 'notify.webhook_url', 'notify.webhook_secret', 'notify.webhook_token'] },
   { key: 'countries', icon: 'globe', keys: ['countries.enabled'] },
   { key: 'hub', icon: 'shield', keys: ['hub.enabled'] },
-  { key: 'nginxup', icon: 'server', keys: ['nginxup.advisories', 'nginxup.auto_propose', 'nginxup.auto_mitigate'] },
+  { key: 'nginxup', icon: 'server', keys: ['nginxup.advisories', 'nginxup.auto_propose', 'nginxup.auto_mitigate', 'nginxup.auto_update'] },
   { key: 'iprep', icon: 'shield', keys: ['iprep.enabled', 'iprep.lists', 'iprep.internetdb', 'iprep.misp_url', 'iprep.misp_api_key', 'iprep.misp_verify_tls', 'iprep.misp_cert_sha256'] },
   { key: 'dns', icon: 'network', keys: ['dns.enabled', 'dns.internal_servers', 'dns.external_servers', 'dns.check_hours', 'dns.ptr', 'dns.ptr_servers'] },
   { key: 'blocks', icon: 'lock', keys: ['blocks.enabled', 'blocks.protected', 'blocks.max_active', 'blocks.max_per_token', 'blocks.token_per_hour', 'blocks.default_ttl', 'blocks.api_max_ttl', 'blocks.ui_max_ttl', 'blocks.reload_seconds', 'blocks.auto_recon', 'blocks.auto_recon_paths', 'blocks.auto_recon_minutes', 'blocks.auto_recon_ttl', 'blocks.auto_recon_per_hour'] },
@@ -296,16 +301,24 @@ function badField(gk) {
   const item = saveError[gk].details.item
   return tOr('uiset.' + k, k) + (item ? ': ' + item : '')
 }
+// settings whose switching ON takes a fresh one-time code (uisettings.OTP_TO_ENABLE)
+const OTP_TO_ENABLE = ['nginxup.auto_update']
+const otp = reactive({})
+function otpNeeded(g) {
+  return dirty(g).some((k) => OTP_TO_ENABLE.includes(k) && form[k] === true && !(s.value[k] && s.value[k].value))
+}
 async function save(g) {
   const keys = dirty(g)
   const body = {}
   for (const k of keys) body[k] = s.value[k].type === 'secret' ? (cleared[k] ? '' : form[k]) : fromForm(k)
+  if (otpNeeded(g)) body.totp = otp[g.key] || ''
   busy[g.key] = true
   saveError[g.key] = null
   msg[g.key] = ''
   try {
     const r = await patch('/settings/ui', body)
     load(r)
+    otp[g.key] = ''
     msg[g.key] = r.changed.length ? t('uiset.saved', { n: r.changed.length }) : t('uiset.nothing_changed')
     if (g.key === 'llm' && r.changed.some((k) => CONN.includes(k))) llmResult.value = null   // a new server: test again
     emit('saved', r.changed)
@@ -526,6 +539,7 @@ onMounted(async () => {
 .src-ui { border-color: var(--accent); color: var(--accent); }
 .shint { color: var(--muted); font-size: .86em; margin-top: 3px; line-height: 1.45; }
 .sctl { min-width: 0; padding-top: 2px; }
+.otpask { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .srow.bool .slabel { grid-column: 1; grid-row: 1; }
 .srow.bool .sctl { grid-column: 2; grid-row: 1; }
 .srow.bool .swide { grid-column: 1 / -1; grid-row: 2; margin-top: -2px; max-width: 980px; }

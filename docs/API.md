@@ -213,6 +213,16 @@ jt-waf-mgr switched off for now (`off_by_us`, `change_ids`). `POST /nginx/proto`
 `http3`, `mode` `off` or `on`, `reason`) proposes switching the feature off for a while, or back on as it was, as a
 change of op `proto`.
 
+Since 0.5.1 `safety` says what happens if an update goes wrong and what the way back is: `way_back` (the newest
+applied nginx change: `change_id`, `mode`, `installed_by_it`, `back_to`, `applied_at`, `current`, `matches`),
+`auto_update`, `health_urls` (how many), `trusted_modules` (`sha256`, `note`, `running`). `POST /nginx/rollback`
+(admin, `reason`) proposes going back to the package and module before that change (root uses the files it kept;
+refused with `nothing_to_roll_back` or `nginx_changed_since`); `POST /nginx/module` (admin, `sha256`, `reason`) proposes
+another trusted module for the installed nginx. Both are changes of op `nginx` (`mode` `rollback` or `module`) approved
+with an admin's one-time code and a note. `POST /nginx/backup` (admin, `totp`) returns a `.tar.gz` of the nginx
+configuration (private key and password files left out), the module in use and `RESTORE.txt`; every download is
+recorded. Setting `nginxup.auto_update` to `true` (`PATCH /settings/ui`) takes `totp` in the same body.
+
 ### 4.2 Events
 
 **`GET /events`**: scope `events:read`. Events, newest first. Parameters (all optional):

@@ -268,12 +268,28 @@ def cmd_hub_sync(args):
     return 1 if st.get('state') == 'error' else 0
 
 
+def _module_note(path, sha256):
+    """What a module was built for, from the module.json the build script wrote next to it (0.5.1): shown where a
+    person picks another module. The file name when there is none (or it describes another file)."""
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(path)), 'module.json'), encoding='utf-8') as fh:
+            d = json.load(fh)
+    except (OSError, ValueError):
+        d = {}
+    if not isinstance(d, dict) or str(d.get('sha256', '')).lower() != str(sha256 or '').lower():
+        return os.path.basename(path)
+    parts = ['nginx ' + str(d['nginx_package'])[:60] if d.get('nginx_package') else '',
+             str(d.get('libmodsecurity') or '').replace('=', ' ')[:80], str(d.get('os') or '')[:30]]
+    # the trusted list keeps letters, digits and " .:/@+~-" only
+    return ' / '.join(x for x in parts if x) or os.path.basename(path)
+
+
 def cmd_nginx_module_trust(args):
     """Root on the host: the only way a module becomes usable for an nginx update (the web service cannot do it)."""
     from . import nginxswap
     cfg = config_mod.load(args.config if os.path.exists(args.config) or args.config != config_mod.DEFAULT_PATH else None)
     try:
-        h = nginxswap.trust(args.file, args.sha256, cfg['managed']['apply_state'], args.note or os.path.basename(args.file))
+        h = nginxswap.trust(args.file, args.sha256, cfg['managed']['apply_state'], args.note or _module_note(args.file, args.sha256))
     except (nginxswap.SwapFail, OSError) as e:
         print('error: %s' % (getattr(e, 'summary', None) or e), file=sys.stderr)
         return 1

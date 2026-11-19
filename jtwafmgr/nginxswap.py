@@ -35,6 +35,12 @@ PKG_RE = re.compile(r'^[a-z0-9][a-z0-9+.-]{0,60}$')
 VER_RE = re.compile(r'^[0-9][A-Za-z0-9.+~:-]{0,60}$')
 SHA_RE = re.compile(r'^[0-9a-f]{64}$')
 MODULE_NAME = 'ngx_http_modsecurity_module.so'
+# update: the next nginx package with its module; finish: an update someone installed, with a module for it;
+# rollback (0.5.1): back to the package and module before an applied update or module switch (root kept them);
+# module (0.5.1): another trusted module for the installed nginx (another libmodsecurity, say), nginx unchanged
+MODES = ('update', 'finish', 'rollback', 'module')
+DONE = 'done.json'              # written into a work directory when its update succeeded: the way back is there
+KEEP_DONE = 2                   # successful updates whose files stay (to go back), besides the last few attempts
 UNIT = 'jt-waf-mgr-nginxswap.service'
 TRUSTED = '/etc/jt-waf-mgr/trusted-modules.sha256'
 SWAP_SECONDS = 1800             # TimeoutStartSec of the swap unit
@@ -64,6 +70,21 @@ def sha256_file(path):
         for b in iter(lambda: fh.read(1 << 20), b''):
             h.update(b)
     return h.hexdigest()
+
+
+def trusted_entries(path=TRUSTED):
+    """[(sha256, note)] of the trusted list, in its order (the note says what the module was built for)."""
+    if not trusted_modules(path):
+        return []
+    out = []
+    with open(path, encoding='utf-8', errors='replace') as fh:
+        for ln in fh.read(1 << 20).splitlines():
+            parts = ln.split(None, 1)
+            if parts and SHA_RE.match(parts[0].lower()):
+                note = parts[1].strip() if len(parts) > 1 else ''
+                note = re.sub(r'^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\s*', '', note)     # when it was trusted: not a description
+                out.append((parts[0].lower(), note))
+    return out
 
 
 def trusted_modules(path=TRUSTED):
@@ -181,11 +202,14 @@ def work_dir(state):
 
 def check_request(req):
     """Shape of an nginx_update request from the spool (never trusted)."""
-    for k, r in (('package', PKG_RE), ('version', VER_RE), ('module_sha256', SHA_RE)):
+    if not isinstance(req.get('change_id'), int) or req.get('mode') not in MODES:
+        raise SwapFail('request', 'bad change id or mode')
+    keys = (('package', PKG_RE),) if req['mode'] == 'rollback' else (('package', PKG_RE), ('version', VER_RE), ('module_sha256', SHA_RE))
+    for k, r in keys:
         if not isinstance(req.get(k), str) or not r.match(req[k]):
             raise SwapFail('request', 'bad %s' % k)
-    if not isinstance(req.get('change_id'), int) or req.get('mode') not in ('update', 'finish'):
-        raise SwapFail('request', 'bad change id or mode')
+    if req['mode'] == 'rollback' and not (type(req.get('from_change')) is int and req['from_change'] > 0):
+        raise SwapFail('request', 'bad from_change')
     return req
 
 
@@ -336,44 +360,113 @@ def as_nobody(try_module, nginx_bin, module, work=None):
 
 
 # --- step 1: in the apply program ----------------------------------------------------------------------------------
+def prune(base):
+    """The last few attempts stay for people to look at, and the newest successful updates (the way back) stay."""
+    dirs = sorted((x for x in os.listdir(base) if re.match(r'c\d+-', x)), key=lambda x: os.path.getmtime(os.path.join(base, x)))
+    done = [x for x in dirs if os.path.exists(os.path.join(base, x, DONE))][-KEEP_DONE:]
+    for x in dirs[:-4]:
+        if x not in done:
+            shutil.rmtree(os.path.join(base, x), ignore_errors=True)
+
+
+def _deb_field(path, field):
+    rc, out = _run(['dpkg-deb', '-f', path, field], timeout=60)
+    return (out or '').strip() if rc == 0 else ''
+
+
+def way_back(base, from_change, pkg, installed, target):
+    """What root kept from an applied change (its work directory): the previous package and module. Checked against
+    what runs now -- the installed package and the module in place must be the ones that change put there.
+    {'dir', 'previous', 'previous_module_sha256', 'package_changed', 'old_deb_sha256', 'new_deb_sha256'}."""
+    dirs = sorted((x for x in os.listdir(base) if re.match(r'c%d-' % from_change, x)),
+                  key=lambda x: os.path.getmtime(os.path.join(base, x)))
+    for x in reversed(dirs):
+        d = os.path.join(base, x)
+        if not os.path.isfile(os.path.join(d, 'previous-' + MODULE_NAME)):
+            continue
+        try:
+            with open(os.path.join(d, DONE)) as fh:
+                info = json.load(fh)
+        except (OSError, ValueError):
+            # kept by an older version (no record): its packages say the versions
+            if not (os.path.isfile(os.path.join(d, 'old.deb')) and os.path.isfile(os.path.join(d, 'new.deb'))):
+                continue
+            info = {'version': _deb_field(os.path.join(d, 'new.deb'), 'Version'),
+                    'previous': _deb_field(os.path.join(d, 'old.deb'), 'Version'),
+                    'package': _deb_field(os.path.join(d, 'new.deb'), 'Package'),
+                    'module_sha256': sha256_file(os.path.join(d, MODULE_NAME)) if os.path.isfile(os.path.join(d, MODULE_NAME)) else '',
+                    'previous_module_sha256': sha256_file(os.path.join(d, 'previous-' + MODULE_NAME)),
+                    'old_deb_sha256': sha256_file(os.path.join(d, 'old.deb')),
+                    'new_deb_sha256': sha256_file(os.path.join(d, 'new.deb'))}
+        if info.get('package', pkg) != pkg:
+            raise SwapFail('preflight', 'that change was for another package')
+        if installed != info.get('version'):
+            raise SwapFail('preflight', 'the installed %s is %s, not %s that change installed: going back would skip what came after'
+                           % (pkg, installed, info.get('version')))
+        try:
+            running = sha256_file(target)
+        except OSError:
+            running = ''
+        if info.get('module_sha256') and running != info['module_sha256']:
+            raise SwapFail('preflight', 'the module in place is not the one that change put there: going back would skip what came after')
+        changed = info.get('previous') != info.get('version')
+        if changed and not (os.path.isfile(os.path.join(d, 'old.deb')) and os.path.isfile(os.path.join(d, 'new.deb'))):
+            raise SwapFail('preflight', 'the kept packages are gone')
+        return dict(info, dir=d, package_changed=changed)
+    raise SwapFail('preflight', 'root kept nothing from change #%d (only the last few updates are kept)' % from_change)
+
+
 def prepare(applier, req, job_dir, try_module, log):
     """Check everything, put the verified files into root's directory, run step 2, return its result."""
     check_request(req)
-    pkg, ver = req['package'], req['version']
+    mode = req['mode']
+    pkg = req['package']
     if owner(applier.nginx) != pkg:
         raise SwapFail('preflight', 'nginx does not come from the package %s' % pkg)
-    if req['module_sha256'] not in trusted_modules():
+    if mode != 'rollback' and req['module_sha256'] not in trusted_modules():
         raise SwapFail('trust', 'the module is not trusted by root: run `sudo jt-waf-mgr nginx-module-trust FILE --sha256 HASH` '
                                 'on this host (the build script run as root here does it itself)')
     if applier.swap_busy():
         raise SwapFail('preflight', 'an nginx update is still running')
     inst, cand = policy(pkg)
-    if req['mode'] == 'update' and (cand != ver or inst == ver):
+    base = work_dir(applier.state)
+    os.makedirs(base, mode=0o700, exist_ok=True)
+    back_to = None
+    if mode == 'rollback':
+        # the way back is root's own: the files it kept from that change (its directory, never the request's word)
+        back_to = way_back(base, req['from_change'], pkg, inst, module_target(applier.nginx))
+        ver = back_to['previous']
+    else:
+        ver = req['version']
+    if mode == 'update' and (cand != ver or inst == ver):
         raise SwapFail('preflight', 'apt now offers %s %s (installed %s), not the verified %s' % (pkg, cand, inst, ver))
-    if req['mode'] == 'finish' and inst != ver:
+    if mode in ('finish', 'module') and inst != ver:
         raise SwapFail('preflight', 'the installed %s is %s, not %s' % (pkg, inst, ver))
-    if req['mode'] == 'update' and not single_package(pkg, ver):
+    if mode == 'update' and not single_package(pkg, ver):
         raise SwapFail('preflight', '%s %s needs other packages of the same version; not supported' % (pkg, ver))
     if not applier.master_pid():
         raise SwapFail('preflight', 'nginx is not running')
-    base = work_dir(applier.state)
-    os.makedirs(base, mode=0o700, exist_ok=True)
-    olds = sorted((x for x in os.listdir(base) if re.match(r'c\d+-', x)), key=lambda x: os.path.getmtime(os.path.join(base, x)))
-    for x in olds[:-4]:             # the last few attempts stay for people to look at
-        shutil.rmtree(os.path.join(base, x), ignore_errors=True)
+    prune(base)
     work = tempfile.mkdtemp(prefix='c%d-%s-' % (req['change_id'], time.strftime('%Y%m%d-%H%M%S')), dir=base)
-    # the module: root's own copy made when it was trusted (never the file in the service user's directory)
     mod = os.path.join(work, MODULE_NAME)
-    try:
-        shutil.copyfile(os.path.join(store_dir(applier.state), req['module_sha256'] + '.so'), mod)
+    if back_to:
+        # the module that ran before that change: root copied it from the running nginx itself
+        shutil.copyfile(os.path.join(back_to['dir'], 'previous-' + MODULE_NAME), mod)
         os.chmod(mod, 0o600)
-    except OSError:
-        raise SwapFail('trust', 'root has no copy of that module: trust it again with `nginx-module-trust FILE --sha256 HASH`')
-    if sha256_file(mod) != req['module_sha256']:
-        raise SwapFail('module', "root's copy of the module does not have its SHA-256")
+        if sha256_file(mod) != back_to['previous_module_sha256']:
+            raise SwapFail('module', 'the kept module changed since it was kept')
+    else:
+        # the module: root's own copy made when it was trusted (never the file in the service user's directory)
+        try:
+            shutil.copyfile(os.path.join(store_dir(applier.state), req['module_sha256'] + '.so'), mod)
+            os.chmod(mod, 0o600)
+        except OSError:
+            raise SwapFail('trust', 'root has no copy of that module: trust it again with `nginx-module-trust FILE --sha256 HASH`')
+        if sha256_file(mod) != req['module_sha256']:
+            raise SwapFail('module', "root's copy of the module does not have its SHA-256")
     a = arch()
     debs = {}
-    for role, v in (('new', ver), ('old', inst)) if req['mode'] == 'update' else ():
+    for role, v in (('new', ver), ('old', inst)) if mode == 'update' else ():
         want = index_sha256(pkg, v, a)
         if not want:
             raise SwapFail('package', "apt's index has no %s %s: %s" % (pkg, v, 'no way back' if role == 'old' else 'cannot check it'))
@@ -383,8 +476,18 @@ def prepare(applier, req, job_dir, try_module, log):
         if sha256_file(dst) != want:
             raise SwapFail('package', '%s %s does not match the SHA-256 in apt\'s index' % (pkg, v))
         debs[role] = dst
+    if back_to and back_to['package_changed']:
+        # back to the previous package (the target) with the current one as the way back if that fails
+        for role, name, v in (('new', 'old.deb', back_to['previous']), ('old', 'new.deb', inst)):
+            dst = os.path.join(work, '%s.deb' % role)
+            shutil.copyfile(os.path.join(back_to['dir'], name), dst)
+            got = sha256_file(dst)
+            want = index_sha256(pkg, v, a) or back_to.get('%s_sha256' % name.replace('.', '_'))
+            if not want or got != want:
+                raise SwapFail('package', 'the kept %s %s does not match apt\'s index or the SHA-256 kept with it' % (pkg, v))
+            debs[role] = dst
     target = module_target(applier.nginx)
-    if req['mode'] == 'update':
+    if debs.get('new'):
         root = os.path.join(work, 'unpacked')
         rc, out = _run(['dpkg-deb', '-x', debs['new'], root], timeout=300)
         new_bin = os.path.join(root, 'usr', 'sbin', 'nginx')
@@ -394,10 +497,10 @@ def prepare(applier, req, job_dir, try_module, log):
         ok, detail = as_nobody(try_module, applier.nginx, mod, work)
     if not ok:
         raise SwapFail('verify', 'the module did not pass with nginx %s: %s' % (ver, detail))
-    log.append('verified %s %s with the module %s (again, as nobody)' % (pkg, ver, req['module_sha256'][:12]))
+    log.append('verified %s %s with the module %s (again, as nobody)' % (pkg, ver, sha256_file(mod)[:12]))
     # the health URLs root itself reads from the database (not the request): the list people set in Settings
     urls = applier.stored_health_urls()
-    plan = {'change_id': req['change_id'], 'mode': req['mode'], 'package': pkg, 'version': ver, 'previous': inst,
+    plan = {'change_id': req['change_id'], 'mode': mode, 'package': pkg, 'version': ver, 'previous': inst,
             'work': work, 'module': mod, 'target': target, 'new_deb': debs.get('new'), 'old_deb': debs.get('old'),
             'health_urls': urls, 'nginx': applier.nginx}
     tmp = os.path.join(base, 'request.json.tmp')
@@ -542,7 +645,8 @@ def swap(plan, health, log):
                 plan['half'] = True     # the new program stays on disk, so does the new module that matches it
                 msg.append('the new module stays with the new program on disk')
             pid = master()
-            if pid and (exe(pid) or '').endswith(' (deleted)') and nginx_t(nginx):
+            # the old program back on disk (its file replaced), or the old module under a new master: move again
+            if pid and ((exe(pid) or '').endswith(' (deleted)') or pid != pid0) and nginx_t(nginx):
                 hot_upgrade()
             t_ok = nginx_t(nginx)
             msg.append('after restoring: nginx -t %s' % ('ok' if t_ok else 'FAILS -- look at it now'))
@@ -586,7 +690,7 @@ def swap(plan, health, log):
         except BaseException as e:      # noqa: BLE001 -- also SystemExit / KeyboardInterrupt: put things back first
             raise SwapFail('install', back('%s: %s' % (type(e).__name__, e)))
     finally:
-        if was_held or plan['mode'] == 'update':
+        if was_held or plan.get('new_deb'):
             # installing drops the mark; a hand-built module needs it (dpkg may still hold its lock for a moment)
             for _ in range(5):
                 if _run(['apt-mark', 'hold', pkg], timeout=120)[0] == 0 and held(pkg):
@@ -595,6 +699,16 @@ def swap(plan, health, log):
             else:
                 log.append('WARNING: could not hold %s again: hold it by hand (apt-mark hold %s)' % (pkg, pkg))
                 plan['not_held'] = True
+    try:
+        # the way back from this change, for a rollback later (prune keeps the newest few)
+        with open(os.path.join(plan['work'], DONE), 'w') as fh:
+            json.dump({'mode': plan['mode'], 'package': pkg, 'version': plan['version'], 'previous': plan['previous'],
+                       'module_sha256': sha256_file(plan['module']), 'previous_module_sha256': sha256_file(old_mod),
+                       'old_deb_sha256': sha256_file(plan['old_deb']) if plan.get('old_deb') else '',
+                       'new_deb_sha256': sha256_file(plan['new_deb']) if plan.get('new_deb') else '',
+                       'at': time.strftime('%Y-%m-%dT%H:%M:%S')}, fh)
+    except OSError as e:
+        log.append('WARNING: the way back was not recorded (%s): a rollback of this change will not be offered' % e)
     return {'result': 'ok', 'step': 'done', 'previous': plan['previous'], 'backup': plan['work']}
 
 

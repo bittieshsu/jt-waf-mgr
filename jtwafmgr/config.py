@@ -236,6 +236,9 @@ DEFAULTS = {
         # a major advisory in HTTP/2 or HTTP/3 while the fixed nginx is not installed: the feature switched off at once
         # (protooff.py: marked lines, health checks, the way back), and on again as it was once nginx is updated
         'auto_mitigate': True,
+        # 0.5.1: the verified update for such an advisory applied without a person (the same root steps: health checks,
+        # put back on failure, a notification). Off by default; switching it on takes an administrator's one-time code
+        'auto_update': False,
     },
     'iprep': {
         # IP reputation (iprep.py, jt-waf-mgr-iprep.service): public lists downloaded once a day and matched on this host,

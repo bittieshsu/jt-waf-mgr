@@ -197,8 +197,20 @@ class TestApi(Base):
         self.fake_package()
         st = nginxup.run(self.app, log=lambda m: None)
         self.assertEqual(st['state'], 'untrusted')                     # uploaded through the web: root has not trusted it
+        # 0.5.1: an advisory in use: the update is proposed in the same run that found it ready (the job once proposed
+        # it with the state of the run before, "no module", and was refused as not ready)
+        from jtwafmgr import nginxsec
+        page = ('<ul><li><p>Infinite loop in request processing<br>Severity: major<br><a href="https://www.cve.org/'
+                'CVERecord?id=CVE-2099-0101">CVE-2099-0101</a><br>Not vulnerable: 1.30.7+<br>Vulnerable: 1.0.0-1.30.6</p></li></ul>')
+        saved = nginxsec.fetch
+        nginxsec.fetch = lambda get=None, timeout=30: page
+        self.addCleanup(setattr, nginxsec, 'fetch', saved)
         self.trusted.add(hashlib.sha256(data).hexdigest())
-        nginxup.run(self.app, log=lambda m: None)
+        st = nginxup.run(self.app, log=lambda m: None)              # the first run that finds it ready
+        self.assertEqual(st['state'], 'ready')
+        self.assertTrue(st.get('proposed_change'))
+        r = self.app.workflow.get(st['proposed_change'])
+        self.assertEqual((r['op'], r['proposed_by'], json.loads(r['spec'])['auto']), ('nginx', 'nginxup', True))
         st = json.loads(api_nginxup.update_status(self.app, Req()).body)
         self.assertTrue(st['waiting'][0]['trusted'])
         self.assertEqual(st['check']['state'], 'ready')
