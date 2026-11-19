@@ -4,7 +4,7 @@
 
 ## 0.5.12 (2026-11-20)
 
-- nginx update page and alerts: a distribution's nginx (Ubuntu, Debian) counts an nginx.org advisory as fixed when the package's installed change log lists the fix for its CVEs, shown as "Fixed by the distribution". Ubuntu 26.04's nginx 1.28.3-2ubuntu1.12 was reported vulnerable to 16 advisories in use; its change log lists the fix for 15 of them.
+- nginx update page and alerts: a distribution's nginx (Ubuntu, Debian) counts an nginx.org advisory as fixed when the package's installed change log lists the fix for its CVEs, shown as "Fixed by the distribution". Ubuntu 26.04's nginx 1.28.3-2ubuntu1.12 was reported vulnerable to 10 advisories in use; its change log lists the fix for 9 of them (and for 16 of the 25 advisories its version falls in).
 - Evidence check: lines of nginx's shared access.log and its rotations (access.log.38.gz) belong to the default site; the file's name was listed as a site.
 
 ## 0.5.11 (2026-11-20)

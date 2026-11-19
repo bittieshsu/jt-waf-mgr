@@ -4,7 +4,7 @@
 
 ## 0.5.12 (2026-11-20)
 
-- nginx 更新頁與警示：發行版的 nginx (Ubuntu、Debian) 已安裝的 changelog 列出某個 nginx.org 公告的 CVE 修正時，該公告算已修正，標示「發行版已修正」。Ubuntu 26.04 的 nginx 1.28.3-2ubuntu1.12 之前被報有 16 個使用中的公告，其中 15 個的修正已列在它的 changelog。
+- nginx 更新頁與警示：發行版的 nginx (Ubuntu、Debian) 已安裝的 changelog 列出某個 nginx.org 公告的 CVE 修正時，該公告算已修正，標示「發行版已修正」。Ubuntu 26.04 的 nginx 1.28.3-2ubuntu1.12 之前被報有 10 個使用中的公告，其中 9 個的修正已列在它的 changelog (它的版本落在範圍內的 25 個公告中有 16 個已修正)。
 - 證據檢查：nginx 共用的 access.log 及其輪替檔 (access.log.38.gz) 的記錄歸到預設站台；之前檔名會被當成站名列出。
 
 ## 0.5.11 (2026-11-20)
