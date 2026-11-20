@@ -309,6 +309,7 @@
  "auditact.account.locked": "帳號被鎖定",
  "auditact.alert.created": "新增待處理警示",
  "auditact.alert.handled": "警示標記為已處理",
+ "auditact.alert.reworded": "警示依新的判斷改寫說明",
  "auditact.analyst.run": "事件分析執行",
  "auditact.analyst.run_requested": "要求立即執行事件分析",
  "auditact.audit.exported": "匯出稽核記錄",

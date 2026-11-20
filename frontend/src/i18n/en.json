@@ -309,6 +309,7 @@
  "auditact.account.locked": "Account locked",
  "auditact.alert.created": "Alert opened",
  "auditact.alert.handled": "Alert marked handled",
+ "auditact.alert.reworded": "Alert reworded by a new finding",
  "auditact.analyst.run": "Event analysis run",
  "auditact.analyst.run_requested": "Event analysis requested",
  "auditact.audit.exported": "Audit trail exported",

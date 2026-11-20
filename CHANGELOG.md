@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.19 (2026-11-21)
+
+- The software list's home page guess and the back-end host versions include the sites nginx serves on any TLS port (`listen 12443 ssl`), not only 443. Where nginx's stream block on 443 passes each name to its own port by SNI, those sites (mail, ActiveSync) were never asked. A name not passed on that way meets another certificate at 443, and the certificate check refuses the answer: another site's page is never read.
+- Threat intelligence: an open threat's alert follows the current finding. An alert raised as "NVD lists only other products: probably attributed to the wrong product", for a flaw NVD lists in the language an application is built on (PHP), is reworded on every run to "the flaw is in PHP: check the PHP on its host" (before, only a run in which the model reported the same threat again rewrote it, so it stayed as it was); when the PHP the back-end host runs is inside the affected range and the flaw is exploited, an urgent alert replaces it.
+
 ## 0.5.18 (2026-11-21)
 
 - Threat intelligence: when NVD lists a flaw in the language an application is built on (PHP for Nextcloud) and the back-end hosts said the running PHP version ("Read the back-end hosts' versions"; `X-Powered-By` is the running PHP's own word, more telling than `php -v` on the command line), that version is compared with NVD's affected range: outside it on every site of the application -> not affected; inside it on a site, and not a distribution's package -> an urgent alert when exploited, to update PHP on that host and restart its processes. A site that did not say, or a distribution's package (fixes may be backported), keeps the earlier "check the PHP on its host".

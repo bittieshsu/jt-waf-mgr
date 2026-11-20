@@ -1429,6 +1429,10 @@ def retire_by_version(app, log=print):
         if not vc or vc.get('result') != 'no':
             if vc:
                 db.x('UPDATE intel_threats SET details=? WHERE id=?', (json.dumps(t, ensure_ascii=False), r['id']))
+                try:
+                    reword_language_alert(app, r, t, vc, log=log)
+                except Exception as e:      # noqa: BLE001 -- the alert keeps its words; tried again next run
+                    log('intel: alert for %s not reworded: %s' % (r['cve'], type(e).__name__))
             continue
         note = VERSION_NOTE % ('; '.join(vc.get('ranges') or [])[:200], known_version(t.get('our_version')))
         db.x("UPDATE intel_threats SET affected='no', details=?, status='ignored', status_by='intel', status_at=? WHERE id=?",
@@ -1444,6 +1448,54 @@ def retire_by_version(app, log=print):
     if done:
         log('intel: %d threats set aside by NVD version ranges' % len(done))
     return done
+
+
+LANGUAGE_NOTE = 'replaced: the PHP its back-end host runs (%s) is inside the affected range (alert #%d)'
+
+
+def reword_language_alert(app, r, t, vc, log=print):
+    """0.5.19: an open threat's alert follows what is known now. The flaw is in the language under the application
+    (0.5.12), but its alert, raised before, still says "probably attributed to the wrong product" (a run rewrites an
+    alert only when the model reports the threat again): reworded. The version its back-end host runs is inside the
+    range and the flaw is exploited (0.5.18): the urgent alert, and the earlier one handled."""
+    db = app.db
+    if vc.get('result') not in ('built_on', 'yes') or not vc.get('tech'):
+        return None
+    tech = util.clip(str(vc['tech']), 60)
+    pr = patch_rule(db, r['id'])
+    patch = (' A virtual patch (rule %d) already refuses the attack.' % pr) if pr else ''
+    key = 'intel-check:%s:%s' % (r['cve'], r['product'])
+    old = db.one("SELECT id, details FROM alerts WHERE state='open' AND dedup=?", (key,))
+    if vc.get('tech_hit') and t.get('exploited') and r['affected'] in MAY_AFFECT:
+        aid = alerts.raise_alert(db, app.audit, 'intel', 'exploited_vulnerability', 'critical', 'intel:%s:%s' % (r['cve'], r['product']),
+                                 {'reason': '%s is exploited in the wild; the flaw is in %s, which %s is built on, and its back-end '
+                                            'host runs %s %s, inside the affected range: update %s there and restart its '
+                                            'processes.%s' % (r['cve'], tech, r['product'], tech, ', '.join(vc['tech_hit'][:5]), tech, patch),
+                                  'msg': 'intel_tech_hit', 'cve': r['cve'], 'product': r['product'],
+                                  'sw_version': known_version(t.get('our_version')), 'tech': tech, 'tech_hit': vc['tech_hit'][:5],
+                                  'patch_rule': pr, 'affected': r['affected']}, link='/intel')
+        if old:
+            note = LANGUAGE_NOTE % (', '.join(vc['tech_hit'][:5]), aid)
+            if db.x("UPDATE alerts SET state='handled', handled_by='intel', handled_at=?, note=? WHERE id=? AND state='open'",
+                    (util.now(), note, old['id'])).rowcount == 1:
+                app.audit.log('alert.handled', 'intel', 'system', None, 'ok', alert_id=old['id'], kind='exploited_vulnerability', note=note)
+        return aid
+    if not old or vc.get('result') != 'built_on':
+        return None
+    d = json.loads(old['details'] or '{}')
+    if d.get('msg') != 'intel_elsewhere':
+        return None
+    d.update(msg='intel_built_on', tech=tech, patch_rule=pr,
+             reason='%s is exploited in the wild; the flaw is in %s, which %s is built on, and the %s version on its host is not '
+                    'known here: check that %s there is updated and that the running %s processes were restarted or the '
+                    'container image rebuilt; the command-line version alone does not tell.%s' % (
+                        r['cve'], tech, r['product'], tech, tech, tech, patch))
+    d.pop('products', None)
+    db.x('UPDATE alerts SET details=? WHERE id=?', (json.dumps(d, ensure_ascii=False)[:20000], old['id']))
+    app.audit.log('alert.reworded', 'intel', 'system', None, 'ok', alert_id=old['id'], msg='intel_built_on', cve=r['cve'],
+                  product=r['product'])
+    log('intel: alert #%d for %s reworded: the flaw is in %s' % (old['id'], r['cve'], tech))
+    return old['id']
 
 
 DISTRO_NOTE = 'the installed %s package names %s in its change log: the distribution has backported the fix to %s'

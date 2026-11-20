@@ -216,9 +216,16 @@ def _home(host, fetch):
     return None
 
 
+def _tls_listen(listen):
+    """A listen directive that serves TLS: port 443, or any port marked ssl (0.5.19: a host whose stream block on 443
+    passes each name to its own port by SNI -- "listen 12443 ssl" -- is reached at 443 all the same; a name not passed
+    on that way meets another certificate there, and the check of it refuses the answer)."""
+    return bool(re.search(r'(?:^|:)443\b', listen) or re.search(r'\bssl\b', listen))
+
+
 def homepage_sites(app):
-    """The sites worth asking for their home page: a name nginx serves over TLS on port 443, not a wildcard or a
-    pattern, not this program's own, not a block that only redirects."""
+    """The sites worth asking for their home page: a name nginx serves over TLS, not a wildcard or a pattern, not this
+    program's own, not a block that only redirects."""
     out = []
     own = own_hosts(app)
     try:
@@ -227,7 +234,7 @@ def homepage_sites(app):
     except Exception:          # noqa: BLE001 -- no nginx configuration here
         return out
     for sv in servers:
-        if sv.get('redirect_only') or not any(re.search(r'(?:^|:)443\b', x) for x in sv.get('listen') or []):
+        if sv.get('redirect_only') or not any(_tls_listen(x) for x in sv.get('listen') or []):
             continue
         for h in sv.get('server_names') or []:
             h = h.lower()

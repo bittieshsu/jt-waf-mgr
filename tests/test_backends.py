@@ -23,6 +23,18 @@ server {
     location /var/ { proxy_pass http://$backend; }
     location /out/ { proxy_pass http://203.0.113.9; }
 }
+upstream mailpool { server 192.0.2.41:12443; }
+server {
+    listen 12443 ssl;
+    listen [::]:12443 ssl;
+    server_name mail.example.com;
+    location / { proxy_pass https://mailpool; }
+}
+server {
+    listen 8081;
+    server_name plain.example.com;
+    location / { proxy_pass http://192.0.2.42; }
+}
 server {
     listen 443 ssl;
     server_name self.example.com;
@@ -71,6 +83,11 @@ class TestBackends(unittest.TestCase):
         self.assertEqual(ts[('http', '192.0.2.20', 80)], ['intra.example.com', 'intranet.example.com'])
         self.assertEqual(ts[('https', '192.0.2.31', 8443)], ['pool.example.com'])           # an upstream group
         self.assertIn(('https', '192.0.2.32', 8443), ts)
+        # 0.5.19: a site on another TLS port (a stream block on 443 passes it on by SNI) is one too; plain HTTP is not
+        self.assertEqual(ts[('https', '192.0.2.41', 12443)], ['mail.example.com'])
+        self.assertNotIn('192.0.2.42', {k[1] for k in ts})
+        self.assertIn('mail.example.com', software.homepage_sites(self.app))
+        self.assertNotIn('plain.example.com', software.homepage_sites(self.app))
         addrs = {k[1] for k in ts}
         self.assertFalse(any(a.startswith('127.') for a in addrs))                         # this program itself
         self.assertFalse(any('$' in a for a in addrs))                                     # a variable
@@ -160,6 +177,36 @@ class TestBackends(unittest.TestCase):
         backends.detect(self.app, ask=self.ask, log=lambda *a: None)
         self.assertEqual(f('Nextcloud', 'PHP'), {'app.example.com': '8.4.15', 'pool.example.com': '8.4.16'})
         self.assertIsNone(f('Keycloak', 'Java'))
+
+    def test_an_earlier_alert_follows_what_is_known_now(self):
+        # 0.5.19: an alert raised as "probably the wrong product" for a flaw NVD lists in PHP is reworded; the PHP its
+        # back-end runs inside the range makes it the urgent one
+        from jtwafmgr import alerts, intel
+        db = self.app.db
+        tid = db.x("INSERT INTO intel_threats(cve, product, affected, details, status, first_seen, last_seen) "
+                   "VALUES ('CVE-2099-0101', 'Nextcloud', 'unknown', '{}', 'open', 0, 0)").lastrowid
+        old = alerts.raise_alert(db, self.app.audit, 'intel', 'exploited_vulnerability', 'warning', 'intel-check:CVE-2099-0101:Nextcloud',
+                                 {'reason': 'probably attributed to the wrong product', 'msg': 'intel_elsewhere', 'cve': 'CVE-2099-0101',
+                                  'product': 'Nextcloud', 'products': 'php php'})
+        r = db.one('SELECT * FROM intel_threats WHERE id=?', (tid,))
+        t = {'exploited': True, 'our_version': '30.0.2'}
+        intel.reword_language_alert(self.app, r, t, {'result': 'built_on', 'tech': 'PHP'}, log=lambda *a: None)
+        d = json.loads(db.one('SELECT details FROM alerts WHERE id=?', (old,))['details'])
+        self.assertEqual((d['msg'], d['tech']), ('intel_built_on', 'PHP'))
+        self.assertNotIn('products', d)
+        from jtwafmgr import notify
+        self.assertIn('PHP', notify.alert_text('zh-TW', d))
+        self.assertEqual(db.one("SELECT COUNT(*) n FROM audit WHERE action='alert.reworded'")['n'], 1)
+        # again: nothing more to do
+        self.assertIsNone(intel.reword_language_alert(self.app, r, t, {'result': 'built_on', 'tech': 'PHP'}, log=lambda *a: None))
+        # the PHP behind it is inside the range: the urgent alert, the earlier one handled
+        new = intel.reword_language_alert(self.app, r, t, {'result': 'yes', 'tech': 'PHP', 'tech_hit': ['8.4.14']}, log=lambda *a: None)
+        a = db.one('SELECT * FROM alerts WHERE id=?', (new,))
+        self.assertEqual((a['severity'], json.loads(a['details'])['msg']), ('critical', 'intel_tech_hit'))
+        self.assertEqual(db.one('SELECT state FROM alerts WHERE id=?', (old,))['state'], 'handled')
+        # not exploited: no urgent alert
+        self.assertIsNone(intel.reword_language_alert(self.app, r, {'exploited': False}, {'result': 'yes', 'tech': 'PHP',
+                                                                                         'tech_hit': ['8.4.14']}, log=lambda *a: None))
 
     def test_off_and_offline(self):
         self.assertFalse(__import__('jtwafmgr.config', fromlist=['DEFAULTS']).DEFAULTS['intel']['backend_versions'])

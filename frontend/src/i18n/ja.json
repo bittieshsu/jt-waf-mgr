@@ -309,6 +309,7 @@
  "auditact.account.locked": "アカウントのロック",
  "auditact.alert.created": "アラート作成",
  "auditact.alert.handled": "アラート対応済み",
+ "auditact.alert.reworded": "新しい判断で警告の説明を書き換え",
  "auditact.analyst.run": "イベント分析の実行",
  "auditact.analyst.run_requested": "イベント分析の実行要求",
  "auditact.audit.exported": "監査記録のエクスポート",
