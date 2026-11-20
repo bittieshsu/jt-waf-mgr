@@ -2124,6 +2124,7 @@
  "intel.debian_r.not_affected": "Debian 標記 {release} 的 {source} 不受影響：不影響本站。",
  "intel.debian_r.not_tracked": "Debian 沒有把 {source} 列為受影響的套件 (這個 CVE 屬於其他程式)：不影響本站。",
  "intel.debian_r.open": "Debian 在 {release} 還沒有修正 {source}。",
+ "intel.debian_r.unknown": "Debian 安全追蹤還沒有 {source} 在 {release} 的判斷 (可能尚未分析)，下次再查。",
  "intel.debian_r.update": "Debian 已在 {fixed} 修正 ({source}，{release})，本機還是舊版：請更新套件。",
  "intel.delete_confirm": "要從清單移除 {name} 嗎?",
  "intel.edit_title": "編輯 {name}",

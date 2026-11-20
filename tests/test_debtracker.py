@@ -235,5 +235,13 @@ class TestThreats(unittest.TestCase):
         self.assertTrue(audit and all(x.get('reason') == 'debian_tracker' for x in audit))
 
 
+class TestNotTriaged(unittest.TestCase):
+    def test_a_versioned_sibling_listed_is_not_proof(self):
+        # 0.5.24: php8.4 listed, php8.2 not: likely not triaged yet -- unknown, not "another program's CVE"
+        page = {'sources': {'php8.4': [('bookworm', '8.4.1-1', 'fixed')]}, 'fixed': {}}
+        self.assertEqual(debtracker.decide(page, 'php8.2', 'bookworm', '8.2.29-1~deb12u1')['result'], 'unknown')
+        self.assertEqual(debtracker.decide(page, 'nginx', 'bookworm', '1.22.1-9')['result'], 'not_tracked')
+        self.assertEqual([debtracker._stem(x) for x in ('postgresql-15', 'openjdk-17', 'nginx')], ['postgresql', 'openjdk', 'nginx'])
+
 if __name__ == '__main__':
     unittest.main()

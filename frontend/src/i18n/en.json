@@ -2124,6 +2124,7 @@
  "intel.debian_r.not_affected": "Debian marks {source} in {release} not affected: it does not affect this site.",
  "intel.debian_r.not_tracked": "Debian does not list {source} for this CVE (it belongs to another program): it does not affect this site.",
  "intel.debian_r.open": "Debian has not fixed {source} in {release} yet.",
+ "intel.debian_r.unknown": "The Debian security tracker has no word yet on {source} in {release} (perhaps not triaged yet); asked again next time.",
  "intel.debian_r.update": "Debian fixed it in {fixed} ({source}, {release}); an older package is installed: update the package.",
  "intel.delete_confirm": "Remove {name} from the list?",
  "intel.edit_title": "Edit {name}",

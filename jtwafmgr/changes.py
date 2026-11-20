@@ -1760,14 +1760,21 @@ class Workflow:
         another process (the CLI) can both see it approved at the same moment: whoever moves it from approved to
         applying sends it; the other leaves it. (0.5.6: both sent one change in production; the second rendering, a second
         later in its header, replaced the version's recorded hashes, and the files on disk then looked edited outside.)"""
-        if self.db.x("UPDATE changes SET state='applying', updated_at=? WHERE id=? AND state='approved'",
-                     (util.now(), cid)).rowcount != 1:
+        # (0.5.24: and only while no other change is being applied -- two processes approving two changes at once could
+        # both send, with one version number)
+        if self.db.x("UPDATE changes SET state='applying', updated_at=? WHERE id=? AND state='approved' "
+                     "AND NOT EXISTS (SELECT 1 FROM changes WHERE state='applying' AND id<>?)",
+                     (util.now(), cid, cid)).rowcount != 1:
             return
+        sent = getattr(self, '_requests_written', 0)
         try:
             self._send_claimed(cid)
         except Exception:
-            # as before the claim: still approved, the worker tries again
-            self.db.x("UPDATE changes SET state='approved' WHERE id=? AND state='applying'", (cid,))
+            # as before the claim: still approved, the worker tries again -- unless its request already went to the
+            # apply program (0.5.24: a failure after that sent it a second time, with another version number); its
+            # result then decides the change
+            if getattr(self, '_requests_written', 0) == sent:
+                self.db.x("UPDATE changes SET state='approved' WHERE id=? AND state='applying'", (cid,))
             raise
 
     def _send_claimed(self, cid):
@@ -1829,6 +1836,7 @@ class Workflow:
             json.dump(req, fh, ensure_ascii=False)
         os.chmod(tmp, 0o600)
         os.replace(tmp, os.path.join(d, req['request_id'] + '.req'))
+        self._requests_written = getattr(self, '_requests_written', 0) + 1
 
     def rollback(self, version, user, note, overwrite_drift=False):
         """Back to an earlier version. With overwrite_drift (approver, explicit) also the way to put jt-waf-mgr's

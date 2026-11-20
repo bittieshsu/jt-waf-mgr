@@ -27,7 +27,18 @@ class TestNginxAttribution(unittest.TestCase):
         os.makedirs(self.info)
         self.binary = os.path.join(self.d, 'sbin-nginx')
         with open(os.path.join(self.info, 'nginx.list'), 'w') as fh:
-            fh.write('/.\n%s\n' % self.binary)
+            fh.write('/.\n%s\n%s\n' % (self.binary, os.path.join(self.d, 'nginx.conf')))
+        with open(self.binary, 'wb') as fh:
+            fh.write(b'\x7fELF nginx')
+        self.conf = os.path.join(self.d, 'nginx.conf')
+        with open(self.conf, 'w') as fh:
+            fh.write('events {}\n')
+        md5 = lambda p: hashlib.md5(open(p, 'rb').read()).hexdigest()      # noqa: E731
+        with open(os.path.join(self.info, 'nginx.md5sums'), 'w') as fh:
+            fh.write('%s  %s\n' % (md5(self.binary), self.binary.lstrip('/')))
+        with open(os.path.join(self.d, 'status'), 'w') as fh:
+            fh.write('Package: nginx\nStatus: install ok installed\nConffiles:\n %s %s\nVersion: 1\n\nPackage: other\n'
+                     % (self.conf, md5(self.conf)))
         self.now = time.time()
 
     def tearDown(self):
@@ -56,6 +67,17 @@ class TestNginxAttribution(unittest.TestCase):
         self.change('update')
         self.assertTrue(self.ours([self.binary, self.mod], {self.sha}))
         self.assertFalse(self.ours([os.path.join(self.d, 'not-the-package')], {self.sha}))
+
+    def test_a_package_file_edited_afterwards_is_outside(self):
+        # 0.5.24: nginx.conf is a file of the package (a conffile): edited after the update, it is not the update's
+        self.change('update')
+        self.assertTrue(self.ours([self.binary, self.conf], {self.sha}))
+        with open(self.conf, 'a') as fh:
+            fh.write('# someone was here\n')
+        self.assertFalse(self.ours([self.conf], {self.sha}))
+        with open(self.binary, 'ab') as fh:
+            fh.write(b'patched')
+        self.assertFalse(self.ours([self.binary], {self.sha}))
 
     def test_old_change_does_not_count(self):
         self.change('module', ago=7200)

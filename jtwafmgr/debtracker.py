@@ -165,12 +165,23 @@ def parse(text):
     return {'sources': sources, 'fixed': fixed} if seen else None
 
 
+def _stem(source):
+    """A source package's name without its version: php8.2 -> php, postgresql-15 -> postgresql, llvm-toolchain-17 ->
+    llvm-toolchain."""
+    return re.sub(r'[-.]?\d+(?:[.-]\d+)*$', '', source)
+
+
 def decide(page, source, release, installed):
     """What the tracker's page says about the installed version of a source package in a release (see the module)."""
     if not page or not source or not release or not installed:
         return {'result': 'unknown'}
     rows = page['sources'].get(source)
     if rows is None and source not in page['fixed']:
+        # 0.5.24: a versioned source (php8.2, postgresql-15, openjdk-17) whose sibling is listed (php8.4) is very
+        # likely not triaged yet, not unaffected: unknown, asked again
+        stem = _stem(source)
+        if any(_stem(s) == stem for s in set(page['sources']) | set(page['fixed'])):
+            return {'result': 'unknown', 'release': release, 'listed': sorted(page['sources'])[:8]}
         return {'result': 'not_tracked', 'listed': sorted(page['sources'])[:8]}
     if str((page['fixed'].get(source) or {}).get(release, '')).strip().lower() == '(not affected)':
         return {'result': 'not_affected', 'release': release}

@@ -293,7 +293,34 @@ class Monitor:
             out[p] = '\n'.join(lines[:max_lines]) + ('\n…' if len(lines) > max_lines else '')
         return out
 
-    def _nginx_files(self, last, touched, dpkg_info='/var/lib/dpkg/info'):
+    @staticmethod
+    def _dpkg_sums(dpkg_info, pkg, status):
+        """{path: md5} dpkg recorded for a package's files: <pkg>.md5sums, and the Conffiles of its status entry."""
+        out = {}
+        try:
+            with open(os.path.join(dpkg_info, pkg + '.md5sums'), encoding='utf-8', errors='replace') as fh:
+                for ln in fh:
+                    m = re.match(r'([0-9a-f]{32})\s+(\S.*)$', ln.strip())
+                    if m:
+                        out['/' + m.group(2).lstrip('/')] = m.group(1)
+        except OSError:
+            pass
+        try:
+            with open(status, encoding='utf-8', errors='replace') as fh:
+                text = fh.read()
+        except OSError:
+            return out
+        for stanza in text.split('\n\n'):
+            if not re.search(r'(?m)^Package: %s$' % re.escape(pkg), stanza):
+                continue
+            m = re.search(r'(?ms)^Conffiles:\n((?: .*\n?)+)', stanza)
+            for ln in (m.group(1).splitlines() if m else []):
+                parts = ln.split()
+                if len(parts) >= 2 and re.fullmatch(r'[0-9a-f]{32}', parts[1]):
+                    out[parts[0]] = parts[1]
+        return out
+
+    def _nginx_files(self, last, touched, dpkg_info='/var/lib/dpkg/info', dpkg_status=None):
         """Every touched file is one an nginx change applied since the previous snapshot put there (0.5.9: the module
         switch of change #96 was reported as an outside edit): a ModSecurity module with a SHA-256 root trusts (root
         installs no other), or a file of the nginx package that change installed."""
@@ -302,7 +329,8 @@ class Monitor:
                          (last['ts'] - 1800,))
         if not rows or not touched:
             return False
-        trusted, owned = None, None
+        trusted, owned, sums = None, None, {}
+        dpkg_status = dpkg_status or os.path.join(os.path.dirname(dpkg_info.rstrip('/')), 'status')
         for p in touched:
             if os.path.basename(p) == nginxswap.MODULE_NAME:
                 if trusted is None:
@@ -331,8 +359,18 @@ class Monitor:
                             owned.update(ln.strip() for ln in fh if ln.strip())
                     except OSError:
                         continue
+                    sums.update(self._dpkg_sums(dpkg_info, pkg, dpkg_status))
             if p not in owned:
                 return False
+            # 0.5.24: and still exactly as the package put it (dpkg's own hash): nginx.conf is the package's file too,
+            # and an edit of it after the update was taken for the update itself
+            try:
+                with open(p, 'rb') as fh:
+                    if sums.get(p) != hashlib.md5(fh.read(), usedforsecurity=False).hexdigest():
+                        return False
+            except OSError:
+                if p in sums:
+                    return False        # a file the package has, gone: not the update's doing
         return True
 
     def _site_waf_files(self, last, touched):

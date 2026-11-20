@@ -288,6 +288,29 @@ class TestWorkflow(unittest.TestCase):
         self.assertEqual((it['deleted'], it['enabled']), (0, 1))
         self.assertEqual(self.wf.get(cid3)['state'], 'rolled_back')
 
+    def test_a_failure_after_the_request_went_does_not_send_it_again(self):
+        # 0.5.24: an error after the request reached the spool put the change back to "approved": sent again
+        self.adopt()
+        cid = self.wf.propose('add', 'exclusion', {'host': {'mode': 'exact', 'value': 'app.example.com'},
+                                                   'path': {'mode': 'exact', 'value': '/search'},
+                                                   'action': 'remove_target_by_id', 'rule_ids': [941100], 'targets': ['ARGS:q']},
+                              'search box false positive', 'op')
+        self.wf.run_checks(cid)
+        self.app.db.x("UPDATE changes SET state='approved' WHERE id=?", (cid,))
+        real = self.wf.log
+
+        def boom(c, actor, action, *a, **k):
+            if action == 'apply_requested':
+                raise OSError('disk full')
+            return real(c, actor, action, *a, **k)
+        self.wf.log = boom
+        with self.assertRaises(OSError):
+            self.wf._send(cid)
+        self.wf.log = real
+        self.assertEqual(self.wf.get(cid)['state'], 'applying')
+        self.wf._send(cid)
+        self.assertEqual(len([n for n in os.listdir(self.spool) if n.endswith('.req')]), 1)
+
     def test_an_approved_change_is_sent_once(self):
         """0.5.6: the web service's worker and an approval in another process (the CLI) both saw one change approved
         and both sent it; the second rendering replaced the version's hashes and the files looked edited outside."""

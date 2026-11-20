@@ -2124,6 +2124,7 @@
  "intel.debian_r.not_affected": "Debian は {release} の {source} を影響なしとしています。このサイトには影響しません。",
  "intel.debian_r.not_tracked": "Debian はこの CVE の対象に {source} を挙げていません (別のプログラムの脆弱性)。このサイトには影響しません。",
  "intel.debian_r.open": "Debian は {release} の {source} をまだ修正していません。",
+ "intel.debian_r.unknown": "Debian セキュリティトラッカーには {release} の {source} についての判断がまだありません (未分析の可能性)。次回また確認します。",
  "intel.debian_r.update": "Debian は {fixed} で修正済み ({source}、{release})。このホストは古いパッケージです：パッケージを更新してください。",
  "intel.delete_confirm": "{name} を一覧から削除しますか?",
  "intel.edit_title": "{name} を編集",

@@ -83,6 +83,12 @@ class TestAnnouncements(Base):
         self.assertIsNone(self.app.db.one("SELECT 1 FROM alerts WHERE kind='security_release'"))
         self.assertEqual(intel._read_rechecks(self.app.cfg), [])
 
+    def test_a_date_alone_is_the_end_of_that_day(self):
+        # 0.5.24: "2026-11-19" was 00:00 UTC -- a release that evening was dropped as long out
+        import calendar
+        self.assertEqual(intel._release_time('2026-11-19'), calendar.timegm((2026, 11, 19, 0, 0, 0)) + 36 * 3600 - 1)
+        self.assertEqual(intel._release_time('2026-11-19T14:00:00Z'), calendar.timegm((2026, 11, 19, 14, 0, 0)))
+
     def test_search_service_that_does_not_search(self):
         self.assertFalse(intel.search_alert(self.app, 1, 25, 10, 'http://search.example.com/mcp'))
         self.assertFalse(intel.search_alert(self.app, 1, 3, 3, 'http://search.example.com/mcp'))     # too few to say

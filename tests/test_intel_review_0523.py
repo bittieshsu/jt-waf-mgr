@@ -47,6 +47,18 @@ class TestReview(unittest.TestCase):
         with self.assertRaises(intel.IntelError):
             intel._read_submission(S(), dict(r, text=''))
 
+    def test_a_parameter_name_patch_names_parameters(self):
+        # 0.5.24: a pattern (every JSON body, every long name) passed every check and could apply itself
+        th = {'id': 'CVE-2099-0401', 'product': 'Nextcloud'}
+        for rx, ex in (('^json\\..*$', 'json.x'), ('^[a-z]+\\[[a-z]+\\]$', 'user[name]'), ('^.{20,}$', 'a' * 25)):
+            with self.assertRaises(intel.IntelError) as cm:
+                intel._patch_spec({'possible': True, 'target': 'arg_name', 'regex': rx, 'attack_examples': [ex]}, th, [],
+                                  ['a.example.com'])
+            self.assertEqual(cm.exception.code, 'not_literal')
+        sp, _ = intel._patch_spec({'possible': True, 'target': 'arg_name', 'regex': '^(?:php_session_upload_progress|x_cmd)$',
+                                   'attack_examples': ['php_session_upload_progress']}, th, [], ['a.example.com'])
+        self.assertEqual(sp['target'], 'arg_name')
+
     def test_a_crowdsec_rule_applied_in_a_bundle_is_named(self):
         db, now = self.app.db, time.time()
         spec = {'ops': [{'op': 'add', 'kind': 'crowdsec', 'spec': {'name': 'crowdsecurity/vpatch-x'}},

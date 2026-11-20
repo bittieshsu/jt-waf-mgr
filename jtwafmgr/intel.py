@@ -752,7 +752,8 @@ Targets (the value is lower-cased before matching):
 - "uri": the path with the query string, URL-decoded (e.g. /app/index.php?action=export&file=../x);
 - "header": one request header's value (give its name in "header");
 - "arg_name": the NAME of a parameter, in the query string or the body (a form or a multipart upload part), when the
-  attack needs a parameter of that name (e.g. ^php_session_upload_progress$). The regex must be anchored with ^ and $.
+  attack needs a parameter of that name (e.g. ^php_session_upload_progress$). The regex must be anchored with ^ and $
+  and name the parameter(s) literally: ^name$ or ^(?:name1|name2)$, no wildcards, classes or repeats.
 
 Rules:
 - The regex is Perl-compatible, lower-case, as narrow as possible: it must match the malicious requests described
@@ -788,6 +789,12 @@ COMMON_HEADER_VALUES = ['mozilla/5.0 (windows nt 10.0; win64; x64) applewebkit/5
                         'https://www.example.com/', 'bearer abc.def.ghi', '1', '']
 
 
+_LIT = r'(?:[A-Za-z0-9_-]|\\[.\[\]-])+'
+# a parameter name the model may block: one name or a few, written out ("^php_session_upload_progress$",
+# "^(?:a|b)$"), with "(?i)" in front at most
+ARG_NAMES_RX = re.compile(r'(?:\(\?i\))?\^(?:%s|\(\?:%s(?:\|%s){0,9}\))\$' % (_LIT, _LIT, _LIT))
+
+
 def patch_scope(hosts):
     """The Host condition of a virtual patch for these sites: one -> that site; several -> exactly those (a list of
     names, "*.example.com" as one label); none -> every site (software of this host itself)."""
@@ -815,6 +822,10 @@ def _patch_spec(p, threat, samples, hosts, test_host=None):
         raise IntelError('not_anchored')
     if target == 'arg_name' and not (rx.startswith('^') and rx.endswith('$')):
         raise IntelError('not_anchored')
+    if target == 'arg_name' and not ARG_NAMES_RX.fullmatch(rx):
+        # 0.5.24: names, not a pattern -- "^json\..*$" (every JSON body) or "^.{20,}$" passed every check, and the logs
+        # cannot show a parameter's name in a body
+        raise IntelError('not_literal')
     header = str(p.get('header') or '')
     if target == 'header' and (not rulegen.HEADER_RE.match(header) or header.lower() in ('host', 'cookie', 'authorization')):
         raise IntelError('bad_header')
@@ -1752,14 +1763,22 @@ def search_alert(app, run_id, asked, empty, mcp_url):
     return True
 
 
+DATE_ONLY_END = 36 * 3600 - 1      # a day without a time: over everywhere (UTC-12) by then
+
+
 def _release_time(s):
+    """Epoch seconds of a release time; a date alone counts as that day's end anywhere on earth (0.5.24: it was 00:00
+    UTC, so a release later that day was dropped as "out for more than 12 hours", and searched for before it was out)."""
     s = str(s or '').strip()
-    for fmt in ('%Y-%m-%dT%H:%M:%SZ', '%Y-%m-%dT%H:%MZ', '%Y-%m-%d %H:%M:%SZ', '%Y-%m-%dT%H:%M:%S+00:00', '%Y-%m-%d'):
+    for fmt in ('%Y-%m-%dT%H:%M:%SZ', '%Y-%m-%dT%H:%MZ', '%Y-%m-%d %H:%M:%SZ', '%Y-%m-%dT%H:%M:%S+00:00'):
         try:
             return calendar.timegm(time.strptime(s, fmt))
         except ValueError:
             continue
-    return None
+    try:
+        return calendar.timegm(time.strptime(s, '%Y-%m-%d')) + DATE_ONLY_END
+    except ValueError:
+        return None
 
 
 def clean_announcements(answer, products):
@@ -2120,8 +2139,11 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
         log('intel: release notices not checked: %s' % type(e).__name__)
     products = software.confirmed(db)
     try:
-        rechecks_due(cfg, now, mark=True)               # this run is the search after an announced release
+        # this run is the search after an announced release: done once it ends well (0.5.24: marked at the start, a
+        # run that failed lost the search after the release)
+        due_rechecks = rechecks_due(cfg, now) if mode == 'full' else []
     except Exception as e:      # noqa: BLE001
+        due_rechecks = []
         log('intel: release re-check list: %s' % type(e).__name__)
     c = cfg['intel']
     provider = c['provider']
@@ -2264,6 +2286,11 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
         log('intel: run %d failed: %s' % (rid, code))
         return rid
     finish(threats=json.dumps(threats, ensure_ascii=False), note=note)
+    if due_rechecks:
+        try:
+            rechecks_due(cfg, now, mark=True)
+        except Exception as e:      # noqa: BLE001
+            log('intel: release re-check list: %s' % type(e).__name__)
     new, urgent, check = _store(app, rid, threats, util.now())
     try:
         announce(app, rid, anns, util.now(), log=log)

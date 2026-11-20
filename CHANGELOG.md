@@ -2,6 +2,15 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.24 (2026-11-21)
+
+Fixes from an independent review of 0.5.5–0.5.9:
+- A threat intelligence virtual patch on a parameter's name accepts names written out only (`^name$` or `^(?:name1|name2)$`). Patterns such as `^json\..*$` (every JSON body) or `^.{20,}$` (every long name) passed every check, the access logs cannot show a parameter's name in a body, and an exploited flaw's patch applies by itself.
+- Attribution of configuration changes: a file an nginx update installed counts as jt-waf-mgr's change only while it still has the package's recorded hash (dpkg md5sums, conffiles). Being in the package's file list was enough, so an edit of nginx.conf within half an hour of an update was taken for the update and raised no "changed outside" alert.
+- Debian security tracker: when another version of the same source is listed (php8.4 listed, php8.2 not), the answer is "not triaged yet", asked again, instead of "another program's CVE", which set the threat aside.
+- A security release notice with a date and no time counts that day as over everywhere; it was 00:00 UTC, so a release later that day was dropped and the search after the release could run before it. That search is marked done only when its run ends well.
+- An approved change is not sent to the apply program a second time (with another version number) when an error comes after its request went; one change is sent at a time (two processes approving two changes at once could send both with one version number).
+
 ## 0.5.23 (2026-11-21)
 
 Fixes from an independent review of 0.5.10–0.5.16:
