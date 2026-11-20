@@ -87,9 +87,22 @@ class TestAnnouncements(Base):
         self.assertFalse(intel.search_alert(self.app, 1, 25, 10, 'http://search.example.com/mcp'))
         self.assertFalse(intel.search_alert(self.app, 1, 3, 3, 'http://search.example.com/mcp'))     # too few to say
         self.assertTrue(intel.search_alert(self.app, 1, 25, 21, 'http://search.example.com/mcp'))
-        r = self.app.db.one("SELECT details FROM alerts WHERE dedup LIKE 'intel-search-empty:%'")
+        r = self.app.db.one("SELECT id, details FROM alerts WHERE dedup='intel-search-empty'")
         d = json.loads(r['details'])
         self.assertIn('search.example.com', notify.alert_text('en', d))
+        # 0.5.21: one alert while it lasts (it was one a day); an older day-keyed one stays the one, a second is merged
+        db = self.app.db
+        db.x("UPDATE alerts SET dedup='intel-search-empty:2026-11-20' WHERE id=?", (r['id'],))
+        db.x("INSERT INTO alerts(created_at, last_seen, source, kind, severity, dedup, details, link) "
+             "VALUES (1, 1, 'intel', 'other', 'warning', 'intel-search-empty:2026-11-21', '{}', '/intel')")
+        self.assertTrue(intel.search_alert(self.app, 2, 25, 24, 'http://search.example.com/mcp'))
+        rows = db.q("SELECT id, state, count, note FROM alerts WHERE dedup LIKE 'intel-search-empty%' ORDER BY id")
+        self.assertEqual([(x['state'], x['count']) for x in rows], [('open', 2), ('handled', 1)])
+        self.assertIn('#%d' % r['id'], rows[1]['note'])
+        # the searches give pages again: handled
+        self.assertFalse(intel.search_alert(self.app, 3, 25, 2, 'http://search.example.com/mcp'))
+        self.assertEqual(db.one('SELECT state FROM alerts WHERE id=?', (r['id'],))['state'], 'handled')
+        self.assertIn('again', db.one('SELECT note FROM alerts WHERE id=?', (r['id'],))['note'])
 
         class S:
             def __init__(self):

@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.21 (2026-11-21)
+
+- Threat intelligence: the "the search service gives no web page" alert is one alert while the problem lasts (it was one a day, one more for each day the service stayed broken); an older duplicate is merged into the first one, and it is handled by itself once the searches give web pages again.
+
 ## 0.5.20 (2026-11-21)
 
 - Threat intelligence: a notice of an announced security release closes by itself when every version of the product in the software list already includes the release named (the same branch at that version or later, or later than every version named), with the installed version as the reason. The notices of nginx 1.30.7 and ModSecurity 3.0.17 stayed open after the approved updates installed them. A notice that names no version, or an installed version older than the release (a distribution's package may carry the fix, which is not known here), stays open.

@@ -1649,12 +1649,35 @@ def sweep(session, products, now, log=print):
 SEARCH_EMPTY_SHARE = 0.8
 
 
+SEARCH_KEY = 'intel-search-empty'
+SEARCH_BACK_NOTE = 'the search service gives web pages again (%d of %d searches, run %d)'
+SEARCH_DUP_NOTE = 'the same problem as alert #%d (one alert while the search service does not search)'
+
+
 def search_alert(app, run_id, asked, empty, mcp_url):
-    """Most of the program's searches gave no web page: the search service is not searching (an alert, once a day)."""
-    if asked < 5 or empty < asked * SEARCH_EMPTY_SHARE:
+    """Most of the program's searches gave no web page: the search service is not searching -- one alert while it
+    lasts (0.5.21: it was one a day, a new one each day it stayed broken), handled once the searches give pages again.
+    Returns True when the alert is raised."""
+    db = app.db
+    if asked < 5:
         return False
+    opened = db.q("SELECT id, dedup FROM alerts WHERE state='open' AND (dedup=? OR dedup LIKE ?) ORDER BY id",
+                  (SEARCH_KEY, SEARCH_KEY + ':%'))
+    if empty < asked * SEARCH_EMPTY_SHARE:
+        note = SEARCH_BACK_NOTE % (asked - empty, asked, run_id)
+        for a in opened:
+            if db.x("UPDATE alerts SET state='handled', handled_by='intel', handled_at=?, note=? WHERE id=? AND state='open'",
+                    (util.now(), note, a['id'])).rowcount == 1:
+                app.audit.log('alert.handled', 'intel', 'system', None, 'ok', alert_id=a['id'], kind='other', note=note)
+        return False
+    # the open one counts this run too (an older one kept its day in its key); a second open one is the same problem
+    for a in opened[1:]:
+        note = SEARCH_DUP_NOTE % opened[0]['id']
+        if db.x("UPDATE alerts SET state='handled', handled_by='intel', handled_at=?, note=? WHERE id=? AND state='open'",
+                (util.now(), note, a['id'])).rowcount == 1:
+            app.audit.log('alert.handled', 'intel', 'system', None, 'ok', alert_id=a['id'], kind='other', note=note)
     host = urllib.parse.urlsplit(mcp_url or '').hostname or ''
-    alerts.raise_alert(app.db, app.audit, 'intel', 'other', 'warning', 'intel-search-empty:%s' % time.strftime('%Y-%m-%d'),
+    alerts.raise_alert(app.db, app.audit, 'intel', 'other', 'warning', opened[0]['dedup'] if opened else SEARCH_KEY,
                        {'reason': '%d of %d searches of the threat intelligence gave no web page: the search service (%s) '
                                   'does not search; the run looked only at the pages it may read directly.' % (empty, asked, host),
                         'msg': 'intel_search_empty', 'n': empty, 'of': asked, 'service': host, 'run_id': run_id}, link='/intel')
