@@ -225,19 +225,23 @@ def run_pending(app, log=print):
             ctx = context(app, ev)
             msgs = [{'role': 'system', 'content': SYSTEM.replace('{lang}', LANGS.get(r['lang'], 'English'))},
                     {'role': 'user', 'content': json.dumps(ctx, ensure_ascii=False)}]
-            timeout = client.timeout
+            timeout, room = client.timeout, 4000
             for attempt in (1, 2):
                 _stage(db, r['id'], 'asking', attempt=attempt, timeout=timeout, server=server_label(cfg))
                 try:
-                    text, usage, secs = client.chat(msgs, max_tokens=4000, temperature=0, schema=SCHEMA)
+                    text, usage, secs = client.chat(msgs, max_tokens=room, temperature=0, schema=SCHEMA)
                     break
                 except llm.LLMError as e:
-                    # a gateway or a model still loading answers 5xx now and then: once more after a pause
-                    if attempt == 2 or e.code not in RETRY_CODES:
+                    # a gateway or a model still loading answers 5xx now and then: once more after a pause;
+                    # an answer cut short (a reasoning model still thinking): once more with twice the room, right away
+                    if attempt == 2 or e.code not in RETRY_CODES + ('output_truncated',):
                         raise
                     _stage(db, r['id'], 'retrying', attempt=attempt, error=e.code, timeout=timeout, server=server_label(cfg))
                     log('event analysis: event %d: %s, trying again' % (r['event_id'], e.code))
-                    time.sleep(RETRY_PAUSE)
+                    if e.code == 'output_truncated':
+                        room *= 2
+                    else:
+                        time.sleep(RETRY_PAUSE)
             _stage(db, r['id'], 'checking', server=server_label(cfg))
             out = clean(llm.parse_json_reply(text), ev)
             out['seconds'] = secs

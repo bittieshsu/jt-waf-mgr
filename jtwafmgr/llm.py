@@ -14,6 +14,8 @@ import urllib.parse
 import urllib.request
 
 MAX_RESPONSE = 4 * 1024 * 1024
+# an answer cut short by max_tokens (often a reasoning model still thinking), as servers word it in an error
+TRUNCATED = re.compile(r'finish_reason\W{0,3}length|structured_output_failed|max[ _]tokens while|output budget', re.I)
 _THINK = re.compile(r'<think>.*?(?:</think>|$)', re.S | re.I)
 
 
@@ -82,6 +84,9 @@ class Client:
                 body = b''
             hdr = {k: v for k, v in (e.headers or {}).items() if k.lower() in LOG_HEADERS}
             e.close()
+            if TRUNCATED.search(body[:LOG_BODY].decode('utf-8', 'replace')):
+                # a server that checks the JSON itself (strata) refuses an answer cut short by max_tokens with a 5xx
+                code = 'output_truncated'
             raise LLMError(code, e.reason, done(status=e.code, reason=str(e.reason)[:200], headers=hdr,
                                                 body=body[:LOG_BODY].decode('utf-8', 'replace')))
         except (urllib.error.URLError, OSError) as e:
@@ -124,10 +129,16 @@ class Client:
             d = self._call('POST', '/chat/completions', body)
         try:
             text = d['choices'][0]['message']['content'] or ''
-        except (KeyError, IndexError, TypeError):
+            finish = d['choices'][0].get('finish_reason')
+        except (KeyError, IndexError, TypeError, AttributeError):
             raise LLMError('bad_response', json.dumps(d)[:200],
                            self._scrub({'method': 'POST', 'url': self.base + '/chat/completions', 'seconds': round(time.time() - t, 1),
                                         'body': json.dumps(d, ensure_ascii=False)[:LOG_BODY]}))
+        if finish == 'length' and (schema or json_mode):
+            # a JSON answer cut short is no answer: the caller can ask again with more room
+            raise LLMError('output_truncated', 'max_tokens %d' % max_tokens,
+                           self._scrub({'method': 'POST', 'url': self.base + '/chat/completions', 'seconds': round(time.time() - t, 1),
+                                        'max_tokens': max_tokens, 'usage': d.get('usage') or {}}))
         return text, d.get('usage') or {}, round(time.time() - t, 1)
 
     def test(self):

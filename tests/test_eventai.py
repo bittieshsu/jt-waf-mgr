@@ -59,6 +59,16 @@ class TestEventAi(FakeServer):
         self.assertIn('etc/passwd', sent['messages'][1]['content'])
         self.assertIsNone(eventai.run_pending(self.app, log=lambda m: None))    # nothing waits
 
+    def test_an_answer_cut_short_is_asked_again_with_twice_the_room(self):
+        eventai.request(self.app, self.eid, 'alice', 'en')
+        cut = openai_reply(content='{"verdict": "att')
+        cut['choices'][0]['finish_reason'] = 'length'
+        Fake.script = [cut, self.answer()]
+        Fake.seen.clear()
+        self.assertEqual(eventai.run_pending(self.app, log=lambda m: None), 1)
+        self.assertEqual(eventai.latest(self.app.db, self.eid)['state'], 'done')
+        self.assertEqual([b['max_tokens'] for p, h, b in Fake.seen if p == '/v1/chat/completions'], [4000, 8000])
+
     def test_answer_checks(self):
         e = self.app.db.one('SELECT * FROM events WHERE id=?', (self.eid,))
         self.assertEqual(eventai.clean({'verdict': 'false_positive', 'action': 'block_ip', 'confidence': 3}, e)['action'], 'watch')

@@ -221,7 +221,7 @@ const aiSteps = computed(() => {
   const at = order.indexOf(cur)
   const sub = {
     queued: a.ahead ? t('evai.step.queued_ahead', { n: a.ahead }) : t('evai.step.queued_wait', { s: since(a.requested_at) }),
-    asking: a.stage === 'retrying' ? t('evai.step.retrying', { e: a.error || '' })
+    asking: a.stage === 'retrying' ? t(a.error === 'output_truncated' ? 'evai.step.more_room' : 'evai.step.retrying', { e: a.error || '' })
       : (a.attempt === 2 ? t('evai.step.second') + ' · ' : '') + t('evai.step.waited', { s: since(a.stage_at), max: a.timeout || '—' }),
   }
   return order.map((k, i) => ({ key: k, label: t('evai.step.' + k), state: i < at ? 'done' : i === at ? 'now' : 'todo', sub: i === at ? sub[k] || '' : '' }))

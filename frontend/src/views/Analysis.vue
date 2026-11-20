@@ -277,7 +277,7 @@ const VCLS = { attack_probe: 'b-blocked', legitimate: 'b-ok', false_positive: 'b
 const st = ref(null)
 // a failed run: what the error means, then every try as it happened (status, server, the start of the answer)
 const ERR_CODES = ['http_502', 'http_503', 'http_504', 'http_500', 'unreachable', 'unauthorized', 'not_found', 'model_not_found',
-  'bad_response', 'bad_json', 'bad_reply', 'token_limit', 'internal_error', 'response_too_large', 'not_configured']
+  'bad_response', 'bad_json', 'bad_reply', 'token_limit', 'output_truncated', 'internal_error', 'response_too_large', 'not_configured']
 function errCode(e) {
   const s = String(e || '')
   const m = s.startsWith('partial:') ? s.match(/\(([a-z0-9_]+)/) : s.match(/^([a-z0-9_]+)/)
@@ -492,6 +492,7 @@ const liveText = computed(() => {
   if (!st.value.running || !p) return t('analysis.live.queued')
   const secs = Math.max(0, Math.round((Date.now() - Date.parse(p.at)) / 1000))
   const d = p.detail || {}
+  if (p.stage === 'llm' && d.retry && d.error === 'output_truncated') return t('analysis.live.llm_more_room_v', { m: d.max_tokens || 0, n: d.retry, s: secs })
   if (p.stage === 'llm' && d.retry) return t('analysis.live.llm_retry_v', { e: d.error || '', w: d.wait || 0, n: d.retry, s: secs })
   return t('analysis.live.' + p.stage + '_v', { c: d.candidates || 0, h: d.window_hours || 0, model: d.model || '', s: secs, a: d.attack || 0, l: d.llm_seconds || 0 })
 })

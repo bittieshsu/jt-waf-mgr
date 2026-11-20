@@ -72,6 +72,11 @@ BATCH = 15                                    # candidates per LLM request
 TRANSIENT = ('http_502', 'http_503', 'http_504', 'unreachable')   # the LLM server or a gateway in front of it, for a moment
 RETRY_WAITS = (20, 60)                        # seconds before the 2nd and the 3rd try of a batch after a transient error
 RETRY_IF_FAILED_WITHIN = 180                  # a try that failed only after this long (a timeout) is not tried again
+MAX_OUT = 16384                               # the most output room a batch is ever given
+# output room for a batch: reasoning models think before the JSON (2026-11-20: a model thinking past 512 + 320 per
+# candidate failed every run), and an answer cut short is asked again with twice the room, up to MAX_OUT
+def out_budget(n):
+    return min(MAX_OUT, max(4096, 1024 + 640 * n))
 REPLY_EXCERPT = 4000
 SLACK = 60             # the timer wakes the job every 5 minutes (with some jitter); a run is due a minute early
 # Paths a probe regex must never match (besides what rulegen and the evidence check refuse).
@@ -1081,23 +1086,29 @@ def _analyse(app, client, a, st, log):
         st['prompt_chars'] += sum(len(m['content']) for m in msgs)
         prog('llm', candidates=len(ask_c) + len(ask_f), groups=len(groups), model=client.model[:120], batch=n, batches=len(batches))
         schema = reply_schema([c['id'] for c in bc], [c['id'] for c in bf])
-        text = None
-        for attempt in range(len(RETRY_WAITS) + 1):
-            t0 = time.monotonic()
+        text, room, attempt, tries = None, out_budget(len(bc) + len(bf)), 0, 0
+        while True:
+            t0, tries = time.monotonic(), tries + 1
             try:
-                text, usage, secs = client.chat(msgs, max_tokens=min(16384, 512 + 320 * (len(bc) + len(bf))), temperature=0,
-                                                json_mode=True, schema=schema)
+                text, usage, secs = client.chat(msgs, max_tokens=room, temperature=0, json_mode=True, schema=schema)
                 break
             except llm.LLMError as e:
-                st['error_log'].append(dict(e.info, batch=n, batches=len(batches), attempt=attempt + 1, at=util.iso(util.now()),
-                                            code=e.code, detail=e.detail))
+                st['error_log'].append(dict(e.info, batch=n, batches=len(batches), attempt=tries, at=util.iso(util.now()),
+                                            code=e.code, detail=e.detail, max_tokens=room))
+                if e.code == 'output_truncated' and room < MAX_OUT:
+                    # the same question with twice the room, right away (waiting does not help a cut-short answer)
+                    room = min(MAX_OUT, room * 2)
+                    prog('llm', candidates=len(ask_c) + len(ask_f), groups=len(groups), model=client.model[:120], batch=n,
+                         batches=len(batches), retry=tries + 1, error=e.code, wait=0, max_tokens=room)
+                    continue
                 if (attempt == len(RETRY_WAITS) or e.code not in TRANSIENT
                         or time.monotonic() - t0 > RETRY_IF_FAILED_WITHIN):
                     failed.append('%s: %s' % (e.code, e.detail) if e.detail else e.code)
                     break
                 prog('llm', candidates=len(ask_c) + len(ask_f), groups=len(groups), model=client.model[:120], batch=n,
-                     batches=len(batches), retry=attempt + 2, error=e.code, wait=RETRY_WAITS[attempt])
+                     batches=len(batches), retry=tries + 1, error=e.code, wait=RETRY_WAITS[attempt])
                 time.sleep(RETRY_WAITS[attempt])
+                attempt += 1
         if text is None:
             continue           # fail closed: these candidates get no verdict, nothing is proposed for them
         st['llm_seconds'] += secs or 0

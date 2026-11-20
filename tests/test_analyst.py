@@ -24,10 +24,13 @@ class _FakeLLM(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
         self.server.seen.append({'auth': self.headers.get('Authorization'), 'body': body})
-        status, content = self.server.reply(body)
-        b = json.dumps({'choices': [{'message': {'content': content}}],
+        status, content, *finish = self.server.reply(body)
+        choice = {'message': {'content': content}}
+        if finish:
+            choice['finish_reason'] = finish[0]
+        b = json.dumps({'choices': [choice],
                         'usage': {'prompt_tokens': 10, 'completion_tokens': 5, 'total_tokens': 15}} if status == 200
-                       else {'error': 'x'}).encode()
+                       else content if isinstance(content, dict) else {'error': 'x'}).encode()
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(b)))
@@ -773,6 +776,36 @@ class TestBatches(AnalystBase):
         self.assertTrue(analyst.transient('partial: 1 of 2 batches failed (http_504: x)'))
         self.assertFalse(analyst.transient('bad_reply: all 1 batches failed'))
 
+
+    def test_an_answer_cut_short_is_asked_again_with_more_room(self):
+        # 2026-11-20: a reasoning model thought past 512 + 320 per candidate; strata refused the cut-short JSON with a 502
+        # and every run failed the same way three times. Now: room for thinking, and twice the room right away.
+        self.probes('/.env', 4)
+        rooms = []
+        cut = {'error': {'type': 'structured_output_failed', 'code': 'structured_output_failed',
+                         'message': 'structured output was incomplete (finish_reason=length); increase the output budget'}}
+
+        def tight(body):
+            rooms.append(body['max_tokens'])
+            if body['max_tokens'] < 9000:
+                return 502, cut
+            return 200, json.dumps({'verdicts': [{'id': 'c1', 'verdict': 'unsure', 'confidence': 0.5, 'reason': 'x'}]})
+        self.srv.reply = tight
+        out = self.run_analyst()
+        self.assertIsNone(out['error'], out)
+        self.assertEqual(rooms, [4096, 8192, 16384])
+        log = json.loads(self.last_run()['error_log'])
+        self.assertEqual([(x['code'], x['max_tokens']) for x in log], [('output_truncated', 4096), ('output_truncated', 8192)])
+        # an OpenAI-compatible server that answers 200 with finish_reason "length": the same
+        rooms.clear()
+        self.srv.reply = lambda body: (rooms.append(body['max_tokens']) or 200, '{"verdicts": [', 'length')
+        out = self.run_analyst()
+        self.assertTrue(out['error'].startswith('output_truncated'), out)
+        self.assertEqual(rooms, [4096, 8192, analyst.MAX_OUT])           # never past the largest room, no waiting retries
+        self.assertFalse(analyst.transient(out['error']))
+        self.assertEqual(analyst.out_budget(3), 4096)
+        self.assertEqual(analyst.out_budget(15), 1024 + 640 * 15)
+        self.assertEqual(analyst.out_budget(100), analyst.MAX_OUT)
 
     def test_token_limit_turns_to_the_program_rules_and_refuses_event_analysis(self):
         from jtwafmgr import eventai

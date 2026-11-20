@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.16 (2026-11-20)
+
+- Event analysis: an answer cut short by the output limit is asked again at once with twice the room (up to 16,384 tokens), and a batch starts with room for a model that thinks before answering (at least 4,096 tokens instead of 512 + 320 per candidate). After the local LLM server switched to a model that thinks longer, every run failed: the model was still thinking when the limit ran out, the server refused the unfinished JSON with a 502, and the same request was tried three times. Such a failure is shown as `output_truncated` with what to do, in the analysis page and the notification, instead of a bare `http_502`. AI analysis of a single event does the same (twice the room once).
+
 ## 0.5.15 (2026-11-20)
 
 - Threat intelligence: a flaw whose virtual patch written by the model is in force for one application gets the same rule for the other applications it reaches, without asking the model again. Asked once more about Nextcloud and Z-Push together, the model answered "not possible" for the PHP flaw (CVE-2026-115560) it had written a parameter-name rule for on LibreNMS; such flaws get the rule now. A rule a person removed is not copied.

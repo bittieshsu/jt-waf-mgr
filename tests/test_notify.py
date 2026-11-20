@@ -211,6 +211,8 @@ class TestRendering(NotifyBase):
             m = notify.render(self.app.db, self.app.cfg, 'change.awaiting_approval', {'change_id': 7})
             self.assertIn('#7', m.title)
             self.assertIn(word, m.title)
+        m = notify.render(self.app.db, self.app.cfg, 'analyst.failed', {'run_id': 9, 'error': 'output_truncated: all 1 batches failed'})
+        self.assertIn('出力の上限', ''.join(v for _, v in m.facts))      # the cause in words, not only a code
         self.setn(language='en')
         m = notify.render(self.app.db, self.app.cfg, 'system.version_changed', {'previous': '0.3.5', 'current': '0.4.0'})
         self.assertIn('0.3.5 → 0.4.0', m.title)
