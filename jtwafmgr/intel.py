@@ -1419,7 +1419,7 @@ def retire_by_version(app, log=print):
         t.update(id=r['cve'], product=r['product'], affected=r['affected'])
         items.append((r, t))
     try:
-        nvd.enrich(cfg, [t for _, t in items], log=log)
+        nvd.enrich(cfg, [t for _, t in items], log=log, tech_versions=software.tech_versions(db))
     except Exception as e:      # noqa: BLE001 -- the next run tries again
         log('intel: version check stopped: %s' % type(e).__name__)
         return []
@@ -2024,7 +2024,7 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
                 t['exploited_evidence'] = 'CISA Known Exploited Vulnerabilities catalog'
         from . import nvd
         try:
-            nvd.enrich(cfg, threats, log=log)
+            nvd.enrich(cfg, threats, log=log, tech_versions=software.tech_versions(db))
         except Exception as e:      # noqa: BLE001 -- the threats stand without the official scores
             log('nvd: failed: %s' % type(e).__name__)
         from . import distropkg, debtracker
@@ -2107,6 +2107,21 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
     for t in urgent:
         # exploited in the wild (read on a CISA page) and our version is affected: a person acts now
         ver = known_version(t['our_version'])
+        vc = t.get('version_check') or {}
+        if vc.get('tech_hit'):
+            # 0.5.17: the flaw is in the language under the application, and the version its back-end host runs (the
+            # running PHP said it) is inside NVD's range
+            tech = util.clip(str(vc.get('tech') or ''), 60)
+            pr = patch_rule(db, t.get('threat_id') or 0)
+            alerts.raise_alert(db, app.audit, 'intel', 'exploited_vulnerability', 'critical', 'intel:%s:%s' % (t['id'], t['product']),
+                               {'reason': '%s is exploited in the wild; the flaw is in %s, which %s is built on, and its back-end host '
+                                          'runs %s %s, inside the affected range: update %s there and restart its processes.%s' % (
+                                              t['id'], tech, t['product'], tech, ', '.join(vc['tech_hit'][:5]), tech,
+                                              (' A virtual patch (rule %d) already refuses the attack.' % pr) if pr else ''),
+                                'msg': 'intel_tech_hit', 'cve': t['id'], 'product': t['product'], 'sw_version': ver, 'tech': tech,
+                                'tech_hit': vc['tech_hit'][:5], 'patch_rule': pr, 'affected': t['affected'], 'run_id': rid},
+                               link='/intel')
+            continue
         alerts.raise_alert(db, app.audit, 'intel', 'exploited_vulnerability', 'critical', 'intel:%s:%s' % (t['id'], t['product']),
                            {'reason': '%s in %s %s is exploited in the wild and %s: %s' % (
                                t['id'], t['product'], ver or '(version not known)', _affects(t['affected']), util.clip(t['summary'], 200)),

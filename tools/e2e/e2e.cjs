@@ -351,6 +351,11 @@ async function audit(page, where) {
      await page.locator('.datatable tbody tr:has-text("192.0.2.40") .sub', { hasText: '後端主機' }).count() >= 1,
      'intel: a back-end host\'s server is listed as one');
   ok(await page.locator('.kvpanel dt', { hasText: '後端主機版本' }).count() === 1, 'intel: the back-end versions among the sources');
+  // a flaw in the language under the application is judged by the version its back-end host said (and worded, not a key)
+  await page.locator('.datatable tbody tr', { hasText: 'CVE-2026-90011' }).first().click();
+  ok(await page.locator('tr.dt-expand .thd dd', { hasText: '後端主機回報執行中的 PHP 是 8.4.16 (files.example.com)，不在範圍內' }).count() === 1,
+     'intel: the PHP version the back-end host said decides a flaw in PHP');
+  ok(!/intel\.nvd_versions_/.test(await page.locator('main').innerText()), 'intel: no raw dictionary key in the threat details');
   // 0.5.10: hand a page to the threat intelligence -- it waits in the list, without the tracking parameter
   const subCard = page.locator('section.card', { hasText: '交給威脅情報分析' });
   const subBtn = subCard.locator('button', { hasText: '分析' });

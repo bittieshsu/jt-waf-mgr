@@ -41,7 +41,8 @@ SERVER_HEADERS = (
     ('LiteSpeed', re.compile(r'^LiteSpeed/(\d+\.\d+(?:\.\d+)?)\b', re.I)),
 )
 POWERED_BY = (
-    ('PHP', re.compile(r'^PHP/(\d+\.\d+\.\d+)\b')),
+    # a distribution's PHP says its own version ("PHP/8.1.2-1ubuntu2.14"): kept whole, the fixes may be backported
+    ('PHP', re.compile(r'^PHP/(\d+\.\d+\.\d+(?:-[\w.+~]+)?)')),
 )
 VERSION_OK = re.compile(r'[\w.+~:-]{1,60}')
 

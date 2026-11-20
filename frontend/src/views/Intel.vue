@@ -107,7 +107,7 @@
                     <dt>{{ t('intel.affected_versions') }}</dt><dd class="mono">{{ row.affected_versions || '—' }}</dd>
                     <template v-if="row.version_check">
                       <dt>{{ t('intel.nvd_versions') }}</dt><dd><span class="mono small">{{ (row.version_check.ranges || []).join(', ') || '—' }}</span>
-                        <div class="small" :class="row.version_check.result === 'no' ? 'ok' : 'warn'">{{ t('intel.nvd_versions_' + row.version_check.result + (row.version_check.distro ? '_distro' : ''), { products: (row.version_check.products || []).join(', ') }) }}</div></dd>
+                        <div class="small" :class="row.version_check.result === 'no' ? 'ok' : 'warn'">{{ vcText(row.version_check) }}</div></dd>
                     </template>
                     <!-- 0.5.5: Debian's security tracker on the installed Debian package -->
                     <template v-if="row.debian_check && row.debian_check.result !== 'unknown'">
@@ -322,6 +322,14 @@ const runCols = computed(() => [
   { key: 'result', label: t('intel.col.result'), value: (r) => (r.error ? -1 : r.threats) },
 ])
 
+// NVD's affected versions against ours; for a flaw in the language under the application (0.5.12), against the
+// version its back-end hosts said (0.5.17)
+function vcText(vc) {
+  const vers = (vc.tech_versions || []).map((x) => x.version + ' (' + (x.sites || []).join(', ') + ')').join(', ')
+  if (vc.tech && vers && (vc.result === 'no' || vc.result === 'yes')) return t('intel.nvd_versions_tech_' + vc.result, { tech: vc.tech, versions: vers })
+  if (vc.result === 'built_on') return t(vers ? 'intel.nvd_versions_built_on_v' : 'intel.nvd_versions_built_on', { tech: vc.tech || '', versions: vers })
+  return t('intel.nvd_versions_' + vc.result + (vc.distro ? '_distro' : ''), { products: (vc.products || []).join(', ') })
+}
 const edit = reactive({ id: null, orig: '', name: '', version: '', hosts: '' })
 // a guess's evidence, worded: "site 5844, site 283" (requests on the application's own paths answered 2xx) and / or
 // "homepage: site, site" (its home page names it); anything else is shown as it is

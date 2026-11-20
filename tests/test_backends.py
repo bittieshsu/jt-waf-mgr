@@ -62,6 +62,8 @@ class TestBackends(unittest.TestCase):
         self.assertEqual(backends.read_headers({'server': 'Microsoft-IIS/10.0'}), [('Microsoft IIS', '10.0')])
         self.assertEqual(backends.read_headers({'server': 'nginx/1.2.3<script>'}), [('nginx', '1.2.3')])
         self.assertEqual(backends.read_headers({}), [])
+        # a distribution's PHP says its own version: kept whole (its fixes may be backported)
+        self.assertEqual(backends.read_headers({'x-powered-by': 'PHP/8.1.2-1ubuntu2.14'}), [('PHP', '8.1.2-1ubuntu2.14')])
 
     def test_targets(self):
         ts = {(t['scheme'], t['address'], t['port']): t['sites'] for t in backends.targets(self.app)}
@@ -146,6 +148,18 @@ class TestBackends(unittest.TestCase):
         # "guess again" leaves the back-end entries alone and keeps this host's own nginx as it was
         software.refresh(self.app, 'alice', fetch=lambda *a, **k: None)
         self.assertTrue(any(x['id'] == b['id'] for x in software.listing(self.app.db)))
+
+    def test_language_versions_of_an_application(self):
+        # 0.5.17: the PHP under an application, known on every one of its sites from their back-end hosts
+        software.save(self.app.db, 'alice', 'Nextcloud', '30.0.2', hosts=['app.example.com', 'pool.example.com'])
+        self.answers = {('192.0.2.10', 8080): {'x-powered-by': 'PHP/8.4.15'}}
+        backends.detect(self.app, ask=self.ask, log=lambda *a: None)
+        f = software.tech_versions(self.app.db)
+        self.assertIsNone(f('Nextcloud', 'PHP'))                         # pool.example.com did not say
+        self.answers[('192.0.2.31', 8443)] = {'x-powered-by': 'PHP/8.4.16'}
+        backends.detect(self.app, ask=self.ask, log=lambda *a: None)
+        self.assertEqual(f('Nextcloud', 'PHP'), {'app.example.com': '8.4.15', 'pool.example.com': '8.4.16'})
+        self.assertIsNone(f('Keycloak', 'Java'))
 
     def test_off_and_offline(self):
         self.assertFalse(__import__('jtwafmgr.config', fromlist=['DEFAULTS']).DEFAULTS['intel']['backend_versions'])

@@ -2,6 +2,12 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.18 (2026-11-21)
+
+- Threat intelligence: when NVD lists a flaw in the language an application is built on (PHP for Nextcloud) and the back-end hosts said the running PHP version ("Read the back-end hosts' versions"; `X-Powered-By` is the running PHP's own word, more telling than `php -v` on the command line), that version is compared with NVD's affected range: outside it on every site of the application -> not affected; inside it on a site, and not a distribution's package -> an urgent alert when exploited, to update PHP on that host and restart its processes. A site that did not say, or a distribution's package (fixes may be backported), keeps the earlier "check the PHP on its host".
+- A distribution's PHP version said by a back-end host keeps its suffix (`8.1.2-1ubuntu2.14`), not only the upstream version.
+- The threat details' "Affected versions (NVD)" showed a raw dictionary key (`intel.nvd_versions_built_on`) instead of a sentence for a flaw in the language an application is built on (since 0.5.12).
+
 ## 0.5.17 (2026-11-21)
 
 - Threat intelligence can read the back-end hosts' versions (Settings → Threat intelligence, "Read the back-end hosts' versions", off by default). nginx does not pass a proxied server's `Server` header on, so only this host's nginx version was known, not the nginx, Apache or PHP a back-end host runs. When on, before each search one `GET /` goes to each private address the nginx configuration's `proxy_pass` points to (`upstream` groups included), only the answer's headers are read, and the product and version from `Server` and `X-Powered-By` are listed in the software list, marked "back-end host" with the sites it serves; a changed version is updated, its confirmation kept. The addresses stay on this host and are never sent to the model.

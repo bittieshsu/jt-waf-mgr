@@ -140,6 +140,7 @@ TEXT = {
         'r.intel_check': '{sw} 的 {cve} 已被利用，但只在特定條件下才會受影響{vu}；無法確認本站是否符合，請確認是否適用。',
         'r.intel_elsewhere': '{cve} 已被利用，但 NVD 只列出 {products}，沒有 {product}：可能歸錯產品，請確認後標記不適用。',
         'r.intel_built_on': '{cve} 已被利用；漏洞在 {product} 所用的 {tech}，本站不知道那台主機的 {tech} 版本：請確認主機上的 {tech} 已更新，並重新啟動執行中的 {tech} 程序或重建容器映像；只看命令列的版本不夠。{patch}',
+        'r.intel_tech_hit': '{cve} 已被利用；漏洞在 {product} 所用的 {tech}，後端主機回報執行中的 {tech} 是 {versions}，在受影響的範圍內：請更新那台主機的 {tech}，並重新啟動執行中的 {tech} 程序。{patch}',
         'r.llm_truncated': '模型的回答超過輸出上限，加大上限重試到最大值仍被截斷：請換思考較少的模型，或在 LLM 伺服器關閉 JSON 回答的思考。',
         'r.intel_patched': '虛擬修補 (規則 {rule}) 已在封鎖這種攻擊。',
         'r.intel_search_empty': '威脅情報的 {of} 次搜尋中有 {n} 次沒有任何網頁結果：搜尋服務 ({service}) 沒有在搜尋，這一輪只看了可以直接讀取的網站。請檢查搜尋服務。',
@@ -245,6 +246,7 @@ TEXT = {
         'r.intel_check': '{cve} in {sw} is exploited in the wild, but only under certain conditions{vu}; whether this site meets them could not be confirmed: check whether it applies.',
         'r.intel_elsewhere': '{cve} is exploited in the wild, but NVD lists only {products}, not {product}: probably attributed to the wrong product; check it and set it aside.',
         'r.intel_built_on': '{cve} is exploited in the wild; the flaw is in {tech}, which {product} is built on, and the {tech} version on its host is not known here: check that {tech} there is updated and that the running {tech} processes were restarted or the container image rebuilt; the command-line version alone does not tell. {patch}',
+        'r.intel_tech_hit': '{cve} is exploited in the wild; the flaw is in {tech}, which {product} is built on, and the back-end host says the running {tech} is {versions}, inside the affected range: update {tech} on that host and restart the running {tech} processes. {patch}',
         'r.llm_truncated': 'The model\'s answer went past the output limit and was still cut short at the largest limit: use a model that thinks less, or turn thinking off for JSON answers on the LLM server.',
         'r.intel_patched': 'A virtual patch (rule {rule}) already refuses the attack.',
         'r.intel_search_empty': '{n} of {of} threat intelligence searches gave no web page: the search service ({service}) is not searching, and the run looked only at the pages it may read directly. Check the search service.',
@@ -351,6 +353,7 @@ TEXT = {
         'r.intel_check': '{sw} の {cve} は悪用されていますが、特定の条件でのみ影響します{vu}。当サイトが該当するかは確認できませんでした：該当するか確認してください。',
         'r.intel_elsewhere': '{cve} は悪用されていますが、NVD に記載されているのは {products} だけで {product} はありません。製品の割り当て誤りの可能性があります：確認してから対象外にしてください。',
         'r.intel_built_on': '{cve} は悪用されています。脆弱性は {product} が使う {tech} にあり、そのホストの {tech} のバージョンは不明です：ホストの {tech} が更新済みで、実行中の {tech} プロセスが再起動済み (またはコンテナイメージが再ビルド済み) か確認してください。コマンドラインのバージョンだけでは判断できません。{patch}',
+        'r.intel_tech_hit': '{cve} は悪用されています。脆弱性は {product} が使う {tech} にあり、バックエンドホストが報告した実行中の {tech} は {versions} で、影響範囲に入っています：そのホストの {tech} を更新し、実行中の {tech} プロセスを再起動してください。{patch}',
         'r.llm_truncated': 'モデルの回答が出力の上限を超え、最大の上限でも切れました。考える量の少ないモデルに替えるか、LLM サーバーで JSON 回答時の思考を無効にしてください。',
         'r.intel_patched': '仮想パッチ (ルール {rule}) がこの攻撃をすでに拒否しています。',
         'r.intel_search_empty': '脅威インテリジェンスの検索 {of} 回のうち {n} 回で Web ページが 1 件も得られませんでした。検索サービス ({service}) が検索していないため、この実行では直接読めるサイトだけを確認しました。検索サービスを確認してください。',
@@ -607,7 +610,7 @@ def _link(cfg, path):
     return base + path if base and path else None
 
 
-ALERT_MSGS = ('intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere', 'intel_built_on', 'intel_distro', 'intel_release', 'intel_search_empty')
+ALERT_MSGS = ('intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere', 'intel_built_on', 'intel_tech_hit', 'intel_distro', 'intel_release', 'intel_search_empty')
 
 
 def alert_text(lang, d):
@@ -633,8 +636,8 @@ def alert_text(lang, d):
           'products': _v(d.get('products'), 200)}
     if msg == 'intel_remove':
         kw['vu'] = ''
-    if msg == 'intel_built_on':
-        kw.update(tech=_v(d.get('tech'), 60),
+    if msg in ('intel_built_on', 'intel_tech_hit'):
+        kw.update(tech=_v(d.get('tech'), 60), versions=_v(', '.join(str(x) for x in (d.get('tech_hit') or [])[:5]), 120),
                   patch=_t(lang, 'r.intel_patched', rule=_v(d.get('patch_rule'), 10)) if d.get('patch_rule') else '')
     if msg == 'intel_search_empty':
         kw.update(n=_v(d.get('n'), 6), of=_v(d.get('of'), 6), service=_v(d.get('service'), 100))

@@ -179,16 +179,17 @@ def _words(name):
     return {w for w in re.findall(r'[a-z0-9]+', (name or '').lower()) if len(w) >= 4 and w not in GENERIC}
 
 
-def version_check(product, version, entries):
+def version_check(product, version, entries, only=None):
     """Whether our version of a product is among NVD's affected ones: {'result': 'yes' | 'no', 'ranges': [...]},
     {'result': 'elsewhere', 'products': [...]} (NVD names only other products) or None
     (NVD names no such product, our version is not plain numbers, or an entry cannot be compared -- unknown)."""
     ours, distro = _ours(version)
     words = _words(product)
-    if not words or not entries:
+    if not (words or only) or not entries:
         return None
-    # the product itself (a vendor's other products -- a desktop client, a plugin -- are not ours)
-    mine = [e for e in entries if words & _words(e['product'].replace('_', ' '))]
+    # the product itself (a vendor's other products -- a desktop client, a plugin -- are not ours); only: the entries
+    # the caller picked (the language under an application, "php": too short a word to match on)
+    mine = [e for e in entries if only(e)] if only else [e for e in entries if words & _words(e['product'].replace('_', ' '))]
     if not mine:
         # 0.4.98: NVD's analysis names other products only (a browser for a library's CVE, a vendor's own server for a
         # web application's): the model's product is likely wrong. Said, and no longer urgent; a person sets it aside.
@@ -237,7 +238,7 @@ def version_check(product, version, entries):
     return {'result': 'no', 'ranges': ranges}
 
 
-def enrich(cfg, threats, get=None, now=None, sleep=time.sleep, log=print):
+def enrich(cfg, threats, get=None, now=None, sleep=time.sleep, log=print, tech_versions=None):
     """Add t['nvd'] to each threat with a CVE id (cache first); the NVD severity becomes t['severity'] (the model's is
     kept as t['severity_model']). Returns how many were asked."""
     if not cfg['intel'].get('nvd') or not threats:
@@ -271,7 +272,7 @@ def enrich(cfg, threats, get=None, now=None, sleep=time.sleep, log=print):
             cache[cid] = hit
         if hit.get('info'):
             t['nvd'] = {k: v for k, v in hit['info'].items() if k != 'cpes'}
-            apply_versions(t, hit['info'].get('cpes') or [])
+            apply_versions(t, hit['info'].get('cpes') or [], tech_versions)
             sev = hit['info'].get('severity')
             if sev in ('critical', 'high', 'medium', 'low'):
                 t['severity_model'], t['severity'] = t.get('severity'), sev
@@ -297,10 +298,32 @@ def built_on(product, entries):
     return None
 
 
-def apply_versions(t, entries):
+def built_on_versions(vc, tech, known, entries):
+    """0.5.17: the language's version is known on every site of the application (its back-end hosts said it, the
+    running PHP itself: X-Powered-By): outside NVD's ranges on all -> 'no'; inside on one (a plain release, not a
+    distribution's package, which may carry the fix) -> 'yes'; else the 'built_on' check stays, with the versions."""
+    by_ver = {}
+    for site, v in sorted(known.items()):
+        by_ver.setdefault(v, []).append(site)
+    found = [{'version': v, 'sites': s[:10]} for v, s in sorted(by_ver.items())]
+    flat = lambda x: re.sub(r'[^a-z0-9]', '', str(x or '').lower())      # noqa: E731
+    only = lambda e: flat(e.get('product')) == flat(tech)                 # noqa: E731
+    checks = {v: version_check(tech, v, entries, only=only) for v in by_ver}
+    out = dict(vc, tech_versions=found)
+    if all(c and c['result'] == 'no' for c in checks.values()):
+        return dict(out, result='no', ranges=next(iter(checks.values()))['ranges'])
+    hits = [v for v, c in checks.items() if c and c['result'] == 'yes' and not c.get('distro')]
+    if hits:
+        return dict(out, result='yes', ranges=checks[hits[0]]['ranges'], tech_hit=sorted(hits))
+    return out
+
+
+def apply_versions(t, entries, tech_versions=None):
     """NVD's affected versions against our version of the threat's product: outside them -> the threat does not affect
     us (t['affected'] = 'no'; the model's answer kept as t['affected_model']); the comparison is kept in
-    t['version_check']. Inside them changes nothing (a version match alone over-reports: preconditions)."""
+    t['version_check']. Inside them changes nothing (a version match alone over-reports: preconditions).
+    tech_versions(product, tech): {site: version} of the language under the product on every one of its sites, as
+    their back-end hosts said it (backends.py), or None."""
     from .intel import known_version
     vc = version_check(t.get('product'), known_version(t.get('our_version')), entries)
     if not vc:
@@ -311,6 +334,9 @@ def apply_versions(t, entries):
             # 0.5.12: NVD names the language the product is built on (php for Nextcloud): not a wrong product, the
             # flaw is in that language, whose version on the application's host is not known here
             vc = dict(vc, result='built_on', tech=tech)
+            known = tech_versions(t.get('product'), tech) if tech_versions else None
+            if known:
+                vc = built_on_versions(vc, tech, known, entries)
     t['version_check'] = vc
     if vc['result'] == 'no' and t.get('affected') != 'no':
         t['affected_model'], t['affected'] = t.get('affected'), 'no'

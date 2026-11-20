@@ -363,6 +363,23 @@ def hosts_of(db, name):
     return out
 
 
+def tech_versions(db):
+    """(product, tech) -> {site: version} of a language (PHP) under a product on every one of the product's sites, as
+    their back-end hosts said it (backends.py), or None when a site's is not known."""
+    def f(product, tech):
+        sites = hosts_of(db, product)
+        if not sites:
+            return None
+        known = {}
+        for r in db.q("SELECT version, hosts FROM software WHERE name=? AND kind='backend' AND version<>''", (tech,)):
+            for h in json.loads(r['hosts'] or '[]'):
+                known[h] = r['version']
+        if any(h not in known for h in sites):
+            return None
+        return {h: known[h] for h in sites}
+    return f
+
+
 def followed(db, name):
     """Whether a product is one the threat intelligence follows (web-facing), whatever its confirmation."""
     if name in WEB_PRODUCTS:

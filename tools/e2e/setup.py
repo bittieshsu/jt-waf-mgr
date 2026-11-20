@@ -238,7 +238,13 @@ _th = [{'id': 'CVE-2026-90001', 'product': 'Keycloak', 'our_version': '26.0.5', 
         'severity': 'medium', 'attack_vector': 'header', 'request_pattern': '', 'references': ['https://nginx.org/en/security_advisories.html'],
         # 0.5.5: what the Debian security tracker said about the installed package
         'distro_check': {'result': 'not_listed', 'package': 'nginx', 'source': 'nginx', 'debian': True},
-        'debian_check': {'result': 'fixed', 'release': 'bookworm', 'fixed_version': '1.22.1-9+deb12u2', 'source': 'nginx', 'package': 'nginx'}}]
+        'debian_check': {'result': 'fixed', 'release': 'bookworm', 'fixed_version': '1.22.1-9+deb12u2', 'source': 'nginx', 'package': 'nginx'}},
+       # 0.5.17: a flaw in the PHP under Nextcloud, judged by the version its back-end host said
+       {'id': 'CVE-2026-90011', 'product': 'Nextcloud', 'our_version': '30.0.2', 'summary': 'Example: a flaw in PHP itself, reported for the applications built on it.',
+        'affected_versions': 'PHP < 8.4.15', 'fixed_version': 'PHP 8.4.15', 'affected': 'no', 'exploited': False, 'exploited_evidence': '',
+        'severity': 'high', 'attack_vector': 'body', 'request_pattern': '', 'references': ['https://nvd.nist.gov/vuln/detail/CVE-2026-90011'],
+        'version_check': {'result': 'no', 'tech': 'PHP', 'ranges': ['8.4.0 – <8.4.15'], 'products': ['php php'],
+                          'tech_versions': [{'version': '8.4.16', 'sites': ['files.example.com']}]}}]
 _rid = app.db.x("INSERT INTO intel_runs(node_id, started_at, finished_at, trigger, provider, model, tokens_in, tokens_out, searches, fetched, threats, note) "
                 "VALUES ('waf1', ?, ?, 'schedule', 'openai', 'local-model', 48200, 3100, ?, ?, ?, 'Two relevant vulnerabilities.')",
                 (now - 5400, now - 5100, json.dumps(['Keycloak 26.0 vulnerability 2026', 'nginx security advisory 2026']),

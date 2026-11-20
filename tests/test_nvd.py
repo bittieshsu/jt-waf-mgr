@@ -148,6 +148,36 @@ class TestBuiltOn(unittest.TestCase):
         self.assertIn('重新啟動', zh)                                       # a worker left running keeps the old PHP
         self.assertNotIn('{', notify.alert_text('en', dict(d, patch_rule=None)) + notify.alert_text('ja', d))
 
+    def test_the_version_its_back_end_hosts_said(self):
+        # 0.5.17: the running PHP said its version (X-Powered-By) on every site of the application
+        from jtwafmgr import intel, notify
+        t = {'id': 'CVE-2026-109619', 'product': 'Nextcloud', 'our_version': '34.0.5', 'affected': 'unknown'}
+        nvd.apply_versions(t, self.PHP, lambda p, tech: {'a.example.com': '8.4.15', 'b.example.com': '8.4.16'})
+        vc = t['version_check']
+        self.assertEqual((vc['result'], vc['tech'], t['affected']), ('no', 'PHP', 'no'))          # both fixed
+        self.assertEqual(vc['tech_versions'], [{'version': '8.4.15', 'sites': ['a.example.com']},
+                                               {'version': '8.4.16', 'sites': ['b.example.com']}])
+        t = {'id': 'CVE-2026-109619', 'product': 'Nextcloud', 'our_version': '34.0.5', 'affected': 'unknown'}
+        nvd.apply_versions(t, self.PHP, lambda p, tech: {'a.example.com': '8.4.14', 'b.example.com': '8.4.16'})
+        vc = t['version_check']
+        self.assertEqual((vc['result'], vc['tech_hit']), ('yes', ['8.4.14']))
+        self.assertTrue(intel.is_urgent(dict(t, exploited=True)))           # exploited, and the PHP there is affected
+        # a distribution's PHP inside the range may carry the fix: the check stays a warning
+        t = {'id': 'CVE-2026-109619', 'product': 'Nextcloud', 'our_version': '34.0.5', 'affected': 'unknown'}
+        nvd.apply_versions(t, self.PHP, lambda p, tech: {'a.example.com': '8.4.14-1ubuntu2.3'})
+        self.assertEqual(t['version_check']['result'], 'built_on')
+        self.assertFalse(intel.is_urgent(dict(t, exploited=True)))
+        # not known on every site: as before
+        t = {'id': 'CVE-2026-109619', 'product': 'Nextcloud', 'our_version': '34.0.5', 'affected': 'unknown'}
+        nvd.apply_versions(t, self.PHP, lambda p, tech: None)
+        self.assertEqual(t['version_check']['result'], 'built_on')
+        d = {'msg': 'intel_tech_hit', 'cve': 'CVE-2026-109619', 'product': 'Nextcloud', 'tech': 'PHP', 'tech_hit': ['8.4.14'],
+             'patch_rule': 10402}
+        for lang in ('zh-TW', 'en', 'ja'):
+            txt = notify.alert_text(lang, d)
+            self.assertIn('8.4.14', txt)
+            self.assertNotIn('{', txt)
+
 
 if __name__ == '__main__':
     unittest.main()
