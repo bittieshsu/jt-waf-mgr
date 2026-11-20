@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.26 (2026-11-21)
+
+- nginx update's hot switch: a new nginx master that does not come up in time is stopped (QUIT, then TERM) so the old one is the only master again before the failure is reported. It was left running beside the old one, sharing its listening sockets, and later reloads reached only one of them while the other kept the old rules (found by an independent review, reproduced on a lab host: two masters and nginx.pid.oldbin left behind; after the fix, three forced failures each left one master and the site answering). The wait for the new master is 45 seconds instead of 15, so a large configuration is not given up on too early.
+
 ## 0.5.25 (2026-11-21)
 
 Fixes from an independent review of 0.5.0–0.5.4:

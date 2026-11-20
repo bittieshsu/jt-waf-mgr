@@ -556,9 +556,11 @@ def exe(pid):
         return None
 
 
-def hot_upgrade(wait=15):
+def hot_upgrade(wait=45):
     """Move the running nginx to the program now on disk without stopping it: USR2, wait for the new master, then QUIT
-    the old one. Returns the new master's pid."""
+    the old one. Returns the new master's pid. When the new master does not come up in time, it is stopped, so the old
+    one is the only master again (0.5.26: it was left running beside the old one, sharing its sockets, and reloads
+    reached only one of them; CT 244 reproduced it)."""
     old = master()
     if not old:
         raise SwapFail('upgrade', 'nginx is not running')
@@ -579,7 +581,38 @@ def hot_upgrade(wait=15):
             os.kill(old, signal.SIGQUIT)
             return new
         time.sleep(0.2)
+    _stop_new_masters(old)
     raise SwapFail('upgrade', 'the new nginx master did not start (the old one keeps running)')
+
+
+def _new_masters(old):
+    """nginx masters the old master started (USR2): its children that are masters themselves."""
+    out = []
+    for c in _children(old):
+        try:
+            with open('/proc/%d/cmdline' % c, 'rb') as fh:
+                if b'master process' in fh.read():
+                    out.append(c)
+        except OSError:
+            continue
+    return out
+
+
+def _stop_new_masters(old, wait=10):
+    """Stop what a failed USR2 started: QUIT (its workers finish what they serve), TERM if it is still there. nginx
+    then renames nginx.pid.oldbin back to nginx.pid."""
+    for sig in (signal.SIGQUIT, signal.SIGTERM):
+        left = _new_masters(old)
+        if not left:
+            return
+        for p in left:
+            try:
+                os.kill(p, sig)
+            except OSError:
+                pass
+        t = time.time()
+        while time.time() - t < wait and _new_masters(old):
+            time.sleep(0.2)
 
 
 def _children(pid):

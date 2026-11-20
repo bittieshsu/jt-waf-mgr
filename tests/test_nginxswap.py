@@ -492,3 +492,24 @@ class TestSwapRecordsTheWayBack(TestSwap):
             nginxswap.swap(dict(plan, health_urls=['u']), lambda urls: next(calls), [])
         self.assertEqual(self.module_now(), b'\x7fELF running module')
         self.assertEqual(len(moves), 2)             # to the new module, and back to the old one
+
+
+class TestFailedHotUpgrade(unittest.TestCase):
+    """0.5.26: a new master that did not come up in time was left running beside the old one (CT 244 reproduced
+    two masters and nginx.pid.oldbin left behind); now it is stopped: QUIT, then TERM."""
+
+    def test_the_new_master_is_stopped(self):
+        from unittest import mock
+        alive = {222}
+        sent = []
+
+        def kill(pid, sig):
+            sent.append((pid, sig))
+            if sig == nginxswap.signal.SIGTERM:
+                alive.discard(pid)
+        with mock.patch.object(nginxswap, '_new_masters', lambda old: sorted(alive)), \
+                mock.patch.object(nginxswap.os, 'kill', kill), mock.patch.object(nginxswap.time, 'sleep', lambda s: None):
+            nginxswap._stop_new_masters(111, wait=0.05)
+        self.assertEqual(sent[0], (222, nginxswap.signal.SIGQUIT))
+        self.assertIn((222, nginxswap.signal.SIGTERM), sent)
+        self.assertEqual(alive, set())
