@@ -284,7 +284,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
 
 <div class="hero"><div class="wrap">
   <div>
-    <h1>jt-waf-mgr <span class="ver">v0.5.16</span></h1>
+    <h1>jt-waf-mgr <span class="ver">v0.5.17</span></h1>
     <p class="lead" data-t="lead"></p>
     <div class="btns">
       <a class="btn primary" href="https://github.com/jasoncheng7115/jt-waf-mgr">GitHub</a>
@@ -497,7 +497,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
       <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_dir"></span>
 sudo mkdir -p /opt/jt-waf-mgr-install &amp;&amp; cd /opt/jt-waf-mgr-install
 <span class="c" data-t="c_get"></span>
-V=<span class="v-cur">0.5.16</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=<span class="v-cur">0.5.17</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done
 <span class="c" data-t="c_verify"></span>
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
@@ -533,7 +533,7 @@ sudo nginx -t &amp;&amp; sudo systemctl reload nginx</pre></div>
       <div class="ihead"><span class="ic">↻</span><div><h3 data-t="ub_h"></h3><p data-t="ub_d"></p></div></div>
       <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_udir"></span>
 cd /opt/jt-waf-mgr-install
-V=<span class="v-cur">0.5.16</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=<span class="v-cur">0.5.17</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current &amp;&amp; sudo mkdir current &amp;&amp; sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 &amp;&amp; cd current
 <span class="c" data-t="c_ucheck"></span>
@@ -769,7 +769,7 @@ const T = {
   intel_rec1: 'Tool calling is required: the model decides what to search and which pages to read, within a cap of tool rounds per search',
   intel_rec2: 'On premises: an OpenAI-compatible server plus an MCP server offering web_search; leave the URL empty to reuse the first-tier server',
   intel_rec3: 'Cloud: Anthropic (Claude) and the OpenAI API can use the provider\'s own web search; Google Gemini searches through the MCP server. Only public information is sent; request data never leaves the host',
-  intel_rec4: 'Optional structured sources (off by default): the CISA KEV catalog of exploited vulnerabilities, OSV package queries, NVD for the official CVSS and CWE, the Debian security tracker for installed Debian packages; nothing is downloaded or asked until switched on',
+  intel_rec4: 'Optional structured sources (off by default): the CISA KEV catalog of exploited vulnerabilities, OSV package queries, NVD for the official CVSS and CWE, the Debian security tracker for installed Debian packages, and the web server and PHP versions of the back-end hosts (read from their own headers, as nginx hides them); nothing is downloaded or asked until switched on',
   intel_disclaimer: 'AI can miss a vulnerability or judge wrong, and it does not replace patching. Its rules can only tighten, never loosen; automatic application still needs every check to pass, and can be switched off in Settings so each rule waits for a person.',
   pf_h: 'Two LLM tiers: from a request to a rule in force', pf_sub: 'The first tier looks at what already happened; the second at newly disclosed vulnerabilities nobody has tried yet. The rules both write go through the same checks, approval and application.',
   pf_lane1: 'First-tier LLM · on-premises model · events that happened', pf_lane2: 'Second-tier LLM · on-premises or cloud model · newly disclosed vulnerabilities', pf_lane3: 'One path for both',
@@ -990,7 +990,7 @@ const T = {
   intel_rec1: '要支援工具呼叫 (tool calling)：搜尋什麼、讀哪些網頁由模型決定，每次搜尋有工具回合上限',
   intel_rec2: '地端：OpenAI 相容伺服器，加上提供 web_search 的 MCP 伺服器；網址留空就沿用第一層的伺服器',
   intel_rec3: '雲端：Anthropic (Claude) 與 OpenAI 官方 API 可用供應商自己的網路搜尋，Google Gemini 的搜尋走 MCP 伺服器。只送公開資訊，請求資料不會離開本機',
-  intel_rec4: '選用的結構化來源 (預設關閉)：CISA KEV 已被利用漏洞清單、OSV 套件漏洞查詢、NVD 官方 CVSS 與 CWE、Debian 安全追蹤 (已安裝的 Debian 套件)；打開之前不會下載或查詢',
+  intel_rec4: '選用的結構化來源 (預設關閉)：CISA KEV 已被利用漏洞清單、OSV 套件漏洞查詢、NVD 官方 CVSS 與 CWE、Debian 安全追蹤 (已安裝的 Debian 套件)、後端主機的網頁伺服器與 PHP 版本 (nginx 不會轉出，直接讀後端的回應標頭)；打開之前不會下載或查詢',
   intel_disclaimer: 'AI 可能漏掉漏洞或判斷錯誤，不能取代修補。它的規則只能加強、不能放寬；自動套用一樣要通過所有檢查，也可以在設定關閉，改成每筆等人核准。',
   pf_h: '兩層 LLM：從請求進來到規則上線', pf_sub: '第一層看已經發生的事件，第二層看剛揭露、還沒被打的新漏洞；兩邊寫出的規則走同一條檢查、核准、套用的流程。',
   pf_lane1: '第一層 LLM · 地端模型 · 已經發生的事件', pf_lane2: '第二層 LLM · 地端或雲端模型 · 新揭露的漏洞', pf_lane3: '兩邊共用的流程',
@@ -1211,7 +1211,7 @@ const T = {
   intel_rec1: 'ツール呼び出し (tool calling) が必要です。何を検索し、どのページを読むかはモデルが決め、1 回の検索のツールラウンド数には上限があります',
   intel_rec2: 'オンプレミス：OpenAI 互換サーバーと、web_search を持つ MCP サーバー。URL を空にすると 1 層目のサーバーを使います',
   intel_rec3: 'クラウド：Anthropic (Claude) と OpenAI の API はプロバイダー自身の Web 検索を使えます。Google Gemini は MCP サーバーで検索します。送るのは公開情報だけで、リクエストのデータはホストから出ません',
-  intel_rec4: '任意の構造化ソース (既定はオフ)：CISA KEV の悪用済み脆弱性カタログ、OSV のパッケージ照会、NVD の公式 CVSS と CWE、Debian セキュリティトラッカー (インストール済みの Debian パッケージ)。オンにするまでダウンロードも照会もしません',
+  intel_rec4: '任意の構造化ソース (既定はオフ)：CISA KEV の悪用済み脆弱性カタログ、OSV のパッケージ照会、NVD の公式 CVSS と CWE、Debian セキュリティトラッカー (インストール済みの Debian パッケージ)、バックエンドホストの Web サーバーと PHP のバージョン (nginx が隠すため、バックエンドの応答ヘッダーから直接読み取り)。オンにするまでダウンロードも照会もしません',
   intel_disclaimer: 'AI は脆弱性を見落としたり判断を誤ったりすることがあり、修正の代わりにはなりません。ルールは強化のみで緩和はしません。自動適用もすべてのチェックに通る必要があり、設定でオフにすれば 1 件ずつ人の承認を待ちます。',
   pf_h: '2 層の LLM：リクエストからルールの適用まで', pf_sub: '1 層目はすでに起きたイベントを、2 層目は公開されたばかりでまだ狙われていない脆弱性を見ます。どちらが書いたルールも、同じチェック、承認、適用の流れを通ります。',
   pf_lane1: '1 層目の LLM · オンプレミスのモデル · 起きたイベント', pf_lane2: '2 層目の LLM · オンプレミスまたはクラウドのモデル · 新しく公開された脆弱性', pf_lane3: '共通の流れ',

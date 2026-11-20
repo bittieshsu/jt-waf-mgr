@@ -1329,6 +1329,7 @@ def status(app):
             'kev': __import__('jtwafmgr.kev', fromlist=['status']).status(cfg),
             'nvd': {'enabled': bool(c.get('nvd'))},
             'debian': {'enabled': bool(c.get('debian'))},
+            'backends': {'enabled': bool(c.get('backend_versions'))},
             'osv': {'enabled': bool(c.get('osv')), 'ecosystem': __import__('jtwafmgr.osv', fromlist=['ecosystem']).ecosystem()},
             'last_run': run_summary(last) if last else None}
 
@@ -1895,6 +1896,16 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
         retire_unrelated(app, log=log)
     except Exception as e:      # noqa: BLE001 -- the search goes on; the list is pruned next time
         log('intel: pruning failed: %s' % type(e).__name__)
+    if cfg['intel'].get('backend_versions') and mode == 'full':
+        try:
+            # the web servers behind the sites (0.5.17): their versions, and nginx's advisories for them
+            from . import backends, nginxsec
+            st = backends.detect(app, log=log)
+            log('intel: back-end hosts: %(asked)d asked, %(answered)d answered, %(added)d added, %(updated)d updated, '
+                '%(removed)d removed' % st)
+            nginxsec.backend_alerts(app, log=log)
+        except Exception as e:  # noqa: BLE001 -- the search goes on with the list as it was
+            log('intel: back-end hosts not read: %s' % type(e).__name__)
     try:
         software.detect_versions(app, log=log)      # the versions the applications tell themselves, before the search
     except Exception as e:      # noqa: BLE001 -- the search goes on with the versions known

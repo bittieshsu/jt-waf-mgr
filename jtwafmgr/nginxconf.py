@@ -223,6 +223,14 @@ class NginxConfig:
                         'own_403': any(d.name == 'error_page' and '403' in d.args[:-1] for d in s.children)})
         return out
 
+    def upstream_groups(self):
+        """{name: [address, ...]} of the http-level `upstream` blocks (their `server` lines, port included)."""
+        out = {}
+        for d in self.http_directives():
+            if d.name == 'upstream' and d.args and d.children is not None:
+                out[d.args[0]] = [c.args[0] for c in d.children if c.name == 'server' and c.args]
+        return out
+
     def inline_rules(self):
         """modsecurity_rules strings anywhere: (text, file, line, context)."""
         out = []

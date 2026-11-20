@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.5.16
+# jt-waf-mgr v0.5.17
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -107,7 +107,7 @@ jt-waf-mgr 不在請求路徑上：每個請求一樣由 nginx 加 ModSecurity �
   新漏洞，特別是已經被利用的；清單由程式推測 (本機與網站服務有關的套件約 50 種、CRS、各站台跑的應用程式約 300 種，依回應的路徑或首頁特徵判斷)、人確認。離開本機的只有產品名稱、版本，以及判斷漏洞前提條件用的主機資訊 (作業系統、架構、C 函式庫)。
   地端模型透過 MCP 伺服器 (例如 SearXNG) 搜尋；Anthropic 與 OpenAI 官方 API 也可以改用供應商自己的
   網路搜尋。程式只讀允許清單上的 https 網頁，而且只有本輪程式自己讀到 CISA 清單，或開啟 KEV 清單 (每天下載，約 1.5 MB) 且清單上有列出，才算「已被利用」。套件只填名稱也能確認；
-  已被利用且影響 (或沒有版本、可能影響) 本站的漏洞會發出緊急警示；公告寫明的前提條件 (例如只影響 musl C 函式庫) 主機不符合就不算影響，查不到就只發一般警示。本機安裝的 Debian 套件會比對套件自己的修改記錄，也可選擇查詢 Debian 安全追蹤 (已安裝的版本已修正、不受影響、或屬於其他程式的 CVE：列為不適用；較新的套件才修正：提示更新)。能從網址、標頭或參數名稱 (查詢字串、表單、上傳) 辨識的漏洞，每個漏洞產生一條預先防護規則，涵蓋它影響的所有站台 (很窄的確定封鎖，和一般變更一樣檢查：存取記錄看得到的會查證據，一定跑沙箱)，檢查通過就自動套用，不用人核准，受每日上限；已被利用
+  已被利用且影響 (或沒有版本、可能影響) 本站的漏洞會發出緊急警示；公告寫明的前提條件 (例如只影響 musl C 函式庫) 主機不符合就不算影響，查不到就只發一般警示。本機安裝的 Debian 套件會比對套件自己的修改記錄，也可選擇查詢 Debian 安全追蹤 (已安裝的版本已修正、不受影響、或屬於其他程式的 CVE：列為不適用；較新的套件才修正：提示更新)。可選擇讀取後端主機的版本：nginx 不會轉出後端的 Server 標頭，打開後直接向 proxy_pass 指向的內網位址讀回應標頭，把後端的 nginx、Apache、PHP 版本列進軟體清單，後端 nginx 有 nginx.org 公告的漏洞時發警示。能從網址、標頭或參數名稱 (查詢字串、表單、上傳) 辨識的漏洞，每個漏洞產生一條預先防護規則，涵蓋它影響的所有站台 (很窄的確定封鎖，和一般變更一樣檢查：存取記錄看得到的會查證據，一定跑沙箱)，檢查通過就自動套用，不用人核准，受每日上限；已被利用
   且影響本站的不受每日上限，檢查沒過則發緊急警示請人決定。程式每輪會自己替每個軟體，以及它所用的語言與框架各搜尋一次 (PHP 的漏洞會對應到每個 PHP 應用程式)；安全更新預告會發警示，發布後自動再搜一次。也可以把網頁或文字 (新聞、廠商公告) 交給它立即分析。每天、每月有 token 上限；一輪最多 45 分鐘。
 - **IP 情資**：IP 查詢會把本站看到的證據、每天下載的公開清單 (Spamhaus DROP、FireHOL level 1、abuse.ch Feodo、Emerging Threats、CINS Army、blocklist.de、Tor 出口節點；在本機比對)、Shodan InternetDB 和你自己的 MISP 放在一起，給出判斷與依據。預設關閉，不會自動封鎖。
 - **CrowdSec 虛擬修補規則**：每天同步 CrowdSec Hub 的 appsec 規則 (MIT 授權，也可以離線上傳)，在本機轉成 ModSecurity 規則，只轉每個條件都能保留原意的規則。
@@ -159,7 +159,7 @@ jt-waf-mgr 不在請求路徑上：每個請求一樣由 nginx 加 ModSecurity �
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # 發行檔的固定位置
-V=0.5.16; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.17; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # 發行檔、簽章與公鑰
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -358,7 +358,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新版本一樣解開到 current
-V=0.5.16; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.17; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # 只做所有檢查，不改任何東西

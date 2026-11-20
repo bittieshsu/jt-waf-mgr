@@ -143,6 +143,9 @@ async function audit(page, where) {
   // an announced security release (0.5.8) reads as a sentence, with the interim advice
   ok(/PHP 預定 .*發布安全更新 \(CVE-2026-115560\).*暫時處置：session\.upload_progress\.enabled=0/.test(await page.locator('main').innerText()),
     'alerts: an announced security release is worded');
+  // 0.5.17: a back-end host's nginx with an nginx.org advisory: worded, and it says that host is updated there
+  ok(/站台 files\.example\.com 的後端主機跑 nginx 1\.22\.1.*CVE-2099-0002.*請在該主機更新 nginx/.test(await page.locator('main').innerText()),
+    'alerts: a back-end nginx advisory is worded');
   await page.locator('.rowacts button:has-text("草擬")').first().click();
   await page.waitForURL((u) => u.pathname === '/changes/new', { timeout: 10000 }).catch(() => {});
   ok(new URL(page.url()).pathname === '/changes/new', 'alert drafts a change');
@@ -343,6 +346,11 @@ async function audit(page, where) {
   ok(await page.locator('tr.dt-expand .thd dd', { hasText: 'Debian 已在 1.22.1-9+deb12u2 修正' }).count() === 1,
      'intel: the Debian security tracker says the installed package has the fix');
   ok(await page.locator('.kvpanel dt', { hasText: 'Debian 安全追蹤' }).count() === 1, 'intel: the Debian security tracker among the sources');
+  // 0.5.17: a back-end host's nginx is listed with the sites it serves and the address that answered
+  ok(await page.locator('.datatable tbody tr', { hasText: '後端主機回應：http://192.0.2.40:80' }).count() === 1 &&
+     await page.locator('.datatable tbody tr:has-text("192.0.2.40") .sub', { hasText: '後端主機' }).count() >= 1,
+     'intel: a back-end host\'s server is listed as one');
+  ok(await page.locator('.kvpanel dt', { hasText: '後端主機版本' }).count() === 1, 'intel: the back-end versions among the sources');
   // 0.5.10: hand a page to the threat intelligence -- it waits in the list, without the tracking parameter
   const subCard = page.locator('section.card', { hasText: '交給威脅情報分析' });
   const subBtn = subCard.locator('button', { hasText: '分析' });

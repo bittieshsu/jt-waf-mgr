@@ -219,6 +219,15 @@ for name, ver, hosts in (('nginx', '1.22.1-9+deb12u2', []), ('OWASP CRS', '4.30.
                          ('Nextcloud', '30.0.2', ['files.example.com'])):
     _sw.save(app.db, 'admin', name, ver, hosts)
 _sw.save(app.db, 'admin', 'Grafana', '', ['mon.example.com'], confirmed_flag=False)
+# 0.5.17: a back-end host's nginx, read from its own Server header, and the advisory alert for it
+app.db.x("INSERT INTO software(name, version, hosts, kind, source, confirmed, evidence, notes, updated_at, updated_by) "
+         "VALUES ('nginx', '1.22.1', ?, 'backend', 'probe', 1, 'back-end http://192.0.2.40:80', '', ?, 'backend-probe')",
+         (json.dumps(['files.example.com']), now - 5400))
+alerts.raise_alert(app.db, app.audit, 'intel', 'backend_security', 'warning', 'nginx-backend:1.22.1:CVE-2099-0002',
+                   {'reason': 'the nginx 1.22.1 on the back-end host of files.example.com has 1 security advisories at nginx.org (CVE-2099-0002)',
+                    'msg': 'backend_security', 'installed': '1.22.1', 'sites': ['files.example.com'], 'cves': ['CVE-2099-0002'],
+                    'issues': [{'title': 'Memory corruption in HTTP/2 flow control', 'severity': 'major', 'cves': ['CVE-2099-0002']}],
+                    'fixed_in': ['1.30.7+']}, link='/intel')
 _th = [{'id': 'CVE-2026-90001', 'product': 'Keycloak', 'our_version': '26.0.5', 'summary': 'Example: a crafted redirect_uri lets an attacker take over a session.',
         'affected_versions': '< 26.0.7', 'fixed_version': '26.0.7', 'affected': 'yes', 'exploited': True, 'exploited_evidence': 'Example KEV entry',
         'severity': 'critical', 'attack_vector': 'url', 'request_pattern': 'GET /realms/*/protocol/openid-connect/auth with redirect_uri containing a second scheme',

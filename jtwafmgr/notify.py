@@ -148,6 +148,7 @@ TEXT = {
         'r.intel_distro': '{sw} 的 {cve} 已被利用，但這是發行版的套件，修正常會移植到原本的版本號；本機找不到可確認的修改記錄，請以發行版的安全公告為準。',
         'r.nginx_security': 'nginx {v} 有 {n} 個安全問題出在本站設定有用到的功能 ({cves})。WAF 規則封鎖不了這類問題：請更新 nginx。{ready}',
         'r.nginx_ready': '更新到 {v} 已準備好 (ModSecurity 模組已用它驗證過)。',
+        'r.backend_security': '站台 {sites} 的後端主機跑 nginx {v}，nginx.org 公告列出 {n} 個安全問題 ({cves})。那台主機不由這裡更新：請在該主機更新 nginx；如果是發行版的套件，可能已經回補修正，請以發行版公告為準。',
         'r.intel_patch': '{sw} 的 {cve} 已被利用，{affects}{vu}，但預先防護規則沒有生效：請更新軟體，或決定要不要用規則。',
         'r.intel_remove': '{product} 已更新為 {now} (寫 {cve} 的預先防護規則時是 {was})：確認新版已修補後，移除規則 {rule_id}。',
         'f.conditions': '前提條件',
@@ -252,6 +253,7 @@ TEXT = {
         'r.intel_distro': '{cve} in {sw} is exploited in the wild, but this is a distribution\'s package: fixes are often backported without changing the upstream version, and no change log on this host confirms it; check the distribution\'s security advisory.',
         'r.nginx_security': 'nginx {v} has {n} security issue(s) in features this configuration uses ({cves}). WAF rules cannot refuse these: update nginx.{ready}',
         'r.nginx_ready': ' The update to {v} is ready (the ModSecurity module was verified with it).',
+        'r.backend_security': 'The back-end host of {sites} runs nginx {v}, which nginx.org lists with {n} security issue(s) ({cves}). that host is not updated from here: update nginx there; a distribution package may already carry the fixes (see its advisories).',
         'r.intel_patch': '{cve} in {sw} is exploited in the wild and {affects}{vu}, but the precaution rule is not in force: update the software, or decide on a rule.',
         'r.intel_remove': '{product} is now {now} (it was {was} when the precaution rule for {cve} was written): check that the update fixes it, then remove rule {rule_id}.',
         'f.conditions': 'Conditions',
@@ -357,6 +359,7 @@ TEXT = {
         'r.intel_distro': '{sw} の {cve} は悪用されていますが、ディストリビューションのパッケージです。修正は元のバージョン番号のまま取り込まれることが多く、このホストでは確認できる変更履歴が見つかりませんでした：ディストリビューションのセキュリティ情報で確認してください。',
         'r.nginx_security': 'nginx {v} には、この設定で使っている機能に {n} 件のセキュリティ問題があります ({cves})。WAF ルールでは拒否できません。nginx を更新してください。{ready}',
         'r.nginx_ready': ' {v} への更新は準備済みです (ModSecurity モジュールを検証済み)。',
+        'r.backend_security': '{sites} のバックエンドホストで動いている nginx {v} には、nginx.org の公告で {n} 件のセキュリティ問題があります ({cves})。そのホストはここからは更新しません：そのホストで nginx を更新してください。ディストリビューションのパッケージなら修正がバックポート済みの場合があります (公告を確認してください)。',
         'r.intel_patch': '{sw} の {cve} は悪用されており、{affects}{vu}が、予防ルールが有効になっていません：ソフトウェアを更新するか、ルールを決めてください。',
         'r.intel_remove': '{product} は {now} に更新されました ({cve} の予防ルール作成時は {was})：更新で修正されたことを確認してから、ルール {rule_id} を削除してください。',
         'f.conditions': '前提条件',
@@ -615,6 +618,10 @@ def alert_text(lang, d):
         return _t(lang, 'r.nginx_security', v=_v(d.get('installed'), 40), n=len(d.get('issues') or []),
                   cves=_v(', '.join(str(c) for c in (d.get('cves') or [])[:20]), 400),
                   ready=_t(lang, 'r.nginx_ready', v=_v(d.get('candidate'), 40)) if d.get('ready') and d.get('candidate') else '')
+    if msg == 'backend_security':
+        return _t(lang, 'r.backend_security', v=_v(d.get('installed'), 40), n=len(d.get('issues') or []),
+                  sites=_v(', '.join(str(h) for h in (d.get('sites') or [])[:5]), 300),
+                  cves=_v(', '.join(str(c) for c in (d.get('cves') or [])[:20]), 400))
     if msg not in ALERT_MSGS:
         return d.get('reason') or ''
     ver = str(d.get('sw_version') or '').strip()

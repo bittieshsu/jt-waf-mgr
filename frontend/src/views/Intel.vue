@@ -167,9 +167,10 @@
         <p class="muted small">{{ t('intel.software_hint') }}</p>
         <p v-if="guessMsg" class="muted small" role="status">{{ guessMsg }}</p>
         <DataTable id="intel-software" :columns="swCols" :rows="data.software" row-key="id" :page-size="50" :empty="t('intel.no_software_rows')">
-          <template #cell-name="{ row }"><b>{{ row.name }}</b><div v-if="row.evidence" class="sub muted" :title="hits(row) ? t('intel.hits_hint') : null"><TruncText :text="hits(row) || row.evidence" :max="140" /></div></template>
+          <template #cell-name="{ row }"><b>{{ row.name }}</b><div v-if="row.evidence" class="sub muted" :title="hits(row) && row.kind === 'site' ? t('intel.hits_hint') : null"><TruncText :text="hits(row) || row.evidence" :max="140" /></div></template>
           <template #cell-version="{ row }"><span class="mono">{{ row.version || '—' }}</span></template>
-          <template #cell-hosts="{ row }"><span class="small">{{ row.kind === 'host' ? t('intel.this_host') : (row.hosts.join(', ') || '—') }}</span></template>
+          <template #cell-hosts="{ row }"><span class="small">{{ row.kind === 'host' ? t('intel.this_host') : (row.hosts.join(', ') || '—') }}</span>
+            <div v-if="row.kind === 'backend'" class="sub muted">{{ t('intel.backend_of') }}</div></template>
           <template #cell-confirmed="{ row }"><span class="badge" :class="row.confirmed ? 'b-ok' : 'b-warn'">{{ row.confirmed ? t('intel.confirmed') : t('intel.unconfirmed') }}</span>
             <span class="muted small gapl">{{ t('intel.source.' + row.source) }}</span></template>
           <template #cell-act="{ row }">
@@ -270,6 +271,7 @@ const sources = computed(() => {
     { key: 'osv', on: !!osv.enabled, detail: osv.enabled ? (osv.ecosystem ? t('intel.osv_eco', { eco: osv.ecosystem }) : t('intel.osv_none')) : '' },
     { key: 'nvd', on: !!nvd.enabled, detail: nvd.enabled ? t('intel.nvd_does') : '' },
     { key: 'debian', on: !!(s.debian || {}).enabled, detail: (s.debian || {}).enabled ? t('intel.debian_does') : '' },
+    { key: 'backends', on: !!(s.backends || {}).enabled, detail: (s.backends || {}).enabled ? t('intel.backends_does') : '' },
   ]
 })
 const openCount = computed(() => (data.value ? data.value.threats.filter((x) => x.status === 'open').length : 0))
@@ -324,6 +326,8 @@ const edit = reactive({ id: null, orig: '', name: '', version: '', hosts: '' })
 // a guess's evidence, worded: "site 5844, site 283" (requests on the application's own paths answered 2xx) and / or
 // "homepage: site, site" (its home page names it); anything else is shown as it is
 function hits(row) {
+  // a back-end host's entry (0.5.17): "back-end http://192.0.2.10:80, ..." -> the addresses that answered
+  if (row.kind === 'backend' && /^back-end /.test(row.evidence || '')) return t('intel.backend_ev', { addrs: row.evidence.slice(9) })
   if (row.kind !== 'site') return ''
   const out = []
   for (const part of String(row.evidence || '').split('; ')) {

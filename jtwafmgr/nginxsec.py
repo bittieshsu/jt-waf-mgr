@@ -291,6 +291,49 @@ def raise_alerts(app, st, log=print, feats=None):
     return a
 
 
+BACKEND_NOTE = 'the back-end nginx %s is no longer listed (updated, or its sites moved)'
+
+
+def backend_alerts(app, log=print, advs=None):
+    """An alert for each back-end host's nginx version (backends.py) the advisories list as vulnerable: jt-waf-mgr
+    does not update that host, a person does. The features its configuration uses are not known here, and the
+    version comes from its Server header (a distribution's package may carry the fixes): a warning, never critical.
+    An open alert whose version is no longer listed is handled. Returns the dedup keys raised."""
+    from . import alerts
+    advs = load(app.cfg) if advs is None else advs
+    raised = []
+    for r in app.db.q("SELECT version, hosts FROM software WHERE kind='backend' AND name='nginx' ORDER BY id"):
+        ver, _ = upstream(r['version'])
+        if not ver or not advs:
+            continue
+        issues = [a for a in advs if (a.get('severity') or '').strip().lower() != 'none' and is_vulnerable(ver, a) is True]
+        if not issues:
+            continue
+        cves = sorted({c for a in issues for c in a.get('cves') or []})
+        hosts = json.loads(r['hosts'] or '[]')
+        dedup = 'nginx-backend:%s:%s' % (ver, ','.join(cves)[:200])
+        raised.append(dedup)
+        fixed = sorted({n for a in issues for n in a.get('not_vulnerable') or []}, key=lambda x: _v(x.rstrip('+')) or ())
+        alerts.raise_alert(app.db, app.audit, 'intel', 'backend_security', 'warning', dedup,
+                           {'reason': 'the nginx %s on the back-end host of %s has %d security advisories at nginx.org (%s): '
+                                      'update nginx on that host (jt-waf-mgr does not update it; a distribution package '
+                                      'may already carry the fixes).' % (ver, ', '.join(hosts[:5]), len(issues),
+                                                                         ', '.join(cves)[:300] or ', '.join(a['title'] for a in issues)[:300]),
+                            'msg': 'backend_security', 'installed': ver, 'sites': hosts[:20], 'cves': cves[:20],
+                            'issues': [{'title': a['title'], 'severity': a.get('severity') or '', 'cves': a.get('cves') or []}
+                                       for a in issues][:20], 'fixed_in': fixed[-4:]},
+                           link='/intel')
+        log('nginxsec: back-end nginx %s (%s): %d advisories' % (ver, ', '.join(hosts[:3]), len(issues)))
+    for old in app.db.q("SELECT id, dedup FROM alerts WHERE state='open' AND kind='backend_security'"):
+        if old['dedup'] in raised:
+            continue
+        note = BACKEND_NOTE % (old['dedup'].split(':')[1] if old['dedup'].count(':') >= 2 else '-')
+        if app.db.x("UPDATE alerts SET state='handled', handled_by='intel', handled_at=?, note=? WHERE id=? AND state='open'",
+                    (util.now(), note, old['id'])).rowcount == 1:
+            app.audit.log('alert.handled', 'intel', 'system', None, 'ok', alert_id=old['id'], kind='backend_security', note=note)
+    return raised
+
+
 SET_ASIDE_NOTE = 'nginx.org security advisory: nginx %s is not vulnerable (%s; fixed in %s)'
 
 
@@ -303,6 +346,8 @@ def decide_threats(app, installed=None, log=print):
     advs = load(app.cfg)
     if not advs:
         return []
+    backend = [v for v in (upstream(r['version'])[0] for r in db.q(
+        "SELECT version FROM software WHERE kind='backend' AND name='nginx'")) if v]
     by_cve = {}
     for a in advs:
         for c in a.get('cves') or []:
@@ -322,6 +367,15 @@ def decide_threats(app, installed=None, log=print):
         vul = is_vulnerable(ver, a) if ver else None
         if vul is None:
             continue
+        # 0.5.17: an nginx on a back-end host (backends.py) counts too: set aside only when none of them is vulnerable
+        more = [v for v in backend if v != ver]
+        if not vul and more:
+            others = [is_vulnerable(v, a) for v in more]
+            if any(x is None for x in others):
+                continue
+            vul = any(others)
+            if not vul:
+                ver = ', '.join([ver] + more)
         t['nginx_advisory'] = {'title': a['title'], 'vulnerable': a['vulnerable'], 'not_vulnerable': a['not_vulnerable'],
                                'result': 'yes' if vul else 'no', 'exact': exact}
         if vul:

@@ -116,6 +116,7 @@ EDITABLE = {
     'intel.osv': ('bool', {}),
     'intel.nvd': ('bool', {}),
     'intel.debian': ('bool', {}),
+    'intel.backend_versions': ('bool', {}),
     'intel.librenms_token': ('secret', {'re': r'[\x21-\x7e]{0,200}'}),
     'intel.provider': ('choice', {'choices': ('openai', 'anthropic', 'gemini')}),
     'intel.url': ('str', {'re': r'(https?://[A-Za-z0-9.-]+(?::\d{1,5})?(?:/[\w./-]*)?)?', 'max': 300}),

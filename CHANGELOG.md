@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.17 (2026-11-21)
+
+- Threat intelligence can read the back-end hosts' versions (Settings → Threat intelligence, "Read the back-end hosts' versions", off by default). nginx does not pass a proxied server's `Server` header on, so only this host's nginx version was known, not the nginx, Apache or PHP a back-end host runs. When on, before each search one `GET /` goes to each private address the nginx configuration's `proxy_pass` points to (`upstream` groups included), only the answer's headers are read, and the product and version from `Server` and `X-Powered-By` are listed in the software list, marked "back-end host" with the sites it serves; a changed version is updated, its confirmation kept. The addresses stay on this host and are never sent to the model.
+- A back-end host's nginx is compared with nginx.org's security advisories: an affected version raises a "Back-end nginx" alert (a warning: the features that host uses are not known, and a distribution's package may carry backported fixes), closed by itself once the back-end is updated. Updating this host's nginx does not close it. An nginx threat is set aside by the advisories only when neither this host's nginx nor a back-end one is affected.
+
 ## 0.5.16 (2026-11-20)
 
 - Event analysis: an answer cut short by the output limit is asked again at once with twice the room (up to 16,384 tokens), and a batch starts with room for a model that thinks before answering (at least 4,096 tokens instead of 512 + 320 per candidate). After the local LLM server switched to a model that thinks longer, every run failed: the model was still thinking when the limit ran out, the server refused the unfinished JSON with a 502, and the same request was tried three times. Such a failure is shown as `output_truncated` with what to do, in the analysis page and the notification, instead of a bare `http_502`. AI analysis of a single event does the same (twice the room once).

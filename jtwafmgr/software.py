@@ -349,9 +349,14 @@ def versions_of(db, name):
 
 
 def hosts_of(db, name):
-    """Every site a product is listed for (all its entries)."""
+    """Every site a product is listed for (all its entries). A product this host runs itself (nginx here, in front of
+    every site) is not narrowed to the sites of the same product on back-end hosts (0.5.17)."""
     out = []
-    for r in db.q('SELECT hosts FROM software WHERE name=? ORDER BY id', (name,)):
+    rows = db.q('SELECT hosts, kind FROM software WHERE name=? ORDER BY id', (name,))
+    here = any(r['kind'] == 'host' for r in rows)
+    for r in rows:
+        if here and r['kind'] == 'backend':
+            continue
         for h in json.loads(r['hosts'] or '[]'):
             if h not in out:
                 out.append(h)
@@ -570,7 +575,8 @@ def refresh(app, actor, fetch=fetch_local):
             removed += 1
     removed += len(prune_unrelated(db))
     for g in found:
-        rows = db.q('SELECT * FROM software WHERE name=? ORDER BY id', (g['name'],))
+        # the back-end hosts' entries (backends.py) are kept by their own probe, not by the guess
+        rows = db.q("SELECT * FROM software WHERE name=? AND kind<>'backend' ORDER BY id", (g['name'],))
         if any(x['source'] == 'person' for x in rows):
             continue                # a person keeps this product's entries (one or several): the guess leaves them
         r = rows[0] if rows else None
@@ -619,7 +625,7 @@ def save(db, actor, name, version, hosts=None, notes='', confirmed_flag=True, si
     notes = util.clip(str(notes or ''), 300)
     now = util.now()
     if sid is None:
-        _same(db, name, hosts, None)
+        _same(db, name, hosts, None, 'site')
         cur = db.x('INSERT INTO software(name, version, hosts, kind, source, confirmed, evidence, notes, updated_at, updated_by) '
                    "VALUES (?,?,?, 'site', 'person', ?, '', ?, ?, ?)",
                    (name, version, json.dumps(hosts), 1 if confirmed_flag else 0, notes, now, actor))
@@ -629,7 +635,7 @@ def save(db, actor, name, version, hosts=None, notes='', confirmed_flag=True, si
     r = db.one('SELECT * FROM software WHERE id=?', (int(sid),))
     if not r:
         raise SoftwareError('not_found')
-    _same(db, name, hosts or json.loads(r['hosts'] or '[]'), r['id'])
+    _same(db, name, hosts or json.loads(r['hosts'] or '[]'), r['id'], r['kind'])
     if r['source'] == 'guess' and r['name'] != name:
         # a person renamed a guess (Exchange -> Z-Push): the old name is not guessed again
         _set_dismissed(db, dismissed_names(db) + [r['name']])
@@ -639,11 +645,14 @@ def save(db, actor, name, version, hosts=None, notes='', confirmed_flag=True, si
     return r['id']
 
 
-def _same(db, name, hosts, sid):
+def _same(db, name, hosts, sid, kind='site'):
     """One product may be listed again for other sites (two servers on different versions): every entry of the
-    same name then names its sites, and no site is in two of them."""
+    same name then names its sites, and no site is in two of them. This host's own package and a back-end host's
+    server of the same name (nginx here, nginx behind it) are different programs: both may be listed."""
     for r in db.q('SELECT id, hosts, kind FROM software WHERE name=? AND id IS NOT ?', (name, sid)):
         theirs = set(json.loads(r['hosts'] or '[]'))
+        if {r['kind'], kind} == {'host', 'backend'}:
+            continue
         if r['kind'] == 'host' or not theirs or not hosts:
             raise SoftwareError('exists', 'already in the list: to list it again, give every entry of it its own sites')
         if theirs & set(hosts):
@@ -668,8 +677,11 @@ def _set_dismissed(db, names):
 
 
 def delete(db, sid):
-    r = db.one('SELECT name, source FROM software WHERE id=?', (int(sid),))
+    r = db.one('SELECT name, source, hosts FROM software WHERE id=?', (int(sid),))
     n = db.x('DELETE FROM software WHERE id=?', (int(sid),)).rowcount
     if n and r['source'] == 'guess':
         _set_dismissed(db, dismissed_names(db) + [r['name']])
+    elif n and r['source'] == 'probe':
+        from . import backends          # a back-end host's entry: not listed again for these sites
+        backends.dismiss(db, ['%s@%s' % (r['name'], h) for h in json.loads(r['hosts'] or '[]')])
     return n

@@ -10,6 +10,8 @@ from jtwafmgr import software as _software
 from jtwafmgr.web import api as _api
 
 _software.OFFLINE = True          # the sites are never asked for real (the tests also run on a production host)
+from jtwafmgr import backends as _backends  # noqa: E402
+_backends.OFFLINE = True          # the back-end hosts are never asked for real
 from jtwafmgr import iprep as _iprep  # noqa: E402
 _iprep.TEST_NETS = True           # documentation addresses stand for outside ones (never a real address in a test)
 from jtwafmgr import nginxsec as _nginxsec  # noqa: E402

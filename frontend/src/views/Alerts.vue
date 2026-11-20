@@ -115,6 +115,10 @@ function reasonText(r) {
     return t('alerts.nginx_security', { v: String(d.installed || ''), n: (d.issues || []).length, cves: (d.cves || []).join(', '),
       ready: d.ready && d.candidate ? t('alerts.nginx_security_ready', { v: String(d.candidate) }) : '' })
   }
+  if (r.kind === 'backend_security') {
+    return t('alerts.backend_security', { v: String(d.installed || ''), sites: (d.sites || []).slice(0, 5).join(', '),
+      n: (d.issues || []).length, cves: (d.cves || []).join(', ') })
+  }
   if (!MSGS.includes(d.msg)) return d.reason || ''
   if (d.msg === 'intel_search_empty') {
     return t('alerts.intel_search_empty', { n: String(d.n ?? ''), of: String(d.of ?? ''), service: String(d.service || '') })
