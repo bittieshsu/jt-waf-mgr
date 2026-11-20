@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.15 (2026-11-20)
+
+- Threat intelligence: a flaw whose virtual patch written by the model is in force for one application gets the same rule for the other applications it reaches, without asking the model again. Asked once more about Nextcloud and Z-Push together, the model answered "not possible" for the PHP flaw (CVE-2026-115560) it had written a parameter-name rule for on LibreNMS; such flaws get the rule now. A rule a person removed is not copied.
+
 ## 0.5.14 (2026-11-20)
 
 - Threat intelligence: a threat's virtual patch follows the rule in force. A CrowdSec rule removed as a duplicate (its sibling covers every site) kept being named as the patch, and threats whose rule is in force named the rollback that had last rewritten every rule. Links to a rule no longer in force are dropped and matched again to a rule that is (a rule a person removed is not proposed again), and the alert names the rule (rule 10402), not a change.

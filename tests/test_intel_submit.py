@@ -203,6 +203,44 @@ class TestOnePatchPerVulnerability(Base):
         self.assertEqual([r['patch_change_id'] for r in self.app.db.q("SELECT patch_change_id FROM intel_threats")], [101, 101])
 
 
+    def test_the_rule_in_force_for_one_application_is_used_for_the_others(self):
+        """0.5.14: asked once more about Nextcloud and Z-Push together, the model said "not possible" for the PHP flaw
+        whose parameter-name rule was in force on another application."""
+        software.save(self.app.db, 'test', 'Z-Push', '', hosts=['push.example.com'])
+        db, now = self.app.db, time.time()
+        spec = {'target': 'arg_name', 'header': '', 'regex': '^php_session_upload_progress$', 'exceptions': [],
+                'host': {'mode': 'exact', 'value': 'nms.example.com'}, 'msg': 'virtual patch CVE-2026-115560 LibreNMS',
+                'reference': 'https://www.php.net/', 'source': 'external', 'before_rule_id': 10298}
+        tests = [{'expect': 403, 'source': 'external', 'host': 'nms.example.com', 'path': '/', 'method': 'POST', 'body': 'x'}]
+        cid = db.x("INSERT INTO changes(op, kind, rule_id, spec, tests, direction, state, reason, proposed_by, proposed_via, "
+                   "created_at, updated_at) VALUES ('add', 'confident_block', 10287, ?, ?, 'tighten', 'applied', 'x', 'intel', "
+                   "'api', ?, ?)", (json.dumps(spec), json.dumps(tests), now, now)).lastrowid
+        db.x("INSERT INTO managed_rules(rule_id, kind, placement, position, spec, text, origin, created_by, created_at, updated_at, "
+             "change_id) VALUES (10287, 'confident_block', 'before', 1, ?, '', 'created', 'intel', ?, ?, ?)", (json.dumps(spec), now, now, cid))
+        det = json.dumps({'attack_vector': 'body', 'request_pattern': 'a field named PHP_SESSION_UPLOAD_PROGRESS', 'summary': 'RCE'})
+        for product, link, note in (('LibreNMS', cid, ''), ('Nextcloud', None, 'not_possible'), ('Z-Push', None, 'not_possible')):
+            db.x("INSERT INTO intel_threats(cve, product, first_seen, last_seen, affected, exploited, severity, details, "
+                 "patch_change_id, patch_note) VALUES ('CVE-2026-115560', ?, ?, ?, 'unknown', 0, 'critical', ?, ?, ?)",
+                 (product, now, now, det, link, note))
+        seen = []
+        self.app.workflow.propose = lambda op, kind, sp, reason, actor, **k: seen.append((op, kind, sp, k.get('tests'), reason)) or 130
+        out, _, _ = intel.propose_patches(self.app, 1, ask=lambda *a: self.fail('the model asked'), log=lambda m: None)
+        self.assertEqual(out, [130])
+        op, kind, sp, ts, reason = seen[0]
+        self.assertEqual((op, kind, sp['target'], sp['regex']), ('add', 'confident_block', 'arg_name', '^php_session_upload_progress$'))
+        self.assertEqual(sp['host'], {'mode': 'any', 'value': ''})                # both applications' sites
+        self.assertNotEqual(ts[0]['host'], 'nms.example.com')
+        self.assertIn('change #%d' % cid, reason)
+        self.assertEqual([r[0] for r in db.q("SELECT patch_change_id FROM intel_threats WHERE product != 'LibreNMS' ORDER BY id")],
+                         [130, 130])
+        # the rule removed: the model is asked again (no rule in force to follow)
+        db.x("UPDATE intel_threats SET patch_change_id=NULL, patch_note='' WHERE product != 'LibreNMS'")
+        db.x('UPDATE managed_rules SET deleted=1 WHERE rule_id=10287')
+        asked = []
+        intel.propose_patches(self.app, 2, ask=lambda *a: asked.append(a) or ({'possible': False}, 1, 1), log=lambda m: None)
+        self.assertEqual(len(asked), 1)
+
+
 class TestTimeLimit(Base):
     def test_a_run_out_of_time_stops_asking_and_still_ends(self):
         sess = intel.Session(self.app.cfg, seconds=1)

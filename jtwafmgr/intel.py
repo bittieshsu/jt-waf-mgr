@@ -881,6 +881,11 @@ def propose_patches(app, run_id, ask=None, log=print, session=None):
         db.x("UPDATE intel_threats SET patch_note='' WHERE patch_change_id IS NULL AND patch_note='not_possible' AND cve IN "
              "(SELECT cve FROM intel_threats WHERE patch_change_id IS NOT NULL)")
         db.set_meta('fix.intel_patch_siblings', '1')
+    if not db.get_meta('fix.intel_patch_same'):
+        # 0.5.14: those asked once more were "not possible" again; they get the sibling's rule now
+        db.x("UPDATE intel_threats SET patch_note='' WHERE patch_change_id IS NULL AND patch_note='not_possible' AND cve IN "
+             "(SELECT cve FROM intel_threats WHERE patch_change_id IS NOT NULL)")
+        db.set_meta('fix.intel_patch_same', '1')
     rows = db.q("SELECT * FROM intel_threats WHERE status='open' AND patch_change_id IS NULL AND patch_note='' "
                 "AND affected IN ('yes', 'unknown') ORDER BY exploited DESC, (severity='critical') DESC, (severity='high') DESC, id")
     samples = app.workflow.samples(400)
@@ -899,11 +904,37 @@ def propose_patches(app, run_id, ask=None, log=print, session=None):
         if session is not None and session.out_of_time(cfg['intel']['timeout_seconds']):
             log('intel: run %d: out of time: the other virtual patches wait for the next run' % run_id)
             break
-        asked += 1
         r, t = items[0]
         products = [x[0]['product'] for x in items]
         # every entry of every product (two servers: both sites)
         hosts = sorted({h for name in products for h in software.hosts_of(db, name)})
+        sib = _sibling_patch(db, cve)
+        if sib is not None:
+            # the same flaw already has the model's rule in force for another application: the same rule, not a new
+            # question (the model's answers differ between questions)
+            note, cid = '', None
+            try:
+                spec, tests = _same_patch(sib, cve, products, hosts, test_host)
+                exploited = any(x[0]['exploited'] for x in items)
+                reason = util.clip(reasons.text(
+                    'intel_patch_x' if exploited else 'intel_patch', cve=cve, product=', '.join(products),
+                    version=known_version(t.get('our_version')) or '(version not known)', severity=r['severity'],
+                    summary=t.get('summary') or '', attack=t.get('request_pattern') or '',
+                    rule='the rule of change #%d, in force for the same flaw' % sib[0],
+                    refs=' '.join(t.get('references') or [])), 2000)
+                cid = app.workflow.propose('add', 'confident_block', spec, reason, 'intel', via='api', owner='intel', tests=tests)
+            except ChangeError as e:
+                note = 'refused_%s' % ((e.details or {}).get('reason') or e.code)
+            for x, _t in items:
+                db.x('UPDATE intel_threats SET patch_change_id=?, patch_note=? WHERE id=?', (cid, note, x['id']))
+            if cid:
+                proposed.append(cid)
+                log('intel: run %d: virtual patch for %s (%s) proposed as change #%d, the rule of change #%d' % (
+                    run_id, cve, ', '.join(products), cid, sib[0]))
+            else:
+                log('intel: run %d: the rule of change #%d for %s (%s) not proposed (%s)' % (run_id, sib[0], cve, ', '.join(products), note))
+            continue
+        asked += 1
         user = ('Vulnerability: %s in %s (our version %s)\nSummary: %s\nAffected versions: %s\nWhere: %s\n'
                 'What the attack request looks like: %s\nReferences: %s' % (
                     cve, ', '.join(products), t.get('our_version') or 'unknown', t.get('summary'), t.get('affected_versions'),
@@ -940,6 +971,33 @@ def propose_patches(app, run_id, ask=None, log=print, session=None):
                     _patch_alert(app, x, 'no rule could be written (%s)' % note)
                     break
     return proposed, tin, tout
+
+
+def _sibling_patch(db, cve):
+    """A virtual patch the model wrote for another application with the same flaw, still in force: (change id, spec,
+    tests), or None. 0.5.14: asked once more about Nextcloud and Z-Push together, the model said "not possible" for the
+    PHP flaw it had written a parameter-name rule for on LibreNMS."""
+    for r in db.q("SELECT c.id, c.spec, c.tests FROM intel_threats t JOIN changes c ON c.id=t.patch_change_id "
+                  "JOIN managed_rules m ON m.rule_id=c.rule_id WHERE t.cve=? AND c.op='add' AND c.kind='confident_block' "
+                  "AND c.state='applied' AND m.deleted=0 AND m.enabled=1 ORDER BY c.id", (cve,)):
+        try:
+            spec, tests = json.loads(r['spec'] or '{}'), json.loads(r['tests'] or '[]')
+        except ValueError:
+            continue
+        if spec.get('target') and spec.get('regex'):
+            return r['id'], spec, tests
+    return None
+
+
+def _same_patch(sib, cve, products, hosts, test_host):
+    """The sibling's rule for these products' sites: the same match, their host, their tests' host."""
+    cid, spec, tests = sib
+    host = {'mode': 'exact', 'value': hosts[0]} if len(hosts) == 1 else {'mode': 'any', 'value': ''}
+    spec = dict(spec, host=host, msg=util.clip('virtual patch %s %s' % (
+        cve, re.sub(r'[^A-Za-z0-9 ._-]', '', ' '.join(products))), 100))
+    th = hosts[0] if hosts else test_host
+    tests = [dict(x, host=th) if th and isinstance(x, dict) and x.get('host') else x for x in tests if isinstance(x, dict)]
+    return spec, tests
 
 
 def hub_rule_for(cfg, cve):
