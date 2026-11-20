@@ -323,6 +323,7 @@
  "auditact.backup.failed": "Database backup failed",
  "auditact.backup.verified": "Database backup verified",
  "auditact.block.applied": "IP block list written",
+ "auditact.block.ended_protected": "IP block ended (the address is now protected)",
  "auditact.block.expired": "IP block expired",
  "auditact.block.extend": "IP block extended",
  "auditact.block.refused": "IP block refused",

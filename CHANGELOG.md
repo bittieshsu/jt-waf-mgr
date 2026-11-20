@@ -2,6 +2,13 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.27 (2026-11-21)
+
+Fixes from an independent review of the automatic blocks:
+- A blocked address protected afterwards (Settings: protected networks, known scanners, the internal networks) has its block ended, audited. The apply program refused the whole IP block list with it in, so new blocks were not written and ended ones not taken out, with a critical "block list not applied" alert every few minutes, until that block ran out (up to 30 days; a permanent one never).
+- An address the secret-file probe rule could not block for a passing reason (the list not loaded, full) is tried again later; it waited for a restart of the service.
+- NAT64 (`64:ff9b::/96`) and the benchmarking range (`198.18.0.0/15`) are not taken for addresses on the internet and are never blocked.
+
 ## 0.5.26 (2026-11-21)
 
 - nginx update's hot switch: a new nginx master that does not come up in time is stopped (QUIT, then TERM) so the old one is the only master again before the failure is reported. It was left running beside the old one, sharing its listening sockets, and later reloads reached only one of them while the other kept the old rules (found by an independent review, reproduced on a lab host: two masters and nginx.pid.oldbin left behind; after the fix, three forced failures each left one master and the site answering). The wait for the new master is 45 seconds instead of 15, so a large configuration is not given up on too early.

@@ -60,6 +60,21 @@ class LogicTest(unittest.TestCase):
         with self.assertRaises(BlockError):
             blocks.check_target(cfg, '198.51.100.0/24', allow_range=True)
 
+    def test_an_address_protected_afterwards_ends_its_block(self):
+        # 0.5.27: protected after it was blocked, the root program refused the whole list; now the block ends
+        self.b.add('203.0.113.70', 600, 'jt-waf-mgr/recon', 'probe', 'system', via='system')
+        self.b.add('203.0.113.71', 600, 'jt-waf-mgr/recon', 'probe', 'system', via='system')
+        self.env.cfg.data['blocks']['protected'] = ['203.0.113.70/32']
+        self.assertEqual(self.b.end_protected(), 1)
+        self.assertEqual(self.b.desired(), ['203.0.113.71'])
+        self.assertEqual(self.audit('block.ended_protected')[0]['ip'], '203.0.113.70')
+        blocks.validate_entries(self.b.desired(), blocks.never_blocked(self.env.cfg))      # the root program accepts it
+        # NAT64 and benchmarking addresses are not someone on the internet
+        for ip in ('64:ff9b::c000:221', '198.18.0.5'):
+            with self.assertRaises(BlockError) as cm:
+                blocks.check_target(self.env.cfg, ip)
+            self.assertEqual(cm.exception.code, 'not_public')
+
     def test_add_extend_sources_remove_expire(self):
         a = self.b.add('203.0.113.7', 600, 'mail2/zimbra-webmail', '4 failed logins', 'tok-mail2', via='token', token_id='t2')
         self.assertEqual((a['ip'], a['state']), ('203.0.113.7', 'active'))

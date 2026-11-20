@@ -323,6 +323,7 @@
  "auditact.backup.failed": "資料庫備份失敗",
  "auditact.backup.verified": "驗證資料庫備份",
  "auditact.block.applied": "IP 封鎖清單已寫入",
+ "auditact.block.ended_protected": "IP 封鎖結束 (位址已列入保護)",
  "auditact.block.expired": "IP 封鎖到期",
  "auditact.block.extend": "延長 IP 封鎖",
  "auditact.block.refused": "拒絕 IP 封鎖要求",

@@ -323,6 +323,7 @@
  "auditact.backup.failed": "データベースのバックアップ失敗",
  "auditact.backup.verified": "データベースのバックアップ検証",
  "auditact.block.applied": "IP ブロックリストを書き込み",
+ "auditact.block.ended_protected": "IP ブロック終了 (アドレスが保護対象になったため)",
  "auditact.block.expired": "IP ブロックの期限切れ",
  "auditact.block.extend": "IP ブロックを延長",
  "auditact.block.refused": "IP ブロック要求を拒否",

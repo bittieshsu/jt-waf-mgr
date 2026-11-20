@@ -44,7 +44,8 @@ STATES = ('active', 'removed', 'expired')
 # blockable on purpose: harmless, and what the tests use)
 NON_PUBLIC = [ipaddress.ip_network(n) for n in (
     '0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8', '169.254.0.0/16', '172.16.0.0/12', '192.168.0.0/16',
-    '224.0.0.0/3', '::/128', '::1/128', 'fc00::/7', 'fe80::/10', 'ff00::/8', '::ffff:0:0/96')]
+    '224.0.0.0/3', '::/128', '::1/128', 'fc00::/7', 'fe80::/10', 'ff00::/8', '::ffff:0:0/96',
+    '198.18.0.0/15', '64:ff9b::/96', '64:ff9b:1::/48')]       # benchmarking, NAT64 (an internal host seen through it)
 HARD_MAX = 20000          # the root program refuses a longer list whatever the settings say
 META_APPLIED = 'blocks_applied'     # {"sha": ..., "at": ..., "count": n, "ok": bool, "summary": ...}
 META_PENDING = 'blocks_pending'     # {"request_id": ..., "sha": ..., "at": ...}
@@ -157,6 +158,29 @@ class Blocks:
             if n.version == a.version and a in n:
                 out.append(public(r))
         return out
+
+    def end_protected(self):
+        """Blocks on an address a person has since protected (Settings: protected, known scanners, the internal
+        networks) end here: the root program refuses a list with one of them, and the whole list then stayed as it was
+        -- new blocks not written, ended ones not taken out (0.5.27). Returns how many ended."""
+        never = never_blocked(self.cfg)
+        if not never:
+            return 0
+        n = 0
+        for r in self.active():
+            try:
+                net = ipaddress.ip_network(r['ip'], strict=False)
+            except ValueError:
+                continue
+            hit = next((p for p in never if p.version == net.version and (net.subnet_of(p) or p.subnet_of(net))), None)
+            if hit is None:
+                continue
+            if self.db.x("UPDATE ip_blocks SET state='removed', ended_at=?, ended_by='system' WHERE id=? AND state='active'",
+                         (util.now(), r['id'])).rowcount == 1:
+                self.app.audit.log('block.ended_protected', 'system', 'system', None, 'ok', ip=r['ip'], source=r['source'],
+                                   block_id=r['id'], network=str(hit))
+                n += 1
+        return n
 
     def desired(self):
         """The distinct networks that should be in the file, sorted."""
@@ -357,6 +381,7 @@ class Blocks:
         wf = getattr(self.app, 'workflow', None)
         if wf is None:
             return None
+        self.end_protected()
         entries = self.desired()
         sha = self.list_sha(entries)
         applied = self._meta(META_APPLIED) or {}
@@ -500,8 +525,11 @@ class Blocks:
                 self.add(ip, b['auto_recon_ttl'], self.AUTO_SOURCE,
                          'guessed %d secret or configuration files in %d minutes: %s' % (len(paths), b['auto_recon_minutes'], sample),
                          'system', via='system')
-            except BlockError:
-                self._auto_refused.add(ip)        # protected, internal, full...: audited once, not every minute
+            except BlockError as e:
+                # protected or not public: for good (audited once, not every minute); a passing reason (the list not
+                # loaded, full) is tried again later (0.5.27: remembered until the service restarted)
+                if e.code in ('protected', 'not_public', 'invalid_ip', 'single_address_only', 'range_too_wide'):
+                    self._auto_refused.add(ip)
                 continue
             done += 1
             out.append(ip)
