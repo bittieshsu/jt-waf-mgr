@@ -37,6 +37,14 @@ class TestCliAdmin(unittest.TestCase):
             rc = cli.main(['--config', self.conf] + list(args))
         return rc, out.getvalue(), err.getvalue()
 
+    def test_switching_on_automatic_nginx_updates_takes_a_code(self):
+        # 0.5.25: the web interface asks a one-time code for it; the command line did not
+        rc, _, err = self.run_cli('settings', 'set', 'nginxup.auto_update=true', '--as', 'root1')
+        self.assertEqual(rc, 1)
+        self.assertIn('--totp', err)
+        rc, _, _ = self.run_cli('settings', 'set', 'nginxup.auto_update=false', '--as', 'root1')     # off: no code
+        self.assertEqual(rc, 0)
+
     def test_blocks(self):
         rc, _, err = self.run_cli('blocks', 'add', '203.0.113.44', '--reason', 'probe')
         self.assertEqual(rc, 1)

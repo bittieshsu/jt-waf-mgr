@@ -28,6 +28,20 @@ class CliError(Exception):
     pass
 
 
+
+def _otp_to_enable(app, person, ui, args):
+    """Switching on a setting the web interface asks a fresh one-time code for (nginx updated without a person): the
+    same here (0.5.25: the command line and an import switched it on without one)."""
+    from . import uisettings
+    from .auth import AuthError
+    for k in uisettings.OTP_TO_ENABLE:
+        sec, name = k.split('.', 1)
+        if ui.get(k) is True and not app.cfg.data.get(sec, {}).get(name):
+            try:
+                app.auth.step_up(person['username'], getattr(args, 'totp', None) or '', 'settings.' + k, 'cli')
+            except AuthError as e:
+                raise CliError('%s: switching on %s needs --totp CODE (%s)' % (e.code, k, e.code))
+
 def _out(obj, as_json):
     if as_json:
         print(json.dumps(obj, ensure_ascii=False, indent=1, default=str))
@@ -216,6 +230,7 @@ def cmd_settings(app, args):
             (wfv if k.startswith('workflow.') else ui)[k[9:] if k.startswith('workflow.') else k] = _value(v, k)
         data = {'format': settings_io.FORMAT, 'settings': ui, 'workflow': wfv}
         keys = ['settings:' + k for k in ui] + ['workflow:' + k for k in wfv]
+        _otp_to_enable(app, p, ui, args)
         try:
             done = settings_io.apply(app, data, keys, p['username'], src_ip='cli')
         except settings_io.ImportError_ as e:
@@ -270,6 +285,8 @@ def cmd_settings(app, args):
             return 0
         p = _person(app, args, 'admin')
         try:
+            _otp_to_enable(app, p, {i['key']: (data.get('settings') or {}).get(i['key']) for i in picked
+                                    if i['area'] == 'settings'}, args)
             done = settings_io.apply(app, data, ['%s:%s' % (i['area'], i['key']) for i in picked], p['username'], src_ip='cli')
         except settings_io.ImportError_ as e:
             raise CliError('%s %s' % (e.code, e.details))
@@ -374,6 +391,7 @@ def register(sub):
     s.add_argument('--only', help='import: a comma list of groups (llm, notify, workflow...) or keys; default: all that differ')
     s.add_argument('--dry-run', action='store_true', help='import: only show what would change')
     s.add_argument('-v', '--verbose', action='store_true', help='import: list every setting of the file')
+    s.add_argument('--totp', help='set / import: a fresh one-time code (switching on nginxup.auto_update needs one)')
     t = common(sub.add_parser('tokens', help='API tokens: list, revoke'))
     t.add_argument('action', choices=('list', 'revoke'))
     t.add_argument('id', nargs='?')

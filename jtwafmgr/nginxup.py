@@ -33,6 +33,22 @@ MAX_MODULE = 8 * 1024 * 1024
 REFRESH_EVERY = 15 * 60          # "check now" refreshes apt's lists at most this often
 
 
+
+def rolled_back_from(db, target):
+    """The newest applied nginx change is a rollback away from an update to this version (0.5.25: with automatic updates
+    on, the job proposed and applied that version again within minutes of a person's rollback)."""
+    if not target or db is None:
+        return False
+    r = db.one("SELECT spec FROM changes WHERE op='nginx' AND state='applied' ORDER BY updated_at DESC, id DESC LIMIT 1")
+    try:
+        sp = json.loads(r['spec'] or '{}') if r else {}
+        if sp.get('mode') != 'rollback':
+            return False
+        fr = db.one('SELECT spec FROM changes WHERE id=?', (int(sp.get('from_change') or 0),))
+        return bool(fr) and json.loads(fr['spec'] or '{}').get('target') == target
+    except (ValueError, TypeError):
+        return False
+
 def base(cfg):
     return os.path.join(os.path.dirname(os.path.abspath(cfg['paths']['db'])), 'nginxup')
 
@@ -266,7 +282,12 @@ def security(app, st, log=print, get=None):
     except Exception as e:      # noqa: BLE001 -- the alert stands; tried again next run
         log('nginxup: mitigation: %s' % type(e).__name__)
     used = [i for i in a['issues'] if i['in_use']]
-    if used and st.get('state') == 'ready' and cfg['nginxup'].get('auto_propose') and getattr(app, 'workflow', None):
+    if used and st.get('state') == 'ready' and rolled_back_from(app.db, st.get('target')):
+        # 0.5.25: a person rolled back away from this version: not proposed (nor applied by itself) again; a newer
+        # version, or a person proposing it, starts over
+        st['skipped_after_rollback'] = st.get('target')
+        log('nginxup: %s not proposed again: a person rolled back from it' % st.get('target'))
+    elif used and st.get('state') == 'ready' and cfg['nginxup'].get('auto_propose') and getattr(app, 'workflow', None):
         from .changes import ChangeError
         cves = sorted({c for i in used for c in i['cves']})
         try:

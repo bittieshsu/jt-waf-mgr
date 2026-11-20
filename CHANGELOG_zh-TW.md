@@ -2,6 +2,14 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.5.25 (2026-11-21)
+
+依獨立審查 0.5.0–0.5.4 的結果修正：
+- nginx 安全更新自動套用 (`nginxup.auto_update`) 開著時，管理者退回上一版 nginx 後，同一個版本不再被自動提出並套用 (之前退回後幾分鐘內就會再升回去)；更新的版本出現、或有人手動提出時才重新開始。關閉時也不再每次重複提出。
+- 用命令列 (`settings set`、`settings import`) 打開 `nginxup.auto_update` 也要一次性驗證碼 (`--totp`)，和網頁相同。
+- nginx 設定備份：設定裡指定為機密的檔案 (`ssl_certificate_key`、`auth_basic_user_file`、`ssl_password_file`、`ssl_session_ticket_key` 等) 與任何名稱的 basic-auth 帳密檔，不論檔名都不放進備份。
+- 同一時間只能有一筆 nginx 變更，檢查與建立改在同一個資料庫操作內完成 (之前程式自動提出與管理者退回可能同時成立兩筆)。
+
 ## 0.5.24 (2026-11-21)
 
 依獨立審查 0.5.5–0.5.9 的結果修正：

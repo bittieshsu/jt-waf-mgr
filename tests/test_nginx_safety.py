@@ -125,6 +125,28 @@ class TestAutoUpdate(Base):
         self.wf._nginx_checks(cid2, self.wf.get(cid2))
         self.assertEqual(self.wf.get(cid2)['state'], 'pending_approval')
 
+    def test_no_update_by_itself_after_a_person_rolled_back(self):
+        # 0.5.25: a person rolled back from NEW; with automatic updates on, the job proposed and applied NEW again
+        self.ready()
+        self.env.cfg.data['nginxup']['auto_update'] = True
+        now = time.time()
+        upd = self.app.db.x("INSERT INTO changes(op, kind, spec, direction, state, reason, proposed_by, created_at, updated_at) "
+                            "VALUES ('nginx','system',?,'neutral','applied','r','nginxup',?,?)",
+                            (json.dumps({'mode': 'update', 'installed': OLD, 'target': NEW}), now - 60, now - 60)).lastrowid
+        self.app.db.x("INSERT INTO changes(op, kind, spec, direction, state, reason, proposed_by, created_at, updated_at) "
+                      "VALUES ('nginx','system',?,'neutral','applied','r','boss',?,?)",
+                      (json.dumps({'mode': 'rollback', 'from_change': upd, 'installed': NEW, 'target': OLD}), now, now))
+        self.assertTrue(nginxup.rolled_back_from(self.app.db, NEW))
+        self.assertFalse(nginxup.rolled_back_from(self.app.db, '9.9.9'))      # a newer version starts over
+        cid = self.wf.propose_nginx('advisory', 'nginxup', role='admin', auto=True)
+        self.wf._nginx_checks(cid, self.wf.get(cid))
+        self.assertEqual(self.wf.get(cid)['state'], 'pending_approval')     # a person decides
+        # one open nginx change at a time, checked with the insert itself
+        from jtwafmgr.changes import ChangeError
+        with self.assertRaises(ChangeError) as cm:
+            self.wf._insert_nginx({'mode': 'module', 'installed': OLD, 'target': OLD}, 'r', 'boss')
+        self.assertEqual(cm.exception.code, 'nginx_change_pending')
+
     def test_switching_on_takes_a_code(self):
         from jtwafmgr.web import api
         from jtwafmgr.web.server import ApiError
@@ -151,7 +173,13 @@ class TestBackup(Base):
         self.env.cfg.data['paths']['nginx_conf'] = conf
         os.makedirs(os.path.join(d, 'ssl'), exist_ok=True)
         files = {'ssl/site.key': b'secret', 'ssl/bundle.pem': ('-----BEGIN ' + 'PRIVATE KEY-----\nx\n').encode(),
-                 'ssl/cert.pem': b'-----BEGIN CERTIFICATE-----\nx\n', '.htpasswd': b'u:x'}
+                 'ssl/cert.pem': b'-----BEGIN CERTIFICATE-----\nx\n', '.htpasswd': b'u:x',
+                 # 0.5.25: a basic-auth file by another name, and a file the configuration names as a secret
+                 'auth/app.users': b'alice:$apr1$abc$def\n', 'tls/tickets.bin': b'\x00' * 48}
+        os.makedirs(os.path.join(d, 'auth'), exist_ok=True)
+        os.makedirs(os.path.join(d, 'tls'), exist_ok=True)
+        with open(conf, 'a') as fh:
+            fh.write('\nssl_session_ticket_key tls/tickets.bin;\n')
         for n, b in files.items():
             with open(os.path.join(d, n), 'wb') as fh:
                 fh.write(b)
@@ -162,14 +190,14 @@ class TestBackup(Base):
             restore = tar.extractfile('RESTORE.txt').read().decode()
             manifest = tar.extractfile('MANIFEST.sha256').read().decode()
         self.assertIn('nginx/ssl/cert.pem', names)
-        for n in ('ssl/site.key', 'ssl/bundle.pem', '.htpasswd'):
+        for n in ('ssl/site.key', 'ssl/bundle.pem', '.htpasswd', 'auth/app.users', 'tls/tickets.bin'):
             self.assertNotIn('nginx/' + n, names)
             self.assertIn(n, restore)                    # named among what was left out
         self.assertIn('nginx/' + os.path.basename(conf), manifest)
         self.assertIn('nginx 1.30.7-1~bookworm (held)', restore)
         self.assertEqual(restore.count('apt-mark hold nginx'), 3)          # the manual steps in full, in all three languages
         self.assertGreater(info['files'], 0)
-        self.assertEqual(info['skipped'], 3)
+        self.assertEqual(info['skipped'], 5)
 
 
 if __name__ == '__main__':

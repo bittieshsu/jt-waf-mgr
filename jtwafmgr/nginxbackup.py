@@ -20,6 +20,27 @@ MAX_FILE = 16 << 20
 # private keys stay on the host: by name and by contents
 KEY_NAME = re.compile(r'(\.key$|privkey|private|\.p12$|\.pfx$|\.jks$|htpasswd|\.pass$|passwd)', re.I)
 KEY_TEXT = re.compile(rb'-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----')
+# 0.5.25: a basic-auth file by any name ("user:$apr1$...", "user:{SHA}...") and the files the configuration names as
+# secrets, whatever they are called
+USERS_TEXT = re.compile(rb'(?m)^[^\s:#]{1,256}:(?:\$[0-9a-z]{1,8}\$|\{(?:SHA|SSHA|PLAIN)\}|[./0-9A-Za-z]{13}$)')
+SECRET_DIRECTIVES = ('ssl_certificate_key', 'ssl_password_file', 'auth_basic_user_file', 'ssl_session_ticket_key',
+                     'auth_jwt_key_file', 'proxy_ssl_certificate_key', 'proxy_ssl_password_file', 'grpc_ssl_certificate_key',
+                     'uwsgi_ssl_certificate_key', 'ssl_stapling_file')
+
+
+def secret_files(conf):
+    """The files the nginx configuration names in a secret's directive (absolute paths)."""
+    out = set()
+    try:
+        from .nginxconf import NginxConfig, walk
+        n = NginxConfig(conf)
+        base = os.path.dirname(os.path.abspath(conf))
+        for d, _ctx in walk(n.tree):
+            if d.name in SECRET_DIRECTIVES and d.args and '$' not in d.args[0]:
+                out.add(os.path.normpath(os.path.join(base, d.args[0])))
+    except Exception:       # noqa: BLE001 -- unreadable configuration: the name and contents checks remain
+        pass
+    return out
 
 RESTORE = """jt-waf-mgr: nginx backup ({host}, {at})
 ============================================
@@ -94,6 +115,7 @@ def build(cfg, status=None, out_dir=None):
         module = None
     now = time.time()
     total, files, skipped, manifest = 0, 0, [], []
+    named = secret_files(conf)
     fd, path = tempfile.mkstemp(prefix='.nginx-backup-', suffix='.tar.gz', dir=out_dir)
     os.close(fd)
     try:
@@ -106,7 +128,7 @@ def build(cfg, status=None, out_dir=None):
                     if os.path.islink(p) or not os.path.isfile(p):
                         skipped.append((rel, 'not a regular file'))
                         continue
-                    if KEY_NAME.search(rel):
+                    if KEY_NAME.search(rel) or os.path.normpath(p) in named:
                         skipped.append((rel, 'private key or password file: left on the host'))
                         continue
                     try:
@@ -119,8 +141,8 @@ def build(cfg, status=None, out_dir=None):
                     if len(data) > MAX_FILE or total + len(data) > MAX_TOTAL:
                         skipped.append((rel, 'too large'))
                         continue
-                    if KEY_TEXT.search(data):
-                        skipped.append((rel, 'holds a private key: left on the host'))
+                    if KEY_TEXT.search(data) or USERS_TEXT.search(data[:65536]):
+                        skipped.append((rel, 'holds a private key or passwords: left on the host'))
                         continue
                     _add(tar, 'nginx/' + rel, data, os.path.getmtime(p))
                     manifest.append('%s  nginx/%s' % (hashlib.sha256(data).hexdigest(), rel))

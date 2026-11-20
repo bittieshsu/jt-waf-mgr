@@ -932,12 +932,23 @@ class Workflow:
                 'module_sha256': sha256}
         return self._insert_nginx(spec, reason, actor)
 
+    def _insert_nginx_row(self, spec, reason, actor, t):
+        """One open nginx change at a time, checked in the same statement as the insert (0.5.25: the job's own proposal
+        and a person's rollback could both pass a check made before)."""
+        with self.db.tx() as c:
+            cur = c.execute('INSERT INTO changes(op, kind, spec, direction, state, reason, proposed_by, created_at, updated_at) '
+                            "SELECT 'nginx', 'system', ?, 'neutral', 'checking', ?, ?, ?, ? WHERE NOT EXISTS "
+                            "(SELECT 1 FROM changes WHERE op='nginx' AND state NOT IN (%s))" % ','.join('?' * len(FINAL)),
+                            (json.dumps(spec), reason, actor, t, t) + tuple(FINAL))
+            if cur.rowcount != 1:
+                open_ = c.execute("SELECT id FROM changes WHERE op='nginx' AND state NOT IN (%s)" % ','.join('?' * len(FINAL)),
+                                  FINAL).fetchone()
+                raise ChangeError('nginx_change_pending', 409, change_id=open_[0] if open_ else None)
+            return cur.lastrowid
+
     def _insert_nginx(self, spec, reason, actor):
         t = util.now()
-        with self.db.tx() as c:
-            cid = c.execute('INSERT INTO changes(op, kind, spec, direction, state, reason, proposed_by, created_at, updated_at) '
-                            "VALUES ('nginx', 'system', ?, 'neutral', 'checking', ?, ?, ?, ?)",
-                            (json.dumps(spec), reason, actor, t, t)).lastrowid
+        cid = self._insert_nginx_row(spec, reason, actor, t)
         self.log(cid, actor, 'proposed', summarize('system', spec, 'nginx'))
         self.app.audit.log('change.proposed', actor, 'user', None, 'ok', change_id=cid, op='nginx', mode=spec['mode'],
                            nginx_from=spec.get('installed'), nginx_to=spec.get('target'))
@@ -964,10 +975,7 @@ class Workflow:
         if auto and actor == 'nginxup':
             spec['auto'] = True         # only the job's own call: nginxup.auto_update may then apply it by itself
         t = util.now()
-        with self.db.tx() as c:
-            cid = c.execute('INSERT INTO changes(op, kind, spec, direction, state, reason, proposed_by, created_at, updated_at) '
-                            "VALUES ('nginx', 'system', ?, 'neutral', 'checking', ?, ?, ?, ?)",
-                            (json.dumps(spec), reason, actor, t, t)).lastrowid
+        cid = self._insert_nginx_row(spec, reason, actor, t)
         self.log(cid, actor, 'proposed', summarize('system', spec, 'nginx'))
         self.app.audit.log('change.proposed', actor, 'user', None, 'ok', change_id=cid, op='nginx', mode=spec['mode'],
                            nginx_from=spec['installed'], nginx_to=spec['target'])
@@ -1002,7 +1010,9 @@ class Workflow:
             self._finish_checks(cid, checks, 'failed', 'the verified module or package changed since; check again and propose again')
             return
         self._finish_checks(cid, checks, 'pending_approval', None)
-        if r['proposed_by'] == 'nginxup' and spec.get('auto') is True and self.cfg['nginxup'].get('auto_update'):
+        from .nginxup import rolled_back_from
+        if r['proposed_by'] == 'nginxup' and spec.get('auto') is True and self.cfg['nginxup'].get('auto_update') \
+                and not rolled_back_from(self.db, spec.get('target')):
             # 0.5.1: "apply nginx security updates by themselves" (off by default, an administrator switches it on with
             # a one-time code): the update the job verified for an advisory in use goes ahead without a person; the
             # same root steps (health checks, put back on failure), a notification either way

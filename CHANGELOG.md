@@ -2,6 +2,14 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.25 (2026-11-21)
+
+Fixes from an independent review of 0.5.0–0.5.4:
+- With nginx security updates applied by themselves (`nginxup.auto_update`), a version an administrator rolled back from is no longer proposed and applied again by itself (it went back up within minutes of the rollback); a newer version, or a person proposing it, starts over. With it off, it is no longer proposed again on every check.
+- Switching on `nginxup.auto_update` from the command line (`settings set`, `settings import`) needs a one-time code (`--totp`), as in the web interface.
+- nginx configuration backup: files the configuration names as secrets (`ssl_certificate_key`, `auth_basic_user_file`, `ssl_password_file`, `ssl_session_ticket_key` ...) and basic-auth password files by any name are left out, whatever they are called.
+- One open nginx change at a time is checked in the same database statement that adds one (the job's own proposal and an administrator's rollback could both be added).
+
 ## 0.5.24 (2026-11-21)
 
 Fixes from an independent review of 0.5.5–0.5.9:
