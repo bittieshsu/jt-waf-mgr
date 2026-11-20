@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.20 (2026-11-21)
+
+- Threat intelligence: a notice of an announced security release closes by itself when every version of the product in the software list already includes the release named (the same branch at that version or later, or later than every version named), with the installed version as the reason. The notices of nginx 1.30.7 and ModSecurity 3.0.17 stayed open after the approved updates installed them. A notice that names no version, or an installed version older than the release (a distribution's package may carry the fix, which is not known here), stays open.
+
 ## 0.5.19 (2026-11-21)
 
 - The software list's home page guess and the back-end host versions include the sites nginx serves on any TLS port (`listen 12443 ssl`), not only 443. Where nginx's stream block on 443 passes each name to its own port by SNI, those sites (mail, ActiveSync) were never asked. A name not passed on that way meets another certificate at 443, and the certificate check refuses the answer: another site's page is never read.

@@ -1450,6 +1450,47 @@ def retire_by_version(app, log=print):
     return done
 
 
+RELEASE_NOTE = 'installed: %s %s includes the announced release (%s)'
+RELEASE_VERSION = re.compile(r'(?<![\d.])(\d{1,4}\.\d{1,4}(?:\.\d{1,6}){1,2})(?![\d.])')
+
+
+def close_installed_releases(app, log=print):
+    """0.5.20: an open notice of a security release (security_release) whose title names the release's version, and
+    every listed version of the product already includes it (the same branch at that release or later, or later than
+    every version named): handled, with the installed version as the reason. A notice without a version, or a version
+    older than the release (a distribution's package may carry the fix, but that is not known here), stays open.
+    Returns the alert ids handled."""
+    from . import nvd
+    db = app.db
+    done = []
+    for a in db.q("SELECT id, details FROM alerts WHERE state='open' AND kind='security_release'"):
+        try:
+            d = json.loads(a['details'] or '{}')
+        except ValueError:
+            continue
+        product = str(d.get('product') or '')
+        named = [v for v in (nvd._v(m) for m in RELEASE_VERSION.findall(str(d.get('title') or ''))) if v]
+        rows = [r['version'] for r in db.q('SELECT version FROM software WHERE name=?', (product,))]
+        if not product or not named or not rows:
+            continue
+        mine = [nvd._ours(v)[0] for v in rows]
+        if not all(mine):
+            continue                    # a version not known, or not plain numbers: nothing to say
+
+        def covered(v):
+            same = [n for n in named if n[:2] == v[:2]]
+            return any(nvd._cmp(v, n) >= 0 for n in same) or all(nvd._cmp(v, n) > 0 for n in named)
+        if not all(covered(v) for v in mine):
+            continue
+        note = RELEASE_NOTE % (product, ', '.join(rows)[:120], util.clip(str(d.get('title') or ''), 120))
+        if db.x("UPDATE alerts SET state='handled', handled_by='intel', handled_at=?, note=? WHERE id=? AND state='open'",
+                (util.now(), note, a['id'])).rowcount == 1:
+            app.audit.log('alert.handled', 'intel', 'system', None, 'ok', alert_id=a['id'], kind='security_release', note=note)
+            log('intel: release notice #%d handled (%s)' % (a['id'], note))
+            done.append(a['id'])
+    return done
+
+
 LANGUAGE_NOTE = 'replaced: the PHP its back-end host runs (%s) is inside the affected range (alert #%d)'
 
 
@@ -1966,6 +2007,10 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
         software.sync_host_versions(app, log=log)   # nginx updated through jt-waf-mgr, a package upgraded (0.5.8)
     except Exception as e:      # noqa: BLE001 -- the search goes on with the versions known
         log('intel: package versions not read: %s' % type(e).__name__)
+    try:
+        close_installed_releases(app, log=log)      # a release announced and since installed (0.5.20)
+    except Exception as e:      # noqa: BLE001 -- the alerts stay open; looked at again next run
+        log('intel: release notices not checked: %s' % type(e).__name__)
     products = software.confirmed(db)
     try:
         rechecks_due(cfg, now, mark=True)               # this run is the search after an announced release
