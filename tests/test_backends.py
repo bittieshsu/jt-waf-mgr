@@ -103,7 +103,7 @@ class TestBackends(unittest.TestCase):
                         ('192.0.2.20', 80): {'server': 'Apache/2.4.57 (Debian)'},
                         ('192.0.2.31', 8443): {'server': 'nginx/1.22.1'}}
         st = backends.detect(self.app, ask=self.ask, log=lambda *a: None)
-        self.assertEqual(st['answered'], 3)
+        self.assertEqual(st['answered'], 4)          # each site asked with its own name (two share 192.0.2.20)
         rows = {(r['name'], r['version']): r for r in self.rows()}
         self.assertEqual(rows[('nginx', '1.22.1')]['hosts'], ['app.example.com', 'pool.example.com'])
         self.assertEqual(rows[('PHP', '8.2.29')]['hosts'], ['app.example.com'])
@@ -175,7 +175,7 @@ class TestBackends(unittest.TestCase):
         self.assertIsNone(f('Nextcloud', 'PHP'))                         # pool.example.com did not say
         self.answers[('192.0.2.31', 8443)] = {'x-powered-by': 'PHP/8.4.16'}
         backends.detect(self.app, ask=self.ask, log=lambda *a: None)
-        self.assertEqual(f('Nextcloud', 'PHP'), {'app.example.com': '8.4.15', 'pool.example.com': '8.4.16'})
+        self.assertEqual(f('Nextcloud', 'PHP'), {'app.example.com': ['8.4.15'], 'pool.example.com': ['8.4.16']})
         self.assertIsNone(f('Keycloak', 'Java'))
 
     def test_an_earlier_alert_follows_what_is_known_now(self):
@@ -207,6 +207,61 @@ class TestBackends(unittest.TestCase):
         # not exploited: no urgent alert
         self.assertIsNone(intel.reword_language_alert(self.app, r, {'exploited': False}, {'result': 'yes', 'tech': 'PHP',
                                                                                          'tech_hit': ['8.4.14']}, log=lambda *a: None))
+
+    def test_review_fixes(self):
+        # 0.5.22 (an independent review of 0.5.17-0.5.21)
+        from jtwafmgr import alerts, notify
+        db = self.app.db
+        # a version is credited only to the site asked: one address, two sites, two PHP versions
+        self.answers = {}
+
+        def ask(scheme, address, port, host, timeout=4):
+            if address == '192.0.2.20':
+                return {'x-powered-by': 'PHP/8.4.14' if host == 'intra.example.com' else 'PHP/8.4.16'}
+            return None
+        backends.detect(self.app, ask=ask, log=lambda *a: None)
+        rows = {r['version']: r['hosts'] for r in self.rows() if r['name'] == 'PHP'}
+        self.assertEqual(rows, {'8.4.14': ['intra.example.com'], '8.4.16': ['intranet.example.com']})
+        # a site behind two back-ends keeps both versions; one inside the range is enough
+        db.x("INSERT INTO software(name, version, hosts, kind, source, confirmed, evidence, notes, updated_at, updated_by) "
+             "VALUES ('PHP', '8.4.10', '[\"intranet.example.com\"]', 'backend', 'probe', 0, '', '', 0, 'x')")
+        software.save(db, 'alice', 'Nextcloud', '30.0.2', hosts=['intranet.example.com'])
+        self.assertEqual(software.tech_versions(db)('Nextcloud', 'PHP'), {'intranet.example.com': ['8.4.16', '8.4.10']})
+        from jtwafmgr import nvd
+        php = [{'vendor': 'php', 'product': 'php', 'version': '*', 'update': '*', 'si': '8.4.0', 'se': '', 'ei': '', 'ee': '8.4.15'}]
+        t = {'id': 'CVE-2099-0102', 'product': 'Nextcloud', 'our_version': '30.0.2', 'affected': 'unknown'}
+        nvd.apply_versions(t, php, software.tech_versions(db))
+        self.assertEqual((t['version_check']['result'], t['affected']), ('yes', 'unknown'))
+        # a site no longer passed to a private back-end leaves its entries; switched off, the probe's entries go
+        site = os.path.dirname(self.env.cfg['paths']['nginx_conf'])
+        os.remove(os.path.join(site, 'vhost', 'intranet.example.com.conf'))
+        self.app.site._nginx = None
+        self.app.site.check_every = 0
+        backends.detect(self.app, ask=self.ask, log=lambda *a: None)
+        self.assertFalse(any('intra' in h for r in self.rows() for h in r['hosts'] if r['source'] == 'probe'))
+        db.x("INSERT INTO software(name, version, hosts, kind, source, confirmed, evidence, notes, updated_at, updated_by) "
+             "VALUES ('nginx', '1.22.1', '[\"app.example.com\"]', 'backend', 'probe', 0, '', '', 0, 'x')")
+        aid = alerts.raise_alert(db, self.app.audit, 'intel', 'backend_security', 'warning', 'nginx-backend:1.22.1:x', {'msg': 'backend_security'})
+        # the advisories cannot be read: the alert stays
+        self.assertIsNone(nginxsec.backend_alerts(self.app, log=lambda *a: None, advs=[]))
+        self.assertEqual(db.one('SELECT state FROM alerts WHERE id=?', (aid,))['state'], 'open')
+        backends.clear(self.app, log=lambda *a: None)
+        self.assertEqual([r for r in self.rows() if r['source'] == 'probe'], [])
+        self.assertEqual(db.one('SELECT state FROM alerts WHERE id=?', (aid,))['state'], 'handled')
+        # an address written as IPv6 is judged as its IPv4 address
+        self.assertIsNone(backends._resolve('::ffff:8.8.8.8'))
+        self.assertEqual(backends._resolve('::ffff:192.0.2.5'), '192.0.2.5')
+        self.assertEqual(backends._resolve('::ffff:127.0.0.1'), '127.0.0.1')
+        # the notification words the alert from its own details (the audit record carries a fixed few)
+        aid = alerts.raise_alert(db, self.app.audit, 'intel', 'backend_security', 'warning', 'nginx-backend:1.22.1:y',
+                                 {'msg': 'backend_security', 'installed': '1.22.1', 'sites': ['app.example.com'],
+                                  'cves': ['CVE-2099-0002'], 'issues': [{'title': 'x'}]})
+        row = db.one("SELECT details FROM audit WHERE action='alert.created' ORDER BY id DESC LIMIT 1")
+        m = notify.render(db, self.env.cfg, 'alert.created', json.loads(row['details']))
+        txt = m.text + ' ' + json.dumps(m.facts, ensure_ascii=False)
+        self.assertIn('nginx 1.22.1', txt)
+        self.assertIn('app.example.com', txt)
+        self.assertIn('CVE-2099-0002', txt)
 
     def test_off_and_offline(self):
         self.assertFalse(__import__('jtwafmgr.config', fromlist=['DEFAULTS']).DEFAULTS['intel']['backend_versions'])
@@ -244,6 +299,15 @@ class TestBackends(unittest.TestCase):
         self.answers = {('192.0.2.10', 8080): {'server': 'nginx/1.30.7'}}
         backends.detect(self.app, ask=self.ask, log=lambda *a: None)
         self.assertEqual(len(nginxsec.decide_threats(self.app, installed='1.30.7-1~bookworm', log=lambda *a: None)), 1)
+        # 0.5.22: without the caller's version, this host's comes from its own entry -- not from the threat's "our
+        # version", which joins every nginx listed ("1.30.7, 1.30.6" read as the back-end's)
+        self.app.db.x("INSERT INTO software(name, version, hosts, kind, source, confirmed, evidence, notes, updated_at, updated_by) "
+                      "VALUES ('nginx', '1.30.6-1~bookworm', '[]', 'host', 'guess', 1, '', '', 0, 'x')")
+        self.app.db.x("INSERT INTO intel_threats(cve, product, affected, details, status, first_seen, last_seen) "
+                      "VALUES ('CVE-2099-0001', 'nginx', 'unknown', '{\"our_version\": \"1.30.7, 1.30.6\"}', 'open', 0, 0)")
+        self.assertEqual(nginxsec.decide_threats(self.app, log=lambda *a: None), [])
+        d = json.loads(self.app.db.one("SELECT details FROM intel_threats WHERE cve='CVE-2099-0001'")['details'])
+        self.assertEqual(d['nginx_advisory']['result'], 'yes')
 
 
 if __name__ == '__main__':

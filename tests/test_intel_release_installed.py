@@ -39,6 +39,8 @@ class TestReleaseInstalled(unittest.TestCase):
         c = self.notice('OpenSSL', 'OpenSSL 4.1.1/4.0.4/3.5.10 releases scheduled for 1 December 2026', 'r3')
         d = self.notice('PHP', 'Upcoming Critical PHP Security Release', 'r4')
         e = self.notice('PHP', 'PHP 8.4.15 and 8.3.28 released', 'r5')
+        self.app.db.x("UPDATE alerts SET details=json_set(details, '$.products', 'Nextcloud') WHERE id=?", (e,))
+        self.sw('Nextcloud', '30.0.2', kind='site', hosts=['a.example.com', 'b.example.com'])
         f = self.notice('Grafana', 'Grafana 12.3.1 security release', 'r6')
         done = intel.close_installed_releases(self.app, log=lambda *x: None)
         self.assertEqual(sorted(done), sorted([a, b]))
@@ -58,6 +60,18 @@ class TestReleaseInstalled(unittest.TestCase):
         self.assertEqual(intel.close_installed_releases(self.app, log=lambda *x: None), [g])
         self.assertEqual(self.state(h)['state'], 'open')
         self.assertEqual(self.app.db.one("SELECT COUNT(*) n FROM audit WHERE action='alert.handled'")['n'], 4)
+        # 0.5.22: a title naming the affected version ("and earlier", "->") does not close on it
+        self.sw('Grafana', '12.3.0')
+        i = self.notice('Grafana', 'Grafana 12.3.0 and earlier: security release', 'r9')
+        self.sw('Gitea / Forgejo', '1.22.3')
+        j = self.notice('Gitea / Forgejo', 'Gitea 1.22.3 -> 1.22.4 security release', 'r10')
+        self.assertEqual(intel.close_installed_releases(self.app, log=lambda *x: None), [])
+        self.assertEqual((self.state(i)['state'], self.state(j)['state']), ('open', 'open'))
+        # a language known only from back-ends: closed only when every site of the applications on it said
+        self.sw('PHP2', '8.4.16', kind='backend', hosts=['a.example.com'])
+        k = self.notice('PHP2', 'PHP2 8.4.15 released', 'r11')
+        self.app.db.x("UPDATE alerts SET details=json_set(details, '$.products', 'Nextcloud') WHERE id=?", (k,))
+        self.assertEqual(intel.close_installed_releases(self.app, log=lambda *x: None), [])     # b.example.com unknown
 
 
 if __name__ == '__main__':

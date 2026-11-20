@@ -303,8 +303,9 @@ def built_on_versions(vc, tech, known, entries):
     running PHP itself: X-Powered-By): outside NVD's ranges on all -> 'no'; inside on one (a plain release, not a
     distribution's package, which may carry the fix) -> 'yes'; else the 'built_on' check stays, with the versions."""
     by_ver = {}
-    for site, v in sorted(known.items()):
-        by_ver.setdefault(v, []).append(site)
+    for site, vs in sorted(known.items()):
+        for v in (vs if isinstance(vs, (list, tuple)) else [vs]):     # every version a site's back-ends said
+            by_ver.setdefault(v, []).append(site)
     found = [{'version': v, 'sites': s[:10]} for v, s in sorted(by_ver.items())]
     flat = lambda x: re.sub(r'[^a-z0-9]', '', str(x or '').lower())      # noqa: E731
     only = lambda e: flat(e.get('product')) == flat(tech)                 # noqa: E731

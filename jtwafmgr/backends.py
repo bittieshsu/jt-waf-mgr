@@ -27,6 +27,7 @@ from . import traffic, util
 ACTOR = 'backend-probe'
 TIMEOUT = 4
 MAX_TARGETS = 60
+MAX_ASKS = 120
 WORKERS = 8
 DISMISSED_KEY = 'software.backend_dismissed'
 
@@ -71,6 +72,10 @@ def _resolve(host):
         except (OSError, UnicodeError, ValueError):
             return None
     for a in addrs:
+        # an IPv4 address written as IPv6 (::ffff:8.8.8.8, 6to4) is judged as that IPv4 address (Python 3.11 calls
+        # ::ffff:8.8.8.8 private; ::ffff:127.0.0.1 is not "loopback" there)
+        if a.version == 6 and (a.ipv4_mapped or a.sixtofour):
+            a = a.ipv4_mapped or a.sixtofour
         if a.is_private and not a.is_link_local and not a.is_multicast and not a.is_unspecified:
             return str(a)
     return None
@@ -172,6 +177,21 @@ def probe(scheme, address, port, host, timeout=TIMEOUT):
         conn.close()
 
 
+def clear(app, log=print):
+    """The setting switched off: the back-end hosts' entries the probe made go (a person's stay), and their alerts are
+    handled -- versions no longer read must not keep deciding threats. Returns how many entries went."""
+    db = app.db
+    n = db.x("DELETE FROM software WHERE kind='backend' AND source='probe'").rowcount
+    note = 'reading the back-end hosts\' versions was switched off'
+    for a in db.q("SELECT id FROM alerts WHERE state='open' AND kind='backend_security'"):
+        if db.x("UPDATE alerts SET state='handled', handled_by='intel', handled_at=?, note=? WHERE id=? AND state='open'",
+                (util.now(), note, a['id'])).rowcount == 1:
+            app.audit.log('alert.handled', 'intel', 'system', None, 'ok', alert_id=a['id'], kind='backend_security', note=note)
+    if n:
+        log('software: %d back-end entries removed (reading them is off)' % n)
+    return n
+
+
 def dismissed(db):
     try:
         v = json.loads(db.get_meta(DISMISSED_KEY, '[]') or '[]')
@@ -192,27 +212,32 @@ def detect(app, ask=probe, log=print, resolve=_resolve):
     from concurrent.futures import ThreadPoolExecutor
     db = app.db
     ts = targets(app, resolve=resolve)
-    stats = {'asked': len(ts), 'answered': 0, 'added': 0, 'updated': 0, 'removed': 0}
+    stats = {'asked': 0, 'answered': 0, 'added': 0, 'updated': 0, 'removed': 0}
     if not ts:
-        return stats
+        return stats            # no configuration read (or nothing behind it): the list stays as it was
 
-    def one(t):
+    # each site asked with its own name (0.5.22): one address may serve several sites, each on its own PHP
+    asks = [(t, site) for t in ts for site in t['sites']][:MAX_ASKS]
+    stats['asked'] = len(asks)
+
+    def one(ts_):
+        t, site = ts_
         try:
-            return t, ask(t['scheme'], t['address'], t['port'], t['sites'][0])
+            return t, site, ask(t['scheme'], t['address'], t['port'], site)
         except Exception:      # noqa: BLE001 -- one host's odd answer never stops the rest
-            return t, None
+            return t, site, None
     with ThreadPoolExecutor(max_workers=WORKERS) as ex:
-        answers = list(ex.map(one, ts))
+        answers = list(ex.map(one, asks))
     seen_sites = set()                  # sites whose back-end answered: their entries are replaced by what it said
     groups = {}                         # (product, version) -> {'sites': set, 'evidence': [...]}
-    for t, headers in answers:
+    for t, site, headers in answers:
         if headers is None:
             continue
         stats['answered'] += 1
-        seen_sites.update(t['sites'])
+        seen_sites.add(site)
         for name, ver in read_headers(headers):
             g = groups.setdefault((name, ver), {'sites': set(), 'evidence': []})
-            g['sites'].update(t['sites'])
+            g['sites'].add(site)
             ev = '%s://%s:%d' % (t['scheme'], t['address'], t['port'])
             if ev not in g['evidence']:
                 g['evidence'].append(ev)
@@ -223,10 +248,12 @@ def detect(app, ask=probe, log=print, resolve=_resolve):
         theirs.setdefault(r['name'], set()).update(json.loads(r['hosts'] or '[]'))
     now = util.now()
     rows = [dict(r) for r in db.q("SELECT * FROM software WHERE kind='backend' AND source='probe' ORDER BY id")]
-    # the sites that answered leave their old entries (they get what they said now)
+    # the sites that answered leave their old entries (they get what they said now); a site no longer passed to a
+    # private back-end (gone from nginx, now a public address or a socket) leaves them too (0.5.22: they stayed)
+    current = {s for t in ts for s in t['sites']}
     for r in rows:
         hosts = json.loads(r['hosts'] or '[]')
-        keep = [h for h in hosts if h not in seen_sites]
+        keep = [h for h in hosts if h not in seen_sites and h in current]
         r['_hosts'] = keep
     for (name, ver), g in sorted(groups.items()):
         sites = sorted(h for h in g['sites'] if '%s@%s' % (name, h) not in gone and h not in theirs.get(name, set()))

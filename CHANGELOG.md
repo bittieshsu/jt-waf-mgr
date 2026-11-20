@@ -2,6 +2,17 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.22 (2026-11-21)
+
+Fixes from an independent review of 0.5.17–0.5.21:
+- Notifications: an alert's notification is worded from the alert's own details. It was taken from the audit record, which carries a fixed few fields, so the notifications of "nginx security update" (since 0.4.98), "security release notice", "back-end nginx" and the back-end PHP urgent alert had blank versions, CVEs, sites and titles.
+- nginx threats: whether one is set aside is decided with this host's nginx version from the software list's entry for this host. Without a version from the caller it was the threat's own version, which, once a back-end nginx was listed, joins every version ("1.22.1, 1.30.7"): only the first was read and this host's was never compared, so an advisory affecting this host could be set aside.
+- Back-end versions: each site is asked with its own name and a version counts only for the site asked (an address serving several sites credited the first one's PHP to all); a site behind two back-ends keeps both versions, and one inside the affected range is enough (the last one read stood for the site).
+- Back-end versions: a site no longer passed to a private back-end (gone from nginx, now a public address or a socket) leaves its entries; with "Read the back-end hosts' versions" switched off, the entries the probe made go and their alerts are handled. They stayed, and their old versions kept deciding.
+- When nginx.org's advisories cannot be read, the "back-end nginx" alerts stay open (they were all handled as "no longer listed").
+- Security release notices: a title with a range ("and earlier", "before", "up to") does not close by itself; the newest version named on a branch is the release ("1.30.6 → 1.30.7" does not close with 1.30.6 installed); a language known only from back-end hosts (PHP) is judged only when every site of the applications on it said its version.
+- A back-end address written as IPv6 for an IPv4 one (`::ffff:8.8.8.8`, 6to4) is judged by its IPv4 address (Python 3.11 calls `::ffff:8.8.8.8` private).
+
 ## 0.5.21 (2026-11-21)
 
 - Threat intelligence: the "the search service gives no web page" alert is one alert while the problem lasts (it was one a day, one more for each day the service stayed broken); an older duplicate is merged into the first one, and it is handled by itself once the searches give web pages again.

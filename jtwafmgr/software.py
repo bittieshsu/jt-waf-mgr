@@ -371,16 +371,19 @@ def hosts_of(db, name):
 
 
 def tech_versions(db):
-    """(product, tech) -> {site: version} of a language (PHP) under a product on every one of the product's sites, as
-    their back-end hosts said it (backends.py), or None when a site's is not known."""
+    """(product, tech) -> {site: [versions]} of a language (PHP) under a product on every one of the product's sites, as
+    their back-end hosts said it (backends.py), or None when a site's is not known. A site behind two back-ends (an
+    upstream group) may have two versions: both are kept (0.5.22: the last one read stood for the site)."""
     def f(product, tech):
         sites = hosts_of(db, product)
         if not sites:
             return None
         known = {}
-        for r in db.q("SELECT version, hosts FROM software WHERE name=? AND kind='backend' AND version<>''", (tech,)):
+        for r in db.q("SELECT version, hosts FROM software WHERE name=? AND kind='backend' AND version<>'' ORDER BY id",
+                      (tech,)):
             for h in json.loads(r['hosts'] or '[]'):
-                known[h] = r['version']
+                if r['version'] not in known.setdefault(h, []):
+                    known[h].append(r['version'])
         if any(h not in known for h in sites):
             return None
         return {h: known[h] for h in sites}

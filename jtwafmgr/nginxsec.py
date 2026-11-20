@@ -301,6 +301,8 @@ def backend_alerts(app, log=print, advs=None):
     An open alert whose version is no longer listed is handled. Returns the dedup keys raised."""
     from . import alerts
     advs = load(app.cfg) if advs is None else advs
+    if not advs:
+        return None             # the advisories cannot be read: the open alerts stay as they are (0.5.22)
     raised = []
     for r in app.db.q("SELECT version, hosts FROM software WHERE kind='backend' AND name='nginx' ORDER BY id"):
         ver, _ = upstream(r['version'])
@@ -348,6 +350,11 @@ def decide_threats(app, installed=None, log=print):
         return []
     backend = [v for v in (upstream(r['version'])[0] for r in db.q(
         "SELECT version FROM software WHERE kind='backend' AND name='nginx'")) if v]
+    # this host's own nginx: the caller's (the nginx update job's installed package), else the software list's entry
+    # for this host -- never the threat's "our version", which joins every listed nginx (0.5.22: "1.22.1, 1.30.7" read
+    # as the back-end's 1.22.1, and this host's 1.30.7 was never compared)
+    here = installed or next((x['version'] for x in db.q(
+        "SELECT version FROM software WHERE kind='host' AND name='nginx' AND version<>'' ORDER BY id")), None)
     by_cve = {}
     for a in advs:
         for c in a.get('cves') or []:
@@ -363,19 +370,20 @@ def decide_threats(app, installed=None, log=print):
             t = json.loads(r['details'] or '{}')
         except ValueError:
             continue
-        ver, exact = upstream(installed or known_version(t.get('our_version')))
-        vul = is_vulnerable(ver, a) if ver else None
-        if vul is None:
+        # this host's nginx (or, with no entry for it and no back-end, the threat's own version) and every back-end's:
+        # set aside only when none of them is vulnerable (0.5.17); one vulnerable is enough to keep it
+        ver, exact = upstream(here or (known_version(t.get('our_version')) if not backend else ''))
+        every = list(dict.fromkeys(([ver] if ver else []) + backend))
+        if not every:
             continue
-        # 0.5.17: an nginx on a back-end host (backends.py) counts too: set aside only when none of them is vulnerable
-        more = [v for v in backend if v != ver]
-        if not vul and more:
-            others = [is_vulnerable(v, a) for v in more]
-            if any(x is None for x in others):
-                continue
-            vul = any(others)
-            if not vul:
-                ver = ', '.join([ver] + more)
+        results = [is_vulnerable(v, a) for v in every]
+        if any(x is True for x in results):
+            vul = True
+        elif any(x is None for x in results):
+            continue
+        else:
+            vul = False
+            ver = ', '.join(every)
         t['nginx_advisory'] = {'title': a['title'], 'vulnerable': a['vulnerable'], 'not_vulnerable': a['not_vulnerable'],
                                'result': 'yes' if vul else 'no', 'exact': exact}
         if vul:

@@ -1451,6 +1451,8 @@ def retire_by_version(app, log=print):
 
 
 RELEASE_NOTE = 'installed: %s %s includes the announced release (%s)'
+RELEASE_RANGE = re.compile(r'(?i)\b(?:and\s+(?:earlier|older|below|prior)|or\s+(?:earlier|older|below)|before|prior\s+to|'
+                           r'through|up\s+to|until|older\s+than)\b|[<≤]')
 RELEASE_VERSION = re.compile(r'(?<![\d.])(\d{1,4}\.\d{1,4}(?:\.\d{1,6}){1,2})(?![\d.])')
 
 
@@ -1469,10 +1471,29 @@ def close_installed_releases(app, log=print):
         except ValueError:
             continue
         product = str(d.get('product') or '')
-        named = [v for v in (nvd._v(m) for m in RELEASE_VERSION.findall(str(d.get('title') or ''))) if v]
-        rows = [r['version'] for r in db.q('SELECT version FROM software WHERE name=?', (product,))]
+        title = str(d.get('title') or '')
+        if RELEASE_RANGE.search(title):
+            continue                    # "8.3.27 and earlier", "before 1.30.7": a version named is not the release
+        named = [v for v in (nvd._v(m) for m in RELEASE_VERSION.findall(title)) if v]
+        # the newest version named on each branch is the release ("nginx 1.30.6 -> 1.30.7")
+        top = {}
+        for v in named:
+            if v[:2] not in top or nvd._cmp(v, top[v[:2]]) > 0:
+                top[v[:2]] = v
+        named = list(top.values())
+        found = db.q('SELECT version, kind FROM software WHERE name=?', (product,))
+        rows = [r['version'] for r in found]
         if not product or not named or not rows:
             continue
+        if {r['kind'] for r in found} == {'backend'}:
+            # known only from back-end hosts that tell it (X-Powered-By): every site of the applications built on it
+            # must have said, or a host that hides its version may still run an older one
+            apps = [x.strip() for x in str(d.get('products') or '').split(',') if x.strip() and x.strip() != product]
+            f = software.tech_versions(db)
+            maps = [f(x, product) for x in apps]
+            if not apps or any(m is None for m in maps):
+                continue
+            rows = sorted({v for m in maps for vs in m.values() for v in vs})
         mine = [nvd._ours(v)[0] for v in rows]
         if not all(mine):
             continue                    # a version not known, or not plain numbers: nothing to say
@@ -2022,6 +2043,12 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
             nginxsec.backend_alerts(app, log=log)
         except Exception as e:  # noqa: BLE001 -- the search goes on with the list as it was
             log('intel: back-end hosts not read: %s' % type(e).__name__)
+    elif mode == 'full':
+        try:
+            from . import backends
+            backends.clear(app, log=log)
+        except Exception as e:  # noqa: BLE001 -- tried again next run
+            log('intel: back-end entries not removed: %s' % type(e).__name__)
     try:
         software.detect_versions(app, log=log)      # the versions the applications tell themselves, before the search
     except Exception as e:      # noqa: BLE001 -- the search goes on with the versions known

@@ -729,6 +729,17 @@ def render(db, cfg, event, d):
         facts.append((L('f.node'), cfg['node']['id']))
         path = '/admin/system'
     elif event == 'alert.created':
+        # 0.5.22: the alert's own details (the audit record carries a fixed few of them: an nginx advisory's version,
+        # a release notice's title, a back-end's sites were blank in the message)
+        aid = _int(d.get('alert_id'))
+        row = db.one('SELECT details FROM alerts WHERE id=?', (aid,)) if aid and db is not None else None
+        if row:
+            try:
+                full = json.loads(row['details'] or '{}')
+            except ValueError:
+                full = {}
+            if isinstance(full, dict):
+                d = dict(full, **d)
         kind = d.get('kind') or 'other'
         kw['kind'] = L('k.' + kind) if ('k.' + kind) in TEXT['en'] else kind
         sev = d.get('alert_severity') if d.get('alert_severity') in SEVERITIES else 'warning'
