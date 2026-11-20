@@ -2,6 +2,16 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.23 (2026-11-21)
+
+Fixes from an independent review of 0.5.10–0.5.16:
+- A threat intelligence virtual patch for several sites applies to those sites only. Two or more sites (one PHP flaw for Nextcloud and Z-Push) became "every site", so a parameter name chosen by the model was blocked on unrelated sites too. Only this host's own software (nginx: no sites) is every site. Rules already in force are not changed by themselves; propose one again to narrow it.
+- A virtual patch the access logs cannot check is not applied without a person when the sandbox did not really run (with "sandbox required" off).
+- Pages and texts handed in to the threat intelligence: when the run is stopped (its time limit, a restart) they are marked failed instead of "running" for ever, counting against the waiting limit; a misconfigured search service ends the run with its error recorded. A threat read from a pasted text (no address) is no longer dropped for having no reference; a page that refuses programs is replaced by the pasted text when there is one.
+- Event analysis: requests whose answer was cut short count toward the token use and limits.
+- A virtual patch applied as a bundle of CrowdSec rules (from the CrowdSec page) is no longer unlinked and linked again every run, and its alerts name the rule.
+- A wildcard site name (`*.example.com`) is tested in the sandbox as `www.example.com` for a virtual patch.
+
 ## 0.5.22 (2026-11-21)
 
 Fixes from an independent review of 0.5.17–0.5.21:

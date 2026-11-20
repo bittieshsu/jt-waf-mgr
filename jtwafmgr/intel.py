@@ -788,6 +788,19 @@ COMMON_HEADER_VALUES = ['mozilla/5.0 (windows nt 10.0; win64; x64) applewebkit/5
                         'https://www.example.com/', 'bearer abc.def.ghi', '1', '']
 
 
+def patch_scope(hosts):
+    """The Host condition of a virtual patch for these sites: one -> that site; several -> exactly those (a list of
+    names, "*.example.com" as one label); none -> every site (software of this host itself)."""
+    from . import rulegen
+    hosts = [h for h in dict.fromkeys(str(x).strip().lower() for x in hosts or []) if h]
+    if not hosts:
+        return {'mode': 'any', 'value': ''}
+    if len(hosts) == 1:
+        return {'mode': 'exact', 'value': hosts[0]}
+    alt = '|'.join(re.escape(h).replace('\\*', '[^.]+').replace('\\-', '-') for h in hosts)
+    return {'mode': 'regex', 'value': rulegen.HOST_RX_FMT % ('(?:%s)' % alt)}
+
+
 def _patch_spec(p, threat, samples, hosts, test_host=None):
     """(spec, tests) for a model's patch, or raise IntelError(problem). Everything is checked here, the rest by the
     change workflow (rulegen's checks, evidence over the access logs, the sandbox with the regression samples)."""
@@ -829,14 +842,15 @@ def _patch_spec(p, threat, samples, hosts, test_host=None):
     hit = next((x for x in benign + normal if c.search(x)), None)
     if hit is not None:
         raise IntelError('matches_normal', hit[:100])
-    # one site: only that site; none (this host's own software, e.g. nginx) or several: every site
-    host = {'mode': 'exact', 'value': hosts[0]} if len(hosts) == 1 else {'mode': 'any', 'value': ''}
+    # one site: only that site; several: exactly those (0.5.23: it was every site); none (this host's own software,
+    # e.g. nginx, in front of every site): every site
+    host = patch_scope(hosts)
     spec = {'target': target, 'header': header if target == 'header' else '', 'regex': rx,
             'msg': util.clip('virtual patch %s %s' % (threat['id'], re.sub(r'[^A-Za-z0-9 ._-]', '', threat['product'])), 100),
             'reference': next((r for r in threat.get('references') or [] if len(r) <= 200 and "'" not in r and '"' not in r), ''),
             'host': host, 'source': 'external'}
     # the sandbox needs a test: on the product's site, else on any site this WAF serves (test_host)
-    th = hosts[0] if hosts else test_host
+    th = hosts[0].replace('*', 'www') if hosts else test_host
     tests = []
     if th and target == 'arg_name':
         # the upload the attack needs (a multipart part of that name) and the same name in a form, both refused; an
@@ -992,10 +1006,10 @@ def _sibling_patch(db, cve):
 def _same_patch(sib, cve, products, hosts, test_host):
     """The sibling's rule for these products' sites: the same match, their host, their tests' host."""
     cid, spec, tests = sib
-    host = {'mode': 'exact', 'value': hosts[0]} if len(hosts) == 1 else {'mode': 'any', 'value': ''}
+    host = patch_scope(hosts)
     spec = dict(spec, host=host, msg=util.clip('virtual patch %s %s' % (
         cve, re.sub(r'[^A-Za-z0-9 ._-]', '', ' '.join(products))), 100))
-    th = hosts[0] if hosts else test_host
+    th = hosts[0].replace('*', 'www') if hosts else test_host
     tests = [dict(x, host=th) if th and isinstance(x, dict) and x.get('host') else x for x in tests if isinstance(x, dict)]
     return spec, tests
 
@@ -1015,9 +1029,14 @@ def unlink_patches(db):
     is (0.5.14: a CrowdSec rule removed as a duplicate kept naming its change, and a rollback that rewrote every rule
     was named as the patch). A rule a person removed is not proposed again from here (patch_note 'removed')."""
     n = 0
-    for r in db.q("SELECT t.id, c.op, c.rule_id, c.item_id FROM intel_threats t JOIN changes c ON c.id=t.patch_change_id "
+    for r in db.q("SELECT t.id, c.id AS cid, c.op, c.rule_id, c.item_id FROM intel_threats t JOIN changes c ON c.id=t.patch_change_id "
                   "WHERE c.state='applied'"):
-        if r['op'] not in ('add', 'modify') or (r['rule_id'] is None and r['item_id'] is None):
+        if r['op'] == 'bundle':
+            # CrowdSec rules applied together from the CrowdSec page (0.5.23: unlinked and linked again every run)
+            if _bundle_items(db, r['cid']):
+                continue
+            note = ''
+        elif r['op'] not in ('add', 'modify') or (r['rule_id'] is None and r['item_id'] is None):
             note = ''                       # names no rule of its own: matched again
         elif db.one('SELECT 1 FROM managed_rules WHERE deleted=0 AND (rule_id=? OR id=?)', (r['rule_id'], r['item_id'])):
             continue
@@ -1028,8 +1047,35 @@ def unlink_patches(db):
     return n
 
 
+def _bundle_items(db, change_id):
+    """The CrowdSec rules a bundle change added that are still there (not removed): managed_rules rows."""
+    r = db.one('SELECT spec FROM changes WHERE id=?', (change_id,))
+    try:
+        ops = json.loads(r['spec'] or '{}').get('ops') or [] if r else []
+    except (ValueError, AttributeError):
+        return []
+    names = {(o.get('spec') or {}).get('name') for o in ops if isinstance(o, dict) and o.get('kind') == 'crowdsec'} - {None}
+    if not names:
+        return []
+    out = []
+    for m in db.q("SELECT id, rule_id, spec, enabled FROM managed_rules WHERE deleted=0 AND kind='crowdsec'"):
+        try:
+            if json.loads(m['spec'] or '{}').get('name') in names:
+                out.append(m)
+        except ValueError:
+            continue
+    return out
+
+
 def patch_rule(db, threat_id):
     """The rule id of the threat's virtual patch, while it is in force (enabled, not removed); else None."""
+    t = db.one("SELECT t.cve, c.id, c.op FROM intel_threats t JOIN changes c ON c.id=t.patch_change_id "
+               "WHERE t.id=? AND c.state='applied'", (threat_id,))
+    if t and t['op'] == 'bundle':
+        # the bundle's rule for this CVE (its upstream file names it), or its only one
+        items = [m for m in _bundle_items(db, t['id']) if m['enabled'] and m['rule_id'] is not None]
+        mine = [m for m in items if str(t['cve']).lower() in (m['spec'] or '').lower()] or (items if len(items) == 1 else [])
+        return mine[0]['rule_id'] if mine else None
     r = db.one("SELECT m.rule_id FROM intel_threats t JOIN changes c ON c.id=t.patch_change_id "
                "JOIN managed_rules m ON (m.rule_id=c.rule_id OR m.id=c.item_id) "
                "WHERE t.id=? AND c.state='applied' AND m.deleted=0 AND m.enabled=1 AND m.rule_id IS NOT NULL", (threat_id,))
@@ -1188,8 +1234,9 @@ def _match_product(name, products):
     return best
 
 
-def clean(answer, products):
-    """Only well-formed threats for a confirmed product; every string clipped; references https only."""
+def clean(answer, products, need_refs=True):
+    """Only well-formed threats for a confirmed product; every string clipped; references https only (need_refs off:
+    a threat read from a text a person handed in, which has no address of its own)."""
     out, seen = [], set()
     for t in (answer.get('threats') if isinstance(answer, dict) else None) or []:
         if not isinstance(t, dict):
@@ -1202,7 +1249,7 @@ def clean(answer, products):
             continue
         refs = [util.clip(r, 300) for r in (t.get('references') or []) if isinstance(r, str)
                 and urllib.parse.urlsplit(r).scheme == 'https' and urllib.parse.urlsplit(r).hostname][:8]
-        if not refs:
+        if not refs and need_refs:
             continue
         seen.add((tid, p['name']))
         out.append({
@@ -1877,6 +1924,16 @@ def _read_submission(session, r):
         return 'a text handed in by %s' % r['created_by'], r['text']
     host = (urllib.parse.urlsplit(r['url']).hostname or '').lower()
     session.fetched.append(r['url'])
+    try:
+        return _read_page(session, r, host)
+    except IntelError:
+        if r['text']:
+            # the page refuses programs, but the person pasted its text as told (0.5.23: the text was thrown away)
+            return r['url'], r['text']
+        raise
+
+
+def _read_page(session, r, host):
     text = session.fetch(r['url'], [host])
     m = re.match(r'error: HTTP (40[13]|429|503)\b', text)
     if m:
@@ -2109,12 +2166,12 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
             osv_lines.append('- %s (%s %s, %s): %s %s %s' % (name, o['package'], o['version'], o['ecosystem'], v['id'],
                                                             ' '.join(v['cves']), v['summary']))
     from . import techstack
-    swept, asked, empty = [], 0, 0
+    swept, asked, empty, sweep_error = [], 0, 0, None
     if mode == 'full' and c.get('mcp_url') and c.get('search', 'mcp') == 'mcp':
         try:
             swept, asked, empty = sweep(session, products, now, log=log)
-        except IntelError:
-            raise
+        except IntelError as e:
+            sweep_error = e         # ends the run below like any failure: its end written, submissions answered (0.5.23)
         except Exception as e:      # noqa: BLE001 -- the model still searches on its own
             log('intel: searches failed: %s' % type(e).__name__)
     user = ('Software to check (product and version; "unknown" when not known):\n' +
@@ -2135,12 +2192,15 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
     ask = ask or (ask_anthropic if provider == 'anthropic' else
                   ask_openai_responses if c['search'] == 'provider' else ask_openai)
     try:
+        if sweep_error is not None:
+            raise sweep_error
         answer = ask(cfg, session, system, user)[0] if mode == 'full' else {'threats': [], 'announcements': [], 'notes': ''}
         threats = clean(answer, products)
         anns = clean_announcements(answer, products)
         # each worthwhile search result, and each page or text handed in, asked about on its own (0.5.10)
         # (what a person handed in first: when time runs short, the program's own results wait)
         sources, sub_of, sub_errors = [], {}, {}
+        subs_by_id = {r['id']: dict(r) for r in subs}
         for r in subs:
             try:
                 label, text = _read_submission(session, r)
@@ -2153,7 +2213,8 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
         ft, fa = focus(cfg, session, products, sources, now, ask=focus_ask, log=log)
         more = []
         for t in ft:
-            for x in clean({'threats': [t]}, products):
+            # a text handed in without an address: its threats have no page to point to (0.5.23: all were dropped)
+            for x in clean({'threats': [t]}, products, need_refs=t['_src'] not in sub_of or bool(subs_by_id.get(sub_of[t['_src']], {}).get('url'))):
                 x['_from'] = {sub_of[t['_src']]} if t['_src'] in sub_of else set()
                 more.append(x)
         threats = _merge(threats, more)
@@ -2476,8 +2537,13 @@ RUN_SECONDS = 45 * 60          # the unit stops a run after 60 minutes (TimeoutS
 def interrupted(db, cfg, now):
     """A run the unit stopped (its time limit, a restart) never wrote its end: close it as interrupted, so the page
     does not show it running for ever."""
-    return db.x("UPDATE intel_runs SET finished_at=?, error='interrupted: stopped before it ended (time limit or restart)' WHERE finished_at IS NULL AND node_id=? "
-                "AND started_at < ?", (now, cfg['node']['id'], now - 3660)).rowcount
+    n = db.x("UPDATE intel_runs SET finished_at=?, error='interrupted: stopped before it ended (time limit or restart)' WHERE finished_at IS NULL AND node_id=? "
+             "AND started_at < ?", (now, cfg['node']['id'], now - 3660)).rowcount
+    # 0.5.23: what people handed in to such a run is answered too (it stayed "running", and counted against the
+    # waiting limit until every new submission was refused)
+    db.x("UPDATE intel_submissions SET state='failed', error=?, done_at=? WHERE state='running' AND run_id IN "
+         "(SELECT id FROM intel_runs WHERE finished_at IS NOT NULL)", ('interrupted: the run was stopped before it ended', now))
+    return n
 
 
 def run_job(app, log=print):

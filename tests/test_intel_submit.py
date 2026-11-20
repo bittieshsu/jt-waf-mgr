@@ -150,10 +150,11 @@ class TestFocus(Base):
 
 
 class TestFullyAutomatic(Base):
-    def change(self, by, target='arg_name', evidence=None):
+    def change(self, by, target='arg_name', evidence=None, sandbox=None):
         spec = {'target': target, 'regex': '^php_session_upload_progress$', 'msg': 'virtual patch', 'source': 'external',
                 'host': {'mode': 'any', 'value': ''}}
-        checks = {'evidence': evidence or {'ok': True, 'skipped': 'request bodies are not in the access log', 'complete': False}}
+        checks = {'evidence': evidence or {'ok': True, 'skipped': 'request bodies are not in the access log', 'complete': False},
+                  'sandbox': sandbox or {'ok': True, 'results': [{'ok': True}]}}
         now = time.time()
         return self.app.db.x("INSERT INTO changes(op, kind, spec, direction, state, reason, proposed_by, created_at, updated_at, checks) "
                              "VALUES ('add', 'confident_block', ?, 'tighten', 'pending_approval', 'r', ?, ?, ?, ?)",
@@ -168,6 +169,8 @@ class TestFullyAutomatic(Base):
     def test_intel_patch_the_logs_cannot_check_goes_without_a_person(self):
         self.assertTrue(self.auto(self.change('intel')))
         self.assertTrue(self.auto(self.change('intel', target='header')))
+        # 0.5.23: nothing to check it against and no sandbox run (sandbox.required off): a person
+        self.assertFalse(self.auto(self.change('intel', sandbox={'ok': True, 'skipped': 'sandbox not required'})))
         # the event analysis' blocks still need clean evidence (or a person)
         self.assertFalse(self.auto(self.change('analyst')))
         # evidence that was checked and is not clean: a person decides
@@ -199,7 +202,7 @@ class TestOnePatchPerVulnerability(Base):
         out, _, _ = intel.propose_patches(self.app, 1, ask=ask, log=lambda m: None)
         self.assertEqual((out, len(asked)), ([101], 1))
         self.assertIn('Nextcloud, Z-Push', asked[0])
-        self.assertEqual(seen[0]['host'], {'mode': 'any', 'value': ''})          # both applications' sites
+        self.assertEqual(seen[0]['host'], intel.patch_scope(['cloud.example.com', 'push.example.com']))   # both sites, only them
         self.assertEqual([r['patch_change_id'] for r in self.app.db.q("SELECT patch_change_id FROM intel_threats")], [101, 101])
 
 
@@ -228,7 +231,7 @@ class TestOnePatchPerVulnerability(Base):
         self.assertEqual(out, [130])
         op, kind, sp, ts, reason = seen[0]
         self.assertEqual((op, kind, sp['target'], sp['regex']), ('add', 'confident_block', 'arg_name', '^php_session_upload_progress$'))
-        self.assertEqual(sp['host'], {'mode': 'any', 'value': ''})                # both applications' sites
+        self.assertEqual(sp['host'], intel.patch_scope(['cloud.example.com', 'push.example.com']))     # both sites, only them
         self.assertNotEqual(ts[0]['host'], 'nms.example.com')
         self.assertIn('change #%d' % cid, reason)
         self.assertEqual([r[0] for r in db.q("SELECT patch_change_id FROM intel_threats WHERE product != 'LibreNMS' ORDER BY id")],

@@ -803,6 +803,8 @@ class TestBatches(AnalystBase):
         self.assertTrue(out['error'].startswith('output_truncated'), out)
         self.assertEqual(rooms, [4096, 8192, analyst.MAX_OUT])           # never past the largest room, no waiting retries
         self.assertFalse(analyst.transient(out['error']))
+        # 0.5.23: the answers cut short were produced and count against the token limits
+        self.assertGreater(json.loads(self.last_run()['usage'] or '{}').get('total_tokens', 0), 0)
         self.assertEqual(analyst.out_budget(3), 4096)
         self.assertEqual(analyst.out_budget(15), 1024 + 640 * 15)
         self.assertEqual(analyst.out_budget(100), analyst.MAX_OUT)

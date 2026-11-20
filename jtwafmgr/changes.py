@@ -1562,6 +1562,10 @@ class Workflow:
         # through). 2026-11-20 the user: "fully automatic, no administrator approval" for these; 0.5.8 allowed it
         # only for a vulnerability exploited in the wild that affects us.
         unseen = ev.get('ok') and ev.get('skipped') and by == 'intel'
+        if unseen:
+            sb = json.loads(r['checks'] or '{}').get('sandbox') or {}
+            if not sb.get('ok') or sb.get('skipped'):
+                return          # no evidence and no sandbox run: a person (0.5.23)
         if not unseen and (not ev.get('ok') or ev.get('external_success', 1) or ev.get('internal_other', 1)):
             return
         day = datetime.date.today().isoformat()

@@ -1095,6 +1095,9 @@ def _analyse(app, client, a, st, log):
             except llm.LLMError as e:
                 st['error_log'].append(dict(e.info, batch=n, batches=len(batches), attempt=tries, at=util.iso(util.now()),
                                             code=e.code, detail=e.detail, max_tokens=room))
+                # an answer cut short was still produced (and paid for): counted (0.5.23)
+                usage_sum.update({k: v for k, v in ((e.info or {}).get('usage') or {}).items()
+                                  if k in ('prompt_tokens', 'completion_tokens', 'total_tokens') and isinstance(v, int)})
                 if e.code == 'output_truncated' and room < MAX_OUT:
                     # the same question with twice the room, right away (waiting does not help a cut-short answer)
                     room = min(MAX_OUT, room * 2)
