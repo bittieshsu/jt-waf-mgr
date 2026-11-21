@@ -219,6 +219,9 @@ for name, ver, hosts in (('nginx', '1.22.1-9+deb12u2', []), ('OWASP CRS', '4.30.
                          ('Nextcloud', '30.0.2', ['files.example.com'])):
     _sw.save(app.db, 'admin', name, ver, hosts)
 _sw.save(app.db, 'admin', 'Grafana', '', ['mon.example.com'], confirmed_flag=False)
+# 0.5.33: a Synology DSM site and one of its packages (the protection set page)
+_sw.save(app.db, 'admin', 'Synology DSM', '', ['nas.example.com'], confirmed_flag=False)
+_sw.save(app.db, 'admin', 'Synology Photos', '', ['nas.example.com'], confirmed_flag=False)
 # 0.5.17: a back-end host's nginx, read from its own Server header, and the advisory alert for it
 app.db.x("INSERT INTO software(name, version, hosts, kind, source, confirmed, evidence, notes, updated_at, updated_by) "
          "VALUES ('nginx', '1.22.1', ?, 'backend', 'probe', 1, 'back-end http://192.0.2.40:80', '', ?, 'backend-probe')",

@@ -1,0 +1,463 @@
+{
+ "_comment": "Application protection sets (protsets.py). sets: [{id, app (the software list's name), rules: [{id, default (ticked), needs (packages the rule is about, for the page), spec (a confident block without host: target, header, arg, regex, exceptions, msg, reference, source), tests (sandbox requests: path, method, headers, body, expect 403|200, source external|internal; the site is filled in), refs (sources), cves}]}]. Titles and explanations are UI strings protset.r.<set>.<rule> / protset.w.<set>.<rule>. Every rule is written from public information or measured on a real DSM (see refs); tests/test_protsets.py checks each attack test matches its rule and each ordinary test does not.",
+ "sets": [
+  {
+   "id": "synology-dsm",
+   "app": "Synology DSM",
+   "rules": [
+    {
+     "id": "admin-api",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "api|compound",
+      "regex": "(?:^|[^a-z0-9_.])syno\\.(?:core\\.(?:taskscheduler|eventscheduler|terminal|certificate|snmp|tftp|portforwarding|cms|apppriv|actionpriv|iscsi|security|network|web|service|fileserv|ddns|ezinternet|resetadmin|hardware|quota|group|share\\.snapshot|package\\.(?:installation|uninstallation|feed|setting))|storage\\.cgi|docker|backup|dr|btrfs\\.replica)(?:[^a-z0-9]|$)",
+      "msg": "Synology DSM administration API from outside",
+      "reference": "https://www.synology.com/en-global/security/advisory/Synology_SA_20_26",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.Core.TaskScheduler&version=4&method=list",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/webapi/entry.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "api=SYNO.Core.Terminal&version=3&method=set&enable_ssh=true",
+       "expect": 403
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.Entry.Request&version=1&method=request&compound=%5B%7B%22api%22%3A%22SYNO.Core.Share.Snapshot%22%2C%22method%22%3A%22delete%22%2C%22version%22%3A1%7D%5D",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.Docker.Container&version=1&method=create",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.Core.TaskScheduler&version=4&method=list",
+       "method": "GET",
+       "source": "internal",
+       "expect": 200
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.FileStation.List&version=2&method=list_share",
+       "method": "GET",
+       "expect": 200
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.Core.Desktop.Initdata&version=1&method=get",
+       "method": "GET",
+       "expect": 200
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.Core.Share&version=1&method=list",
+       "method": "GET",
+       "expect": 200
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.Core.PersonalSettings&version=1&method=get",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.synology.com/en-global/security/advisory/Synology_SA_20_26",
+      "https://blog.talosintelligence.com/vuln-spotlight-synology-dsm/",
+      "https://nvd.nist.gov/vuln/detail/CVE-2017-12075"
+     ],
+     "cves": [
+      "CVE-2021-29083",
+      "CVE-2017-12075"
+     ]
+    },
+    {
+     "id": "compound-escape",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "compound",
+      "regex": "\\\\u00[0-7][0-9a-f]",
+      "msg": "Synology DSM compound request with escaped ASCII",
+      "reference": "",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.Entry.Request&version=1&method=request&compound=%5B%7B%22api%22%3A%22%5Cu0053YNO.Core.TaskScheduler%22%2C%22method%22%3A%22list%22%2C%22version%22%3A4%7D%5D",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.Entry.Request&version=1&method=request&compound=%5B%7B%22api%22%3A%22SYNO.Core.Desktop.Initdata%22%2C%22method%22%3A%22get%22%2C%22version%22%3A1%7D%5D",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [],
+     "cves": []
+    },
+    {
+     "id": "login-injection",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "account|username|passwd|otp_code",
+      "regex": "[\\x00-\\x08\\x0a-\\x1f]|plugin_value_(?:start|end)|ld_(?:preload|debug_output)\\s*=",
+      "msg": "Synology DSM login field with control characters (CVE-2024-10441)",
+      "reference": "https://www.synology.com/en-global/security/advisory/Synology_SA_24_20",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/webapi/entry.cgi",
+       "method": "POST",
+       "expect": 403,
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "api=SYNO.API.Auth&version=7&method=login&account=admin%0A%09PLUGIN_VALUE_END&passwd=x"
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.API.Auth&version=6&method=login&account=x%0ALD_PRELOAD%3D%2Ftmp%2Fa.so&passwd=x",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/webapi/entry.cgi",
+       "method": "POST",
+       "expect": 200,
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "api=SYNO.API.Auth&version=7&method=login&account=alice&passwd=Correct-Horse-9&session=webui"
+      }
+     ],
+     "refs": [
+      "https://www.synology.com/en-global/security/advisory/Synology_SA_24_20",
+      "https://www.rapid7.com/blog/post/disguisedelimit-rapid7-talks-nas-exploitation-at-def-con-33/",
+      "https://www.zerodayinitiative.com/advisories/ZDI-25-214/",
+      "https://nvd.nist.gov/vuln/detail/CVE-2024-10441"
+     ],
+     "cves": [
+      "CVE-2024-10441"
+     ]
+    },
+    {
+     "id": "redirect-crlf",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "redirect_url|redirect_uri",
+      "regex": "[\\x0a\\x0d]",
+      "msg": "Synology DSM redirect URL with a line break (CVE-2024-50629)",
+      "reference": "https://www.synology.com/en-global/security/advisory/Synology_SA_24_20",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.API.Auth.RedirectURI&version=1&method=run&redirect_url=%2F%0D%0AX-Accel-Redirect%3A%20%2Fvolume1%2Fhomes",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.API.Auth.RedirectURI&version=1&method=run&redirect_url=%2Fphoto%2F",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.synology.com/en-global/security/advisory/Synology_SA_24_20",
+      "https://www.zerodayinitiative.com/advisories/ZDI-25-211/",
+      "https://kiddo-pwn.github.io/blog/2025-11-30/writing-sync-popping-cron",
+      "https://nvd.nist.gov/vuln/detail/CVE-2024-50629"
+     ],
+     "cves": [
+      "CVE-2024-50629"
+     ]
+    },
+    {
+     "id": "legacy-cgi",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:webman/(?:imageselector|forget_passwd|wallpaper|info)\\.cgi|webman/modules/(?:controlpanel/modules/externaldevices|storagemanager/smart)\\.cgi|scripts/uistrings\\.cgi|webfm/|webapi/filestation/)",
+      "msg": "Synology DSM legacy CGI from outside",
+      "reference": "https://kb.cert.org/vuls/id/615910",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/webman/imageSelector.cgi",
+       "method": "POST",
+       "expect": 403,
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": ""
+      },
+      {
+       "path": "/webman/info.cgi?host=",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/webman/forget_passwd.cgi?user=admin",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/webman/modules/StorageManager/smart.cgi",
+       "method": "POST",
+       "expect": 403,
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "action=apply&operation=quick&disk=%2Fdev%2Fsda"
+      },
+      {
+       "path": "/webapi/FileStation/file_share.cgi",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/webman/login.cgi",
+       "method": "GET",
+       "expect": 200
+      },
+      {
+       "path": "/webman/index.cgi",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://kb.cert.org/vuls/id/615910",
+      "https://www.synology.com/en-global/security/advisory/Synology_SA_17_29",
+      "https://isc.sans.edu/diary/Lets+Finally+Nail+This+Port+5000+Traffic+Synology+owners+needed/17859/",
+      "https://seclists.org/fulldisclosure/2013/Sep/53",
+      "https://nvd.nist.gov/vuln/detail/CVE-2017-15889"
+     ],
+     "cves": [
+      "CVE-2013-6955",
+      "CVE-2013-6987",
+      "CVE-2017-9554",
+      "CVE-2017-15889"
+     ]
+    },
+    {
+     "id": "photo-station",
+     "default": true,
+     "needs": [
+      "Synology Photo Station"
+     ],
+     "spec": {
+      "target": "path",
+      "regex": "^/photo/.*\\.php",
+      "msg": "Synology Photo Station PHP page from outside",
+      "reference": "https://www.synology.com/en-global/support/security/Synology_SA_17_34_PhotoStation",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/photo/login.php",
+       "method": "POST",
+       "expect": 403,
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "username=a"
+      },
+      {
+       "path": "/photo/webapi/auth.php?api=SYNO.PhotoStation.Auth&method=login",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/photo/include/synotheme_upload.php?action=logo_upload",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/photo/",
+       "method": "GET",
+       "expect": 200
+      },
+      {
+       "path": "/photo/mo/sharing/abc",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.synology.com/en-global/support/security/Synology_SA_17_34_PhotoStation",
+      "https://seclists.org/fulldisclosure/2017/Aug/14",
+      "https://nvd.nist.gov/vuln/detail/CVE-2016-10329",
+      "https://nvd.nist.gov/vuln/detail/CVE-2017-11161"
+     ],
+     "cves": [
+      "CVE-2016-10329",
+      "CVE-2017-11151",
+      "CVE-2017-11152",
+      "CVE-2017-11153",
+      "CVE-2017-11154",
+      "CVE-2017-11155",
+      "CVE-2017-11161",
+      "CVE-2017-11162",
+      "CVE-2017-12071"
+     ]
+    },
+    {
+     "id": "file-traversal",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "path|folder_path|dest_folder_path|real_path|dsm_path|file_path|dlink|name|filename",
+      "regex": "(?:^|[\\\\/\\x22\\x27])\\.\\.(?:[\\\\/\\x22\\x27]|$)",
+      "msg": "Synology DSM file path with ../ from outside",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2017-15893",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.FileStation.Extract&version=2&method=start&file_path=%2Fhome%2Fa.zip&dest_folder_path=%2Fhome%2F..%2F..%2Fvolume1%2Fsys",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.FolderSharing.List&version=2&method=list&folder_path=%2F..%2F..%2Fetc",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/webapi/entry.cgi",
+       "method": "POST",
+       "expect": 403,
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "api=SYNO.FileStation.List&version=2&method=list&folder_path=%5B%22..%2F..%2Fetc%22%5D"
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.FileStation.List&version=2&method=list&folder_path=%2Fhome%2F..notes&additional=%5B%22size%22%5D",
+       "method": "GET",
+       "expect": 200
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.FileStation.List&version=2&method=list&folder_path=%2Fphoto%2F2026",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.synology.com/en-global/security/advisory/Synology_SA_20_28",
+      "https://nvd.nist.gov/vuln/detail/CVE-2017-15893",
+      "https://nvd.nist.gov/vuln/detail/CVE-2018-13288",
+      "https://nvd.nist.gov/vuln/detail/CVE-2013-6987"
+     ],
+     "cves": [
+      "CVE-2017-15893",
+      "CVE-2017-15894",
+      "CVE-2018-13288"
+     ]
+    },
+    {
+     "id": "drive-domainsocket",
+     "default": true,
+     "needs": [
+      "Synology Drive Server"
+     ],
+     "spec": {
+      "target": "arg_name",
+      "regex": "^auth[-_]?by[-_]?domain[-_]?socket$",
+      "msg": "Synology Drive local-only login flag from outside (CVE-2024-50630)",
+      "reference": "https://www.synology.com/en-global/security/advisory/Synology_SA_24_21",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.SynologyDrive.Authentication&version=1&method=authenticate&username=admin&auth-by-domainsocket=true",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/webapi/entry.cgi",
+       "method": "POST",
+       "expect": 403,
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "api=SYNO.SynologyDrive.Authentication&version=1&method=authenticate&username=admin&auth_by_domainsocket=1"
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.SynologyDrive.Files&version=2&method=list&path=%2Fmydrive",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.synology.com/en-global/security/advisory/Synology_SA_24_21",
+      "https://www.zerodayinitiative.com/advisories/ZDI-25-212",
+      "https://kiddo-pwn.github.io/blog/2025-11-30/writing-sync-popping-cron"
+     ],
+     "cves": [
+      "CVE-2024-50630"
+     ]
+    },
+    {
+     "id": "photos-socket",
+     "default": false,
+     "needs": [
+      "Synology Photos"
+     ],
+     "spec": {
+      "target": "path",
+      "regex": "^/fotosocketio/",
+      "msg": "Synology Photos live channel from outside (CVE-2024-10443)",
+      "reference": "https://www.synology.com/en-global/security/advisory/Synology_SA_24_19",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/FotoSocketIo/socket.io/?EIO=4&transport=websocket",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/FotoSocketIo/socket.io/?EIO=4&transport=polling",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/photo/",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.synology.com/en-global/security/advisory/Synology_SA_24_19",
+      "https://www.zerodayinitiative.com/advisories/ZDI-25-207/",
+      "https://www.midnightblue.nl/research/riskstation",
+      "https://nvd.nist.gov/vuln/detail/CVE-2024-10443"
+     ],
+     "cves": [
+      "CVE-2024-10443"
+     ]
+    }
+   ]
+  }
+ ]
+}

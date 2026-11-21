@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.5.32
+# jt-waf-mgr v0.5.33
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -160,6 +160,12 @@ measuring on your own traffic before you rely on it; a CDN or cloud WAF is the o
   ordinary change: the sandbox replays the hub's own attack requests, each
   must be refused by that rule, and recent requests of the sites must not be. Rules in use show when the hub updates or
   removes them. Threat intelligence proposes the hub's rule first for a vulnerability that affects confirmed software.
+- **Application protection sets**: ready-made confident blocks for one application, written from its publicly known
+  vulnerabilities and attacks; the first set is Synology DSM (its administration APIs from the local network only,
+  including the batch request and escaped-character ways around it). The software list recognises a DSM site and the
+  packages on it (DSM lists the APIs it serves without a login). Pick the site and the rules and propose them as one
+  change: the usual checks, the sandbox replays each rule's own attack and ordinary requests, and a person approves it;
+  the rules refuse requests from outside only.
 - **Alerts to follow up**: an attack the site may have answered, users hit by a false positive, an attack in progress,
   outside configuration changes, integrity problems, failed applies or backups — open until an approver marks them
   handled with a note; reminded until then.
@@ -222,7 +228,7 @@ measuring on your own traffic before you rely on it; a CDN or cloud WAF is the o
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # a fixed place for the releases
-V=0.5.32; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.33; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # the release, its signature, the public key
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -447,7 +453,7 @@ the file next to the current values and writes only what you tick).
 
 ```sh
 cd /opt/jt-waf-mgr-install   # the new release, unpacked into the same current
-V=0.5.32; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.33; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # every check, nothing changed

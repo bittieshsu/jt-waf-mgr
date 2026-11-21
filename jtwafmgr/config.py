@@ -182,7 +182,8 @@ DEFAULTS = {
         # fetch_url reads only https pages on these domains (and their subdomains), as plain text
         'fetch_domains': ['nvd.nist.gov', 'cve.org', 'cisa.gov', 'github.com', 'osv.dev', 'nginx.org', 'openssl-library.org',
                           'coreruleset.org', 'keycloak.org', 'nextcloud.com', 'wordpress.org', 'zimbra.com', 'odoo.com',
-                          'proxmox.com', 'debian.org', 'ubuntu.com', 'securityfocus.com', 'exploit-db.com'],
+                          'proxmox.com', 'debian.org', 'ubuntu.com', 'securityfocus.com', 'exploit-db.com', 'php.net',
+                          'synology.com'],
         'max_rounds': 12,
         'patches': True,               # write a virtual patch (a narrow confident block) for URL / header attacks
         'kev': False,                  # download CISA's Known Exploited Vulnerabilities catalog daily (kev.py, ~1.5 MB)

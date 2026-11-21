@@ -67,7 +67,7 @@ async function setLang(page, lang) {
   }, lang);
 }
 
-const ROUTES = ['/', '/events', '/rules', '/rules/930110', '/vhosts', '/countries', '/crs', '/lookup/203.0.113.9', '/managed', '/waf/pause', '/crowdsec', '/nginx-update', '/changes', '/changes/new',
+const ROUTES = ['/', '/events', '/rules', '/rules/930110', '/vhosts', '/countries', '/crs', '/lookup/203.0.113.9', '/managed', '/waf/pause', '/crowdsec', '/protection', '/nginx-update', '/changes', '/changes/new',
   '/versions', '/config-changes', '/reviews', '/reviews/8', '/intel', '/guide', '/account', '/admin/users', '/admin/users/review', '/admin/tokens', '/admin/audit',
   '/admin/system', '/admin/compliance', '/admin/settings', '/admin/notify', '/alerts', '/waf', '/analysis', '/traffic', '/blocks', '/nope'];
 
@@ -799,6 +799,24 @@ async function audit(page, where) {
   await page.waitForSelector('.badge .spinner', { timeout: 8000 }).catch(() => {});
   ok((await page.locator('.badge .spinner').count()) >= 1 && (await page.locator('.hubacts button.primary .spinner').count()) === 1,
      'crowdsec: a requested sync shows a spinner on its badge and button');
+  // 0.5.33: application protection sets -- the Synology DSM site, its rules (recommended ones ticked), and in this
+  // environment (not adopted) the notice and no proposal
+  await page.goto(base + '/protection', { waitUntil: 'networkidle' });
+  await page.waitForSelector('.protset', { timeout: 8000 }).catch(() => {});
+  const pcard = page.locator('.protset[data-host="nas.example.com"]');
+  const pboxes = pcard.locator('tbody input[type=checkbox]');
+  const nBoxes = await pboxes.count()
+  ok((await pcard.count()) === 1 && nBoxes >= 8 && (await pcard.locator('tbody input[type=checkbox]:checked').count()) === nBoxes - 1 &&
+     (await pcard.locator('.badge', { hasText: '建議' }).count()) === nBoxes - 1 &&
+     !(await pcard.locator('tbody tr').filter({ hasText: 'Synology Photos 即時通道' }).locator('input[type=checkbox]').isChecked()),
+     'protection sets: the DSM site, its rules, the recommended ones ticked (not the Photos live channel)');
+  ok((await page.locator('.alert.warn', { hasText: '尚未納管' }).count()) === 1 && (await pcard.locator('.protacts button.primary').isDisabled()),
+     'protection sets: not adopted -- the notice, and no proposal');
+  await pcard.locator('tbody tr').first().click();
+  await page.waitForSelector('.protdetail', { timeout: 5000 }).catch(() => {});
+  ok((await page.locator('.protdetail .mono', { hasText: 'api|compound' }).count()) === 1,
+     'protection sets: a rule opens to what it matches');
+  await page.screenshot({ path: path.join(SHOTS, 'protection.png'), fullPage: true });
   // 0.4.96: a filter set to something has a "×" back to "all"
   await page.goto(base + '/rules', { waitUntil: 'networkidle' });
   const fsel = page.locator('.filters .selectbox').first();

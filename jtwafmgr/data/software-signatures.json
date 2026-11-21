@@ -1,5 +1,5 @@
 {
- "_comment": "Software guess (software.py). signatures: [name, path regex (first match wins: specific before general), sample paths that must be guessed as this name (tests/test_software_signatures.py)]. A hit counts only with a 2xx answer. packages: Debian package -> product; package_patterns: [package regex, product]. homepages: [name, regex over the home page (its headers as \"name: value\" lines in lower case, then the start of the body), samples that must be named as this] -- for a site whose paths the logs do not show; the first match wins.",
+ "_comment": "Software guess (software.py). signatures: [name, path regex (first match wins: specific before general), sample paths that must be guessed as this name (tests/test_software_signatures.py)]. A hit counts only with a 2xx answer. packages: Debian package -> product; package_patterns: [package regex, product]. homepages: [name, regex over the home page (its headers as \"name: value\" lines in lower case, then the start of the body), samples that must be named as this] -- for a site whose paths the logs do not show; the first match wins. synology_apis: [DSM API prefix, package] -- the packages of a Synology DSM site, from the API names its SYNO.API.Info answer lists (asked once at each DSM site) and from the api= of the requests in its access log; a prefix matches the API name itself or that name followed by a dot; the first match wins. DSM's own APIs (SYNO.Core, SYNO.API, SYNO.FileStation, ...) are not listed: they are DSM.",
  "signatures": [
   ["Keycloak", "^/(?:auth/)?realms/[^/]+/(?:protocol/openid-connect|login-actions|account)", ["/realms/jt/protocol/openid-connect/token", "/auth/realms/a/login-actions/authenticate"]],
   ["authentik", "^/(?:if/(?:flow|admin|user)/|api/v3/(?:flows|core|root)/)", ["/if/flow/default-authentication-flow/", "/api/v3/core/users/me/"]],
@@ -221,6 +221,7 @@
   ["TrueNAS", "^/(?:api/v2\\.0/(?:system|pool|auth)/|ui/sessions/signin)", ["/api/v2.0/system/info", "/ui/sessions/signin"]],
   ["OpenMediaVault", "^/(?:rpc\\.php|js/omv/)", ["/rpc.php"]],
   ["Unraid", "^/(?:webGui/|plugins/dynamix)", ["/webGui/javascript/dynamix.js"]],
+  ["Synology Photo Station", "^/photo/webapi/\\w+\\.php", ["/photo/webapi/auth.php", "/photo/webapi/album.php?api=SYNO.PhotoStation.Album"]],
   ["Synology DSM", "^/(?:webapi/(?:entry|auth|query)\\.cgi|webman/(?:index|login)\\.cgi|synoSDSjslib/)", ["/webapi/entry.cgi?api=SYNO.API.Info", "/webman/index.cgi"]],
   ["QNAP QTS", "^/(?:cgi-bin/(?:authLogin|filemanager/utilRequest|qid/|sys/sysRequest)\\.cgi|cgi-bin/QTS\\.cgi)", ["/cgi-bin/authLogin.cgi", "/cgi-bin/filemanager/utilRequest.cgi?func=get_tree"]],
   ["Dell iDRAC", "^/(?:restgui/|redfish/v1/Managers/iDRAC|sysmgmt/|data\\?get=)", ["/restgui/start.html", "/sysmgmt/2015/bmc/session"]],
@@ -384,7 +385,7 @@
   ["Matomo", "(?i)<title>[^<]*Matomo", ["<title>Sign in - Matomo</title>"]],
   ["n8n", "(?i)<title>\\s*n8n(?:\\.io)?(?: - [^<]*)?\\s*</title>", ["<title>n8n.io - Workflow Automation</title>"]],
   ["BookStack", "(?i)<title>[^<]*BookStack\\s*</title>", ["<title>Log In | BookStack</title>"]],
-  ["Synology DSM", "(?i)<title>\\s*Synology", ["<title>Synology DiskStation</title>"]],
+  ["Synology DSM", "(?i)<title>(?:[^<]*?(?:\\s|&nbsp;))?Synology(?:\\s|&nbsp;)*(?:DiskStation|RackStation|FlashStation|BeeStation|DSM)", ["<title>Synology DiskStation</title>", "<title>nas2&nbsp;-&nbsp;Synology&nbsp;DiskStation</title>"]],
   ["TrueNAS", "(?i)<title>\\s*TrueNAS", ["<title>TrueNAS</title>"]],
   ["pfSense", "(?i)<title>[^<]*pfSense", ["<title>pfSense - Login</title>"]],
   ["OPNsense", "(?i)<title>[^<]*OPNsense", ["<title>Login | OPNsense</title>"]],
@@ -469,17 +470,49 @@
   "zabbix-frontend-php": "Zabbix"
  },
  "package_patterns": [
-  [
-   "^php\\d+(?:\\.\\d+)?-(?:fpm|cli|common)$",
-   "PHP"
-  ],
-  [
-   "^libapache2-mod-php\\d+(?:\\.\\d+)?$",
-   "PHP"
-  ],
-  [
-   "^openjdk-\\d+-jre(?:-headless)?$",
-   "OpenJDK"
-  ]
+  ["^php\\d+(?:\\.\\d+)?-(?:fpm|cli|common)$", "PHP"],
+  ["^libapache2-mod-php\\d+(?:\\.\\d+)?$", "PHP"],
+  ["^openjdk-\\d+-jre(?:-headless)?$", "OpenJDK"]
+ ],
+ "synology_apis": [
+  ["SYNO.Foto", "Synology Photos"],
+  ["SYNO.FotoTeam", "Synology Photos"],
+  ["SYNO.PhotoStation", "Synology Photo Station"],
+  ["SYNO.SurveillanceStation", "Synology Surveillance Station"],
+  ["SYNO.SVSEXT", "Synology Surveillance Station"],
+  ["SYNO.SynologyDrive", "Synology Drive Server"],
+  ["SYNO.SynologyDriveShareSync", "Synology Drive Server"],
+  ["SYNO.NoteStation", "Synology Note Station"],
+  ["SYNO.AudioStation", "Synology Audio Station"],
+  ["SYNO.VideoStation", "Synology Video Station"],
+  ["SYNO.VideoStation2", "Synology Video Station"],
+  ["SYNO.DownloadStation", "Synology Download Station"],
+  ["SYNO.DownloadStation2", "Synology Download Station"],
+  ["SYNO.ActiveBackup", "Synology Active Backup for Business"],
+  ["SYNO.ActiveBackupOffice365", "Synology Active Backup for Business"],
+  ["SYNO.ActiveBackupGSuite", "Synology Active Backup for Business"],
+  ["SYNO.Cal", "Synology Calendar"],
+  ["SYNO.Chat", "Synology Chat Server"],
+  ["SYNO.Office", "Synology Office"],
+  ["SYNO.Contacts", "Synology Contacts"],
+  ["SYNO.MailPlusServer", "Synology MailPlus Server"],
+  ["SYNO.MailClient", "Synology MailPlus"],
+  ["SYNO.Docker", "Synology Container Manager"],
+  ["SYNO.CMS", "Synology Central Management System"],
+  ["SYNO.DNSServer", "Synology DNS Server"],
+  ["SYNO.ProxyServer", "Synology Proxy Server"],
+  ["SYNO.AntiVirus", "Synology Antivirus Essential"],
+  ["SYNO.Backup", "Synology Hyper Backup"],
+  ["SYNO.Replica", "Synology Snapshot Replication"],
+  ["SYNO.DR", "Synology Snapshot Replication"],
+  ["SYNO.DisasterRecovery", "Synology Snapshot Replication"],
+  ["SYNO.ActiveInsight", "Synology Active Insight"],
+  ["SYNO.WebStation", "Synology Web Station"],
+  ["SYNO.MediaServer", "Synology Media Server"],
+  ["SYNO.Finder", "Synology Universal Search"],
+  ["SYNO.SAS", "Synology Application Service"],
+  ["SYNO.CloudSync", "Synology Cloud Sync"],
+  ["SYNO.WebDAV", "Synology WebDAV Server"],
+  ["SYNO.Virtualization", "Synology Virtual Machine Manager"]
  ]
 }

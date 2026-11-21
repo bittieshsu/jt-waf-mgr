@@ -41,9 +41,15 @@ BLOCK_TARGETS = {
     # 0.5.8: e.g. PHP's PHP_SESSION_UPLOAD_PROGRESS field (CVE-2026-115560); libmodsecurity 3.0.9 and 3.0.17 put
     # multipart part names in ARGS_NAMES, quoted or not (tested on real nginx)
     'arg_name': ('ARGS_NAMES', 't:none,t:lowercase'),
+    # 0.5.33: the VALUE of a named parameter, in the query string or the body (a form, a JSON body's top-level key as
+    # libmodsecurity names it, json.<name>; several names: api|compound), phase 2 -- e.g. Synology DSM's
+    # api=SYNO.Core.* calls
+    'arg': (None, 't:none,t:lowercase'),
 }
 # targets only seen once the request body is read
-BODY_TARGETS = ('arg_name',)
+BODY_TARGETS = ('arg_name', 'arg')
+ARG_RE = re.compile(r'^[A-Za-z0-9_][A-Za-z0-9_.\-]{0,63}$')
+PROTSET_RE = re.compile(r'^[a-z0-9][a-z0-9-]{0,39}/[a-z0-9][a-z0-9-]{0,39}$')
 TARGET_RE = re.compile(r'^(?:ARGS|ARGS_GET|ARGS_POST|ARGS_NAMES|ARGS_GET_NAMES|ARGS_POST_NAMES|REQUEST_COOKIES|'
                        r'REQUEST_COOKIES_NAMES|REQUEST_HEADERS|REQUEST_HEADERS_NAMES|XML|REQUEST_BODY|REQUEST_URI|'
                        r'REQUEST_URI_RAW|REQUEST_FILENAME|REQUEST_BASENAME|FILES|FILES_NAMES|QUERY_STRING)'
@@ -612,6 +618,13 @@ def _confident(spec, rid, cfg, internal):
         if not HEADER_RE.match(h):
             raise SpecError('header', 'invalid_header')
         var = 'REQUEST_HEADERS:' + h
+    if target == 'arg':
+        a = spec.get('arg') or ''
+        names = a.split('|') if isinstance(a, str) else []
+        if not names or len(names) > 12 or not all(ARG_RE.match(n) for n in names):
+            raise SpecError('arg', 'invalid_arg')
+        # several names (api|compound): ARGS:api|ARGS:compound
+        var = '|'.join('ARGS:' + n for n in names)
     rx = _regex_ok('regex', spec.get('regex'))
     msg = _text_ok('msg', spec.get('msg'), 100, required=True)
     ref = _text_ok('reference', spec.get('reference'), 200)
@@ -643,6 +656,14 @@ def _confident(spec, rid, cfg, internal):
     text = _chain(conds, first, 'setvar:tx.jt_block=1,ctl:ruleEngine=On')
     norm = {'target': target, 'header': spec.get('header') or '', 'regex': rx, 'exceptions': exc,
             'host': spec.get('host') or {'mode': 'any'}, 'msg': msg, 'reference': ref, 'source': source}
+    if target == 'arg':
+        norm['arg'] = spec['arg']
+    ps = spec.get('protset')
+    if ps not in (None, ''):
+        # 0.5.33: the protection set rule it comes from (protsets.py), "<set>/<rule>"
+        if not isinstance(ps, str) or not PROTSET_RE.match(ps):
+            raise SpecError('protset', 'invalid_protset')
+        norm['protset'] = ps
     before = spec.get('before_rule_id')
     if phase == 2 and before not in (None, ''):
         # a phase-2 match goes before the rule that adds the critical score for jt_block (set by changes.py)

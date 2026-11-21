@@ -53,7 +53,8 @@ A token has one or more of these scopes. There are no others.
 
 - `status:read`: `GET /status`, `GET /health`, `GET /readiness`, `GET /waf/pause`.
 - `events:read`: events, event statistics, timeline, overview, NDJSON export.
-- `rules:read`: rules, rule hits, sites (vhosts), CRS status and updates, the WAF decision model, managed rule files.
+- `rules:read`: rules, rule hits, sites (vhosts), CRS status and updates, the WAF decision model, managed rule files,
+  CrowdSec rules, protection sets.
 - `lookups:read`: IP lookup and GeoIP lookup.
 - `changes:read`: changes, versions, alerts, event analysis runs, regression samples.
 - `changes:propose`: propose changes (`POST /changes`, `POST /changes/preview`, `POST /rules/toggle`). Never approve.
@@ -199,6 +200,16 @@ the hub's LICENSE of that commit. `POST /hub/sync` (admin) asks for a sync now. 
 CRS release and its signature) go in parts of up to 600 KB: `POST /uploads` (admin: `kind` `hub` or `crs`, `name`,
 `size`, `sha256`), `POST /uploads/{id}/chunk` (`index`, base64 `data`), `POST /uploads/{id}/finish` (for a CRS release
 also `asc`, the signature text); the size and SHA-256 are checked before the job reads the file.
+
+**`GET /protsets`**: scope `rules:read`. Application protection sets (0.5.33; the first is Synology DSM): `adopted`
+and `sets` (`id`, `app`, `rule_count`, `sites`: each site the software list names for the application, with `host` and
+`rules`: `id`, `state` (`available`, `applied`, `update` (this version writes it differently), `disabled`, `pending`
+with `change_id`), `default` (recommended), `needs` and `needs_missing` (packages the rule is about, not listed for the
+site), `target`, `arg`, `regex`, `cves`, `refs`, `rule_id` once applied). **`POST /protsets/propose`**: scope
+`changes:propose`; `{"set": "synology-dsm", "host": "nas.example.com", "rules": ["admin-api", ...]}` proposes the
+picked rules as one bundle change (each a confident block scoped to that site, `protset` "<set>/<rule>", with its own
+sandbox tests); 202 with `change_id`. Rules already applied or waiting are left out (`nothing_to_do`, 409, when none
+is left); `host_not_listed`, `unknown_set`, `unknown_rule`; `not_adopted` (409) before adoption.
 
 **`GET /nginx/update`**: scope `rules:read`. Whether nginx loads its ModSecurity module now and after the next system
 update (`level`, `reason`, `modules`, `hand_built`, `package`, `installed`, `candidate`, `held`), and the last check of
@@ -367,8 +378,11 @@ Loosening always needs a person's approval.
 
 - `target`: `path` (default; URL-decoded, normalized, lowercased; since 0.4.93 also the raw path, so a path cut at an
   encoded "?" by libmodsecurity 3.0.9 is still seen), `uri` (path and query, lowercased), `raw_uri` (0.4.93: the request
-  target as sent, not decoded, lowercased), `ua` (User-Agent), `host`, or `header` (then `header` names it, for example
-  `X-Api-Version`).
+  target as sent, not decoded, lowercased), `ua` (User-Agent), `host`, `header` (then `header` names it, for example
+  `X-Api-Version`), `arg_name` (0.5.8: a parameter's name in the query string or the body, lowercased; anchor the
+  expression with `^` and `$`) or `arg` (0.5.33: the value of the parameters `arg` names, in the query string or a form
+  body, lowercased; several names with `|`, at most 12, for example `api|compound`). `arg_name` and `arg` are checked
+  once the body is read and have no evidence check (the access log has no bodies).
 - `regex`: required, at most 1000 characters, no double quotes or line breaks. Refused when it matches the empty
   string (`matches_empty`), matches almost every ordinary request (`too_broad`), or looks open to catastrophic
   backtracking (`redos_shape`, `redos_runtime`).

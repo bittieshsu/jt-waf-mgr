@@ -30,20 +30,52 @@ def _load(path=SIGNATURE_FILE):
         with open(path, encoding='utf-8') as fh:
             d = json.load(fh)
     except (OSError, ValueError):
-        return {}, [], [], []
+        return {}, [], [], [], []
     return (dict(d.get('packages') or {}), [(re.compile(rx), name) for rx, name in d.get('package_patterns') or []],
             [(name, rx) for name, rx, _samples in d.get('signatures') or []],
-            [(name, re.compile(rx)) for name, rx, _samples in d.get('homepages') or []])
+            [(name, re.compile(rx)) for name, rx, _samples in d.get('homepages') or []],
+            [(str(pre), str(name)) for pre, name in d.get('synology_apis') or []])
 
 
 def _load4(path=SIGNATURE_FILE):
     try:
         return _load(path)
     except (TypeError, ValueError):
-        return {}, [], [], []
+        return {}, [], [], [], []
 
 
-PACKAGES, PACKAGE_PATTERNS, SIGNATURES, HOMEPAGES = _load4()
+PACKAGES, PACKAGE_PATTERNS, SIGNATURES, HOMEPAGES, SYNOLOGY_APIS = _load4()
+SYNOLOGY = 'Synology DSM'
+_API_RE = re.compile(r'[?&]api=(SYNO\.[A-Za-z0-9_.]{1,80})')
+
+
+def synology_package(api):
+    """The DSM package an API name belongs to (SYNO.Foto.Browse.Item -> Synology Photos), or None (DSM's own)."""
+    for pre, name in SYNOLOGY_APIS:
+        if api == pre or api.startswith(pre + '.'):
+            return name
+    return None
+
+
+SYNOLOGY_INFO = '/webapi/query.cgi?api=SYNO.API.Info&version=1&method=query&query=all'
+
+
+def synology_packages(host, fetch, port=443):
+    """{package: [API names]} that a DSM site's SYNO.API.Info answer lists (DSM answers this without a login: the
+    API names it serves, so the packages installed on it). {} when it does not answer so."""
+    got = fetch(host, {'path': SYNOLOGY_INFO, 'max_bytes': 1000000, 'port': port}, timeout=8)
+    if not got or got[0] != 200:
+        return {}
+    try:
+        data = json.loads(got[2].decode('utf-8', 'replace')).get('data')
+    except (ValueError, AttributeError):
+        return {}
+    out = collections.defaultdict(list)
+    for api in data if isinstance(data, dict) else ():
+        name = synology_package(str(api)) if isinstance(api, str) and api.startswith('SYNO.') else None
+        if name:
+            out[name].append(api)
+    return dict(out)
 VERSION_FILE = os.path.join(os.path.dirname(__file__), 'data', 'software-versions.json')
 
 
@@ -153,6 +185,10 @@ def scan_logs(cfg, tail=TAIL, exclude=()):
                 if rx.search(r[1]):
                     hits[name][host] += 1
                     break
+            m = _API_RE.search(r[1]) if 'api=SYNO.' in r[1] else None
+            pkg = synology_package(m.group(1)) if m else None
+            if pkg:
+                hits[pkg][host] += 1
     return {name: dict(c) for name, c in hits.items()}
 
 
@@ -194,12 +230,12 @@ def match_homepage(text):
     return None
 
 
-def _home(host, fetch):
+def _home(host, fetch, port=443):
     """The home page of a site, following up to two redirects that stay on the site."""
     import urllib.parse
     path = '/'
     for _ in range(3):
-        got = fetch(host, {'path': path, 'max_bytes': HOME_BYTES}, timeout=5)
+        got = fetch(host, {'path': path, 'max_bytes': HOME_BYTES, 'port': port}, timeout=5)
         if not got:
             return None
         status, headers, _body = got
@@ -223,6 +259,31 @@ def _tls_listen(listen):
     return bool(re.search(r'(?:^|:)443\b', listen) or re.search(r'\bssl\b', listen))
 
 
+def _listen_port(listen):
+    m = re.match(r'\s*(?:\[[^\]]*\]:|[^\s:]+:)?(\d{1,5})\b', listen)
+    return int(m.group(1)) if m else None
+
+
+def site_ports(app):
+    """{site name: the port its TLS server answers on}: 443 when it listens there, else its own ssl port (0.5.33: a
+    Synology DSM published on 5001; asking it at 443 meets another site there). Names on 443 are left out."""
+    out = {}
+    try:
+        n, _ = app.site.load()
+        servers = n.servers()
+    except Exception:          # noqa: BLE001 -- no nginx configuration here
+        return out
+    for sv in servers:
+        tls = [x for x in sv.get('listen') or [] if _tls_listen(x)]
+        if not tls or any(re.search(r'(?:^|:)443\b', x) for x in tls):
+            continue
+        port = _listen_port(tls[0])
+        for h in sv.get('server_names') or []:
+            if port and 0 < port < 65536:
+                out.setdefault(h.lower(), port)
+    return out
+
+
 def homepage_sites(app):
     """The sites worth asking for their home page: a name nginx serves over TLS, not a wildcard or a pattern, not this
     program's own, not a block that only redirects."""
@@ -243,14 +304,15 @@ def homepage_sites(app):
     return out[:200]
 
 
-def guess_homepages(app, hosts, fetch=None):
+def guess_homepages(app, hosts, fetch=None, ports=None):
     """{application: [hosts]} from the sites' own home pages (read through this host's nginx, a few at a time)."""
     from concurrent.futures import ThreadPoolExecutor
     fetch = fetch or fetch_local
+    ports = ports or {}
 
     def one(h):
         try:
-            got = _home(h, fetch)
+            got = _home(h, fetch, ports.get(h, 443))
             return h, (match_homepage(homepage_text(got)) if got else None)
         except Exception:      # noqa: BLE001 -- one site's odd answer never stops the guess
             return h, None
@@ -305,18 +367,32 @@ def guess(app, fetch=None):
     if 'Z-Push' in found:
         found['Z-Push'] = {h: c for h, c in found['Z-Push'].items() if h not in with_own}
     # the home pages: an application whose paths the logs do not show (or show too seldom) but whose page names it
+    ports = site_ports(app)
     try:
-        home = guess_homepages(app, homepage_sites(app), fetch=fetch)
+        home = guess_homepages(app, homepage_sites(app), fetch=fetch, ports=ports)
     except Exception:          # noqa: BLE001 -- the guess stands on the logs alone
         home = {}
-    for name in sorted(set(found) | set(home)):
+    # a Synology DSM site: the packages its API list names (0.5.33)
+    dsm = sorted(set(h for h, n in found.get(SYNOLOGY, {}).items() if n >= MIN_HITS) | set(home.get(SYNOLOGY, [])))
+    listed = collections.defaultdict(dict)
+    for h in dsm[:10]:
+        try:
+            for name, apis in synology_packages(h, fetch or fetch_local, ports.get(h, 443)).items():
+                listed[name][h] = apis
+        except Exception:      # noqa: BLE001 -- one site's odd answer never stops the guess
+            continue
+    for name in sorted(set(found) | set(home) | set(listed)):
         by_host = found.get(name, {})
         hosts = sorted(h for h, n in by_host.items() if n >= MIN_HITS)
         pages = sorted(h for h in home.get(name, []) if h not in hosts)
+        apis = sorted(h for h in listed.get(name, {}) if h not in hosts and h not in pages)
+        pages += apis
         if hosts or pages:
             ev = ', '.join('%s %d' % (h, by_host[h]) for h in hosts[:8])
-            if pages:
-                ev = (ev + '; ' if ev else '') + 'homepage: ' + ', '.join(pages[:8])
+            if pages and len(pages) > len(apis):
+                ev = (ev + '; ' if ev else '') + 'homepage: ' + ', '.join([h for h in pages if h not in apis][:8])
+            if apis:
+                ev = (ev + '; ' if ev else '') + 'SYNO.API.Info: ' + ', '.join(apis[:8])
             out.append({'name': name, 'version': '', 'hosts': sorted(hosts + pages), 'kind': 'site', 'evidence': ev})
     return out
 
@@ -449,12 +525,13 @@ def _fetch_at(addr, host, probe, timeout, token):
     body = probe.get('body')
     data = json.dumps(body).encode() if isinstance(body, (dict, list)) else None
     ctx = util.tls_context()            # the system's verification, TLS 1.2 or newer (as every TLS client here)
+    port = int(probe.get('port') or 443)
     try:
-        raw = socket.create_connection((addr, 443), timeout=timeout)
+        raw = socket.create_connection((addr, port), timeout=timeout)
         sock = ctx.wrap_socket(raw, server_hostname=host)
     except (OSError, ssl.SSLError):
         return None
-    conn = http.client.HTTPSConnection(host, 443, timeout=timeout, context=ctx)
+    conn = http.client.HTTPSConnection(host, port, timeout=timeout, context=ctx)
     conn.sock = sock
     try:
         conn.request(probe.get('method') or 'GET', probe['path'], body=data,
@@ -507,7 +584,14 @@ def extract_version(probe, status, headers, body):
             v = None
     elif probe.get('regex'):
         m = re.search(probe['regex'], body.decode('utf-8', 'replace'))
-        v = m.group(1) if m else None
+        if m and probe.get('regex_format'):
+            # 0.5.33: a version in several groups (Synology DSM: major=7&minor=4&build=90080 -> 7.4-90080)
+            try:
+                v = probe['regex_format'].format(*m.groups())
+            except (IndexError, KeyError, ValueError):
+                v = None
+        else:
+            v = m.group(1) if m else None
     if v is not None and probe.get('regex') and (probe.get('header') or probe.get('json')):
         m = re.search(probe['regex'], str(v))
         v = m.group(1) if m else None
@@ -563,6 +647,7 @@ def detect_versions(app, fetch=fetch_local, log=print):
         return str((app.cfg.data.get(sec) or {}).get(key) or '') if key else ''
 
     changed = []
+    ports = site_ports(app)
     for r in db.q("SELECT * FROM software WHERE kind='site'"):
         p = probes.get(r['name'])
         if not p:
@@ -574,7 +659,8 @@ def detect_versions(app, fetch=fetch_local, log=print):
             continue                    # a person's version (or one they confirmed by hand) stays
         hosts = json.loads(r['hosts'] or '[]')
         for host in hosts[:5]:
-            got = fetch(host, p, token=token) if token else fetch(host, p)
+            hp = dict(p, port=ports[host]) if host in ports else p
+            got = fetch(host, hp, token=token) if token else fetch(host, hp)
             v = extract_version(p, *got) if got else None
             if not v:
                 continue

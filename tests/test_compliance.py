@@ -659,7 +659,7 @@ class TestAuditCoverage(unittest.TestCase):
                       'uisettings.set_many', 'alerts.handle(',
                       '_wf(app).reject', '_wf(app).cancel', '_wf(app).recheck', '_wf(app).rollback',
                       'app.blocks.add(', 'app.blocks.remove(', 'app.blocks.extend(', 'intel.set_status(',
-                      'settings_io.apply(', '_wf(app).approve(', 'intel.submit(')
+                      'settings_io.apply(', '_wf(app).approve(', 'intel.submit(', 'protsets.propose(')
 
     def test_write_routes_audited(self):
         from jtwafmgr.web import api
@@ -686,6 +686,9 @@ class TestAuditCoverage(unittest.TestCase):
         # every way of proposing goes through the audited _insert
         for name in ('propose', 'propose_bundle'):
             self.assertIn('self._insert(', inspect.getsource(getattr(Workflow, name)), name)
+        from jtwafmgr import protsets
+        self.assertIn('app.workflow.propose_bundle(', inspect.getsource(protsets.propose))
+        self.assertIn('audit.log', inspect.getsource(protsets.propose))
 
 
 if __name__ == '__main__':

@@ -4,7 +4,7 @@ import { t } from './i18n.js'
 const KEYS = {
   '/': 'nav.dashboard', '/events': 'nav.events_list', '/alerts': 'nav.alerts', '/analysis': 'nav.analysis', '/reviews': 'nav.reviews', '/intel': 'nav.intel',
   '/lookup': 'nav.lookup', '/traffic': 'nav.traffic', '/blocks': 'nav.blocks', '/rules': 'nav.rules_list', '/vhosts': 'nav.vhosts',
-  '/countries': 'nav.countries', '/crs': 'nav.crs', '/managed': 'nav.managed', '/changes': 'nav.changes_list',
+  '/countries': 'nav.countries', '/crs': 'nav.crs', '/protection': 'nav.protection', '/managed': 'nav.managed', '/changes': 'nav.changes_list',
   '/changes/new': 'changes.new', '/config-changes': 'nav.config_changes', '/guide': 'nav.guide', '/account': 'nav.account',
   '/admin/users': 'nav.users', '/admin/tokens': 'nav.tokens', '/admin/audit': 'nav.audit', '/admin/system': 'nav.system',
   '/admin/compliance': 'nav.compliance', '/admin/settings': 'nav.settings', '/admin/notify': 'nav.notify',

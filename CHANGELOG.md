@@ -2,6 +2,15 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.33 (2026-11-22)
+
+- Application protection sets (Rules menu): ready-made confident blocks for one application, written from its publicly known vulnerabilities and attacks, each with its CVEs, sources and tests (its attack requests must be refused, ordinary ones let through). Every site the software list names for the application is listed; the picked rules are proposed as one change: the usual checks, the sandbox, a person's approval, never applied by itself. A rule a later version writes differently shows "update available" and is modified in place. `GET /api/v1/protsets`, `POST /api/v1/protsets/propose`.
+- The first set is Synology DSM, 9 rules, refusing requests from outside only: administration APIs from the local network only (Task Scheduler, SSH, groups, network, firewall, package installation, Container Manager, Hyper Backup, snapshots, storage...), batch requests with escaped letters, login fields with control characters (CVE-2024-10441), redirect addresses with a line break (CVE-2024-50629), old DSM CGI programs (imageSelector.cgi of SynoLocker, info.cgi that tells the version and serial number, ...), Photo Station's PHP pages, file paths with ../, Drive's local-only login flag (CVE-2024-50630), and, not ticked by default, the Synology Photos live channel (CVE-2024-10443). Measured on DSM 7: DSM picks the API from the api parameter only (case-sensitive names, the last one when sent twice), a batch request's compound parameter carries other APIs, and JSON \u escapes in it get past text matching; every test request was replayed against ModSecurity 3.0.14.
+- Confident blocks: a new target, a parameter's value (`target: arg`), for the parameters it names (query string or form; several names with `|`).
+- The software list recognises a Synology DSM's packages: DSM lists the APIs it serves without a login (SYNO.API.Info), which names 30 packages such as Synology Photos, Drive and Surveillance Station; `api=SYNO.…` in the access log counts too. The DSM version is read from info.cgi. A DSM home page whose title starts with the host's name was not recognised.
+- Sites not on port 443 (DSM on 5001, for example): the home page guess and the version reading connect to the site's own TLS port; they always used 443 and could read another site.
+- Threat intelligence may read php.net and synology.com by default (new installations; an existing setting stays).
+
 ## 0.5.32 (2026-11-21)
 
 - CrowdSec page: the sync is turned on and off right there (administrators), not only on the settings page; the dashboard's hint leads to it.

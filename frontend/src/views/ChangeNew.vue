@@ -74,12 +74,15 @@
             <SelectBox id="bl-target" v-model="bl.target" :options="targetOptions" /></div>
           <label v-if="bl.target === 'header'" class="field"><span>{{ t('wizard.header') }}</span>
             <input v-model.trim="bl.header" class="mono" maxlength="64" placeholder="X-Middleware-Subrequest"></label>
+          <label v-if="bl.target === 'arg'" class="field"><span>{{ t('wizard.arg') }}</span>
+            <input v-model.trim="bl.arg" class="mono" maxlength="64" placeholder="api"></label>
           <label class="field grow"><span>{{ t('wizard.regex') }}</span>
             <input v-model="bl.regex" class="mono" maxlength="1000" spellcheck="false" placeholder="^/(?:wp-login\.php|xmlrpc\.php)"></label>
         </div>
         <p v-if="['path', 'uri', 'raw_uri', 'ua', 'host'].includes(bl.target)" class="muted small">{{ t('wizard.lowercase_note') }}</p>
         <p v-if="bl.target === 'arg_name'" class="muted small">{{ t('wizard.arg_name_note') }}</p>
-        <FieldErr :err="err('target') || err('header') || err('regex')" />
+        <p v-if="bl.target === 'arg'" class="muted small">{{ t('wizard.arg_note') }}</p>
+        <FieldErr :err="err('target') || err('header') || err('arg') || err('regex')" />
         <label class="field"><span>{{ t('wizard.exceptions') }}</span>
           <textarea v-model="bl.exceptions" rows="2" class="mono" maxlength="5000" spellcheck="false" placeholder="^/remote\.php/dav"></textarea>
           <span class="sub">{{ t('wizard.exceptions_hint') }}</span></label>
@@ -243,14 +246,14 @@ watch(showGuide, (v) => { try { localStorage.setItem(GUIDE_KEY, v ? '1' : '0') }
 const methodOptions = computed(() => [{ value: '', label: t('wizard.any_method') }].concat(METHODS.map((m) => ({ value: m, label: m }))))
 const sourceOptions = computed(() => ['all', 'internal', 'external'].map((x) => ({ value: x, label: t('wizard.source_opt.' + x) })))
 const actionOptions = computed(() => ACTIONS.map((a) => ({ value: a, label: t('wizard.action_opt.' + a) })))
-const targetOptions = computed(() => ['path', 'uri', 'raw_uri', 'ua', 'host', 'header', 'arg_name'].map((x) => ({ value: x, label: t('wizard.target_opt.' + x) })))
+const targetOptions = computed(() => ['path', 'uri', 'raw_uri', 'ua', 'host', 'header', 'arg_name', 'arg'].map((x) => ({ value: x, label: t('wizard.target_opt.' + x) })))
 const placementOptions = computed(() => ['before', 'after'].map((x) => ({ value: x, label: t('placement.' + x) })))
 
 const kinds = computed(() => ['exclusion', 'confident_block', 'country', 'redaction', 'plugin'].concat(hasRole('admin') ? ['raw'] : []))
 const kind = ref(['exclusion', 'confident_block', 'country', 'redaction', 'plugin', 'raw'].includes(route.query.kind) ? route.query.kind : 'exclusion')
 const ex = reactive({ host: { mode: 'exact', value: '' }, path: { mode: 'any', value: '' }, method: '', source: 'all',
   action: 'remove_target_by_id', rule_ids: '', targets: '', tag: 'OWASP_CRS', confirm_tag: false, body_processor: 'JSON' })
-const bl = reactive({ target: 'path', header: '', regex: '', exceptions: '', host: { mode: 'any', value: '' }, msg: '', reference: '', source: 'external' })
+const bl = reactive({ target: 'path', header: '', arg: '', regex: '', exceptions: '', host: { mode: 'any', value: '' }, msg: '', reference: '', source: 'external' })
 const blockSourceOptions = computed(() => ['external', 'all'].map((x) => ({ value: x, label: t('wizard.block_source.' + x) })))
 const rd = reactive({ fields: 'password', host: { mode: 'any', value: '' }, path: { mode: 'any', value: '' } })
 const pl = reactive({ plugin: '', host: { mode: 'exact', value: '' } })
@@ -300,7 +303,7 @@ const spec = computed(() => {
   switch (kind.value) {
     case 'exclusion': return { host: ex.host, path: ex.path, method: ex.method, source: ex.source, action: ex.action,
       rule_ids: ids(ex.rule_ids), targets: list(ex.targets), tag: ex.tag, confirm_tag: ex.confirm_tag, body_processor: ex.body_processor }
-    case 'confident_block': return { target: bl.target, header: bl.header, regex: bl.regex, exceptions: lines(bl.exceptions),
+    case 'confident_block': return { target: bl.target, header: bl.header, ...(bl.target === 'arg' ? { arg: bl.arg } : {}), regex: bl.regex, exceptions: lines(bl.exceptions),
       host: bl.host, msg: bl.msg, reference: bl.reference, source: bl.source }
     case 'redaction': return { fields: list(rd.fields), host: rd.host, path: rd.path }
     case 'plugin': return { plugin: pl.plugin, host: pl.host }
@@ -372,7 +375,7 @@ function fillFromSpec(k, s) {
   if (k === 'exclusion') Object.assign(ex, { host: scopeFrom(s.host), path: scopeFrom(s.path), method: s.method || '', source: s.source || 'all',
     action: s.action || 'remove_target_by_id', rule_ids: (s.rule_ids || []).join(', '), targets: (s.targets || []).join(', '),
     tag: s.tag || 'OWASP_CRS', confirm_tag: !!s.confirm_tag, body_processor: s.body_processor || 'JSON' })
-  else if (k === 'confident_block') Object.assign(bl, { target: s.target || 'path', header: s.header || '', regex: s.regex || '',
+  else if (k === 'confident_block') Object.assign(bl, { target: s.target || 'path', header: s.header || '', arg: s.arg || '', regex: s.regex || '',
     exceptions: (s.exceptions || []).join('\n'), host: scopeFrom(s.host), msg: s.msg || '', reference: s.reference || '', source: s.source || 'external' })
   else if (k === 'redaction') Object.assign(rd, { fields: (s.fields || []).join(', '), host: scopeFrom(s.host), path: scopeFrom(s.path) })
   else if (k === 'plugin') Object.assign(pl, { plugin: s.plugin || '', host: scopeFrom(s.host) })

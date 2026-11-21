@@ -1895,8 +1895,9 @@ def register(router):
     R('GET', V + '/settings', settings, admin)
     register_p2(router)
     register_compliance(router)
-    from . import api_analyst, api_notify, api_blocks, api_warroom, api_hub, api_nginxup
+    from . import api_analyst, api_notify, api_blocks, api_warroom, api_hub, api_nginxup, api_protsets
     api_analyst.register(router)
+    api_protsets.register(router)
     api_notify.register(router)
     api_blocks.register(router)
     api_hub.register(router)

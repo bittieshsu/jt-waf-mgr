@@ -1,5 +1,5 @@
 {
- "_comment": "Where the version of an application behind the sites can be read (software.py detect_versions). auto: one request to the site through this host's own nginx (127.0.0.1:443, the site's name for TLS and Host); the version from a JSON field (json: dotted path, digits index a list), a header (header) or the body (regex, group 1). json_parts: a version in parts (each a dotted path), joined with dots. any_status: read whatever the status (a header every answer carries). convert \"roundcube\": 10605 -> 1.6.5. A 403 from 127.0.0.1 (a site open to the local network only) is asked again at this host's local address. token_setting: a write-only setting holding the application's API token, sent in token_header (no token: not asked). verified: checked against a running installation; the others follow the project's documentation. manual: no public version: the command on the application's host (how), with an interface note (note: i18n key swv.note.<note>). Names are those of software-signatures.json.",
+ "_comment": "Where the version of an application behind the sites can be read (software.py detect_versions). auto: one request to the site through this host's own nginx (127.0.0.1 at the site's TLS port, 443 or its own; the site's name for TLS and Host); the version from a JSON field (json: dotted path, digits index a list), a header (header) or the body (regex, group 1; regex_format: several groups, e.g. \"{0}.{1}-{2}\"). json_parts: a version in parts (each a dotted path), joined with dots. any_status: read whatever the status (a header every answer carries). convert \"roundcube\": 10605 -> 1.6.5. A 403 from 127.0.0.1 (a site open to the local network only) is asked again at this host's local address. token_setting: a write-only setting holding the application's API token, sent in token_header (no token: not asked). verified: checked against a running installation; the others follow the project's documentation. manual: no public version: the command on the application's host (how), with an interface note (note: i18n key swv.note.<note>). Names are those of software-signatures.json.",
  "auto": [
   {
    "name": "Nextcloud",
@@ -445,6 +445,14 @@
    "path": "/solr/admin/info/system?wt=json",
    "json": "lucene.solr-spec-version",
    "verified": false
+  },
+  {
+   "name": "Synology DSM",
+   "path": "/webman/info.cgi",
+   "regex": "major=(\\d{1,2})&minor=(\\d{1,2})&build=(\\d{3,6})",
+   "regex_format": "{0}.{1}-{2}",
+   "max_bytes": 4000,
+   "verified": true
   }
  ],
  "manual": [

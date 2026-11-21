@@ -29,6 +29,9 @@ TEMPLATES = {
     'intel_hub': 'Virtual patch for {cve} in {product} {version} ({severity}): the CrowdSec Hub rule {rule} ({label}), '
                  'until the software is updated. {summary} References: {refs}',
     'intel_hub_add': 'Add {hosts} to the CrowdSec rule {rule} for {cve} in {product}.',
+    'protset': 'Protection set for {app} on {host} (jt-waf-mgr {version}): {rules}. Built from the publicly known '
+               'vulnerabilities and attacks of this software (see each rule\'s reference); each rule refuses matching '
+               'requests from outside only and brings its own tests.',
     'analyst_all_external': 'ALL FROM EXTERNAL SOURCES: no internal user was blocked; check that this is really normal use.',
     'analyst_fp_whole': '[jt analyst] false positive, model {model}, confidence {confidence}. Scope: host {host}, {mode} '
                         'path {path}, method {method}, rules {rules}, WHOLE RULE removed there. Last {hours}h: {events} '

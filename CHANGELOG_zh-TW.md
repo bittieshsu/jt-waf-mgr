@@ -2,6 +2,15 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.5.33 (2026-11-22)
+
+- 應用程式防護組合 (規則選單)：替單一應用程式準備好的確定封鎖規則，依公開已知的弱點與實際攻擊撰寫，每條附 CVE、參考來源與自帶測試 (攻擊請求必須被封鎖、一般請求必須通過)。軟體清單列出這個應用程式的站台都會出現；勾選後提出成一筆變更，照常檢查、跑沙箱、由人核准，永不自動套用。這一版之後改寫的規則會標示「可更新」，套用後就地修改。`GET /api/v1/protsets`、`POST /api/v1/protsets/propose`。
+- 第一組是 Synology DSM，9 條規則，只封鎖外部來源：管理 API 只限內網 (任務排程、開 SSH、群組、網路、防火牆、套件安裝、Container Manager、Hyper Backup、快照、儲存空間等)、批次請求含跳脫字元、登入欄位含控制字元 (CVE-2024-10441)、轉址網址含換行 (CVE-2024-50629)、DSM 舊 CGI 程式 (SynoLocker 用過的 imageSelector.cgi、會洩漏版本與序號的 info.cgi 等)、Photo Station 的 PHP 頁面、檔案路徑含 ../、Drive 只限本機的登入旗標 (CVE-2024-50630)，以及預設不勾選的 Synology Photos 即時通道 (CVE-2024-10443)。依據是對 DSM 7 的實測：DSM 只依 api 參數決定 API (名稱大小寫有別、送兩次取最後一個)，批次請求的 compound 參數可以夾帶其他 API，而且 JSON 的 \u 跳脫字元能繞過文字比對；規則在 ModSecurity 3.0.14 實際重送全部測試請求驗證過。
+- 確定封鎖新增比對目標「參數值」(`target: arg`)：比對指定參數的值 (查詢字串或表單)，可用 `|` 列多個參數名稱。
+- 軟體清單辨識 Synology DSM 的套件：DSM 不用登入就會列出它提供的 API (SYNO.API.Info)，從中認出 Synology Photos、Drive、Surveillance Station 等 30 種套件；存取記錄裡的 `api=SYNO.…` 也會計入。DSM 版本從 info.cgi 讀取。DSM 首頁標題前面有主機名稱時之前認不出來。
+- 不在 443 埠的站台 (例如 DSM 的 5001)：首頁推測、版本讀取都改連它自己的 TLS 埠；之前一律連 443，會讀到別的站台。
+- 威脅情報預設可讀取的網域加上 php.net 與 synology.com (新安裝；既有設定不變)。
+
 ## 0.5.32 (2026-11-21)
 
 - CrowdSec 頁：管理者可以直接在這頁開關同步，不必到設定頁；儀表板的提示也改連到這頁。

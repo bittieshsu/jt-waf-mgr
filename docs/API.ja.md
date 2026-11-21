@@ -51,7 +51,7 @@
 
 - `status:read`：`GET /status`、`GET /health`、`GET /readiness`、`GET /waf/pause`。
 - `events:read`：イベント、イベント統計、タイムライン、概要、NDJSON エクスポート。
-- `rules:read`：ルール、ルールのヒット、サイト（vhost）、CRS の状態と更新、WAF の判定モデル、管理対象ルールファイル。
+- `rules:read`：ルール、ルールのヒット、サイト（vhost）、CRS の状態と更新、WAF の判定モデル、管理対象ルールファイル、CrowdSec ルール、保護セット。
 - `lookups:read`：IP 検索と GeoIP 検索。
 - `changes:read`：変更、バージョン、アラート、イベント分析の実行記録、回帰テストのサンプル。
 - `changes:propose`：変更の提案（`POST /changes`、`POST /changes/preview`、`POST /rules/toggle`）。承認は不可。
@@ -197,6 +197,16 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 署名) は最大 600 KB ずつ分割して送ります：`POST /uploads` (管理者：`kind` は `hub` か `crs`、`name`、`size`、
 `sha256`)、`POST /uploads/{id}/chunk` (`index`、base64 の `data`)、`POST /uploads/{id}/finish` (CRS リリースは
 署名テキスト `asc` も)。処理前にサイズと SHA-256 を照合します。
+
+**`GET /protsets`**：スコープ `rules:read`。アプリケーション保護セット (0.5.33。最初は Synology DSM)：`adopted` と
+`sets` (`id`、`app`、`rule_count`、`sites`：ソフトウェア一覧でこのアプリケーションが記録されている各サイト。`host` と
+`rules`：`id`、`state` (`available`、`applied`、`update` (このバージョンでは書き方が違う)、`disabled`、`pending` と
+`change_id`)、`default` (推奨)、`needs` と `needs_missing` (ルールが対象とするパッケージ、このサイトに記録がないもの)、
+`target`、`arg`、`regex`、`cves`、`refs`、適用後は `rule_id`)。**`POST /protsets/propose`**：スコープ `changes:propose`。
+`{"set": "synology-dsm", "host": "nas.example.com", "rules": ["admin-api", ...]}` で選んだルールを 1 件の一括変更として
+提案します (各ルールはそのサイトに限定した確定遮断、`protset` は "<セット>/<ルール>"、サンドボックステスト付き)。202 と
+`change_id` を返します。適用済み・待機中のルールは除きます (残りがないと `nothing_to_do`、409)。ほかに
+`host_not_listed`、`unknown_set`、`unknown_rule`、管理対象化の前は `not_adopted` (409)。
 
 **`GET /nginx/update`**：scope `rules:read`。nginx が今と次のシステム更新後に ModSecurity モジュールを読み込めるか
 (`level`、`reason`、`modules`、`hand_built`、`package`、`installed`、`candidate`、`held`)、および次の nginx パッケージで
@@ -359,7 +369,8 @@ curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
 **種類 `confident_block`**（確定ブロック：確実に攻撃であるリクエストを、異常スコアに関係なくブロック）：
 
 - `target`：`path`（デフォルト。URL デコード、正規化、小文字化。0.4.93 から生のパスも検査し、libmodsecurity 3.0.9 がエンコードされた「?」で切ったパスも見えます）、`uri`（パスとクエリ、小文字化）、`raw_uri` (0.4.93：送られたままのリクエストターゲット、デコードなし、小文字化)、`ua`
-  （User-Agent）、`host`、または `header`（このとき `header` で名前を指定。例：`X-Api-Version`）。
+  （User-Agent）、`host`、`header`（このとき `header` で名前を指定。例：`X-Api-Version`）、`arg_name` (0.5.8：クエリ文字列または本文のパラメーター名、小文字化。正規表現は `^` と `$` で囲む)、
+  または `arg` (0.5.33：`arg` で指定したパラメーターの値。クエリ文字列またはフォーム本文、小文字化。複数の名前は `|` 区切りで最大 12 個。例：`api|compound`)。`arg_name` と `arg` は本文を読んだ後に検査し、証拠チェックはありません (アクセスログに本文がないため)。
 - `regex`：必須、1000 文字まで、ダブルクォートと改行は不可。空文字列にマッチする（`matches_empty`）、ほぼすべての通常の
   リクエストにマッチする（`too_broad`）、破滅的なバックトラックのおそれがある（`redos_shape`、`redos_runtime`）場合は
   拒否されます。

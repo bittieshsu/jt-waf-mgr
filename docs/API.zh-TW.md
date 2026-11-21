@@ -43,7 +43,7 @@
 
 - `status:read`：`GET /status`、`GET /health`、`GET /readiness`、`GET /waf/pause`。
 - `events:read`：事件、事件統計、時間軸、總覽、NDJSON 匯出。
-- `rules:read`：規則、規則命中、站台（vhost）、CRS 狀態與更新、WAF 判斷流程、受管理規則檔。
+- `rules:read`：規則、規則命中、站台（vhost）、CRS 狀態與更新、WAF 判斷流程、受管理規則檔、CrowdSec 規則、防護組合。
 - `lookups:read`：IP 查詢與 GeoIP 查詢。
 - `changes:read`：變更、版本、警示、事件分析記錄、回歸測試樣本。
 - `changes:propose`：提出變更（`POST /changes`、`POST /changes/preview`、`POST /rules/toggle`），永遠不能核准。
@@ -181,6 +181,15 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 壓縮檔，或 CRS 發行檔與簽章) 分段送出，每段最多 600 KB：`POST /uploads` (管理者：`kind` 為 `hub` 或 `crs`、
 `name`、`size`、`sha256`)、`POST /uploads/{id}/chunk` (`index`、base64 的 `data`)、`POST /uploads/{id}/finish`
 (CRS 發行檔另帶簽章文字 `asc`)；處理前會先核對大小與 SHA-256。
+
+**`GET /protsets`**：scope `rules:read`。應用程式防護組合 (0.5.33；第一組是 Synology DSM)：`adopted` 與 `sets`
+(`id`、`app`、`rule_count`、`sites`：軟體清單列出這個應用程式的每個站台，含 `host` 與 `rules`：`id`、`state`
+(`available`、`applied`、`update` (這一版寫法不同)、`disabled`、`pending` 與 `change_id`)、`default` (建議)、
+`needs` 與 `needs_missing` (規則相關的套件、此站台未列出的)、`target`、`arg`、`regex`、`cves`、`refs`、已套用時的
+`rule_id`)。**`POST /protsets/propose`**：scope `changes:propose`；`{"set": "synology-dsm", "host": "nas.example.com",
+"rules": ["admin-api", ...]}` 把勾選的規則提出成一筆整批變更 (每條是限定該站台的確定封鎖，`protset` 為
+"<組合>/<規則>"，自帶沙箱測試)；回 202 與 `change_id`。已套用或等待中的規則會略過 (全部略過時回 `nothing_to_do`，409)；
+另有 `host_not_listed`、`unknown_set`、`unknown_rule`；納管前回 `not_adopted` (409)。
 
 **`GET /nginx/update`**：scope `rules:read`。nginx 現在與下次系統更新後能不能載入 ModSecurity 模組 (`level`、
 `reason`、`modules`、`hand_built`、`package`、`installed`、`candidate`、`held`)，以及上次用下一版 nginx 套件試新模組的
@@ -336,7 +345,8 @@ curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
 **種類 `confident_block`**（確定封鎖：確定是攻擊的請求直接封鎖，不看異常分數）：
 
 - `target`：`path`（預設；URL 解碼、正規化、轉小寫；0.4.93 起也看原始路徑，libmodsecurity 3.0.9 在編碼問號截斷的路徑也看得到）、`uri`（路徑加查詢字串，轉小寫）、`raw_uri` (0.4.93：原始請求目標，不解碼，轉小寫)、`ua`（User-Agent）、`host`，
-  或 `header`（這時用 `header` 指定名稱，例如 `X-Api-Version`）。
+  `header`（這時用 `header` 指定名稱，例如 `X-Api-Version`）、`arg_name` (0.5.8：查詢字串或內容裡的參數名稱，轉小寫；正規表示式以 `^` 開頭、`$` 結尾)，
+  或 `arg` (0.5.33：`arg` 指定的參數的值，查詢字串或表單內容，轉小寫；多個名稱用 `|` 分隔，最多 12 個，例如 `api|compound`)。`arg_name` 與 `arg` 在讀完內容後檢查，沒有證據檢查 (存取記錄沒有請求內容)。
 - `regex`：必填，最多 1000 字，不可有雙引號或換行。比對到空字串（`matches_empty`）、幾乎比對到所有一般請求
   （`too_broad`），或可能造成災難性回溯（`redos_shape`、`redos_runtime`）時會被拒絕。
 - `msg`：必填，最多 100 字，不可有引號或反斜線。規則訊息會是 `jt confident block: <msg>`。
