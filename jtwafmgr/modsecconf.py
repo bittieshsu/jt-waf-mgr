@@ -194,6 +194,7 @@ class ModsecConfig:
         self.inline_settings = []
         self.errors = []
         self.files = {}
+        self.globs = {}      # include pattern -> the files it matched
         self.warnings = []
         self.main_files = []
         seen_main = set()
@@ -219,7 +220,12 @@ class ModsecConfig:
     def _load(self, path, depth):
         if depth > 10:
             return
-        for f in sorted(glob.glob(path)) if glob.has_magic(path) else [path]:
+        if glob.has_magic(path):
+            found = sorted(glob.glob(path))
+            self.globs[path] = tuple(found)
+        else:
+            found = [path]
+        for f in found:
             if f in self.files:
                 continue
             try:

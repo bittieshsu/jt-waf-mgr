@@ -169,7 +169,7 @@ class Monitor:
 
     # --- configuration fingerprint ----------------------------------------------------------------
     def config_files(self):
-        n, m = self.app.site.load()
+        n, m = self.app.site.load(fresh=True)
         files = set(n.files) | set(m.files)
         files.add(self.cfg['paths']['nginx_bin'])
         try:

@@ -23,6 +23,7 @@ ModSecurity のメイン設定ファイルを見つけるため）、`nginx -t` 
 
 - Debian 12 / 13：`libnginx-mod-http-modsecurity`。libmodsecurity 3.0.9 以上が一緒にインストールされます。
 - Ubuntu 24.04：`libnginx-mod-http-modsecurity`。libmodsecurity 3.0.12（パッケージ名 `libmodsecurity3t64`）。
+- Ubuntu 26.04：`libnginx-mod-http-modsecurity`。libmodsecurity 3.0.14（パッケージ名 `libmodsecurity3t64`）。
 - Ubuntu 22.04：パッケージの libmodsecurity が 3.0.9 未満です。24.04 を使うか、自分でビルドしてください。
 
 新しいホスト（`--no-install-recommends`：コネクターはディストリビューションの CRS 3 を推奨パッケージにしており、既定では一緒に

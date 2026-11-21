@@ -59,7 +59,7 @@ class TestHealth(unittest.TestCase):
             'engine_mode': 'DetectionOnly', 'rule_count': 600, 'version': '4.30.0'})
         orig = self.app.site.load
         self.addCleanup(setattr, self.app.site, 'load', orig)
-        self.app.site.load = lambda: (None, m)
+        self.app.site.load = lambda fresh=False: (None, m)
         c = health._modsecurity(self.app)
         self.assertEqual((c['status'], c['blocking_rules']), ('ok', 1))
         m.rules = [NS(actions=[('id', '10150'), ('ctl', 'ruleRemoveById=942100')])]

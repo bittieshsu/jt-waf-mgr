@@ -25,6 +25,7 @@ back on failure):
 
 - Debian 12 / 13: `libnginx-mod-http-modsecurity`; libmodsecurity 3.0.9 or later comes with it.
 - Ubuntu 24.04: `libnginx-mod-http-modsecurity`; libmodsecurity 3.0.12 (package `libmodsecurity3t64`).
+- Ubuntu 26.04: `libnginx-mod-http-modsecurity`; libmodsecurity 3.0.14 (package `libmodsecurity3t64`).
 - Ubuntu 22.04: its libmodsecurity is older than 3.0.9; use 24.04 or build it yourself.
 
 A new host (`--no-install-recommends`: the connector recommends the distribution's CRS 3, which apt would otherwise

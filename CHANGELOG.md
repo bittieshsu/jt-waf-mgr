@@ -2,6 +2,12 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.29 (2026-11-21)
+
+- A vhost file added to an include directory by hand (a new site in `sites-enabled/`) was not seen by the web service: its cached view of the nginx configuration was re-read only when a file it already knew changed, so the site list missed the new site and, when a command-line check saw it, the outside-change record flapped between "added" and "removed" with one critical alert each time. The view now also notices files appearing in or leaving an include pattern, and the configuration fingerprint always looks at the files as they are.
+- Outside changes, who was logged in: OpenSSH 10 (Ubuntu 26.04, Debian 13) logs sessions as `sshd-session[…]`; these lines were skipped, so every change on such a host said no login was recorded.
+- ModSecurity manual: the Ubuntu 26.04 package line (libmodsecurity 3.0.14, `libmodsecurity3t64`).
+
 ## 0.5.28 (2026-11-21)
 
 - Threat intelligence, this host's packages: when several installed packages give one product, the newest version stands for it. A host upgraded from Debian 11 keeps the old `libssl1.1` (1.1.1w) next to `libssl3` (3.0.22); taken in name order the old library won, so OpenSSL was listed and searched as 1.1.1w and its advisories were judged against a library nginx does not load. An entry guessed this way follows the newest package at the next run; one a person typed is left as it is.

@@ -81,6 +81,7 @@ class NginxConfig:
         self.main = main_path
         self.prefix = os.path.dirname(main_path)
         self.files = {}      # path -> mtime
+        self.globs = {}      # include pattern -> the files it matched (a new vhost changes no known file's mtime)
         self.errors = []
         self.max_files = max_files
         self.tree = self._parse_file(main_path, depth=0)
@@ -89,7 +90,9 @@ class NginxConfig:
         if not os.path.isabs(pattern):
             pattern = os.path.join(self.prefix, pattern)
         if glob.has_magic(pattern):
-            return sorted(glob.glob(pattern))
+            found = sorted(glob.glob(pattern))
+            self.globs[pattern] = tuple(found)
+            return found
         return [pattern]
 
     def _parse_file(self, path, depth):

@@ -20,6 +20,7 @@ ModSecurity 模組、`modsecurity.conf` 與主設定檔（第 1–5 節）；OWA
 
 - Debian 12 / 13：`libnginx-mod-http-modsecurity`，libmodsecurity 3.0.9 以上隨套件安裝。
 - Ubuntu 24.04：`libnginx-mod-http-modsecurity`，libmodsecurity 3.0.12（套件名稱 `libmodsecurity3t64`）。
+- Ubuntu 26.04：`libnginx-mod-http-modsecurity`，libmodsecurity 3.0.14（套件名稱 `libmodsecurity3t64`）。
 - Ubuntu 22.04：套件的 libmodsecurity 低於 3.0.9，請改用 24.04 或自行編譯。
 
 全新主機（`--no-install-recommends`：連接器把發行版的 CRS 3 列為建議套件，預設會一起裝進來）：

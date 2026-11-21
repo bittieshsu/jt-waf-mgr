@@ -67,6 +67,18 @@ class TestSessions(unittest.TestCase):
             fh.write('noise\n')
         self.assertEqual(logins.sessions(['/nonexistent'], 0, time.time()), ([], []))
 
+    def test_openssh_10_sshd_session_lines(self):
+        # OpenSSH 10 (Ubuntu 26.04, Debian 13) logs the session as sshd-session[pid], with UTC ISO stamps
+        utc = datetime.datetime.fromtimestamp(self.t0 + 5, datetime.timezone.utc)
+        with open(self.log, 'w') as fh:
+            fh.write('%s host1 sshd-session[41]: Accepted publickey for root from 192.0.2.30 port 3 ssh2: %s\n'
+                     % (utc.isoformat(), KEY))
+            fh.write('%s host1 sshd-session[41]: pam_unix(sshd:session): session closed for user root\n'
+                     % (utc + datetime.timedelta(seconds=30)).isoformat())
+        found, _ = logins.sessions([self.log], self.t0, self.t0 + 60, slack=0)
+        self.assertEqual([(s['user'], s['from'], s['key']) for s in found], [('root', '192.0.2.30', KEY)])
+        self.assertAlmostEqual(found[0]['end'], self.t0 + 35, delta=1)
+
 
 class TestOutsideChange(unittest.TestCase):
     def setUp(self):

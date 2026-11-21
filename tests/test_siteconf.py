@@ -60,6 +60,30 @@ class TestNginx(unittest.TestCase):
             n = NginxConfig(p)
             self.assertTrue(n.errors)
 
+    def test_new_file_in_an_include_directory_is_seen(self):
+        # 0.5.29: a vhost added to sites-enabled/ changes no known file's mtime; the cached view must still re-read
+        from jtwafmgr.site import Site
+        with tempfile.TemporaryDirectory() as d:
+            os.mkdir(os.path.join(d, 'sites'))
+            main = os.path.join(d, 'nginx.conf')
+            with open(main, 'w') as fh:
+                fh.write('http { include %s/sites/*.conf; }\n' % d)
+            with open(os.path.join(d, 'sites', 'a.conf'), 'w') as fh:
+                fh.write('server { listen 443; server_name a.example.com; }\n')
+            from tests.helpers import TempEnv
+            env = TempEnv()
+            self.addCleanup(env.cleanup)
+            env.cfg.data['paths']['nginx_conf'] = main
+            site = Site(env.cfg)
+            self.assertEqual(len(site.load()[0].files), 2)
+            new = os.path.join(d, 'sites', 'b.conf')
+            with open(new, 'w') as fh:
+                fh.write('server { listen 443; server_name b.example.com; }\n')
+            self.assertEqual(len(site.load()[0].files), 2)                 # within check_every: the cached view
+            self.assertIn(new, site.load(fresh=True)[0].files)            # what the fingerprint uses
+            os.remove(new)
+            self.assertNotIn(new, site.load(fresh=True)[0].files)
+
     def test_include_loop_is_bounded(self):
         with tempfile.TemporaryDirectory() as d:
             p = os.path.join(d, 'nginx.conf')

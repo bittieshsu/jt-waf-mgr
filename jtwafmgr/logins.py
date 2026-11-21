@@ -17,8 +17,8 @@ import re
 SYSLOG_TS = re.compile(r'^([A-Z][a-z]{2})\s+(\d{1,2}) (\d{2}):(\d{2}):(\d{2}) \S+ ')
 ISO_TS = re.compile(r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.\d+)?([+-]\d{2}:?\d{2}|Z)? \S+ ')
 MONTHS = {m: i for i, m in enumerate(('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'), 1)}
-ACCEPTED = re.compile(r'sshd\[(\d+)\]: Accepted (\S+) for (\S+) from (\S+) port \d+(?: \w+)?(?:: (\S+) (\S+))?')
-CLOSED = re.compile(r'sshd\[(\d+)\]: pam_unix\(sshd:session\): session closed for user (\S+)')
+ACCEPTED = re.compile(r'sshd(?:-session)?\[(\d+)\]: Accepted (\S+) for (\S+) from (\S+) port \d+(?: \w+)?(?:: (\S+) (\S+))?')
+CLOSED = re.compile(r'sshd(?:-session)?\[(\d+)\]: pam_unix\(sshd:session\): session closed for user (\S+)')
 SUDO = re.compile(r'sudo(?:\[\d+\])?: +(\S+) : (?:.*?; )?(?:PWD=([^;]*) ; )?USER=(\S+) ; COMMAND=(.*)$')
 SU = re.compile(r'\bsu(?:\[\d+\])?: \(to (\S+)\) (\S+) on (\S+)')
 MAX_BYTES = 32 * 1024 * 1024        # never read more than this from one file
