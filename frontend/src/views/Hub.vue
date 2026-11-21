@@ -23,14 +23,18 @@
           <div class="kvpanel">
             <h3><Icon name="code" />{{ t('hub.g_source') }}</h3>
             <dl class="kv">
-              <dt>{{ t('hub.sync') }}</dt><dd><span class="badge" :class="data.enabled ? 'b-ok' : 'b-logged'">{{ data.enabled ? t('hub.on') : t('hub.off') }}</span>
-                <RouterLink v-if="isAdmin && !data.enabled" class="gapl" to="/admin/settings#uiset-hub">{{ t('hub.where_on') }}</RouterLink></dd>
+              <dt class="sw">{{ t('hub.sync') }}</dt><dd>
+                <!-- 0.5.32: turned on here, not only on the settings page -->
+                <label v-if="isAdmin" class="switch"><input id="hub-enabled" type="checkbox" :checked="data.enabled" :disabled="busy" @change="setEnabled($event.target.checked)">
+                  <span class="knob" aria-hidden="true"></span><span>{{ data.enabled ? t('hub.on') : t('hub.off') }}</span></label>
+                <span v-else class="badge" :class="data.enabled ? 'b-ok' : 'b-logged'">{{ data.enabled ? t('hub.on') : t('hub.off') }}</span>
+                <div v-if="isAdmin && !data.enabled" class="muted small">{{ t('hub.enable_hint') }}</div></dd>
               <dt>{{ t('hub.commit') }}</dt><dd><a v-if="data.commit" class="mono" :href="'https://github.com/crowdsecurity/hub/commit/' + data.commit" target="_blank" rel="noopener noreferrer">{{ data.commit.slice(0, 12) }}</a><span v-else class="muted">—</span>
                 <span v-if="data.source" class="muted small gapl">{{ sourceText(data.source) }}</span></dd>
               <dt>{{ t('hub.synced_at') }}</dt><dd>{{ data.synced_at ? fmtMinute(data.synced_at) : '—' }}
-                <span v-if="data.requested" class="badge b-warn gapl">{{ t('hub.requested') }}</span></dd>
+                <span v-if="data.requested" class="badge b-warn gapl"><Spinner />{{ t('hub.requested') }}</span></dd>
               <dt>{{ t('hub.last_run') }}</dt><dd><template v-if="data.status && data.status.state">
-                <span class="badge" :class="data.status.state === 'error' ? 'b-blocked' : data.status.state === 'ok' ? 'b-ok' : 'b-logged'">{{ tOr('hub.state.' + data.status.state, data.status.state) }}</span>
+                <span class="badge" :class="data.status.state === 'error' ? 'b-blocked' : data.status.state === 'ok' ? 'b-ok' : 'b-logged'"><Spinner v-if="hubBusy" />{{ tOr('hub.state.' + data.status.state, data.status.state) }}</span>
                 <span class="muted small gapl">{{ fmtMinute(data.status.at) }}</span>
                 <div v-if="data.status.error" class="small warn">{{ safeText(data.status.error, 300) }}</div></template><span v-else class="muted">—</span></dd>
             </dl>
@@ -43,12 +47,12 @@
           </div>
         </div>
         <div v-if="isAdmin" class="actions hubacts">
-          <button type="button" class="btn primary" :disabled="busy || !data.enabled || data.requested" :title="data.enabled ? '' : t('hub.sync_off_hint')" @click="syncNow"><Icon name="refresh" />{{ t('hub.sync_now') }}</button>
+          <button type="button" class="btn primary" :disabled="busy || !data.enabled || data.requested" :title="data.enabled ? '' : t('hub.sync_off_hint')" @click="syncNow"><Spinner v-if="data.requested || hubBusy" /><Icon v-else name="refresh" />{{ t('hub.sync_now') }}</button>
           <label class="btn ghost filebtn"><Icon name="upload" />{{ t('hub.upload') }}
             <input type="file" accept=".zip,.tar.gz,.tgz,application/zip,application/gzip" :disabled="busy" @change="upload"></label>
         </div>
         <p v-if="isAdmin" class="muted small uphint">{{ t('hub.upload_hint') }}</p>
-        <p v-if="progress" class="small" role="status"><Icon name="timer" /> {{ progress }}</p>
+        <p v-if="progress" class="small busyline" role="status"><Spinner v-if="busy" /><Icon v-else name="timer" /> {{ progress }}</p>
         <ErrorBox :error="actionError" />
       </section>
 
@@ -184,12 +188,13 @@
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { get, post } from '../api.js'
+import { get, patch, post } from '../api.js'
 import { t, tOr } from '../i18n.js'
 import { hasRole } from '../store.js'
 import { fmtMinute, fmtNum, safeText } from '../util.js'
 import { uploadInParts } from '../upload.js'
 import Icon from '../components/Icon.vue'
+import Spinner from '../components/Spinner.vue'
 import Loading from '../components/Loading.vue'
 import ErrorBox from '../components/ErrorBox.vue'
 import DataTable from '../components/DataTable.vue'
@@ -303,6 +308,11 @@ function useText(r) {
 const refuseCount = (d) => (d.tests || []).filter((x) => (x.expect || 'refuse') === 'refuse').length
 const passCount = (d) => (d.tests || []).filter((x) => x.expect === 'pass').length
 function sourceText(s) { return s === 'github' ? t('hub.from_github') : t('hub.from_upload', { name: safeText(s.replace(/^upload:?/, ''), 100) }) }
+async function setEnabled(on) {
+  busy.value = true
+  actionError.value = null
+  try { await patch('/settings/ui', { 'hub.enabled': on }); await load() } catch (e) { actionError.value = e } finally { busy.value = false }
+}
 async function load() {
   try { data.value = await get('/hub'); error.value = null } catch (e) { error.value = e }
 }
@@ -389,7 +399,9 @@ async function upload(ev) {
   } catch (e) { actionError.value = e; progress.value = '' } finally { busy.value = false; load() }
 }
 let timer = null
-onMounted(() => { load(); timer = setInterval(() => { if (data.value && data.value.requested) load() }, 5000) })
+// 0.5.32: a sync asked for or under way shows a spinner, and the page follows it until it ends
+const hubBusy = computed(() => !!(data.value && data.value.status && data.value.status.state && !['ok', 'error'].includes(data.value.status.state)))
+onMounted(() => { load(); timer = setInterval(() => { if (data.value && (data.value.requested || hubBusy.value)) load() }, 5000) })
 // "sync now" / an upload: keep looking until the job has answered
 onUnmounted(() => clearInterval(timer))
 </script>

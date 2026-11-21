@@ -41,7 +41,9 @@
       <section v-if="canApprove || canReject || canCancel || canRecheck" class="card form">
         <h2><Icon name="approve" /> {{ t('change.actions') }}</h2>
         <p v-if="c.direction === 'loosen' && c.state === 'pending_approval'" class="muted small">{{ t('wizard.loosen_note') }}</p>
-        <p v-if="own && canApprove" class="alert info">{{ t('change.own_note') }}</p>
+        <p v-if="own && canApprove" class="alert info ownnote">{{ t('change.own_note') }}
+          <!-- 0.5.32: the note names single-admin mode; take the administrator to where it is turned on -->
+          <RouterLink v-if="hasRole('admin')" class="btn small" :to="{ path: '/admin/settings', hash: '#workflow-settings' }"><Icon name="settings" />{{ t('change.own_where') }}</RouterLink></p>
         <p v-if="fromAnalyst && c.direction !== 'tighten' && canApprove" class="alert warn">{{ t('change.analyst_loosen_note') }}</p>
         <p v-if="strict && c.direction !== 'tighten' && c.state === 'pending_approval'" class="alert warn">{{ t('change.strict_note') }}</p>
         <p v-if="c.op === 'nginx' && canApprove" class="alert info">{{ t('change.nginx_note') }}</p>
@@ -57,6 +59,8 @@
         <p v-if="noteShort" class="needs-more"><Icon name="warning" />{{ t('change.note_min', { n: c.approval_needs.note_min, have: note.trim().length }) }}</p>
         <p v-else-if="otpMissing" class="needs-more"><Icon name="warning" />{{ t('change.otp_missing') }}</p>
         <ErrorBox :error="actionError" />
+        <p v-if="actionError && actionError.code === 'own_change' && hasRole('admin')" class="small">
+          <RouterLink class="btn small" :to="{ path: '/admin/settings', hash: '#workflow-settings' }"><Icon name="settings" />{{ t('change.own_where') }}</RouterLink></p>
         <div class="actions">
           <button v-if="canApprove" type="button" class="btn primary" :disabled="busy || noteShort || otpMissing" @click="act('approve', { note, totp })"><Icon name="approve" />{{ t('change.approve') }}</button>
           <button v-if="canReject" type="button" class="btn danger" :disabled="busy || !note.trim()" :title="t('change.note_required')" @click="act('reject', { note })"><Icon name="reject" />{{ t('change.reject') }}</button>
@@ -287,5 +291,7 @@ onUnmounted(() => clearTimeout(timer))
 </script>
 
 <style scoped>
+.ownnote { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.ownnote .btn { margin-left: auto; }
 .guide { display: flex; flex-direction: column; gap: 12px; }
 </style>

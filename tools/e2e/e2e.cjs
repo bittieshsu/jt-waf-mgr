@@ -339,10 +339,15 @@ async function audit(page, where) {
   const rItem = page.locator('section.readiness .readylist li', { hasText: 'CrowdSec' }).first();
   ok((await rItem.count()) === 1, 'dashboard: CrowdSec off is named');
   await rItem.locator('a.btn').click();
-  await page.waitForURL(/\/admin\/settings/, { timeout: 8000 }).catch(() => {});
-  await page.waitForSelector('#uiset-hub', { state: 'visible', timeout: 8000 }).catch(() => {});
-  ok(/#uiset-hub$/.test(page.url()) && await page.locator('#uiset-hub').isVisible(), 'dashboard: the setup link opens the CrowdSec settings card (' + page.url().replace(base, '') + ')');
-  ok((await setHub(true)) === 200, 'dashboard: CrowdSec back on');
+  await page.waitForURL(/\/crowdsec/, { timeout: 8000 }).catch(() => {});
+  await page.waitForSelector('#hub-enabled', { timeout: 8000 }).catch(() => {});
+  ok(/\/crowdsec$/.test(page.url()) && !(await page.locator('#hub-enabled').isChecked()), 'dashboard: the setup link opens the CrowdSec page, its switch off (' + page.url().replace(base, '') + ')');
+  // 0.5.32: turned on right there, not on the settings page
+  await page.locator('label.switch:has(#hub-enabled)').click();
+  await page.waitForFunction(() => document.querySelector('#hub-enabled') && document.querySelector('#hub-enabled').checked, null, { timeout: 8000 }).catch(() => {});
+  ok(await page.locator('#hub-enabled').isChecked() && (await page.evaluate(async () => (await (await fetch('/api/v1/hub')).json()).enabled)) === true,
+     'crowdsec: the switch on the page turns CrowdSec on');
+  if (!(await page.evaluate(async () => (await (await fetch('/api/v1/hub')).json()).enabled))) await setHub(true);
   // "someone was blocked": an address goes to the address lookup
   await page.goto(base + '/events', { waitUntil: 'networkidle' });
   await page.fill('.findvisit input', '203.0.113.9');
@@ -789,6 +794,11 @@ async function audit(page, where) {
   await page.locator('.hubbatch button', { hasText: '套用勾選的 2 條' }).click();
   await page.waitForSelector('.hubbatch .alert.error', { timeout: 8000 }).catch(() => {});
   ok((await page.locator('.hubbatch .alert.error').count()) === 1, 'crowdsec: applying several reaches the workflow as one change (not adopted here: refused)');
+  // 0.5.32: a sync asked for shows a spinner (nothing runs the job here, so it stays asked for)
+  await page.locator('.hubacts button.primary').click();
+  await page.waitForSelector('.badge .spinner', { timeout: 8000 }).catch(() => {});
+  ok((await page.locator('.badge .spinner').count()) >= 1 && (await page.locator('.hubacts button.primary .spinner').count()) === 1,
+     'crowdsec: a requested sync shows a spinner on its badge and button');
   // 0.4.96: a filter set to something has a "×" back to "all"
   await page.goto(base + '/rules', { waitUntil: 'networkidle' });
   const fsel = page.locator('.filters .selectbox').first();

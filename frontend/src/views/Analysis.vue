@@ -47,8 +47,8 @@
             <dt>{{ t('analysis.proposal_rules') }}</dt><dd>{{ t('analysis.proposal_rules_v', { c: st.min_confidence, m: st.max_proposals }) }}</dd>
             <dt>{{ t('analysis.next_run') }}</dt>
             <dd>{{ st.next_due ? t('analysis.next_run_v', { at: fmtMinute(st.next_due) }) : '—' }}
-              <span v-if="st.running" class="badge b-int gapl">{{ t('analysis.running') }}</span>
-              <span v-else-if="st.requested" class="badge b-int gapl">{{ t('analysis.requested') }}</span></dd>
+              <span v-if="st.running" class="badge b-int gapl"><Spinner />{{ t('analysis.running') }}</span>
+              <span v-else-if="st.requested" class="badge b-int gapl"><Spinner />{{ t('analysis.requested') }}</span></dd>
             <dt>{{ t('analysis.last_run') }}</dt>
             <dd><template v-if="st.last_run"><RouterLink :to="'/analysis/' + st.last_run.id">{{ fmtMinute(st.last_run.started_at) }}</RouterLink>
               <span class="badge gapl" :class="st.last_run.error ? 'b-blocked' : 'b-ok'">{{ st.last_run.error ? t('analysis.failed') : t('analysis.ok') }}</span></template>
@@ -118,7 +118,7 @@
       <template #cell-model="{ row }"><span class="mono">{{ safeText(row.model, 60) }}</span></template>
       <template #cell-verdicts="{ row }"><span class="small">{{ verdictText(row.verdicts) }}</span></template>
       <template #cell-seconds="{ row }"><span class="nowrap">{{ durText(row.seconds) }}</span></template>
-      <template #cell-result="{ row }"><span class="badge" :class="row.error ? 'b-blocked' : row.finished_at ? 'b-ok' : 'b-int'">{{ row.error ? t('analysis.failed') : row.finished_at ? t('analysis.ok') : t('analysis.running') }}</span>
+      <template #cell-result="{ row }"><span class="badge" :class="row.error ? 'b-blocked' : row.finished_at ? 'b-ok' : 'b-int'"><Spinner v-if="!row.error && !row.finished_at" />{{ row.error ? t('analysis.failed') : row.finished_at ? t('analysis.ok') : t('analysis.running') }}</span>
         <div v-if="row.error" class="sub"><TruncText :text="row.error" :max="120" /></div></template>
     </DataTable>
 
@@ -259,6 +259,7 @@ import Loading from '../components/Loading.vue'
 import TruncText from '../components/TruncText.vue'
 import StateBadge from '../components/StateBadge.vue'
 import Icon from '../components/Icon.vue'
+import Spinner from '../components/Spinner.vue'
 import DataTable from '../components/DataTable.vue'
 import FlowSteps from '../components/FlowSteps.vue'
 import SegBar from '../components/charts/SegBar.vue'

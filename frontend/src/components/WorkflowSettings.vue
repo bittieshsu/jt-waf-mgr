@@ -1,5 +1,5 @@
 <template>
-  <section class="card form">
+  <section id="workflow-settings" class="card form">
     <h2><Icon name="settings" /> {{ t('wfs.title') }}</h2>
     <ErrorBox :error="error" />
     <template v-if="s">
@@ -65,7 +65,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import { get, patch } from '../api.js'
 import { t } from '../i18n.js'
 import ErrorBox from './ErrorBox.vue'
@@ -84,8 +85,11 @@ function set(r) {
   urls.value = (r.settings['health.urls'] || []).join('\n')
   sandboxAvailable.value = !!r.sandbox_available
 }
+const route = useRoute()
 async function load() {
   try { set(await get('/workflow/settings')) } catch (e) { error.value = e }
+  // opened with #workflow-settings (the dashboard's single-admin hint): bring the card into view once it is drawn
+  if (route.hash === '#workflow-settings') { await nextTick(); document.getElementById('workflow-settings')?.scrollIntoView({ block: 'start' }) }
 }
 async function save() {
   busy.value = true

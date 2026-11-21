@@ -181,7 +181,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 
 **`GET /readiness`**: scope `status:read`. What is not installed or not turned on yet, as the dashboard shows it:
 `items`, each with `key`, `level` (`important` or `suggested`, important first) and `link` (the page where it is set
-up; `hash` the settings card). Keys: `crs_missing`, `not_adopted`, `no_waf_site`, `apply_off`, `notify_off`, `hub_off`;
+up; `hash` the settings card). Keys: `crs_missing`, `not_adopted`, `no_waf_site`, `crs_staged` (downloaded, not installed), `crs_pending` (an installation waits for approval), `single_admin_off`, `apply_off`, `notify_off`, `hub_off`;
 suggested `analyst_off`, `intel_off`, `iprep_off`, `countries_off`, `blocks_off`. An empty list: nothing is missing.
 
 **`GET /waf/pause`**: scope `status:read`. Whether the WAF is paused for troubleshooting (ModSecurity detecting

@@ -31,7 +31,8 @@ class TestReadiness(unittest.TestCase):
         levels = [i['level'] for i in items]
         self.assertEqual(levels, sorted(levels, key=lambda x: x != 'important'))   # important first
         hub = next(i for i in items if i['key'] == 'hub_off')
-        self.assertEqual((hub['link'], hub['hash']), ('/admin/settings', '#uiset-hub'))
+        self.assertEqual(hub['link'], '/crowdsec')                    # 0.5.32: turned on on its own page
+        self.assertNotIn('single_admin_off', keys(items))             # no approver at all here: not this case
 
     def test_turned_on_features_drop_out(self):
         c = self.app.cfg.data
@@ -59,6 +60,31 @@ class TestReadiness(unittest.TestCase):
         self.assertEqual(keys(items, 'important')[:2], ['crs_missing', 'not_adopted'])
         self.assertIn('no_waf_site', keys(items, 'important'))
         self.assertIn('apply_off', keys(items, 'important'))          # installed, apply path not armed here
+
+    def test_crs_progress_and_single_admin(self):
+        import json
+        from jtwafmgr import crsupdate
+        with tempfile.TemporaryDirectory() as d:
+            conf = os.path.join(d, 'nginx.conf')
+            with open(conf, 'w') as fh:
+                fh.write('http { server { listen 443; server_name a.example.com; } }\n')
+            self.app.cfg.data['paths']['nginx_conf'] = conf
+            self.app.site._nginx = None
+            self.app.cfg.data['crs']['manage'] = True
+            os.makedirs(self.app.cfg['crs']['dir'], exist_ok=True)
+            with open(crsupdate.status_path(self.app.cfg), 'w') as fh:
+                json.dump({'state': 'ready', 'staged': {'version': '4.30.0'}}, fh)
+            it = readiness.items(self.app, installed=False)[0]
+            self.assertEqual((it['key'], it['details']), ('crs_staged', {'version': '4.30.0'}))
+            self.app.db.x("INSERT INTO changes(op, kind, spec, direction, state, proposed_by, created_at, updated_at) "
+                          "VALUES ('crs', 'crs', '{}', 'neutral', 'proposed', 'solo', 0, 0)")
+            it = readiness.items(self.app, installed=False)[0]
+            self.assertEqual(it['key'], 'crs_pending')
+            self.assertTrue(it['link'].startswith('/changes/'))
+        self.app.auth.create_user('solo', 'admin', password='Solo-Passw0rd-1')
+        self.assertIn('single_admin_off', keys(readiness.items(self.app, installed=False), 'important'))
+        self.app.workflow.set_setting('approval.single_admin_mode', True, 'test')
+        self.assertNotIn('single_admin_off', keys(readiness.items(self.app, installed=False)))
 
 
 if __name__ == '__main__':

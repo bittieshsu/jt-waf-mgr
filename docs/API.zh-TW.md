@@ -165,7 +165,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 
 **`GET /readiness`**：scope `status:read`。還沒安裝或還沒啟用的功能，與儀表板顯示的相同：`items`，每項有 `key`、
 `level` (`important` 重要或 `suggested` 建議，重要的在前) 與 `link` (設定的頁面；`hash` 是設定卡片)。key：`crs_missing`、
-`not_adopted`、`no_waf_site`、`apply_off`、`notify_off`、`hub_off`；建議的有 `analyst_off`、`intel_off`、`iprep_off`、
+`not_adopted`、`no_waf_site`、`crs_staged` (已下載未安裝)、`crs_pending` (安裝等待核准)、`single_admin_off`、`apply_off`、`notify_off`、`hub_off`；建議的有 `analyst_off`、`intel_off`、`iprep_off`、
 `countries_off`、`blocks_off`。清單是空的表示都設定好了。
 
 **`GET /waf/pause`**：scope `status:read`。WAF 是否為了排查而暫停 (ModSecurity 只偵測)：`active`、`all` (全部

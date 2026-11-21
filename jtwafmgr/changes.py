@@ -819,8 +819,8 @@ class Workflow:
         if mode not in ('install', 'rollback', 'first_install') or not crsupdate.vtuple(str(version or '')):
             raise ChangeError('invalid_crs_request', 422)
         reason = (reason or '').strip()
-        if not reason or len(reason) > 2000:
-            raise ChangeError('reason_required')
+        if len(reason) > 2000:              # 0.5.32: optional (the user: no minimum); the approval keeps its own note
+            raise ChangeError('reason_too_long')
         open_ = self.db.one("SELECT id FROM changes WHERE op='crs' AND state NOT IN (%s)" % ','.join('?' * len(FINAL)), FINAL)
         if open_:
             raise ChangeError('crs_change_pending', 409, change_id=open_[0])

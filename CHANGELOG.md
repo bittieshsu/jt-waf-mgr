@@ -2,6 +2,14 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.32 (2026-11-21)
+
+- CrowdSec page: the sync is turned on and off right there (administrators), not only on the settings page; the dashboard's hint leads to it.
+- Dashboard hints: a CRS that is downloaded and verified but not installed says so and what is left (a reason, "compare in the sandbox and propose", the approval), and a proposed installation names its change; the CRS page's switch only turns on the downloads. One person who can approve with single-admin mode off is an important item: every change would wait for ever.
+- Change page: the note that only single-admin mode lets you approve your own change, and the refusal, link to where it is turned on.
+- A request under way shows a spinner: the CrowdSec sync (its badges and button), the CRS check and upload, the event analysis.
+- CRS page: the reason for a switch is optional, and the proposal stands apart from the offline upload with room around its button.
+
 ## 0.5.31 (2026-11-21)
 
 - Dashboard: when something important is not installed or not turned on, a card at the top names it, says why it matters and links to where it is set up: OWASP CRS not installed, the ModSecurity configuration not adopted, no site with the WAF on, the apply program not enabled, notifications off, CrowdSec virtual patching off. Features worth turning on (event analysis, threat intelligence, IP reputation, country lists, temporary IP blocks) are folded inside it. A fully set-up host shows nothing. `GET /api/v1/readiness` gives the same list.

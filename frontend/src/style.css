@@ -1151,6 +1151,7 @@ dl.facts dd { margin: 0; min-width: 0; display: flex; flex-wrap: wrap; align-ite
 .spinner { display: inline-block; flex: none; width: 1em; height: 1em; border-radius: 50%; vertical-align: -.15em;
   border: 2px solid color-mix(in srgb, var(--accent) 22%, transparent); border-top-color: var(--accent); animation: spin .8s linear infinite; }
 .spinner.big { width: 1.6em; height: 1.6em; border-width: 3px; }
+.badge > .spinner, .busyline > .spinner { width: .85em; height: .85em; margin-right: 5px; vertical-align: -.1em; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes spinpulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: spinpulse 1.6s ease-in-out infinite; border-color: var(--accent); } }

@@ -47,7 +47,7 @@
             <button v-if="isAdmin" type="button" class="btn small" :disabled="busy || !upd.manage" @click="checkNow"><Icon name="refresh" />{{ t('crsupd.check_now') }}</button>
           </div>
         </div>
-        <p v-if="checkMsg" class="muted small" role="status">{{ checkMsg }}</p>
+        <p v-if="checkMsg" class="muted small busyline" role="status"><Spinner v-if="checkPending" />{{ checkMsg }}</p>
         <dl class="kv crskv">
           <template v-if="upd.location"><dt>{{ t('crsupd.location') }}</dt>
             <dd class="mono small breakall">{{ safeText(upd.location.path, 200) }}<template v-if="upd.location.link"><span class="muted"> → </span>{{ safeText(upd.location.target, 200) }}</template></dd></template>
@@ -83,7 +83,7 @@
             <textarea v-model="reason" rows="2" maxlength="2000" class="w-lg" :placeholder="t('crsupd.reason_hint')"></textarea></label>
           <div class="actions">
             <button v-for="x in switchTargets" :key="x.mode + x.version" type="button" class="btn small" :class="{ primary: x.mode !== 'rollback' }"
-                    :disabled="busy || reason.trim().length < 5" @click="propose(x)">
+                    :disabled="busy" @click="propose(x)">
               <Icon :name="x.mode === 'rollback' ? 'rollback' : 'test'" />{{ t({ install: 'crsupd.propose', rollback: 'crsupd.rollback', first_install: 'crsupd.propose_first' }[x.mode], { v: x.version }) }}</button>
           </div>
           <p class="muted small">{{ t('crsupd.switch_hint') }}</p>
@@ -149,6 +149,7 @@ import ErrorBox from '../components/ErrorBox.vue'
 import Loading from '../components/Loading.vue'
 import StatusCard from '../components/StatusCard.vue'
 import Icon from '../components/Icon.vue'
+import Spinner from '../components/Spinner.vue'
 import FlowSteps from '../components/FlowSteps.vue'
 import Meter from '../components/charts/Meter.vue'
 import HBars from '../components/charts/HBars.vue'
@@ -200,6 +201,7 @@ const st = computed(() => (upd.value && upd.value.status) || {})
 const busy = ref(false)
 const updError = ref(null)
 const checkMsg = ref('')
+const checkPending = ref(false)        // 0.5.32: a check or an upload under way shows a spinner
 const isAdmin = computed(() => hasRole('admin'))
 const canPropose = computed(() => hasRole('approver'))
 const reason = ref('')
@@ -235,21 +237,27 @@ async function setManage(on) {
 }
 const tarFile = ref(null)
 const ascFile = ref(null)
+// a request was handed to the CRS job: spinner until the page has read its result
+function followUp() {
+  checkPending.value = true
+  setTimeout(async () => { await loadUpd(); checkPending.value = false; checkMsg.value = '' }, 8000)
+}
 async function uploadRelease() {
   busy.value = true
+  checkPending.value = true
   updError.value = null
   try {
     const asc = await ascFile.value.text()
     await uploadInParts('crs', tarFile.value, { asc }, (sent, total) => { checkMsg.value = t('crsupd.uploading', { p: Math.round((sent / total) * 100) }) })
     checkMsg.value = t('crsupd.uploaded')
     tarFile.value = ascFile.value = null
-    setTimeout(loadUpd, 8000)
-  } catch (e) { updError.value = e; checkMsg.value = '' } finally { busy.value = false }
+    followUp()
+  } catch (e) { updError.value = e; checkMsg.value = ''; checkPending.value = false } finally { busy.value = false }
 }
 async function checkNow() {
   busy.value = true
   updError.value = null
-  try { await post('/crs/updates/check', {}); checkMsg.value = t('crsupd.check_requested'); setTimeout(loadUpd, 8000) } catch (e) { updError.value = e } finally { busy.value = false }
+  try { await post('/crs/updates/check', {}); checkMsg.value = t('crsupd.check_requested'); followUp() } catch (e) { updError.value = e } finally { busy.value = false }
 }
 onMounted(loadUpd)
 onMounted(() => { get('/rules', { source: 'crs', limit: 1 }).then((r) => { families.value = r.summary || [] }).catch(() => { /* optional */ }) })
@@ -268,6 +276,11 @@ onMounted(async () => {
 .crsoffline { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
 .crsoffline p { margin: 4px 0 10px; }
 .crsoffline .crsupload { margin: 0; }
+/* 0.5.32: the proposal stands apart from the offline upload above it, and its button off the reason box */
+.crsswitch { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+.crsswitch .field { display: flex; flex-direction: column; gap: 6px; }
+.crsswitch .actions { margin-top: 12px; }
+.crsswitch > p { margin: 8px 0 0; }
 .crskv dt.sw { padding-top: 2px; }
 .crskv dd.chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .crskv .chip { display: inline-flex; align-items: center; padding: 2px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
