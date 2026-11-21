@@ -190,6 +190,21 @@ class TestHostVersions(Base):
         self.app.db.x("UPDATE software SET source='person', version='1.30.0' WHERE name='nginx'")
         self.assertEqual(software.sync_host_versions(self.app, log=lambda m: None, path=st.name), [])
 
+    def test_newest_package_stands_for_the_product(self):
+        # a host upgraded from Debian 11 keeps libssl1.1 next to libssl3; nginx loads libssl3
+        st = tempfile.NamedTemporaryFile('w', delete=False, suffix='.status')
+        st.write('Package: libssl1.1\nStatus: install ok installed\nVersion: 1.1.1w-0+deb11u5\n\n'
+                 'Package: libssl3\nStatus: install ok installed\nVersion: 3.0.22-1~deb12u2\n\n')
+        st.close()
+        self.addCleanup(os.unlink, st.name)
+        self.assertEqual(software.host_products(st.name), {'OpenSSL': ('libssl3', '3.0.22-1~deb12u2')})
+        self.app.db.x("INSERT INTO software (name, version, hosts, kind, source, confirmed, evidence, notes, updated_at,"
+                      " updated_by) VALUES ('OpenSSL', '1.1.1w-0+deb11u5', '[]', 'host', 'guess', 1,"
+                      " 'dpkg: libssl1.1 1.1.1w-0+deb11u5', '', 0, 'x')")
+        self.assertEqual(software.sync_host_versions(self.app, log=lambda m: None, path=st.name), ['OpenSSL'])
+        r = self.app.db.one("SELECT version, evidence FROM software WHERE name='OpenSSL'")
+        self.assertEqual((r['version'], r['evidence']), ('3.0.22-1~deb12u2', 'dpkg: libssl3 3.0.22-1~deb12u2'))
+
 
 if __name__ == '__main__':
     unittest.main()

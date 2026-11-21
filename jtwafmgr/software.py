@@ -262,15 +262,24 @@ def guess_homepages(app, hosts, fetch=None):
     return dict(found)
 
 
+def host_products(path=None):
+    """{product: (package, version)} of this host's packages. When several packages give one product, the newest
+    version stands for it (0.5.28: a host upgraded from Debian 11 keeps libssl1.1 1.1.1w next to libssl3 3.0.22;
+    taken in name order the leftover won, and OpenSSL threats were judged against the library nginx does not load)."""
+    from .debtracker import vercmp
+    out = {}
+    for pkg, ver in sorted(dpkg_packages(path or DPKG_STATUS).items()):
+        name = product_of(pkg)
+        if name and (name not in out or vercmp(ver, out[name][1]) > 0):
+            out[name] = (pkg, ver)
+    return out
+
+
 def guess(app, fetch=None):
     """What the program can tell: [{name, version, hosts, evidence, kind}]."""
     out = []
-    pk = dpkg_packages()
     seen = {}
-    for pkg, ver in sorted(pk.items()):
-        name = product_of(pkg)
-        if name in seen:
-            continue
+    for name, (pkg, ver) in sorted(host_products().items()):
         seen[name] = True
         out.append({'name': name, 'version': ver, 'hosts': [], 'kind': 'host', 'evidence': 'dpkg: %s %s' % (pkg, ver)})
     if 'nginx' not in seen:
@@ -528,11 +537,7 @@ def sync_host_versions(app, log=print, path=DPKG_STATUS):
     its confirmation (0.5.8: nginx 1.30.7, installed by an approved update, was still searched for as 1.30.6 until
     someone pressed "guess again"). A person's entry is never changed. Returns the names updated."""
     db = app.db
-    found = {}
-    for pkg, ver in sorted(dpkg_packages(path).items()):
-        name = product_of(pkg)
-        if name and name not in found:
-            found[name] = (pkg, ver)
+    found = host_products(path)
     changed = []
     for r in db.q("SELECT id, name, version FROM software WHERE source='guess' AND kind='host'"):
         f = found.get(r['name'])

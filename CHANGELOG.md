@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.28 (2026-11-21)
+
+- Threat intelligence, this host's packages: when several installed packages give one product, the newest version stands for it. A host upgraded from Debian 11 keeps the old `libssl1.1` (1.1.1w) next to `libssl3` (3.0.22); taken in name order the old library won, so OpenSSL was listed and searched as 1.1.1w and its advisories were judged against a library nginx does not load. An entry guessed this way follows the newest package at the next run; one a person typed is left as it is.
+
 ## 0.5.27 (2026-11-21)
 
 Fixes from an independent review of the automatic blocks:
