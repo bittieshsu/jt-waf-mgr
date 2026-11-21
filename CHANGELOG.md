@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.31 (2026-11-21)
+
+- Dashboard: when something important is not installed or not turned on, a card at the top names it, says why it matters and links to where it is set up: OWASP CRS not installed, the ModSecurity configuration not adopted, no site with the WAF on, the apply program not enabled, notifications off, CrowdSec virtual patching off. Features worth turning on (event analysis, threat intelligence, IP reputation, country lists, temporary IP blocks) are folded inside it. A fully set-up host shows nothing. `GET /api/v1/readiness` gives the same list.
+- System check: the ModSecurity card says when the CRS is not installed and links to the CRS page.
+
 ## 0.5.30 (2026-11-21)
 
 - Sign-in and first-login pages: a soft glow in the logo's colours over a faint dot grid and a lifted card with an accent edge, in place of a flat, empty background (the dark theme looked all black).

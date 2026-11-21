@@ -282,6 +282,12 @@ def health(app, req):
     return json_response(200, _health.health(app))
 
 
+def readiness(app, req):
+    """What is not installed or not turned on yet (readiness.py), for the dashboard: important first."""
+    from .. import readiness as _readiness
+    return json_response(200, {'items': _readiness.items(app)})
+
+
 def _group(app, col, since, until, limit=15, extra_where='', args=()):
     rows = app.db.q(
         'SELECT %s AS k, SUM(outcome=\'blocked\') AS b, SUM(outcome=\'logged\') AS l FROM events '
@@ -1832,6 +1838,7 @@ def register(router):
     R('GET', V + '/status', status, viewer('status:read'))
     R('GET', V + '/health', health, viewer('status:read'))
     R('GET', V + '/overview', overview, viewer('events:read'))
+    R('GET', V + '/readiness', readiness, viewer('status:read'))
     R('GET', V + '/events', events, viewer('events:read'))
     R('GET', V + '/events/stats', event_stats, viewer('events:read'))
     R('GET', V + '/events/timeline', events_timeline, viewer('events:read'))

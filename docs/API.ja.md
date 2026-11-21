@@ -49,7 +49,7 @@
 
 トークンには次のスコープを 1 つ以上付けます。これ以外はありません。
 
-- `status:read`：`GET /status`、`GET /health`、`GET /waf/pause`。
+- `status:read`：`GET /status`、`GET /health`、`GET /readiness`、`GET /waf/pause`。
 - `events:read`：イベント、イベント統計、タイムライン、概要、NDJSON エクスポート。
 - `rules:read`：ルール、ルールのヒット、サイト（vhost）、CRS の状態と更新、WAF の判定モデル、管理対象ルールファイル。
 - `lookups:read`：IP 検索と GeoIP 検索。
@@ -176,6 +176,11 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
  "metrics": {"events_1h": 12, "blocked_1h": 9, "blocked_24h": 240, "last_event_age_seconds": 85,
              "ip_blocks_active": 3, "open_alerts": 1, "pending_changes": 0}}
 ```
+
+**`GET /readiness`**：スコープ `status:read`。未インストールまたは無効の機能 (ダッシュボードの表示と同じ)：`items`、
+各項目に `key`、`level` (`important` 重要または `suggested` 提案、重要なものが先) と `link` (設定するページ；`hash` は設定
+カード)。key：`crs_missing`、`not_adopted`、`no_waf_site`、`apply_off`、`notify_off`、`hub_off`；提案は `analyst_off`、
+`intel_off`、`iprep_off`、`countries_off`、`blocks_off`。空の一覧はすべて設定済みという意味です。
 
 **`GET /waf/pause`**：スコープ `status:read`。切り分けのために WAF を一時停止しているか (ModSecurity は検知のみ)：
 `active`、`all` (すべてのサイト：`since_at`、`until_at` または null＝手動で再開するまで、`left_seconds`、`by`、

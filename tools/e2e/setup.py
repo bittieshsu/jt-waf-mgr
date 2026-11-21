@@ -66,7 +66,7 @@ uisettings.set_many(app, {'intel.enabled': True, 'intel.url': 'http://127.0.0.1:
 uisettings.set_many(app, {'notify.enabled': True, 'notify.base_url': 'https://waf.example.com', 'notify.webhook_enabled': True,
                           'notify.webhook_url': 'https://hooks.example.com/waf', 'notify.webhook_secret': 'e2e-signing-secret-0123456789',
                           'llm.enabled': True, 'llm.url': 'http://192.0.2.10:8080/v1', 'llm.model': 'example-model',
-                          'analyst.enabled': True, 'analyst.window_hours': 168}, 'admin')
+                          'analyst.enabled': True, 'analyst.window_hours': 168, 'hub.enabled': True}, 'admin')
 # one synthetic analysis run (no LLM here): what the analysis page and its summary show
 cands = [
     {'id': 'c1', 'path': '/.env', 'events': 14, 'sources': 9, 'hosts': ['app.example.com', 'shop.example.com'], 'host_count': 2,

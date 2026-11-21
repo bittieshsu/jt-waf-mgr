@@ -5,6 +5,28 @@
       <button type="button" class="btn small ghost" :class="{ on: showGuide }" :aria-pressed="showGuide ? 'true' : 'false'" @click="toggleGuide"><Icon name="help" />{{ t('guide.how') }}</button>
       <button type="button" class="btn small ghost" :disabled="loading" @click="load(false)"><Icon name="refresh" />{{ t('common.refresh') }}</button>
     </div>
+    <!-- something important not installed or not turned on yet (GET /readiness); the suggestions folded inside it -->
+    <section v-if="ready.important.length" class="card attention readiness" :aria-label="t('ready.title_plain')">
+      <h2><Icon name="warning" /> {{ t('ready.title', { n: ready.important.length }) }}</h2>
+      <ul class="readylist">
+        <li v-for="it in ready.important" :key="it.key">
+          <Icon name="warning" class="readyicon important" />
+          <span class="readytext"><strong>{{ t('ready.k.' + it.key) }}</strong><span class="muted small">{{ t('ready.k.' + it.key + '.why') }}</span></span>
+          <RouterLink v-if="canFix(it)" class="btn small" :to="{ path: it.link, hash: it.hash || '' }"><Icon name="go" />{{ t('ready.fix') }}</RouterLink>
+        </li>
+      </ul>
+      <div v-if="ready.suggested.length" class="readysugg">
+        <button type="button" class="btn small ghost" :aria-expanded="ready.open ? 'true' : 'false'" @click="ready.open = !ready.open">
+          <Icon :name="ready.open ? 'collapse' : 'expand'" />{{ t('ready.suggested', { n: ready.suggested.length }) }}</button>
+        <ul v-if="ready.open" class="readylist">
+          <li v-for="it in ready.suggested" :key="it.key">
+            <Icon name="info" class="readyicon" />
+            <span class="readytext"><strong>{{ t('ready.k.' + it.key) }}</strong><span class="muted small">{{ t('ready.k.' + it.key + '.why') }}</span></span>
+            <RouterLink v-if="canFix(it)" class="btn small" :to="{ path: it.link, hash: it.hash || '' }"><Icon name="go" />{{ t('ready.fix') }}</RouterLink>
+          </li>
+        </ul>
+      </div>
+    </section>
     <FlowSteps v-if="showGuide" compact :title="t('guide.ev.title')" :steps="flow" :note="t('guide.ev.note')" />
     <!-- one row of filters above everything they scope; every value is also in the URL -->
     <div class="ovfilters" :class="{ active: hasFilters }" role="group" :aria-label="t('overview.filter.label')">
@@ -412,6 +434,20 @@ async function loadIntegrity() {
   } catch { /* the banner is optional */ }
 }
 
+// what is not installed or not turned on yet
+const ready = reactive({ important: [], suggested: [], open: false })
+async function loadReadiness() {
+  try {
+    const r = await get('/readiness')
+    ready.important = (r.items || []).filter((i) => i.level === 'important')
+    ready.suggested = (r.items || []).filter((i) => i.level === 'suggested')
+  } catch { ready.important = []; ready.suggested = [] }
+}
+function canFix(it) {
+  if (!it.link) return false
+  return !it.link.startsWith('/admin') || hasRole('admin')
+}
+
 const lastReview = ref(null)
 async function loadReview() {
   try {
@@ -423,11 +459,21 @@ async function loadReview() {
     lastReview.value = Object.assign({}, x, { attention })
   } catch { lastReview.value = null }
 }
-onMounted(() => { loadReview(); load(false); loadIntegrity(); timer = setInterval(() => { if (!document.hidden && !loading.value) load(false) }, 60000) })
+onMounted(() => { loadReview(); loadReadiness(); load(false); loadIntegrity(); timer = setInterval(() => { if (!document.hidden && !loading.value) load(false) }, 60000) })
 onUnmounted(() => clearInterval(timer))
 </script>
 
 <style scoped>
+.readiness { margin-bottom: 12px; }
+.readylist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.readylist li { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.readylist li:last-child { border-bottom: 0; }
+.readyicon { flex: none; margin-top: 3px; color: var(--muted); }
+.readyicon.important { color: var(--warn); }
+.readytext { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.readylist .btn { flex: none; }
+.readysugg { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
+.readysugg > .readylist { flex-basis: 100%; }
 .custompanel { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; margin: 0 0 12px; }
 .custompanel .field { margin: 0; }
 /* the buttons stand on the same line as the two date fields, at the same height */

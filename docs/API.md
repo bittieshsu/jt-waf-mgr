@@ -51,7 +51,7 @@ All examples use made-up values: `waf.example.com`, addresses from 192.0.2.0/24,
 
 A token has one or more of these scopes. There are no others.
 
-- `status:read`: `GET /status`, `GET /health`, `GET /waf/pause`.
+- `status:read`: `GET /status`, `GET /health`, `GET /readiness`, `GET /waf/pause`.
 - `events:read`: events, event statistics, timeline, overview, NDJSON export.
 - `rules:read`: rules, rule hits, sites (vhosts), CRS status and updates, the WAF decision model, managed rule files.
 - `lookups:read`: IP lookup and GeoIP lookup.
@@ -178,6 +178,11 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
  "metrics": {"events_1h": 12, "blocked_1h": 9, "blocked_24h": 240, "last_event_age_seconds": 85,
              "ip_blocks_active": 3, "open_alerts": 1, "pending_changes": 0}}
 ```
+
+**`GET /readiness`**: scope `status:read`. What is not installed or not turned on yet, as the dashboard shows it:
+`items`, each with `key`, `level` (`important` or `suggested`, important first) and `link` (the page where it is set
+up; `hash` the settings card). Keys: `crs_missing`, `not_adopted`, `no_waf_site`, `apply_off`, `notify_off`, `hub_off`;
+suggested `analyst_off`, `intel_off`, `iprep_off`, `countries_off`, `blocks_off`. An empty list: nothing is missing.
 
 **`GET /waf/pause`**: scope `status:read`. Whether the WAF is paused for troubleshooting (ModSecurity detecting
 only): `active`, `all` (every site: `since_at`, `until_at` or null = until resumed, `left_seconds`, `by`, `reason`),

@@ -29,6 +29,7 @@
           </div>
           <p class="muted small">{{ tOr('syscheck.d.' + it.key, '') }}</p>
           <p v-if="it.key === 'program_integrity' && it.details.status === 'not_installed'" class="alert info small">{{ t('syscheck.not_installed') }}</p>
+          <p v-if="it.key === 'modsecurity' && !it.details.crs_version" class="alert warn small"><Icon name="warning" /> {{ t('ready.k.crs_missing.why') }}</p>
           <ChainResult v-if="it.key === 'audit_chain'" :s="it.details" />
           <div v-if="it.key === 'program_integrity' && it.details.checked" class="itemchart">
             <h3 class="charthead">{{ t('chart.syscheck.files') }}</h3>
@@ -59,6 +60,7 @@
               </dd>
             </template>
           </dl>
+          <RouterLink v-if="it.key === 'modsecurity' && !it.details.crs_version" class="btn small ghost" to="/crs"><Icon name="shield" />{{ t('nav.crs') }}</RouterLink>
           <RouterLink v-if="it.key === 'config_changes'" class="btn small ghost" to="/config-changes"><Icon name="change" />{{ t('nav.config_changes') }}</RouterLink>
           <RouterLink v-if="it.key === 'audit_chain'" class="btn small ghost" to="/admin/audit"><Icon name="history" />{{ t('nav.audit') }}</RouterLink>
           <RouterLink v-if="it.key === 'accounts'" class="btn small ghost" to="/admin/users"><Icon name="users" />{{ t('nav.users') }}</RouterLink>

@@ -323,6 +323,26 @@ async function audit(page, where) {
   await page.goto(base + '/admin/settings#uiset-iprep', { waitUntil: 'networkidle' });
   await page.waitForSelector('section.card:has(h2:has-text("IP 情資清單")) tbody tr', { timeout: 8000 }).catch(() => {});
   ok((await page.locator('section.card:has(h2:has-text("IP 情資清單")) tbody tr').count()) === 8, 'settings: the IP reputation lists are listed');
+  // 0.5.31: the dashboard names an important feature that is off and leads to where it is turned on
+  const setHub = (on) => page.evaluate(async (v) => {
+    const me = await (await fetch('/api/v1/auth/me')).json();
+    return (await fetch('/api/v1/settings/ui', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': me.csrf_token },
+      body: JSON.stringify({ 'hub.enabled': v }) })).status }, on);
+  // (this environment is not adopted, so the card is there with that one item)
+  await page.goto(base + '/', { waitUntil: 'networkidle' });
+  await page.waitForSelector('section.readiness li', { timeout: 8000 }).catch(() => {});
+  ok((await page.locator('section.readiness .readylist li').count()) >= 1 &&
+     (await page.locator('section.readiness li', { hasText: 'CrowdSec' }).count()) === 0, 'dashboard: the setup card names what is missing, CrowdSec on is not');
+  ok((await setHub(false)) === 200, 'dashboard: CrowdSec turned off for the check');
+  await page.goto(base + '/', { waitUntil: 'networkidle' });
+  await page.waitForSelector('section.readiness li', { timeout: 8000 }).catch(() => {});
+  const rItem = page.locator('section.readiness .readylist li', { hasText: 'CrowdSec' }).first();
+  ok((await rItem.count()) === 1, 'dashboard: CrowdSec off is named');
+  await rItem.locator('a.btn').click();
+  await page.waitForURL(/\/admin\/settings/, { timeout: 8000 }).catch(() => {});
+  await page.waitForSelector('#uiset-hub', { state: 'visible', timeout: 8000 }).catch(() => {});
+  ok(/#uiset-hub$/.test(page.url()) && await page.locator('#uiset-hub').isVisible(), 'dashboard: the setup link opens the CrowdSec settings card (' + page.url().replace(base, '') + ')');
+  ok((await setHub(true)) === 200, 'dashboard: CrowdSec back on');
   // "someone was blocked": an address goes to the address lookup
   await page.goto(base + '/events', { waitUntil: 'networkidle' });
   await page.fill('.findvisit input', '203.0.113.9');
