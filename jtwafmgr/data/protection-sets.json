@@ -12,7 +12,7 @@
      "spec": {
       "target": "arg",
       "arg": "api|compound",
-      "regex": "(?:^|[^a-z0-9_.])syno\\.(?:core\\.(?:taskscheduler|eventscheduler|terminal|certificate|snmp|tftp|portforwarding|cms|apppriv|actionpriv|iscsi|security|network|web|service|fileserv|ddns|ezinternet|resetadmin|hardware|quota|group|share\\.snapshot|package\\.(?:installation|uninstallation|feed|setting))|storage\\.cgi|docker|backup|dr|btrfs\\.replica)(?:[^a-z0-9]|$)",
+      "regex": "(?:^|[^a-z0-9_.])syno\\.(?:core\\.(?:taskscheduler|eventscheduler|terminal|certificate|snmp|tftp|portforwarding|cms|apppriv|actionpriv|iscsi|security|network\\.[a-z0-9]+|service|fileserv\\.(?:ftp|nfs|rsync|afp|webdav)|ezinternet|resetadmin|hardware|quota|group|share\\.snapshot|package\\.(?:installation|uninstallation|feed|setting))|storage\\.cgi|docker|backup|dr|btrfs\\.replica)(?:[^a-z0-9]|$)",
       "msg": "Synology DSM administration API from outside",
       "reference": "https://www.synology.com/en-global/security/advisory/Synology_SA_20_26",
       "source": "external"
@@ -65,6 +65,21 @@
       },
       {
        "path": "/webapi/entry.cgi?api=SYNO.Core.PersonalSettings&version=1&method=get",
+       "method": "GET",
+       "expect": 200
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.Core.Network.PPPoE&version=1&method=set&realname=x",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.Core.Web.DSM&version=1&method=get",
+       "method": "GET",
+       "expect": 200
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.Entry.Request&version=1&method=request&compound=%5B%7B%22api%22%3A%22SYNO.Core.FileServ.SMB%22%2C%22method%22%3A%22get%22%2C%22version%22%3A3%7D%2C%7B%22api%22%3A%22SYNO.Core.Network%22%2C%22method%22%3A%22get%22%2C%22version%22%3A1%7D%2C%7B%22api%22%3A%22SYNO.Core.DDNS.Record%22%2C%22method%22%3A%22list%22%2C%22version%22%3A1%7D%5D",
        "method": "GET",
        "expect": 200
       }

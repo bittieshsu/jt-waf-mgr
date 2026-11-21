@@ -51,6 +51,8 @@ class TestData(unittest.TestCase):
             raw = json.load(fh)
         self.assertEqual(sum(len(s['rules']) for s in raw['sets']), sum(len(s['rules']) for s in sets))   # none dropped
         for s in sets:
+            # a change carries at most 50 tests: the whole set proposed at once must fit
+            self.assertLessEqual(sum(len(r['tests']) for r in s['rules']), 50, s['id'])
             ids = [r['id'] for r in s['rules']]
             self.assertEqual(len(ids), len(set(ids)), s['id'])
             for r in s['rules']:

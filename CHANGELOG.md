@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.35 (2026-11-22)
+
+- Synology DSM protection set, "administration APIs from the local network only", narrowed so ordinary users are not refused: checked against the scripts of the packages on the NAS and of DSM Help, the DSM address settings (SYNO.Core.Web, which Synology Photos builds links from) and the DDNS records (DSM Help) are no longer in it; for the network only its sub-APIs are (PPPoE, for example), the basic network information stays readable; for file services only the FTP, NFS, rsync, AFP and WebDAV settings (the SMB status stays readable). A site with the earlier rule shows "update available" on the protection sets page.
+
 ## 0.5.34 (2026-11-22)
 
 - Threat intelligence: Synology's own security advisories, optionally (Settings → Threat intelligence → "Synology security advisories", off by default). With a confirmed Synology product in the software list, the threat intelligence job downloads Synology's advisory feed from synology.com once a day (about 450 KB, every advisory since 2013) and checks it; the advisories of the last months go to the model, which reads the advisory pages for the affected and fixed versions; those naming a confirmed product come first. The web service itself never connects out.
