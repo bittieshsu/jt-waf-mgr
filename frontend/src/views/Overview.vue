@@ -11,7 +11,7 @@
       <ul class="readylist">
         <li v-for="it in ready.important" :key="it.key">
           <Icon name="warning" class="readyicon important" />
-          <span class="readytext"><strong>{{ t('ready.k.' + it.key) }}</strong><span class="muted small">{{ t('ready.k.' + it.key + '.why') }}</span></span>
+          <span class="readytext"><strong>{{ t('ready.k.' + it.key, it.details || {}) }}</strong><span class="muted small">{{ t('ready.k.' + it.key + '.why', it.details || {}) }}</span></span>
           <RouterLink v-if="canFix(it)" class="btn small" :to="{ path: it.link, hash: it.hash || '' }"><Icon name="go" />{{ t('ready.fix') }}</RouterLink>
         </li>
       </ul>
@@ -21,7 +21,7 @@
         <ul v-if="ready.open" class="readylist">
           <li v-for="it in ready.suggested" :key="it.key">
             <Icon name="info" class="readyicon" />
-            <span class="readytext"><strong>{{ t('ready.k.' + it.key) }}</strong><span class="muted small">{{ t('ready.k.' + it.key + '.why') }}</span></span>
+            <span class="readytext"><strong>{{ t('ready.k.' + it.key, it.details || {}) }}</strong><span class="muted small">{{ t('ready.k.' + it.key + '.why', it.details || {}) }}</span></span>
             <RouterLink v-if="canFix(it)" class="btn small" :to="{ path: it.link, hash: it.hash || '' }"><Icon name="go" />{{ t('ready.fix') }}</RouterLink>
           </li>
         </ul>

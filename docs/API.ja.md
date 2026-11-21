@@ -179,7 +179,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 
 **`GET /readiness`**：スコープ `status:read`。未インストールまたは無効の機能 (ダッシュボードの表示と同じ)：`items`、
 各項目に `key`、`level` (`important` 重要または `suggested` 提案、重要なものが先) と `link` (設定するページ；`hash` は設定
-カード)。key：`crs_missing`、`not_adopted`、`no_waf_site`、`crs_staged` (ダウンロード済み・未インストール)、`crs_pending` (インストールが承認待ち)、`single_admin_off`、`apply_off`、`notify_off`、`hub_off`；提案は `analyst_off`、
+カード)。key：`crs_missing`、`not_adopted`、`no_waf_site`、`crs_staged` (ダウンロード済み・未インストール)、`crs_pending` (インストールが承認待ち)、`single_admin_off`、`apply_off`、`notify_off`、`hub_off`、`protset_available` (0.5.34：推奨の保護セットのルールが未適用。`details` に `app`、`hosts`、`n`)；提案は `analyst_off`、
 `intel_off`、`iprep_off`、`countries_off`、`blocks_off`。空の一覧はすべて設定済みという意味です。
 
 **`GET /waf/pause`**：スコープ `status:read`。切り分けのために WAF を一時停止しているか (ModSecurity は検知のみ)：

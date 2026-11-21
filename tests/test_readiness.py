@@ -34,6 +34,18 @@ class TestReadiness(unittest.TestCase):
         self.assertEqual(hub['link'], '/crowdsec')                    # 0.5.32: turned on on its own page
         self.assertNotIn('single_admin_off', keys(items))             # no approver at all here: not this case
 
+    def test_protection_set_not_applied(self):
+        """0.5.34: a DSM site with recommended protection rules not applied: important, with its counts."""
+        from jtwafmgr import software
+        self.assertNotIn('protset_available', keys(readiness.items(self.app, installed=False)))
+        software.save(self.app.db, 'alice', 'Synology DSM', '', hosts=['nas.example.com'])
+        it = next(i for i in readiness.items(self.app, installed=False) if i['key'] == 'protset_available')
+        self.assertEqual(it['level'], 'important')
+        self.assertEqual(it['link'], '/protection')
+        self.assertEqual(it['details']['app'], 'Synology DSM')
+        self.assertEqual(it['details']['hosts'], 'nas.example.com')
+        self.assertGreaterEqual(it['details']['n'], 8)
+
     def test_turned_on_features_drop_out(self):
         c = self.app.cfg.data
         c['notify']['enabled'] = True

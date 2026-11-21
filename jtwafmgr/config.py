@@ -189,6 +189,7 @@ DEFAULTS = {
         'kev': False,                  # download CISA's Known Exploited Vulnerabilities catalog daily (kev.py, ~1.5 MB)
         'osv': False,                  # ask osv.dev about the installed Debian / Ubuntu package versions (osv.py)
         'nvd': False,                  # ask NVD for the official CVSS score of each CVE found (nvd.py)
+        'synology': False,             # 0.5.34: Synology's advisory feed daily, when a Synology product is confirmed (~450 KB)
         'debian': False,               # ask Debian's security tracker about CVEs of installed Debian packages (debtracker.py)
         'backend_versions': False,     # ask the sites' back-end servers which web server / PHP version they run (backends.py)
         'librenms_token': '',          # LibreNMS API token: its version is read from /api/v0/system (software.py)

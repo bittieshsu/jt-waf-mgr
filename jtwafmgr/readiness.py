@@ -36,6 +36,29 @@ def _notify_ready(cfg):
     return any(n.get(k) for k in n if k.endswith('_enabled'))
 
 
+def _protset_item(app):
+    """0.5.34: a site runs an application with a protection set (Synology DSM) and recommended rules of it are neither
+    applied nor waiting in a change."""
+    try:
+        from . import protsets
+        sets = protsets.status(app)
+    except Exception:          # noqa: BLE001 -- no software list yet
+        return None
+    hosts, apps, n = [], [], 0
+    for s in sets:
+        for site in s['sites']:
+            left = [r for r in site['rules'] if r['default'] and r['state'] == 'available']
+            if left:
+                n += len(left)
+                hosts.append(site['host'])
+                if s['app'] not in apps:
+                    apps.append(s['app'])
+    if not n:
+        return None
+    return _item('protset_available', 'important', '/protection', None, app=', '.join(apps), hosts=', '.join(hosts[:5]),
+                 n=n)
+
+
 def _crs_item(app):
     """No CRS loaded. 0.5.32: say how far it got -- downloaded and verified but not installed, or a change waiting --
     instead of only "not installed" (the CRS page's switch turns on the download, not the installation)."""
@@ -97,6 +120,9 @@ def items(app, installed=None):
         out.append(_item('notify_off', 'important', '/admin/notify', '#uiset-notify'))
     if not cfg['hub'].get('enabled'):
         out.append(_item('hub_off', 'important', '/crowdsec'))
+    ps = _protset_item(app)
+    if ps:
+        out.append(ps)
     if not (cfg['llm'].get('enabled') and cfg['analyst'].get('enabled')):
         out.append(_item('analyst_off', 'suggested', '/admin/settings', '#uiset-llm'))
     if not cfg['intel'].get('enabled'):

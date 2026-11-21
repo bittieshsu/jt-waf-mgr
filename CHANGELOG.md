@@ -2,6 +2,13 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.34 (2026-11-22)
+
+- Threat intelligence: Synology's own security advisories, optionally (Settings → Threat intelligence → "Synology security advisories", off by default). With a confirmed Synology product in the software list, the threat intelligence job downloads Synology's advisory feed from synology.com once a day (about 450 KB, every advisory since 2013) and checks it; the advisories of the last months go to the model, which reads the advisory pages for the affected and fixed versions; those naming a confirmed product come first. The web service itself never connects out.
+- Dashboard: a site running software with a protection set whose recommended rules are neither applied nor in a change is an important item ("Synology DSM: 8 recommended protection rules not applied", for example), leading to the protection sets page.
+- Dashboard: the hints did not fill in their values: "OWASP CRS {version} is downloaded but not installed" showed {version} as is.
+- Outside changes: the first installation of OWASP CRS on a host (an approved change; jt-waf-mgr writes the rules, crs-setup.conf and two Include lines in the ModSecurity main file) was recorded as an outside change with a critical alert. These files are now jt-waf-mgr's own change, and so are those of a CRS version switch (the main file not among them).
+
 ## 0.5.33 (2026-11-22)
 
 - Application protection sets (Rules menu): ready-made confident blocks for one application, written from its publicly known vulnerabilities and attacks, each with its CVEs, sources and tests (its attack requests must be refused, ordinary ones let through). Every site the software list names for the application is listed; the picked rules are proposed as one change: the usual checks, the sandbox, a person's approval, never applied by itself. A rule a later version writes differently shows "update available" and is modified in place. `GET /api/v1/protsets`, `POST /api/v1/protsets/propose`.

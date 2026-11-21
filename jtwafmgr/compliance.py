@@ -320,6 +320,30 @@ class Monitor:
                     out[parts[0]] = parts[1]
         return out
 
+    def _crs_files(self, last, touched):
+        """0.5.34: every touched file is one an OWASP CRS change applied since the previous snapshot writes (the first
+        installation of CRS on a host was reported as an outside edit): the rules under its CRS link or a crs-<version>
+        directory beside it, the crs-setup.conf there, and -- the first installation only -- the ModSecurity main file
+        it inserts the two Include lines into."""
+        rows = self.db.q("SELECT spec FROM changes WHERE op='crs' AND state='applied' AND updated_at >= ?",
+                         (last['ts'] - 1800,))
+        ok = []
+        for (spec,) in rows:
+            try:
+                sp = json.loads(spec)
+            except ValueError:
+                continue
+            link = os.path.normpath(str(sp.get('crs_path') or ''))
+            if not link.startswith('/') or link == '/':
+                continue
+            base = os.path.dirname(link)
+            prefix = re.compile(r'^%s/crs-[0-9][0-9A-Za-z.+~-]{0,40}/' % re.escape(base))
+            allowed = {os.path.join(base, 'crs-setup.conf'), os.path.join(link, 'crs-setup.conf')}
+            if sp.get('mode') == 'first_install' and sp.get('main_conf'):
+                allowed.add(os.path.normpath(sp['main_conf']))
+            ok.append((link + '/', prefix, allowed))
+        return bool(ok) and all(any(p.startswith(lk) or pre.match(p) or p in al for lk, pre, al in ok) for p in touched)
+
     def _nginx_files(self, last, touched, dpkg_info='/var/lib/dpkg/info', dpkg_status=None):
         """Every touched file is one an nginx change applied since the previous snapshot put there (0.5.9: the module
         switch of change #96 was reported as an outside edit): a ModSecurity module with a SHA-256 root trusts (root
@@ -452,6 +476,9 @@ class Monitor:
         # ModSecurity switched on / off for a site from here: the server blocks' files of a site change applied since the
         # previous snapshot (and, switching on, each of them carries that change's marked line), and the managed snippet
         if touched and self._site_waf_files(last, touched):
+            return 'jt-waf-mgr'
+        # OWASP CRS installed or switched through an approved change (the root program)
+        if touched and self._crs_files(last, touched):
             return 'jt-waf-mgr'
         # nginx updated, rolled back or its ModSecurity module switched through an approved change (the root program)
         try:

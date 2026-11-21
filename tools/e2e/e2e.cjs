@@ -333,6 +333,11 @@ async function audit(page, where) {
   await page.waitForSelector('section.readiness li', { timeout: 8000 }).catch(() => {});
   ok((await page.locator('section.readiness .readylist li').count()) >= 1 &&
      (await page.locator('section.readiness li', { hasText: 'CrowdSec' }).count()) === 0, 'dashboard: the setup card names what is missing, CrowdSec on is not');
+  // 0.5.34: the DSM site's recommended protection rules, with the numbers filled in (0.5.32 showed "{version}" as is)
+  const psItem = page.locator('section.readiness .readylist li', { hasText: 'Synology DSM' }).first();
+  ok((await psItem.count()) === 1 && /8 條建議的防護規則尚未套用/.test(await psItem.innerText()) && /nas\.example\.com/.test(await psItem.innerText()) &&
+     !/\{\w+\}/.test(await page.locator('section.readiness').innerText()),
+     'dashboard: the protection set item, numbers and site filled in');
   ok((await setHub(false)) === 200, 'dashboard: CrowdSec turned off for the check');
   await page.goto(base + '/', { waitUntil: 'networkidle' });
   await page.waitForSelector('section.readiness li', { timeout: 8000 }).catch(() => {});
@@ -371,6 +376,7 @@ async function audit(page, where) {
   ok(await page.locator('tr.dt-expand .thd dd', { hasText: 'Debian 已在 1.22.1-9+deb12u2 修正' }).count() === 1,
      'intel: the Debian security tracker says the installed package has the fix');
   ok(await page.locator('.kvpanel dt', { hasText: 'Debian 安全追蹤' }).count() === 1, 'intel: the Debian security tracker among the sources');
+  ok(await page.locator('.kvpanel dt', { hasText: 'Synology 安全公告' }).count() === 1, 'intel: the Synology advisories among the sources');
   // 0.5.17: a back-end host's nginx is listed with the sites it serves and the address that answered
   ok(await page.locator('.datatable tbody tr', { hasText: '後端主機回應：http://192.0.2.40:80' }).count() === 1 &&
      await page.locator('.datatable tbody tr:has-text("192.0.2.40") .sub', { hasText: '後端主機' }).count() >= 1,
