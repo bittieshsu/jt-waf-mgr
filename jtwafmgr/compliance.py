@@ -817,7 +817,7 @@ def system_check(app):
                      admins=admins, without_totp=no_totp, locked=locked, temporary_password_unused=stale_temp))
 
     for fn in (_check_modsecurity, _check_nginx_module, _check_jobs, _check_crs, _check_analyst, _check_intel, _check_blocks, _check_countries, _check_dns,
-               _check_health, _check_changes, _check_tokens, _check_traffic, _check_logrotate):
+               _check_health, _check_changes, _check_tokens, _check_traffic, _check_logrotate, _check_upload_memory):
         try:
             it = fn(app)
         except Exception as e:      # noqa: BLE001 -- one check failing to run is a warning, the others still run
@@ -976,6 +976,54 @@ def _check_dns(app):
                  internal_servers=st['internal_servers'], external_servers=st['external_servers'],
                  checked_at=st.get('checked_at'), names=len(names), internal_only=internal_only, errors=errors,
                  wildcards=sorted(st.get('wildcards') or {}), ptr=st['ptr'], ptr_cached=st.get('ptr_cached'))
+
+
+def _size_bytes(v):
+    """nginx size ("0", "512k", "10m", "2g") in bytes; 0 = no limit; None when unreadable."""
+    m = re.fullmatch(r'\s*(\d+)\s*([kKmMgG]?)\s*', str(v or ''))
+    if not m:
+        return None
+    return int(m.group(1)) * {'': 1, 'k': 1 << 10, 'm': 1 << 20, 'g': 1 << 30}[m.group(2).lower()]
+
+
+def _mem_total(path='/proc/meminfo'):
+    try:
+        with open(path) as fh:
+            for line in fh:
+                if line.startswith('MemTotal:'):
+                    return int(line.split()[1]) * 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    return None
+
+
+def _check_upload_memory(app, mem=None):
+    """0.5.36: nginx's ModSecurity connector reads a whole request body into memory before ModSecurity sees it,
+    whatever SecRequestBodyLimit / SecRequestBodyLimitAction / ctl:requestBodyAccess say (measured: a 1 GB upload
+    through libmodsecurity 3.0.14 and connector 1.0.3 took a worker to 1.6-1.9 GB, 7.6 MB with ModSecurity off). A
+    site with ModSecurity on that accepts bodies near the host's memory (client_max_body_size 0 or above a quarter of
+    it) can have nginx killed for every site by one upload (a NAS, a file share)."""
+    try:
+        n, _ = app.site.load()
+        servers = n.servers()
+    except Exception:          # noqa: BLE001 -- no nginx configuration here
+        return None
+    mem = mem if mem is not None else _mem_total()
+    if not mem:
+        return None
+    limit = mem // 4
+    big = []
+    for sv in servers:
+        if sv.get('waf') not in ('on', 'block'):
+            continue
+        raw = sv.get('body_limit') or '1m'
+        size = _size_bytes(raw)
+        if size is not None and (size == 0 or size > limit):
+            # the locations already without ModSecurity (an upload API, WebDAV): named, the rest of the site still takes it
+            off = [str(x.get('location') or '') for x in sv.get('bypass') or []][:3]
+            for h in (sv.get('server_names') or ['(default)'])[:3]:
+                big.append('%s: %s%s' % (h, raw, ' (ModSecurity off: %s)' % ', '.join(off) if off else ''))
+    return _item('upload_memory', 'warn' if big else 'ok', sites=big[:30], memory_mb=mem >> 20, threshold_mb=limit >> 20)
 
 
 def _check_health(app):

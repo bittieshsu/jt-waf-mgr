@@ -92,6 +92,12 @@ modsecurity on;
 modsecurity_rules_file /etc/nginx/modsec/main.conf;
 ```
 
+**大型上傳。** nginx 的 ModSecurity 模組會先把整個請求內容讀進記憶體 (以及暫存檔)，ModSecurity 才開始檢查；
+`SecRequestBodyLimit`、`SecRequestBodyLimitAction` 與 `ctl:requestBodyAccess=Off` 都改變不了。實測 libmodsecurity 3.0.14 與模組 1.0.3
+(Ubuntu 26.04)：1 GB 上傳讓 nginx worker 用到 1.6～1.9 GB 記憶體；`modsecurity off` 時邊收邊轉，只用 8 MB。接收大檔的站台
+(NAS、檔案分享) 請把 `client_max_body_size` 設在遠低於主機記憶體的值，或只對專門接收上傳的 location 關閉 ModSecurity
+(前提是應用程式無法經由它做別的事)。系統檢查會對開了 ModSecurity、又設 `client_max_body_size 0` 或超過記憶體四分之一的站台發出警告。
+
 ## 4. 稽核記錄目錄與輪替
 
 ```sh

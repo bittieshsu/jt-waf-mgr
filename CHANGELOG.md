@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.36 (2026-11-22)
+
+- System check: "Large uploads and memory". nginx's ModSecurity module reads a whole upload into memory first, whatever the body limits say (measured with libmodsecurity 3.0.14 and module 1.0.3: a 1 GB upload took an nginx worker to 1.6-1.9 GB; 8 MB with ModSecurity off). A site with ModSecurity on that accepts uploads without a limit or above a quarter of the host's memory is a warning, naming the site's locations already without ModSecurity. The ModSecurity manual explains it in three languages.
+
 ## 0.5.35 (2026-11-22)
 
 - Synology DSM protection set, "administration APIs from the local network only", narrowed so ordinary users are not refused: checked against the scripts of the packages on the NAS and of DSM Help, the DSM address settings (SYNO.Core.Web, which Synology Photos builds links from) and the DDNS records (DSM Help) are no longer in it; for the network only its sub-APIs are (PPPoE, for example), the basic network information stays readable; for file services only the FTP, NFS, rsync, AFP and WebDAV settings (the SMB status stays readable). A site with the earlier rule shows "update available" on the protection sets page.

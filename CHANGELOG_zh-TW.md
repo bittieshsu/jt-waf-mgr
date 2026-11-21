@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.5.36 (2026-11-22)
+
+- 系統檢查新增「大型上傳與記憶體」：nginx 的 ModSecurity 模組會先把整個上傳內容讀進記憶體，內容大小上限的設定都管不到 (實測 libmodsecurity 3.0.14、模組 1.0.3：1 GB 上傳讓 nginx worker 用到 1.6～1.9 GB；關掉 ModSecurity 時 8 MB)。開了 ModSecurity、又允許不限大小或超過主機記憶體四分之一上傳的站台列為警告，並寫出該站已關掉 ModSecurity 的 location。ModSecurity 安裝手冊三語補上這段說明。
+
 ## 0.5.35 (2026-11-22)
 
 - Synology DSM 防護組合「管理 API 只限內網」改窄，避免誤擋一般使用者：對照 NAS 上各套件與 DSM 說明的前端程式後，拿掉 Synology Photos 用來組連結的 DSM 網址設定 (SYNO.Core.Web)、DSM 說明會讀的 DDNS 記錄；網路只封鎖子 API (例如 PPPoE)，基本網路資訊照常可讀；檔案服務只封鎖 FTP、NFS、rsync、AFP、WebDAV 的設定 (SMB 狀態照常可讀)。已套用舊版規則的站台會在防護組合頁顯示「可更新」。

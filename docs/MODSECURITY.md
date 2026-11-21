@@ -103,6 +103,14 @@ modsecurity on;
 modsecurity_rules_file /etc/nginx/modsec/main.conf;
 ```
 
+**Large uploads.** nginx's ModSecurity module reads a whole request body into memory (and a temporary file) before
+ModSecurity sees it; `SecRequestBodyLimit`, `SecRequestBodyLimitAction` and `ctl:requestBodyAccess=Off` do not change
+that. Measured with libmodsecurity 3.0.14 and the module 1.0.3 (Ubuntu 26.04): a 1 GB upload took an nginx worker to
+1.6-1.9 GB of memory; with `modsecurity off` it streamed in 8 MB. On a site that takes large files (a NAS, a file
+share), keep `client_max_body_size` well below the host's memory, or switch ModSecurity off for a location that takes
+nothing but uploads (only where the application cannot be reached through it otherwise). The system check warns about
+sites with ModSecurity on and `client_max_body_size 0` or more than a quarter of the memory.
+
 ## 4. Audit log directory and rotation
 
 ```sh

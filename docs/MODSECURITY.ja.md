@@ -100,6 +100,13 @@ modsecurity on;
 modsecurity_rules_file /etc/nginx/modsec/main.conf;
 ```
 
+**大きなアップロード。** nginx の ModSecurity モジュールは、ModSecurity が見る前にリクエスト本文全体をメモリ (と一時ファイル)
+に読み込みます。`SecRequestBodyLimit`、`SecRequestBodyLimitAction`、`ctl:requestBodyAccess=Off` では変わりません。libmodsecurity 3.0.14
+とモジュール 1.0.3 (Ubuntu 26.04) で計測：1 GB のアップロードで nginx worker が 1.6〜1.9 GB のメモリを使い、`modsecurity off` では
+8 MB で流れました。大きなファイルを受け取るサイト (NAS、ファイル共有) では `client_max_body_size` をホストのメモリより十分小さくするか、
+アップロード専用の location だけ ModSecurity を無効にしてください (そこから他の操作ができないアプリケーションに限ります)。システムチェックは、
+ModSecurity が有効で `client_max_body_size 0` またはメモリの 4 分の 1 を超えるサイトを警告します。
+
 ## 4. 監査ログのディレクトリとローテーション
 
 ```sh
