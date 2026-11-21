@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.30 (2026-11-21)
+
+- Sign-in and first-login pages: a soft glow in the logo's colours over a faint dot grid and a lifted card with an accent edge, in place of a flat, empty background (the dark theme looked all black).
+- Dark theme: filled blue buttons, selected segments, chips and calendar days use white text on a deeper blue (4.8:1); the dark text on the lighter blue was hard to read.
+
 ## 0.5.29 (2026-11-21)
 
 - A vhost file added to an include directory by hand (a new site in `sites-enabled/`) was not seen by the web service: its cached view of the nginx configuration was re-read only when a file it already knew changed, so the site list missed the new site and, when a command-line check saw it, the outside-change record flapped between "added" and "removed" with one critical alert each time. The view now also notices files appearing in or leaving an include pattern, and the configuration fingerprint always looks at the files as they are.

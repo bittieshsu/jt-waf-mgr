@@ -1,5 +1,5 @@
 <template>
-  <div class="app" :class="{ bare: bare }">
+  <div class="app" :class="{ bare: bare, authbg: bare && !board }">
     <!-- Top bar. The links stay inline while they fit (measured, so it works for every language and role);
          when not, the links that do not fit fold into one "More" (or "Admin") drop-down; when fewer than three
          fit, everything folds into the menu button.
