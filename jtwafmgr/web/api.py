@@ -1052,6 +1052,43 @@ def removals(app, req):
     return json_response(200, {'items': m.removals})
 
 
+def vhost_config(app, req):
+    """0.5.39: a site's server block as nginx has it (secret-looking values masked); read only."""
+    from .. import vhostconf
+    try:
+        line = int(req.query.get('line') or 0)
+        return json_response(200, vhostconf.site_block(app, str(req.query.get('file') or ''), line))
+    except ValueError:
+        raise ApiError(422, 'invalid_line', 'line')
+    except vhostconf.VhostError as e:
+        raise ApiError(404 if e.code == 'not_a_site' else 422, e.code, e.code.replace('_', ' '), field=e.field)
+
+
+def vhost_example(app, req):
+    """0.5.39: an example server block for a new site from a few answers; nothing is written (an administrator saves
+    it and reloads nginx by hand)."""
+    from .. import vhostconf, compliance
+    q = req.query
+    flag = lambda k, d: d if q.get(k) in (None, '') else q.get(k) in ('1', 'true', 'on')   # noqa: E731
+    certs = vhostconf.certificates(app)
+    if q.get('cert') is None and certs:
+        cert, key = certs[0]['cert'], certs[0]['key']
+    else:
+        cert, key = q.get('cert'), q.get('key')
+    if not q.get('host'):
+        return json_response(200, {'certificates': certs, 'presets': list(vhostconf.PRESETS)})
+    try:
+        opts = {'preset': q.get('preset'), 'host': q.get('host'), 'port': q.get('port'), 'backend': q.get('backend'),
+                'upload': q.get('upload'), 'cert': cert, 'key': key, 'internal_only': flag('internal_only', True),
+                'redirect_80': flag('redirect_80', True), 'ipv6': flag('ipv6', True)}
+        if q.get('websocket') not in (None, ''):          # else the preset decides
+            opts['websocket'] = flag('websocket', False)
+        out = vhostconf.example(opts, internal_networks=app.cfg.internal_networks, mem_bytes=compliance._mem_total())
+    except vhostconf.VhostError as e:
+        raise ApiError(422, e.code, e.code.replace('_', ' '), field=e.field)
+    return json_response(200, dict(out, certificates=certs))
+
+
 def vhosts(app, req):
     n, m = app.site.load()
     items = n.servers()
@@ -1851,6 +1888,8 @@ def register(router):
     R('GET', V + '/rules/{id}', rule, viewer('rules:read'))
     R('GET', V + '/rules/{id}/hits', rule_hits, viewer('rules:read'))
     R('GET', V + '/vhosts', vhosts, viewer('rules:read'))
+    R('GET', V + '/vhosts/config', vhost_config, ('role', 'approver', None))
+    R('GET', V + '/vhosts/example', vhost_example, ('role', 'approver', None))
     R('GET', V + '/crs', crs, viewer('rules:read'))
     R('GET', V + '/traffic', traffic_report, viewer('events:read'))
     R('GET', V + '/crs/updates', crs_updates, viewer('rules:read'))

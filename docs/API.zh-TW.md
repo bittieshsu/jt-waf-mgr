@@ -182,6 +182,12 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 `name`、`size`、`sha256`)、`POST /uploads/{id}/chunk` (`index`、base64 的 `data`)、`POST /uploads/{id}/finish`
 (CRS 發行檔另帶簽章文字 `asc`)；處理前會先核對大小與 SHA-256。
 
+**`GET /vhosts/config?file=&line=`** (0.5.39，核准者或管理者，只限登入)：nginx 在該檔案與行號載入的 server 區塊 (取自
+`GET /vhosts`)，唯讀，看起來像機密的值已遮蔽；其他一律 404 `not_a_site`。**`GET /vhosts/example`**：不帶 `host` 時回傳站台
+使用中的憑證 (`certificates`：`cert`、`key`、`names`)；帶 `host`、`backend` (http(s)://位址:連接埠)，可選 `preset`
+(`generic` | `synology`)、`port`、`upload`、`cert` 與 `key`、`internal_only`、`websocket`、`redirect_80`、`ipv6`：回傳範例
+server 區塊 (`text`)、存放位置 (`path`)、載入指令 (`steps`) 與 `big_upload`。不寫入任何東西；答案不合法時回 422 並帶 `field`。
+
 **`GET /protsets`**：scope `rules:read`。應用程式防護組合 (0.5.33；第一組是 Synology DSM)：`adopted` 與 `sets`
 (`id`、`app`、`rule_count`、`sites`：軟體清單列出這個應用程式的每個站台，含 `host` 與 `rules`：`id`、`state`
 (`available`、`applied`、`update` (這一版寫法不同)、`disabled`、`pending` 與 `change_id`)、`default` (建議)、

@@ -3,6 +3,7 @@
     <div class="pagehead">
       <h1>{{ t('vhosts.title') }}</h1>
       <span class="badge b-int"><Icon name="lock" />{{ t('rules.readonly') }}</span>
+      <button v-if="isApprover" type="button" class="btn small" @click="openExample"><Icon name="code" />{{ t('vhostex.open') }}</button>
     </div>
     <ErrorBox :error="error" />
     <Loading v-if="loading" />
@@ -43,6 +44,60 @@
         </template>
       </div>
     </section>
+    <!-- 0.5.39: jt-waf-mgr never writes a server block: it shows a site's block (masked) and writes an example for a
+         new site, which an administrator saves and loads by hand -->
+    <section v-if="isApprover && ex.open" id="vhost-example" class="card">
+      <h2><Icon name="code" /> {{ t('vhostex.title') }}</h2>
+      <p class="muted small">{{ t('vhostex.intro') }}</p>
+      <div class="filters inline">
+        <div class="field"><span><label for="vx-preset">{{ t('vhostex.preset') }}</label></span>
+          <SelectBox id="vx-preset" v-model="ex.preset" :options="presetOpts" @update:model-value="presetChanged" /></div>
+        <label class="field grow"><span>{{ t('vhostex.host') }}</span>
+          <input v-model.trim="ex.host" class="mono" maxlength="253" placeholder="nas.example.com"></label>
+        <label class="field"><span>{{ t('vhostex.port') }}</span>
+          <input v-model.trim="ex.port" class="mono w-xs" maxlength="5" inputmode="numeric"></label>
+        <label class="field grow"><span>{{ t('vhostex.backend') }}</span>
+          <input v-model.trim="ex.backend" class="mono" maxlength="300" placeholder="https://192.0.2.18:5001"></label>
+        <label class="field"><span>{{ t('vhostex.upload') }}</span>
+          <input v-model.trim="ex.upload" class="mono w-xs" maxlength="8"></label>
+      </div>
+      <div class="filters inline">
+        <div class="field grow"><span><label for="vx-cert">{{ t('vhostex.cert') }}</label></span>
+          <SelectBox id="vx-cert" v-model="ex.cert" :options="certOpts" /></div>
+      </div>
+      <div v-if="ex.cert === 'own'" class="filters inline">
+        <label class="field grow"><span>ssl_certificate</span>
+          <input v-model.trim="ex.certPath" class="mono" maxlength="250" :placeholder="'/etc/ssl/' + (ex.host || 'site') + '/fullchain.pem'"></label>
+        <label class="field grow"><span>ssl_certificate_key</span>
+          <input v-model.trim="ex.keyPath" class="mono" maxlength="250" :placeholder="'/etc/ssl/' + (ex.host || 'site') + '/privkey.pem'"></label>
+      </div>
+      <div class="checks">
+        <label class="check"><input v-model="ex.internal" type="checkbox"> {{ t('vhostex.internal') }}</label>
+        <label class="check"><input v-model="ex.websocket" type="checkbox"> {{ t('vhostex.websocket') }}</label>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn small primary" :disabled="ex.busy || !ex.host || !ex.backend" @click="makeExample"><Spinner v-if="ex.busy" /><Icon v-else name="code" />{{ t('vhostex.make') }}</button>
+        <button type="button" class="btn small ghost" @click="ex.open = false"><Icon name="cancel" />{{ t('common.close') }}</button>
+      </div>
+      <ErrorBox :error="ex.error" />
+      <template v-if="ex.out">
+        <p v-if="ex.out.big_upload" class="alert warn small"><Icon name="warning" /> {{ t('vhostex.big_upload') }}</p>
+        <h3 class="charthead">{{ t('vhostex.save_as') }} <span class="mono">{{ ex.out.path }}</span></h3>
+        <CopyText :value="ex.out.text" :display="t('vhostex.copy_hint')" />
+        <CodeBlock small lang="nginx" :code="ex.out.text" />
+        <h3 class="charthead">{{ t('vhostex.steps') }}</h3>
+        <CodeBlock small lang="shell" :code="ex.out.steps.join('\n')" />
+        <p class="muted small">{{ t('vhostex.after') }}</p>
+      </template>
+    </section>
+    <section v-if="view.file" id="vhost-config" class="card">
+      <h2><Icon name="show" /> {{ t('vhostex.view_title') }} <span class="mono small gapl">{{ shortFile(view.file) }}:{{ view.line }}</span></h2>
+      <p class="muted small">{{ t('vhostex.view_hint') }}</p>
+      <Loading v-if="view.busy" />
+      <ErrorBox :error="view.error" />
+      <CodeBlock v-if="view.text" small lang="nginx" :code="view.text" />
+      <div class="actions"><button type="button" class="btn small ghost" @click="view.file = ''"><Icon name="cancel" />{{ t('common.close') }}</button></div>
+    </section>
     <section v-if="site.host" ref="siteForm" class="card">
       <h2><Icon :name="formIcon" /> {{ formTitle }}</h2>
       <p class="muted small">{{ formHint }}</p>
@@ -59,6 +114,7 @@
       <template #cell-server_names="{ row }">
         <div v-for="n in row.server_names" :key="n" class="mono"><TruncText :text="n" :max="100" /></div>
         <div class="sub mono" :title="safeText(row.file, 500)">{{ shortFile(row.file) }}:{{ row.line }} · {{ (row.listen || []).map((l) => safeText(l, 40)).join(', ') }}</div>
+        <button v-if="isApprover" type="button" class="btn tiny ghost viewconf" @click="viewConfig(row)"><Icon name="show" />{{ t('vhostex.view') }}</button>
       </template>
       <template #cell-waf="{ row }">
         <span v-if="row.waf === 'off' && row.redirect_only" class="badge b-logged" :title="t('waf.redirect_hint')">{{ t('waf.redirect') }}</span>
@@ -135,6 +191,10 @@ import Icon from '../components/Icon.vue'
 import DataTable from '../components/DataTable.vue'
 import SegBar from '../components/charts/SegBar.vue'
 import HBars from '../components/charts/HBars.vue'
+import SelectBox from '../components/SelectBox.vue'
+import CodeBlock from '../components/CodeBlock.vue'
+import CopyText from '../components/CopyText.vue'
+import Spinner from '../components/Spinner.vue'
 
 const router = useRouter()
 const isApprover = computed(() => hasRole('approver'))
@@ -159,6 +219,45 @@ const siteForm = ref(null)
 function siteOf(v) {
   return (v.server_names || []).find((n) => n && n !== '_' && !n.startsWith('~') && /^[a-z0-9.-]+$/i.test(n)) || ''
 }
+// --- 0.5.39: an example for a new site, and a site's own block ------------------------------------------------
+const PRESET_DEF = { generic: { port: '443', upload: '10m', websocket: false }, synology: { port: '5001', upload: '1g', websocket: true } }
+const ex = reactive({ open: false, preset: 'generic', host: '', port: '443', backend: '', upload: '10m', cert: '', internal: true,
+  websocket: false, certs: [], certPath: '', keyPath: '', busy: false, error: null, out: null })
+const presetOpts = computed(() => ['generic', 'synology'].map((x) => ({ value: x, label: t('vhostex.preset_opt.' + x) })))
+const certOpts = computed(() => [...ex.certs.map((c, i) => ({ value: String(i), label: c.cert + ' (' + t('vhostex.cert_sites', { n: c.names }) + ')' })),
+  { value: 'own', label: t('vhostex.cert_own') }])
+function presetChanged() { Object.assign(ex, PRESET_DEF[ex.preset] || {}) }
+async function openExample() {
+  ex.open = true
+  ex.error = null
+  try {
+    const d = await get('/vhosts/example')
+    ex.certs = d.certificates || []
+    if (!ex.cert) ex.cert = ex.certs.length ? '0' : 'own'
+  } catch (e) { ex.error = e }
+  await nextTick()
+  document.getElementById('vhost-example')?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+}
+async function makeExample() {
+  ex.busy = true
+  ex.error = null
+  ex.out = null
+  const own = ex.cert === 'own'
+  const base = '/etc/ssl/' + (ex.host || 'site') + '/'
+  const c = own ? { cert: ex.certPath || base + 'fullchain.pem', key: ex.keyPath || base + 'privkey.pem' } : (ex.certs[Number(ex.cert)] || {})
+  const q = new URLSearchParams({ preset: ex.preset, host: ex.host, port: ex.port, backend: ex.backend, upload: ex.upload,
+    internal_only: ex.internal ? '1' : '0', websocket: ex.websocket ? '1' : '0' })
+  if (c.cert) { q.set('cert', c.cert); q.set('key', c.key) }
+  try { ex.out = await get('/vhosts/example?' + q.toString()) } catch (e) { ex.error = e } finally { ex.busy = false }
+}
+const view = reactive({ file: '', line: 0, text: '', busy: false, error: null })
+async function viewConfig(row) {
+  Object.assign(view, { file: row.file, line: row.line, text: '', busy: true, error: null })
+  await nextTick()
+  document.getElementById('vhost-config')?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  try { view.text = (await get('/vhosts/config?' + new URLSearchParams({ file: row.file, line: String(row.line) }))).text } catch (e) { view.error = e } finally { view.busy = false }
+}
+
 async function startSite(row, mode, kind = 'waf') {
   Object.assign(site, { host: row ? siteOf(row).toLowerCase() : '*', mode, kind, error: null,
     reason: kind === 'page' && mode === 'enable' ? t('blockpage.default_reason') : '' })

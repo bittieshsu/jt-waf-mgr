@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.5.39 (2026-11-22)
+
+- 站台頁「新站台的範例設定」：選站台類型 (一般反向代理或 Synology DSM)、填站名、連接埠、後端、上傳上限、憑證 (從本機現有站台挑，或自行填路徑)，產生完整的 server 區塊與存放位置、載入指令，可一鍵複製。jt-waf-mgr 不寫入，由管理者自己存檔、`nginx -t`、reload；之後再從站台頁開 ModSecurity。範例內含 X-Forwarded-For 一律覆蓋、非 443 埠的預設站台 (名稱不符就拒絕 TLS 交握)、先只限內網的 allow/deny、上傳上限過大的記憶體提醒；Synology 範本另有 WebSocket、上傳不經緩衝、DSM 信任代理的提醒。三種範例都在 nginx 1.28 以 `nginx -t` 驗證過。
+- 站台頁每個站台多了「查看設定」：顯示 nginx 目前載入的 server 區塊 (唯讀，看起來像機密的值已遮蔽)；只能看 nginx 實際載入的站台，不能讀任意檔案。兩者都只限核准者以上。`GET /api/v1/vhosts/config`、`GET /api/v1/vhosts/example`。
+
 ## 0.5.38 (2026-11-22)
 
 - 證據檢查不再把 jt-waf-mgr 自己發出的請求算成「有人在用這個路徑」：讀取軟體版本與首頁、套用前後的健康檢查 (本機位址，User-Agent 為 jt-waf-mgr 自己的)。起因：revproxy2 的 Synology 防護組合，「DSM 舊 CGI 程式」因為 jt-waf-mgr 自己讀 DSM 版本的 /webman/info.cgi 被判為內網在用，證據檢查沒過；沙箱 139 個請求全過。

@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.39 (2026-11-22)
+
+- Sites page, "Example for a new site": pick the kind of site (a general reverse proxy or Synology DSM), give the name, port, back end, upload limit and certificate (one the sites here use, or your own paths), and get a whole server block, where to save it and the commands to load it, to copy. jt-waf-mgr writes nothing: an administrator saves it, runs `nginx -t` and reloads, then switches ModSecurity on from the sites page. The example replaces X-Forwarded-For (never appends), adds a default server on a port other than 443 that refuses a TLS handshake for any other name, starts local-network-only, and warns about an upload limit too large for ModSecurity; the Synology one adds WebSocket, unbuffered uploads and DSM's trusted proxy. All three kinds pass `nginx -t` on nginx 1.28.
+- Sites page, "View configuration" on each site: the server block nginx has loaded (read only, secret-looking values masked); only blocks nginx loads, never any file. Both for approvers and administrators. `GET /api/v1/vhosts/config`, `GET /api/v1/vhosts/example`.
+
 ## 0.5.38 (2026-11-22)
 
 - The evidence check no longer counts jt-waf-mgr's own requests as people using a path: reading software versions and home pages, the health checks around an apply (from this host, with jt-waf-mgr's own User-Agent). revproxy2's Synology set failed it on "old DSM CGI programs" because of the program's own GET /webman/info.cgi for the DSM version, while all 139 sandbox requests passed.

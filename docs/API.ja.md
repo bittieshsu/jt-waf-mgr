@@ -198,6 +198,13 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 `sha256`)、`POST /uploads/{id}/chunk` (`index`、base64 の `data`)、`POST /uploads/{id}/finish` (CRS リリースは
 署名テキスト `asc` も)。処理前にサイズと SHA-256 を照合します。
 
+**`GET /vhosts/config?file=&line=`** (0.5.39、承認者または管理者、セッションのみ)：そのファイルと行 (`GET /vhosts` から)
+で nginx が読み込む server ブロック。読み取り専用、機密と思われる値は伏せます。それ以外は 404 `not_a_site`。
+**`GET /vhosts/example`**：`host` なしでは各サイトが使う証明書 (`certificates`：`cert`、`key`、`names`)。`host`、`backend`
+(http(s)://アドレス:ポート) と任意の `preset` (`generic` | `synology`)、`port`、`upload`、`cert` と `key`、`internal_only`、
+`websocket`、`redirect_80`、`ipv6` を付けると、server ブロックの例 (`text`)、保存先 (`path`)、読み込みコマンド (`steps`)、
+`big_upload` を返します。何も書き込みません。不正な値は 422 と `field`。
+
 **`GET /protsets`**：スコープ `rules:read`。アプリケーション保護セット (0.5.33。最初は Synology DSM)：`adopted` と
 `sets` (`id`、`app`、`rule_count`、`sites`：ソフトウェア一覧でこのアプリケーションが記録されている各サイト。`host` と
 `rules`：`id`、`state` (`available`、`applied`、`update` (このバージョンでは書き方が違う)、`disabled`、`pending` と

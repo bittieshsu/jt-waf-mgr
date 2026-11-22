@@ -201,6 +201,13 @@ CRS release and its signature) go in parts of up to 600 KB: `POST /uploads` (adm
 `size`, `sha256`), `POST /uploads/{id}/chunk` (`index`, base64 `data`), `POST /uploads/{id}/finish` (for a CRS release
 also `asc`, the signature text); the size and SHA-256 are checked before the job reads the file.
 
+**`GET /vhosts/config?file=&line=`** (0.5.39, approver or administrator, sessions only): the server block nginx loads at
+that file and line (from `GET /vhosts`), read only, secret-looking values masked; 404 `not_a_site` for anything else.
+**`GET /vhosts/example`**: without `host`, the certificates the sites use (`certificates`: `cert`, `key`, `names`);
+with `host`, `backend` (http(s)://address:port), and optionally `preset` (`generic` | `synology`), `port`, `upload`,
+`cert` and `key`, `internal_only`, `websocket`, `redirect_80`, `ipv6`: an example server block (`text`), where to save it
+(`path`), the commands to load it (`steps`) and `big_upload`. Nothing is written; 422 with `field` for a bad answer.
+
 **`GET /protsets`**: scope `rules:read`. Application protection sets (0.5.33; the first is Synology DSM): `adopted`
 and `sets` (`id`, `app`, `rule_count`, `sites`: each site the software list names for the application, with `host` and
 `rules`: `id`, `state` (`available`, `applied`, `update` (this version writes it differently), `disabled`, `pending`

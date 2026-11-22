@@ -261,7 +261,7 @@ async function audit(page, where) {
   }
   // sites: "switch WAF on" opens the reason form (proposing is tested in the unit tests)
   await page.goto(base + '/vhosts', { waitUntil: 'networkidle' });
-  const swBtn = page.locator('table button.btn.tiny').filter({ has: page.locator('svg') }).first();
+  const swBtn = page.locator('table button.btn.tiny:not(.viewconf)').filter({ has: page.locator('svg') }).first();
   if (await swBtn.count()) {
     await swBtn.click();
     ok(await page.locator('textarea').count() >= 1, 'sites: the WAF switch asks why');
@@ -707,6 +707,24 @@ async function audit(page, where) {
   ok((await vRow('intra.example.com').locator('.badge', { hasText: /^僅內部$/ }).count()) === 1
      && (await vRow('app.example.com').locator('.badge', { hasText: /^內外皆可$/ }).count()) === 1,
      'sites: who can reach each block, from nginx\'s own checks');
+  // 0.5.39: an example for a new site (nothing written), and a site's own block (read only)
+  await page.goto(base + '/vhosts', { waitUntil: 'networkidle' });
+  await page.locator('.pagehead button', { hasText: '新站台的範例設定' }).click();
+  await page.waitForSelector('#vhost-example', { timeout: 8000 }).catch(() => {});
+  await page.locator('#vx-preset').click();
+  await page.getByRole('option', { name: 'Synology DSM' }).click();
+  await page.locator('#vhost-example input[placeholder="nas.example.com"]').fill('nas.example.com');
+  await page.locator('#vhost-example input[placeholder="https://192.0.2.18:5001"]').fill('https://192.0.2.18:5001');
+  await page.locator('#vhost-example button', { hasText: '產生範例' }).click();
+  await page.waitForSelector('#vhost-example pre.codeblock', { timeout: 8000 }).catch(() => {});
+  const exCode = await page.locator('#vhost-example pre.codeblock').first().innerText().catch(() => '');
+  ok(/listen 5001 ssl;/.test(exCode) && /ssl_reject_handshake on;/.test(exCode) && /client_max_body_size 1g;/.test(exCode) &&
+     (await page.locator('#vhost-example .copytext button').count()) === 1, 'sites: an example for a new Synology DSM site, to copy');
+  await page.locator('button.viewconf').first().click();
+  await page.waitForSelector('#vhost-config pre.codeblock', { timeout: 8000 }).catch(() => {});
+  const siteConf = await page.locator('#vhost-config pre.codeblock').innerText().catch(() => '');
+  ok(/^\s*server\s*\{/.test(siteConf) && /\}\s*$/.test(siteConf), 'sites: a site\'s own server block, read only');
+  await page.goto(base + '/vhosts', { waitUntil: 'networkidle' });
   // DNS: a name only internal DNS knows on a site nginx lets anyone into is the risk, in red
   const dnsBadge = vRow('app.example.com').locator('.badge', { hasText: '僅內部 DNS' });
   ok((await dnsBadge.count()) === 1 && /b-blocked/.test(await dnsBadge.getAttribute('class')) &&
