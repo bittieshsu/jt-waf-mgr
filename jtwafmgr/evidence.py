@@ -20,6 +20,7 @@ import collections
 import glob
 import gzip
 import json
+import ipaddress
 import re
 import time
 
@@ -233,6 +234,26 @@ def log_site(path):
     return m.group(1).lower() if m else '(default)'
 
 
+LOOPBACK = [ipaddress.ip_network('127.0.0.0/8'), ipaddress.ip_network('::1/128')]
+OWN_UA = re.compile(r'^jt-waf-mgr(?:-apply)? (?:version check|health check)$')
+
+
+def _own_request(d):
+    """A request jt-waf-mgr sent itself from this host (software.py reads versions, apply.py checks the health URLs):
+    loopback or this host's own address, and its own User-Agent. Never anyone's use of a path."""
+    if not OWN_UA.match(d.get('ua') or ''):
+        return False
+    ip = d.get('ip') or ''
+    return util.ip_in(ip, LOOPBACK) or ip == _lan()
+
+
+def _lan():
+    from .software import lan_address
+    if 'v' not in _lan.__dict__:
+        _lan.v = lan_address()
+    return _lan.v
+
+
 class AccessLogs:
     def __init__(self, cfg):
         self.cfg = cfg
@@ -398,6 +419,8 @@ class Evidence:
         if live:
             for d in self.logs.lines(deadline):
                 total += 1
+                if _own_request(d):
+                    continue            # 0.5.37: jt-waf-mgr's own requests (a version read, a health check) are no use
                 fn = None
                 memo = {}
                 for st in live:

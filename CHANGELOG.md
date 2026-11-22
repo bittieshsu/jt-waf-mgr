@@ -2,6 +2,17 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.38 (2026-11-22)
+
+- The evidence check no longer counts jt-waf-mgr's own requests as people using a path: reading software versions and home pages, the health checks around an apply (from this host, with jt-waf-mgr's own User-Agent). revproxy2's Synology set failed it on "old DSM CGI programs" because of the program's own GET /webman/info.cgi for the DSM version, while all 139 sandbox requests passed.
+
+## 0.5.37 (2026-11-22)
+
+- Important fix: on a host adopted with a fresh ModSecurity (no site rule file), confident blocks, country limits and CrowdSec rules only logged and never refused: they mark `tx.jt_block`, and the system rule 10298 that turns the mark into the critical anomaly score for the CRS to refuse the request came only with rule files adopted from a site. The managed before file now carries it at its end when none is there (one a person deleted stays out). Found when revproxy2's first Synology protection set answered every attack request with 200 in the sandbox while matching it.
+- The host's name ([node] id, at the top of every page and in the audit events) defaults to the host's short name (hostname -s); the example configuration no longer sets "waf1", and an upgrade turns a configuration still at the example's `id = "waf1"` to the host's name.
+- Rules list: the rules of an application protection set have their own author, "Application protection sets", to filter on (they were under jt-rules).
+- Synology DSM protection set: "Video Station subtitle code page": the subtitle program passed subtitle_codepage to a command (Talos / Snort 1:36031); from outside, one with a command character, a quote or a line break is refused (10 rules, 9 recommended).
+
 ## 0.5.36 (2026-11-22)
 
 - System check: "Large uploads and memory". nginx's ModSecurity module reads a whole upload into memory first, whatever the body limits say (measured with libmodsecurity 3.0.14 and module 1.0.3: a 1 GB upload took an nginx worker to 1.6-1.9 GB; 8 MB with ModSecurity off). A site with ModSecurity on that accepts uploads without a limit or above a quarter of the host's memory is a warning, naming the site's locations already without ModSecurity. The ModSecurity manual explains it in three languages.

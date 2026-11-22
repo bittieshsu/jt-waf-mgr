@@ -871,6 +871,8 @@ class _Provenance:
             return 'jason_tools'
         if ch in ('change', 'person', 'token', 'analyst'):
             it = self.items.get(rid) or {}
+            if it.get('kind') == 'confident_block' and '"protset"' in str(it.get('spec') or ''):
+                return 'protset'            # 0.5.37: an application protection set's rule
             return 'site' if it.get('kind') == 'raw' else 'crowdsec' if it.get('kind') == 'crowdsec' else 'jason_tools'
         if ch == 'adopted':
             return self.imported_author
@@ -906,7 +908,7 @@ MANAGED_CHANNELS = ('managed', 'adopted', 'change', 'person', 'token', 'analyst'
 _KIND_CATEGORY = {'exclusion': 'exclusion', 'confident_block': 'confident_block', 'redaction': 'redaction',
                   'plugin': 'plugin_toggle', 'raw': 'other', 'crowdsec': 'confident_block'}
 RULE_STATES = ('on', 'off', 'partial', 'inactive')
-RULE_AUTHORS = ('owasp_crs', 'owasp_crs_plugin', 'third_party', 'modsecurity', 'jason_tools', 'site', 'crowdsec')
+RULE_AUTHORS = ('owasp_crs', 'owasp_crs_plugin', 'third_party', 'modsecurity', 'jason_tools', 'site', 'crowdsec', 'protset')
 
 
 def _disabled_managed(app):

@@ -433,6 +433,47 @@
      ]
     },
     {
+     "id": "video-subtitle",
+     "default": true,
+     "needs": [
+      "Synology Video Station"
+     ],
+     "spec": {
+      "target": "arg",
+      "arg": "subtitle_codepage",
+      "regex": "^[a-z0-9_.-]*[;|&$\\x60<>()\\x0a\\x0d\\x22\\x27\\\\]",
+      "msg": "Synology Video Station subtitle code page with other characters",
+      "reference": "https://www.snort.org/advisories/talos-rules-2015-09-10.html",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/webapi/VideoStation/subtitle.cgi?api=SYNO.VideoStation.Subtitle&version=2&method=get&id=1&subtitle_codepage=utf8%3Bid",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/webapi/VideoStation/subtitle.cgi?api=SYNO.VideoStation.Subtitle&version=2&method=get&id=1&subtitle_codepage=%60id%60",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/webapi/VideoStation/subtitle.cgi?api=SYNO.VideoStation.Subtitle&version=2&method=get&id=1&subtitle_codepage=big5",
+       "method": "GET",
+       "expect": 200
+      },
+      {
+       "path": "/webapi/VideoStation/subtitle.cgi?api=SYNO.VideoStation.Subtitle&version=2&method=get&id=1&subtitle_codepage=utf-8",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.snort.org/advisories/talos-rules-2015-09-10.html"
+     ],
+     "cves": []
+    },
+    {
      "id": "photos-socket",
      "default": false,
      "needs": [

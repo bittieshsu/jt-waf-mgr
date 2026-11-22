@@ -63,6 +63,9 @@ class Workflow:
         self.evidence = None    # set by app (evidence.Evidence)
 
     # --- settings -------------------------------------------------------------------------
+    def _score_id(self):
+        return (self.cfg['waf'].get('score_rule_ids') or [None])[0]
+
     def setting(self, key):
         return self.managed.setting(key, DEFAULT_SETTINGS.get(key))
 
@@ -1392,7 +1395,7 @@ class Workflow:
 
     def build_files(self, r, version):
         items, touched = self._target_items(r)
-        return items, Managed.render(items, version), touched
+        return items, Managed.render(items, version, score_rule=self._score_id()), touched
 
     # --- checks ---------------------------------------------------------------------------
     def _crs_requests(self):
@@ -1448,7 +1451,7 @@ class Workflow:
                            if n and k > 1 and k > _hub_names(self.managed.items(include_deleted=True)).get(n, 0))
             if twice:
                 raise ChangeError('hub_rule_twice', name=twice[0])
-            old = Managed.render(self.managed.items(include_deleted=True), base) if r['op'] != 'adopt' else {}
+            old = Managed.render(self.managed.items(include_deleted=True), base, score_rule=self._score_id()) if r['op'] != 'adopt' else {}
             checks['diff'] = _diff(old, files)
             checks['rules_sha256'] = _rules_hash(items)
             checks['static'] = {'ok': True}
@@ -1481,7 +1484,7 @@ class Workflow:
                 else:
                     # while the WAF is paused, the sandbox still tests the rules as they work unpaused
                     sb_items = [it for it in items if it.get('kind') != 'pause']
-                    sb_files = Managed.render(sb_items, base + 1) if len(sb_items) != len(items) else files
+                    sb_files = Managed.render(sb_items, base + 1, score_rule=self._score_id()) if len(sb_items) != len(items) else files
                     sb = self.sandbox.run_change(r, sb_files, json.loads(r['tests'] or '[]'), self.managed, self.samples(),
                                                  sb_items)
             except Exception as e:
@@ -1876,7 +1879,7 @@ class Workflow:
                             "base_version) VALUES ('rollback', 'system', ?, 'neutral', 'applying', ?, ?, ?, ?, ?)",
                             (json.dumps({'to_version': version}), note, user['username'], t, t,
                              cur['version'] if cur else 0)).lastrowid
-        files = Managed.render(data['items'], new_version)
+        files = Managed.render(data['items'], new_version, score_rule=self._score_id())
         self._write_version(new_version, cid, 'rollback', files, data['items'], 'pending')
         if disk['drift']:
             # the approver chose to overwrite the outside edit: expect the disk as it is now, and record it
@@ -2142,10 +2145,15 @@ def _own_lines_hash(r):
     """What a change itself adds to and removes from the rule files, as its last checks rendered it (the diff's +/-
     lines, not the surrounding context): the same rules give the same hash on any base version."""
     d = (json.loads(r['checks'] or '{}') if r['checks'] else {}).get('diff') or {}
+    from .managed import SCORE_RULE
+    # 0.5.37: the system rule written with the first rule that needs it is no part of any change's own content
+    system = set((SCORE_RULE % 0).replace('id:0,', 'id:,').splitlines())
     lines = []
     for p in sorted(d):
         for line in d[p].splitlines():
             if line[:1] in '+-' and not line.startswith(('+++', '---')):
+                if not line[1:].strip() or re.sub(r'id:\d+,', 'id:,', line[1:]) in system:
+                    continue
                 lines.append(p + line)
     return sha256('\n'.join(lines) + '|' + (r['rule_text'] or ''))
 

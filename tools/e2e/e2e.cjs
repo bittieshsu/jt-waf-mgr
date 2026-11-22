@@ -335,7 +335,7 @@ async function audit(page, where) {
      (await page.locator('section.readiness li', { hasText: 'CrowdSec' }).count()) === 0, 'dashboard: the setup card names what is missing, CrowdSec on is not');
   // 0.5.34: the DSM site's recommended protection rules, with the numbers filled in (0.5.32 showed "{version}" as is)
   const psItem = page.locator('section.readiness .readylist li', { hasText: 'Synology DSM' }).first();
-  ok((await psItem.count()) === 1 && /8 條建議的防護規則尚未套用/.test(await psItem.innerText()) && /nas\.example\.com/.test(await psItem.innerText()) &&
+  ok((await psItem.count()) === 1 && /9 條建議的防護規則尚未套用/.test(await psItem.innerText()) && /nas\.example\.com/.test(await psItem.innerText()) &&
      !/\{\w+\}/.test(await page.locator('section.readiness').innerText()),
      'dashboard: the protection set item, numbers and site filled in');
   ok((await setHub(false)) === 200, 'dashboard: CrowdSec turned off for the check');

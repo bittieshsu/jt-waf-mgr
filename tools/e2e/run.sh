@@ -12,6 +12,8 @@ cp -r "$TOP/tests/fixtures/site" "$W/site"
 mkdir -p "$W/nginx-blocks" && : > "$W/nginx-blocks/blocked-ips.conf"
 sed -i "0,/include mime.types;/s||include mime.types;\n    include $W/nginx-blocks/blocked-ips.conf;|" "$W/site/nginx.conf"
 cat > "$W/config.toml" <<CONF
+[node]
+id = "waf1"
 [paths]
 db = "$W/c.db"
 nginx_conf = "$W/site/nginx.conf"

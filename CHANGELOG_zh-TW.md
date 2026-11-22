@@ -2,6 +2,17 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.5.38 (2026-11-22)
+
+- 證據檢查不再把 jt-waf-mgr 自己發出的請求算成「有人在用這個路徑」：讀取軟體版本與首頁、套用前後的健康檢查 (本機位址，User-Agent 為 jt-waf-mgr 自己的)。起因：revproxy2 的 Synology 防護組合，「DSM 舊 CGI 程式」因為 jt-waf-mgr 自己讀 DSM 版本的 /webman/info.cgi 被判為內網在用，證據檢查沒過；沙箱 139 個請求全過。
+
+## 0.5.37 (2026-11-22)
+
+- 重要修正：全新 ModSecurity 主機 (沒有站台規則檔) 納管後，確定封鎖、國家限制與 CrowdSec 規則只會記錄、不會封鎖：這些規則只標記 `tx.jt_block`，把標記轉成最高異常分數、讓 CRS 拒絕請求的系統規則 10298 只在從舊規則檔匯入時才有。現在受管理規則檔沒有這條時會自動寫在 before-crs 最後 (被人刻意刪除的不會補回)。起因：revproxy2 第一次提出 Synology 防護組合，沙箱裡每個攻擊請求都命中規則卻回 200。
+- 主機名稱 ([node] id，顯示在每頁左上角與稽核記錄) 預設改為主機的短名稱 (hostname -s)；範例設定檔不再寫死 waf1，升級時設定檔裡仍是範例值 `id = "waf1"` 的也會改成跟著主機名稱。
+- 規則清單：應用程式防護組合產生的規則有自己的撰寫者「應用程式防護組合」，可單獨篩選 (之前歸在 jt-rules)。
+- Synology DSM 防護組合新增「Video Station 字幕編碼」：字幕程式曾把 subtitle_codepage 帶進指令執行 (Talos / Snort 1:36031)，外部送來含指令符號、引號或換行的一律封鎖 (共 10 條，9 條建議)。
+
 ## 0.5.36 (2026-11-22)
 
 - 系統檢查新增「大型上傳與記憶體」：nginx 的 ModSecurity 模組會先把整個上傳內容讀進記憶體，內容大小上限的設定都管不到 (實測 libmodsecurity 3.0.14、模組 1.0.3：1 GB 上傳讓 nginx worker 用到 1.6～1.9 GB；關掉 ModSecurity 時 8 MB)。開了 ModSecurity、又允許不限大小或超過主機記憶體四分之一上傳的站台列為警告，並寫出該站已關掉 ModSecurity 的 location。ModSecurity 安裝手冊三語補上這段說明。

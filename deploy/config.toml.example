@@ -8,8 +8,8 @@
 # take effect at once and override the values here.
 
 [node]
-# Name of this WAF host (shown in the UI and in audit events).
-id = "waf1"
+# Name of this WAF host (shown in the UI and in audit events). Default: this host's short name (hostname -s).
+#id = "waf1"
 
 [server]
 # The service listens on loopback only; nginx proxies the management vhost to it.

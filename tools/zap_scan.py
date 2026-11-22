@@ -63,7 +63,9 @@ def totp(secret):
 
 
 def config_text(w, port):
-    return f'''[paths]
+    return f'''[node]
+id = "waf1"
+[paths]
 db = "{w}/c.db"
 nginx_conf = "{TOP}/tests/fixtures/site/nginx.conf"
 audit_log = "{w}/modsec_audit.log"

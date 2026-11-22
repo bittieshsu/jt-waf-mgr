@@ -119,9 +119,14 @@ chmod 755 "$ROOT/usr/bin/jt-waf-mgr"
 mkdir -p "$ETC" "$VAR"
 if [ ! -f "$ETC/config.toml" ]; then
     cp "$SRC/deploy/config.toml.example" "$ETC/config.toml"
-    say "wrote $ETC/config.toml (review it: [node] id, [waf] focus_sites, [network] internal)"
+    say "wrote $ETC/config.toml (review it: [waf] focus_sites, [network] internal; [node] id is this host's name)"
 else
     say "kept existing $ETC/config.toml"
+    # 0.5.37: [node] id left at the example's "waf1" follows this host's name from now on (the line is commented out)
+    if sed -n '/^\[node\]/,/^\[/p' "$ETC/config.toml" | grep -qx 'id = "waf1"'; then
+        sed -i '/^\[node\]/,/^\[/ s/^id = "waf1"$/#id = "waf1"   # 0.5.37: the default is now this host'"'"'s name/' "$ETC/config.toml"
+        say "  [node] id: the example's \"waf1\" replaced by this host's name"
+    fi
 fi
 cp "$SRC/deploy/config.toml.example" "$ETC/config.toml.example"
 if [ "$PIN_NEW" = 1 ]; then

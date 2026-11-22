@@ -11,9 +11,20 @@ import tomllib
 
 DEFAULT_PATH = '/etc/jt-waf-mgr/config.toml'
 
+def _host_name():
+    """0.5.37: this host's short name, the default node id (shown at the top of every page and in audit events);
+    "waf1" when it has none usable."""
+    import socket
+    try:
+        n = re.sub(r'[^A-Za-z0-9_.-]', '', socket.gethostname().split('.')[0])[:64]
+    except OSError:
+        n = ''
+    return n or 'waf1'
+
+
 DEFAULTS = {
     'node': {
-        'id': 'waf1',
+        'id': _host_name(),
     },
     'server': {
         'listen': '127.0.0.1:8095',
