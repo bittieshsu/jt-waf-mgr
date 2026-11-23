@@ -174,3 +174,20 @@ class TestDsmVersion(unittest.TestCase):
         self.assertEqual(software.extract_version(p, 200, {}, body), '7.4-90080')
         self.assertIsNone(software.extract_version(p, 200, {}, b'<html>no version</html>'))
         self.assertIsNone(software.extract_version(dict(p, regex_format='{0}.{5}'), 200, {}, body))   # no such group
+
+
+class TestQnapVersion(unittest.TestCase):
+    """0.5.40: a QNAP QTS site's firmware from /cgi-bin/authLogin.cgi (answers without a login), tags in either order."""
+
+    def test_auth_login_cgi(self):
+        p = [x for x in software.version_sources()['auto'] if x['name'] == 'QNAP QTS'][0]
+        self.assertEqual(p['path'], '/cgi-bin/authLogin.cgi')
+        body = (b'<?xml version="1.0" encoding="UTF-8" ?>\n<QDocRoot version="1.0">\n<authPassed><![CDATA[0]]>'
+                b'</authPassed>\n<firmware>\n<version><![CDATA[5.1.4]]></version>\n<number><![CDATA[2596]]></number>\n'
+                b'<build><![CDATA[20231128]]></build>\n</firmware>\n</QDocRoot>')
+        self.assertEqual(software.extract_version(p, 200, {}, body), '5.1.4-20231128')
+        swapped = body.replace(b'<build><![CDATA[20231128]]></build>\n', b'').replace(
+            b'<firmware>\n', b'<firmware>\n<build><![CDATA[20240520]]></build>\n')
+        self.assertEqual(software.extract_version(p, 200, {}, swapped), '5.1.4-20240520')
+        self.assertIsNone(software.extract_version(p, 200, {}, b'<QDocRoot><authPassed>0</authPassed></QDocRoot>'))
+        self.assertIsNone(software.extract_version(p, 403, {}, body))

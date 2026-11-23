@@ -2,6 +2,12 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.40 (2026-11-23)
+
+- Application protection sets: a second set, QNAP QTS (7 rules, 6 recommended), for sites the software list names as QNAP QTS. From outside: the setup wizard quick.cgi (CVE-2023-47218, CVE-2023-50358); HBS 3's built-in session id in a query, form or JSON body (CVE-2021-28799, Qlocker, CISA KEV); a ../ step in a file name or path parameter (Photo Station combine.php and video.php: CVE-2022-27593 DeadBolt, CVE-2019-7194/7195, CISA KEV); a sid, ssid, name or p over 2048 characters (share.cgi CVE-2024-27130, Surveillance Station CVE-2021-28797); a user name with shell characters (CVE-2024-32766); QPS_SID / QMS_SID / QMMS_SID cookies with shell characters (authLogout.cgi). Not ticked: all of Photo Station from outside. Written from public write-ups (vendor advisories, Rapid7, watchTowr, Unit 42, SSD, nuclei, Metasploit, CrowdSec) without a QNAP at hand; each rule's attack and ordinary requests pass on real nginx with ModSecurity 3.0.9 and 3.0.17 and CRS 4.30.
+- Software versions: a QNAP QTS site's firmware version and build from /cgi-bin/authLogin.cgi, which answers without a login (not yet seen on a real QTS 5.2).
+- Protection sets page: QNAP advisory numbers (QSA-, NAS-) in the source labels.
+
 ## 0.5.39 (2026-11-22)
 
 - Sites page, "Example for a new site": pick the kind of site (a general reverse proxy or Synology DSM), give the name, port, back end, upload limit and certificate (one the sites here use, or your own paths), and get a whole server block, where to save it and the commands to load it, to copy. jt-waf-mgr writes nothing: an administrator saves it, runs `nginx -t` and reloads, then switches ModSecurity on from the sites page. The example replaces X-Forwarded-For (never appends), adds a default server on a port other than 443 that refuses a TLS handshake for any other name, starts local-network-only, and warns about an upload limit too large for ModSecurity; the Synology one adds WebSocket, unbuffered uploads and DSM's trusted proxy. All three kinds pass `nginx -t` on nginx 1.28.

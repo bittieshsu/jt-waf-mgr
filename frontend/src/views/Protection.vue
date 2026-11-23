@@ -1,4 +1,4 @@
-<!-- Application protection sets (0.5.33): ready-made rules for one application (the first: Synology DSM), written from
+<!-- Application protection sets (0.5.33): ready-made rules for one application (Synology DSM, QNAP QTS), written from
      its publicly known vulnerabilities and attacks. For each site the software list names for the application, pick the
      rules (the recommended ones are ticked) and propose them as ONE change: the usual checks, the sandbox with each
      rule's own attack and ordinary requests, and a person's approval. -->
@@ -83,8 +83,8 @@ function ruleWhy(site, row) { return tOr('protset.w.' + site.set + '.' + row.id,
 function refLabel(u) {
   try {
     const x = new URL(u)
-    const id = (x.pathname.match(/(Synology_SA_\d+_\d+|CVE-\d+-\d+|ZDI-\d+-\d+)/i) || [])[1]
-    return x.hostname.replace(/^www\./, '') + (id ? ' ' + id.replace(/_/g, '-') : '')
+    const id = (x.pathname.match(/(Synology_SA_\d+_\d+|CVE-\d+-\d+|ZDI-\d+-\d+|QSA-\d+-\d+|NAS-\d{6}-\d+)/i) || [])[1]
+    return x.hostname.replace(/^www\./, '') + (id ? ' ' + (/^(?:qsa|nas)-/i.test(id) ? id.toUpperCase() : id.replace(/_/g, '-')) : '')
   } catch { return u }
 }
 function isPicked(site, row) { return (picked[key(site)] || new Set()).has(row.id) }

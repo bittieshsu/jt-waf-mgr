@@ -2,6 +2,12 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.5.40 (2026-11-23)
+
+- 應用程式防護組合新增第二組 QNAP QTS (7 條，6 條建議)，適用軟體清單列為 QNAP QTS 的站台。從外部封鎖：設定精靈 quick.cgi (CVE-2023-47218、CVE-2023-50358)；網址參數、表單或 JSON 內容帶 HBS 3 內建的工作階段編號 (CVE-2021-28799，Qlocker，CISA KEV)；檔名或路徑參數含 ../ (Photo Station 的 combine.php 與 video.php：CVE-2022-27593 DeadBolt、CVE-2019-7194/7195，CISA KEV)；超過 2048 字元的 sid、ssid、name 或 p (share.cgi CVE-2024-27130、Surveillance Station CVE-2021-28797)；含 shell 字元的使用者名稱 (CVE-2024-32766)；含 shell 字元的 QPS_SID、QMS_SID、QMMS_SID cookie (authLogout.cgi)。預設不勾選：從外部使用整個 Photo Station。依公開資料撰寫 (原廠公告、Rapid7、watchTowr、Unit 42、SSD、nuclei、Metasploit、CrowdSec)，手邊沒有 QNAP 實機；每條規則自帶的攻擊與一般請求都在真的 nginx＋ModSecurity 3.0.9 與 3.0.17＋CRS 4.30 上通過。
+- 軟體版本：從不用登入的 /cgi-bin/authLogin.cgi 讀 QNAP QTS 站台的韌體版本與建置日期 (尚未在 QTS 5.2 實機確認)。
+- 防護組合頁：參考來源標籤顯示 QNAP 公告編號 (QSA-、NAS-)。
+
 ## 0.5.39 (2026-11-22)
 
 - 站台頁「新站台的範例設定」：選站台類型 (一般反向代理或 Synology DSM)、填站名、連接埠、後端、上傳上限、憑證 (從本機現有站台挑，或自行填路徑)，產生完整的 server 區塊與存放位置、載入指令，可一鍵複製。jt-waf-mgr 不寫入，由管理者自己存檔、`nginx -t`、reload；之後再從站台頁開 ModSecurity。範例內含 X-Forwarded-For 一律覆蓋、非 443 埠的預設站台 (名稱不符就拒絕 TLS 交握)、先只限內網的 allow/deny、上傳上限過大的記憶體提醒；Synology 範本另有 WebSocket、上傳不經緩衝、DSM 信任代理的提醒。三種範例都在 nginx 1.28 以 `nginx -t` 驗證過。

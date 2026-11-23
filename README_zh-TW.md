@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.5.39
+# jt-waf-mgr v0.5.40
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -113,7 +113,7 @@ jt-waf-mgr 不在請求路徑上：每個請求一樣由 nginx 加 ModSecurity �
 - **CrowdSec 虛擬修補規則**：每天同步 CrowdSec Hub 的 appsec 規則 (MIT 授權，也可以離線上傳)，在本機轉成 ModSecurity 規則，只轉每個條件都能保留原意的規則。
   可轉換的規則可以提出到跑該軟體的站台；跨應用的漏洞 (React、Spring、PHP 這類框架、函式庫或語言，依站台軟體所用的技術判斷相關) 也可以套用到所有站台，走一般變更流程：沙箱重送上游附的攻擊請求，每一個都必須被這條規則封鎖，站台最近的請求則不能被封鎖。
   已套用的規則在上游更新或移除時會提示。影響已確認軟體的漏洞，威脅情報會優先提出上游的規則。
-- **應用程式防護組合**：替單一應用程式準備好的確定封鎖規則，依公開已知的弱點與實際攻擊撰寫，第一組是 Synology DSM (管理 API 只限內網，包含批次請求與跳脫字元的繞過方式)。軟體清單辨識得出 DSM 站台與它安裝的套件 (DSM 不用登入就會列出它提供的 API)。選站台、勾規則，提出成一筆變更，照常檢查、沙箱重送每條規則自帶的攻擊與一般請求，再由人核准；規則只封鎖外部來源。
+- **應用程式防護組合**：替單一應用程式準備好的確定封鎖規則，依公開已知的弱點與實際攻擊撰寫，第一組是 Synology DSM (管理 API 只限內網，包含批次請求與跳脫字元的繞過方式)；第二組是 QNAP QTS (設定精靈、HBS 3 內建工作階段編號、檔名的 ../、過長的編號、使用者名稱與工作階段 cookie 的 shell 字元；依公開資料撰寫，未在 QNAP 實機測試)。軟體清單辨識得出 DSM 站台與它安裝的套件 (DSM 不用登入就會列出它提供的 API)。選站台、勾規則，提出成一筆變更，照常檢查、沙箱重送每條規則自帶的攻擊與一般請求，再由人核准；規則只封鎖外部來源。
 - **待處理警示**：可能沒被封鎖的攻擊、影響使用者的誤判、進行中的攻擊、設定被外部修改、完整性問題、套用或備份失敗——在核准者
   寫下處理說明之前一直保持開啟，並定期提醒。
 - **通知**：Email（SMTP，純文字＋HTML）、Telegram、Microsoft Teams（Workflows / Adaptive Card）、Slack、Discord、Zulip、
@@ -160,7 +160,7 @@ jt-waf-mgr 不在請求路徑上：每個請求一樣由 nginx 加 ModSecurity �
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # 發行檔的固定位置
-V=0.5.39; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.40; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # 發行檔、簽章與公鑰
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -359,7 +359,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新版本一樣解開到 current
-V=0.5.39; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.40; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # 只做所有檢查，不改任何東西

@@ -20,6 +20,10 @@ def _values(rule, test):
         args = urllib.parse.parse_qsl(urllib.parse.urlsplit(path).query, keep_blank_values=True)
         if test.get('body') and 'urlencoded' in (test.get('headers') or {}).get('Content-Type', ''):
             args += urllib.parse.parse_qsl(test['body'], keep_blank_values=True)
+        if test.get('body') and 'json' in (test.get('headers') or {}).get('Content-Type', ''):
+            # libmodsecurity names a JSON body's top-level keys json.<key> (ARGS:json.sid)
+            doc = json.loads(test['body'])
+            args += [('json.' + k, str(v)) for k, v in doc.items() if isinstance(v, (str, int))]
         return [v.lower() for k, v in args if k.lower() in names]
     if target == 'arg_name':
         args = urllib.parse.parse_qsl(urllib.parse.urlsplit(path).query, keep_blank_values=True)
@@ -118,10 +122,13 @@ class TestFlow(unittest.TestCase):
         from tests.test_hub_changes import TestWorkflow
         TestWorkflow.fake_apply(self)
 
+    def syno(self):
+        return [x for x in protsets.status(self.app) if x['id'] == 'synology-dsm'][0]
+
     def test_status_and_propose(self):
-        self.assertEqual([x['sites'] for x in protsets.status(self.app)], [[]])        # no DSM in the list yet
+        self.assertTrue(all(x['sites'] == [] for x in protsets.status(self.app)))        # no DSM in the list yet
         software.save(self.app.db, 'alice', 'Synology DSM', '', hosts=['nas.example.com'])
-        st = protsets.status(self.app)[0]
+        st = self.syno()
         self.assertEqual([x['host'] for x in st['sites']], ['nas.example.com'])
         rules = st['sites'][0]['rules']
         self.assertTrue(all(r['state'] == 'available' for r in rules))
@@ -142,7 +149,7 @@ class TestFlow(unittest.TestCase):
         self.assertTrue(all(o['spec']['host'] == {'mode': 'exact', 'value': 'nas.example.com'} for o in spec['ops']))
         tests = json.loads(ch['tests'])
         self.assertTrue(tests and all(t['host'] == 'nas.example.com' for t in tests))
-        st = protsets.status(self.app)[0]['sites'][0]['rules']
+        st = self.syno()['sites'][0]['rules']
         self.assertTrue(all(r['state'] == 'pending' and r['change_id'] == cid for r in st))
         with self.assertRaises(protsets.ProtsetError) as e:            # all waiting already
             protsets.propose(self.app, 'synology-dsm', 'nas.example.com', ids, 'alice', role='admin')
@@ -156,7 +163,7 @@ class TestFlow(unittest.TestCase):
         self.approve(cid)
         self.fake_apply()
         self.assertEqual(self.wf.get(cid)['state'], 'applied')
-        st = protsets.status(self.app)[0]['sites'][0]['rules']
+        st = self.syno()['sites'][0]['rules']
         self.assertTrue(all(r['state'] == 'applied' and r['rule_id'] for r in st), st)
         import os
         import tempfile

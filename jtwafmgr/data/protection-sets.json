@@ -1,5 +1,5 @@
 {
- "_comment": "Application protection sets (protsets.py). sets: [{id, app (the software list's name), rules: [{id, default (ticked), needs (packages the rule is about, for the page), spec (a confident block without host: target, header, arg, regex, exceptions, msg, reference, source), tests (sandbox requests: path, method, headers, body, expect 403|200, source external|internal; the site is filled in), refs (sources), cves}]}]. Titles and explanations are UI strings protset.r.<set>.<rule> / protset.w.<set>.<rule>. Every rule is written from public information or measured on a real DSM (see refs); tests/test_protsets.py checks each attack test matches its rule and each ordinary test does not.",
+ "_comment": "Application protection sets (protsets.py). sets: [{id, app (the software list's name), rules: [{id, default (ticked), needs (packages the rule is about, for the page), spec (a confident block without host: target, header, arg, regex, exceptions, msg, reference, source), tests (sandbox requests: path, method, headers, body, expect 403|200, source external|internal; the site is filled in), refs (sources), cves}]}]. Titles and explanations are UI strings protset.r.<set>.<rule> / protset.w.<set>.<rule>. Every rule is written from public information or measured on a real DSM (see refs; the QNAP set is written from public write-ups only, no QNAP was at hand); tests/test_protsets.py checks each attack test matches its rule and each ordinary test does not.",
  "sets": [
   {
    "id": "synology-dsm",
@@ -511,6 +511,386 @@
      ],
      "cves": [
       "CVE-2024-10443"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "qnap-qts",
+   "app": "QNAP QTS",
+   "rules": [
+    {
+     "id": "quick-setup",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/cgi-bin/quick/",
+      "msg": "QNAP setup wizard quick.cgi from outside (CVE-2023-47218)",
+      "reference": "https://www.qnap.com/en/security-advisory/qsa-23-57",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/cgi-bin/quick/quick.cgi?func=switch_os&todo=uploaf_firmware_image",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "multipart/form-data; boundary=x",
+        "User-Agent": "Mozilla Macintosh"
+       },
+       "body": "--x\r\nContent-Disposition: form-data; name=\"f\"; filename=\"a.img\"\r\n\r\nx\r\n--x--\r\n",
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/quick/quick.cgi?todo=set_timeinfo&SPECIFIC_SERVER=pool.example.com",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/quick/quick.cgi?func=get_quick_status",
+       "method": "GET",
+       "source": "internal",
+       "expect": 200
+      },
+      {
+       "path": "/cgi-bin/authLogin.cgi",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.qnap.com/en/security-advisory/qsa-23-57",
+      "https://www.rapid7.com/blog/post/2024/02/13/cve-2023-47218-qnap-qts-and-quts-hero-unauthenticated-command-injection-fixed/",
+      "https://unit42.paloaltonetworks.com/qnap-qts-firmware-cve-2023-50358/"
+     ],
+     "cves": [
+      "CVE-2023-47218",
+      "CVE-2023-50358"
+     ]
+    },
+    {
+     "id": "hbs-fixed-sid",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "sid|json.sid",
+      "regex": "^jisoosocoolhbsmgnt$",
+      "msg": "QNAP HBS 3 built-in session id (CVE-2021-28799)",
+      "reference": "https://www.qnap.com/en/security-advisory/qsa-21-13",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/cgi-bin/backup/hbs_mgnt.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/json; charset=UTF-8"
+       },
+       "body": "{\"act\":\"run_cmd\",\"sid\":\"jisoosocoolhbsmgnt\",\"cmd\":\"id\"}",
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/backup/hbs_mgnt.cgi?sid=jisoosocoolhbsmgnt&act=run_cmd",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/backup/hbs_mgnt.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/json; charset=UTF-8"
+       },
+       "body": "{\"act\":\"get_job_list\",\"sid\":\"a1b2c3d4\"}",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.qnap.com/en/security-advisory/qsa-21-13",
+      "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+      "https://github.com/projectdiscovery/nuclei-templates/blob/main/http/cves/2021/CVE-2021-28799.yaml"
+     ],
+     "cves": [
+      "CVE-2021-28799"
+     ]
+    },
+    {
+     "id": "file-traversal",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "g|filename|file|path|name|source_path|dest_path|source_file|f|album|folder|dir",
+      "regex": "(?:^|[\\\\/\\x22\\x27])\\.\\.(?:[\\\\/\\x22\\x27]|$)",
+      "msg": "QNAP file name or path with ../ from outside",
+      "reference": "https://www.qnap.com/en/security-advisory/qsa-22-24",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/photo/combine.php?type=javascript&g=core-x/../../../x.php.",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/photo/p/api/video.php",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "a=caption&f=UMGObv&album=abc&ac=def&filename=.%2F..%2F..%2F..%2Fetc%2Fpasswd",
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/filemanager/utilRequest.cgi?func=get_list&path=/Public/../../etc",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/photo/combine.php?type=javascript&g=core",
+       "method": "GET",
+       "expect": 200
+      },
+      {
+       "path": "/cgi-bin/filemanager/utilRequest.cgi?func=get_list&path=/Public/2026..11%20photos&limit=50",
+       "method": "GET",
+       "expect": 200
+      },
+      {
+       "path": "/cgi-bin/filemanager/utilRequest.cgi?func=get_list&path=/Public/a/../b",
+       "method": "GET",
+       "source": "internal",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.qnap.com/en/security-advisory/qsa-22-24",
+      "https://www.qnap.com/en/security-advisory/nas-201911-25",
+      "https://github.com/projectdiscovery/nuclei-templates/blob/main/http/cves/2022/CVE-2022-27593.yaml",
+      "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+     ],
+     "cves": [
+      "CVE-2022-27593",
+      "CVE-2019-7194",
+      "CVE-2019-7195"
+     ]
+    },
+    {
+     "id": "overlong-id",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "sid|ssid|name|p",
+      "regex": ".{2048}",
+      "msg": "QNAP session, share id or file name longer than 2048 (overflow)",
+      "reference": "https://www.qnap.com/en/security-advisory/qsa-24-23",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/cgi-bin/filemanager/share.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "ssid=0123456789abcdef0123456789abcdef&func=get_file_size&total=1&path=/&name=/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/surveillance/apis/user.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "act=login&sid=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/filemanager/share.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "ssid=0123456789abcdef0123456789abcdef&func=get_file_size&total=1&path=/&name=holiday photo 2026 holiday photo 2026 holiday photo 2026 holiday photo 2026 holiday photo 2026 holiday photo 2026 holiday photo 2026 holiday photo 2026 holiday photo 2026 holiday photo 2026 holiday photo 2026 holiday photo 2026 holiday photo 2026 .jpg",
+       "expect": 200
+      },
+      {
+       "path": "/cgi-bin/surveillance/apis/user.cgi?act=login&sid=k8z2m4q1",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.qnap.com/en/security-advisory/qsa-24-23",
+      "https://labs.watchtowr.com/qnap-qts-qnapping-at-the-wheel-cve-2024-27130-and-friends/",
+      "https://www.qnap.com/en/security-advisory/qsa-21-07",
+      "https://ssd-disclosure.com/ssd-advisory-qnap-pre-auth-cgi_find_parameter-rce/"
+     ],
+     "cves": [
+      "CVE-2024-27130",
+      "CVE-2021-28797"
+     ]
+    },
+    {
+     "id": "login-injection",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "user|username",
+      "regex": "[;|\\x60\\x00-\\x1f]|\\$[({]",
+      "msg": "QNAP user name with shell characters from outside",
+      "reference": "https://www.qnap.com/en/security-advisory/qsa-24-09",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/cgi-bin/authLogin.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "user=admin%3Bid&pwd=YWJj",
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/authLogin.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "user=%24%28id%29&pwd=YWJj",
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/authLogin.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "user=admin%0Aid&pwd=YWJj",
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/authLogin.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "user=CORP%5Cmary.chen&pwd=YWJj&remme=1",
+       "expect": 200
+      },
+      {
+       "path": "/cgi-bin/authLogin.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "user=mary%40example.com&pwd=YWJj",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.qnap.com/en/security-advisory/qsa-24-09",
+      "https://www.zerodayinitiative.com/advisories/ZDI-24-827/"
+     ],
+     "cves": [
+      "CVE-2024-32766"
+     ]
+    },
+    {
+     "id": "logout-cookie",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "header",
+      "header": "Cookie",
+      "regex": "(?:^|;)\\s*[Qq](?:[Pp][Ss]|[Mm][Ss]|[Mm][Mm][Ss])_[Ss][Ii][Dd]=[^;]*[|&$\\x60<>()\\x22\\x27\\\\]",
+      "msg": "QNAP session cookie with shell characters (authLogout.cgi)",
+      "reference": "https://blog.netlab.360.com/in-the-wild-qnap-nas-attacks-en/",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/cgi-bin/authLogout.cgi",
+       "method": "GET",
+       "headers": {
+        "Cookie": "QMS_SID=x`id`"
+       },
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/authLogout.cgi",
+       "method": "GET",
+       "headers": {
+        "Cookie": "NAS_LANG=TCH; QPS_SID=a$(id)b"
+       },
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/authLogout.cgi",
+       "method": "GET",
+       "headers": {
+        "Cookie": "NAS_USER=mary; QPS_SID=7c2f9a1e4b6d8c03; NAS_LANG=TCH"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://blog.netlab.360.com/in-the-wild-qnap-nas-attacks-en/"
+     ],
+     "cves": []
+    },
+    {
+     "id": "photo-station",
+     "default": false,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/photo/",
+      "msg": "QNAP Photo Station from outside",
+      "reference": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/photo/p/api/album.php",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "a=setSlideshow&f=qsamplealbum",
+       "expect": 403
+      },
+      {
+       "path": "/photo/slideshow.php?album=abc",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/photo/",
+       "method": "GET",
+       "source": "internal",
+       "expect": 200
+      },
+      {
+       "path": "/cgi-bin/filemanager/utilRequest.cgi?func=get_tree",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.qnap.com/en/security-advisory/nas-201911-25",
+      "https://www.qnap.com/en/security-advisory/qsa-22-24",
+      "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+     ],
+     "cves": [
+      "CVE-2019-7192",
+      "CVE-2019-7193",
+      "CVE-2019-7194",
+      "CVE-2019-7195",
+      "CVE-2022-27593"
      ]
     }
    ]

@@ -2,6 +2,12 @@
 
 [English](CHANGELOG.md) · [繁體中文](CHANGELOG_zh-TW.md) · **日本語**
 
+## 0.5.40 (2026-11-23)
+
+- アプリケーション保護セットに 2 番目の QNAP QTS (7 ルール、推奨 6) を追加。ソフトウェア一覧で QNAP QTS とされたサイトが対象です。外部から拒否するもの：セットアップウィザード quick.cgi (CVE-2023-47218、CVE-2023-50358)、クエリ、フォーム、JSON 本文の HBS 3 組み込みセッション ID (CVE-2021-28799、Qlocker、CISA KEV)、ファイル名やパスのパラメーターの ../ (Photo Station の combine.php と video.php：CVE-2022-27593 DeadBolt、CVE-2019-7194/7195、CISA KEV)、2048 文字を超える sid、ssid、name、p (share.cgi CVE-2024-27130、Surveillance Station CVE-2021-28797)、シェル文字を含むユーザー名 (CVE-2024-32766)、シェル文字を含む QPS_SID、QMS_SID、QMMS_SID Cookie (authLogout.cgi)。既定でチェックしないもの：外部からの Photo Station 全体。公開情報 (ベンダーアドバイザリ、Rapid7、watchTowr、Unit 42、SSD、nuclei、Metasploit、CrowdSec) から作成し、QNAP 実機はありません。各ルールの攻撃リクエストと通常のリクエストは、実際の nginx＋ModSecurity 3.0.9 と 3.0.17＋CRS 4.30 で通過しています。
+- ソフトウェアのバージョン：ログイン不要の /cgi-bin/authLogin.cgi から QNAP QTS サイトのファームウェアのバージョンとビルドを読みます (QTS 5.2 実機では未確認)。
+- 保護セットのページ：参考の表示に QNAP のアドバイザリ番号 (QSA-、NAS-)。
+
 ## 0.5.39 (2026-11-22)
 
 - サイトページの「新しいサイトの設定例」：サイトの種類 (一般のリバースプロキシまたは Synology DSM) を選び、サイト名、ポート、バックエンド、アップロード上限、証明書 (このホストのサイトで使っているもの、または自分で入力したパス) を指定すると、server ブロック全体と保存先、読み込みコマンドを作ります (コピー可)。jt-waf-mgr は書き込みません。管理者が保存して `nginx -t` と reload を行い、その後サイトページから ModSecurity を有効にします。例では X-Forwarded-For を置き換え (追加しない)、443 以外のポートには他の名前の TLS ハンドシェイクを拒否する既定サーバーを置き、まずローカルネットワークのみにし、ModSecurity には大きすぎるアップロード上限を警告します。Synology 用は WebSocket、バッファしないアップロード、DSM の信頼できるプロキシの注意を加えます。3 種類とも nginx 1.28 の `nginx -t` で確認しました。

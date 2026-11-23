@@ -205,7 +205,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 `websocket`、`redirect_80`、`ipv6` を付けると、server ブロックの例 (`text`)、保存先 (`path`)、読み込みコマンド (`steps`)、
 `big_upload` を返します。何も書き込みません。不正な値は 422 と `field`。
 
-**`GET /protsets`**：スコープ `rules:read`。アプリケーション保護セット (0.5.33。最初は Synology DSM)：`adopted` と
+**`GET /protsets`**：スコープ `rules:read`。アプリケーション保護セット (0.5.33：Synology DSM、0.5.40：QNAP QTS)：`adopted` と
 `sets` (`id`、`app`、`rule_count`、`sites`：ソフトウェア一覧でこのアプリケーションが記録されている各サイト。`host` と
 `rules`：`id`、`state` (`available`、`applied`、`update` (このバージョンでは書き方が違う)、`disabled`、`pending` と
 `change_id`)、`default` (推奨)、`needs` と `needs_missing` (ルールが対象とするパッケージ、このサイトに記録がないもの)、
