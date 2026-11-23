@@ -2,6 +2,14 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.42 (2026-11-23)
+
+- Security: a request body larger than ModSecurity's body limits (`SecRequestBodyLimit` for an upload, 12.5 MB by default; `SecRequestBodyNoFilesLimit` for a form or JSON, 128 KB by default) or one it cannot parse was passed on with none of it inspected, because the engine runs in DetectionOnly and jt-waf-mgr blocks from its rules (`SecRequestBodyLimitAction Reject` then never rejects). Every rule that looks into the body was affected: the CRS, confident blocks on a parameter, the application protection sets. Tested on nginx with libmodsecurity 3.0.9, 3.0.14 and 3.0.17.
+  - Confident blocks: a new target, "Request body not inspected" (`body_unchecked`, `REQBODY_ERROR` / `INBOUND_DATA_ERROR`), with no pattern; the paths that take large uploads go in its exceptions.
+  - Application protection sets: Synology DSM and QNAP QTS each have a recommended rule refusing such requests from outside (11 and 8 rules). A site with a set applied shows it as available: propose it from the protection sets page.
+  - System check: "Request bodies ModSecurity does not inspect" lists the sites with ModSecurity on that take larger bodies with no rule for them.
+- System check "Large uploads and memory": counts the part ModSecurity inspects, which costs several times its size and is slow (measured with the CRS 4.30 on an 8 GB host: 256 MB took 2.1 GB at about 4 MB/s, 512 MB took 4.2 GB), and warns above half of the host's memory.
+
 ## 0.5.41 (2026-11-23)
 
 - Threat intelligence: QNAP's own security advisories, a new source (Settings, threat intelligence, "QNAP security advisories"; off by default). When the software list has a confirmed QNAP product, the threat intelligence job downloads the RSS feed of qnap.com once a day (about 16 KB, the 20 newest advisories; those seen before are kept, up to 300) and hands the advisories of the last months to the model, those naming a confirmed product first, to read each advisory page for the affected and fixed versions. qnap.com is among the domains the model may read (a new installation's default list; an existing list set in the web UI is kept as it is).

@@ -512,6 +512,50 @@
      "cves": [
       "CVE-2024-10443"
      ]
+    },
+    {
+     "id": "body-unchecked",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "body_unchecked",
+      "msg": "request body ModSecurity did not inspect (too large or unparsable)",
+      "reference": "https://github.com/owasp-modsecurity/ModSecurity/wiki/Reference-Manual-(v3.x)",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/webapi/entry.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "multipart/form-data; boundary=jtwafmgr0542"
+       },
+       "body": "--jtwafmgr0542\r\nContent-Disposition: form-data; name=\"api\"\r\n\r\nSYNO.Core.Network\r\n--jtwafmgr0542\r\nContent-Disposition: form-data; name=\"method\"\r\n\r\nget\r\n--jtwafmgr0542\r\nContent-Disposition: form-data; name=\"version\"\r\n\r\n1\r\n",
+       "expect": 403
+      },
+      {
+       "path": "/webapi/entry.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "multipart/form-data; boundary=jtwafmgr0542"
+       },
+       "body": "--jtwafmgr0542\r\nContent-Disposition: form-data; name=\"api\"\r\n\r\nSYNO.FileStation.Upload\r\n--jtwafmgr0542\r\nContent-Disposition: form-data; name=\"method\"\r\n\r\nupload\r\n--jtwafmgr0542\r\nContent-Disposition: form-data; name=\"version\"\r\n\r\n2\r\n--jtwafmgr0542\r\nContent-Disposition: form-data; name=\"path\"\r\n\r\n/home\r\n--jtwafmgr0542--\r\n",
+       "expect": 200
+      },
+      {
+       "path": "/webapi/entry.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "api=SYNO.API.Info&method=query&version=1&query=all",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/owasp-modsecurity/ModSecurity/wiki/Reference-Manual-(v3.x)"
+     ],
+     "cves": []
     }
    ]
   },
@@ -892,6 +936,50 @@
       "CVE-2019-7195",
       "CVE-2022-27593"
      ]
+    },
+    {
+     "id": "body-unchecked",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "body_unchecked",
+      "msg": "request body ModSecurity did not inspect (too large or unparsable)",
+      "reference": "https://github.com/owasp-modsecurity/ModSecurity/wiki/Reference-Manual-(v3.x)",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/cgi-bin/filemanager/utilRequest.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "multipart/form-data; boundary=jtwafmgr0542"
+       },
+       "body": "--jtwafmgr0542\r\nContent-Disposition: form-data; name=\"func\"\r\n\r\ndelete\r\n--jtwafmgr0542\r\nContent-Disposition: form-data; name=\"path\"\r\n\r\n/Public\r\n",
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/filemanager/utilRequest.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "multipart/form-data; boundary=jtwafmgr0542"
+       },
+       "body": "--jtwafmgr0542\r\nContent-Disposition: form-data; name=\"func\"\r\n\r\nupload\r\n--jtwafmgr0542\r\nContent-Disposition: form-data; name=\"type\"\r\n\r\nstandard\r\n--jtwafmgr0542\r\nContent-Disposition: form-data; name=\"dest_path\"\r\n\r\n/Public\r\n--jtwafmgr0542--\r\n",
+       "expect": 200
+      },
+      {
+       "path": "/cgi-bin/filemanager/utilRequest.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "func=get_tree&node=share_root",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/owasp-modsecurity/ModSecurity/wiki/Reference-Manual-(v3.x)"
+     ],
+     "cves": []
     }
    ]
   }

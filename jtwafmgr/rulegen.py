@@ -45,9 +45,17 @@ BLOCK_TARGETS = {
     # libmodsecurity names it, json.<name>; several names: api|compound), phase 2 -- e.g. Synology DSM's
     # api=SYNO.Core.* calls
     'arg': (None, 't:none,t:lowercase'),
+    # 0.5.42: a request body ModSecurity did not inspect -- over SecRequestBodyLimit / SecRequestBodyNoFilesLimit, or
+    # one it could not parse. With the engine in DetectionOnly (blocking by ctl:ruleEngine=On in a rule, as jt-waf-mgr
+    # does) SecRequestBodyLimitAction Reject never rejects: such a body is passed on with NONE of it inspected (tested on
+    # nginx with libmodsecurity 3.0.9, 3.0.14 and 3.0.17: no rule saw any of a form over 128 KB or an upload over
+    # 12.5 MB, the defaults). No pattern: the rule matches when either flag is set.
+    'body_unchecked': ('REQBODY_ERROR|INBOUND_DATA_ERROR', 't:none'),
 }
 # targets only seen once the request body is read
-BODY_TARGETS = ('arg_name', 'arg')
+BODY_TARGETS = ('arg_name', 'arg', 'body_unchecked')
+# targets with no pattern of their own
+FLAG_TARGETS = ('body_unchecked',)
 ARG_RE = re.compile(r'^[A-Za-z0-9_][A-Za-z0-9_.\-]{0,63}$')
 PROTSET_RE = re.compile(r'^[a-z0-9][a-z0-9-]{0,39}/[a-z0-9][a-z0-9-]{0,39}$')
 TARGET_RE = re.compile(r'^(?:ARGS|ARGS_GET|ARGS_POST|ARGS_NAMES|ARGS_GET_NAMES|ARGS_POST_NAMES|REQUEST_COOKIES|'
@@ -625,7 +633,12 @@ def _confident(spec, rid, cfg, internal):
             raise SpecError('arg', 'invalid_arg')
         # several names (api|compound): ARGS:api|ARGS:compound
         var = '|'.join('ARGS:' + n for n in names)
-    rx = _regex_ok('regex', spec.get('regex'))
+    if target in FLAG_TARGETS:
+        if spec.get('regex') not in (None, ''):
+            raise SpecError('regex', 'not_used_for_target')
+        rx = ''
+    else:
+        rx = _regex_ok('regex', spec.get('regex'))
     msg = _text_ok('msg', spec.get('msg'), 100, required=True)
     ref = _text_ok('reference', spec.get('reference'), 200)
     exc = spec.get('exceptions') or []
@@ -633,7 +646,7 @@ def _confident(spec, rid, cfg, internal):
         raise SpecError('exceptions', 'invalid_exceptions')
     for e in exc:
         _regex_ok('exceptions', e, allow_broad=True)
-    conds = [(PATH_VARS if target == 'path' else var, '@rx ' + rx, tr)]
+    conds = [(var, '!@eq 0', tr) if target in FLAG_TARGETS else (PATH_VARS if target == 'path' else var, '@rx ' + rx, tr)]
     if exc:
         conds.append((PATH_VARS, '!@rx ' + '|'.join('(?:%s)' % e for e in exc), EXCEPTION_TRANSFORMS))
     if target == 'path' or exc:

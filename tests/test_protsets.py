@@ -36,6 +36,14 @@ def _values(rule, test):
         return [urllib.parse.unquote(path).lower()]
     if target == 'header':
         return [v.lower() for k, v in (test.get('headers') or {}).items() if k.lower() == spec['header'].lower()]
+    if target == 'body_unchecked':
+        # REQBODY_ERROR / INBOUND_DATA_ERROR as libmodsecurity sets them: a multipart body without its final boundary,
+        # or a form over SecRequestBodyNoFilesLimit (128 KB)
+        ctype = (test.get('headers') or {}).get('Content-Type', '')
+        body = test.get('body') or ''
+        m = re.search(r'boundary=([^;\s]+)', ctype)
+        bad = (ctype.startswith('multipart/') and (not m or ('--%s--' % m.group(1)) not in body)) or len(body) > 131072
+        return ['1'] if bad else ['0']
     raise AssertionError('no view for target %s' % target)
 
 
@@ -66,7 +74,7 @@ class TestData(unittest.TestCase):
                 attacks = [t for t in r['tests'] if t['expect'] == 403]
                 self.assertTrue(attacks, r['id'])
                 self.assertTrue(any(t['expect'] == 200 for t in r['tests']), r['id'])
-                rx = re.compile(r['spec']['regex'])
+                rx = re.compile('^1$' if r['spec'].get('target') in rulegen.FLAG_TARGETS else r['spec']['regex'])
                 for t in r['tests']:
                     self.assertIn(t.get('source', 'external'), ('external', 'internal'))
                     seen = _values(r, t)

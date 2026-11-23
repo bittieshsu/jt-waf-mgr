@@ -817,7 +817,8 @@ def system_check(app):
                      admins=admins, without_totp=no_totp, locked=locked, temporary_password_unused=stale_temp))
 
     for fn in (_check_modsecurity, _check_nginx_module, _check_jobs, _check_crs, _check_analyst, _check_intel, _check_blocks, _check_countries, _check_dns,
-               _check_health, _check_changes, _check_tokens, _check_traffic, _check_logrotate, _check_upload_memory):
+               _check_health, _check_changes, _check_tokens, _check_traffic, _check_logrotate, _check_upload_memory,
+               _check_body_inspection):
         try:
             it = fn(app)
         except Exception as e:      # noqa: BLE001 -- one check failing to run is a warning, the others still run
@@ -1000,9 +1001,12 @@ def _mem_total(path='/proc/meminfo'):
 def _check_upload_memory(app, mem=None):
     """0.5.36: nginx's ModSecurity connector reads a whole request body into memory before ModSecurity sees it,
     whatever SecRequestBodyLimit / SecRequestBodyLimitAction / ctl:requestBodyAccess say (measured: a 1 GB upload
-    through libmodsecurity 3.0.14 and connector 1.0.3 took a worker to 1.6-1.9 GB, 7.6 MB with ModSecurity off). A
-    site with ModSecurity on that accepts bodies near the host's memory (client_max_body_size 0 or above a quarter of
-    it) can have nginx killed for every site by one upload (a NAS, a file share)."""
+    through libmodsecurity 3.0.14 and connector 1.0.3 took a worker to 1.6-1.9 GB, 7.6 MB with ModSecurity off).
+    0.5.42: the part ModSecurity inspects (up to SecRequestBodyLimit) costs several times its size on top, and is
+    slow (measured on an 8 GB Ubuntu 26.04 host, libmodsecurity 3.0.14, CRS 4.30, a 1 GB limit, one multipart upload:
+    256 MB -> 2.1 GB at about 4.3 MB/s, 512 MB -> 4.2 GB; without the CRS rules about 4.5 times). A site with ModSecurity on that accepts bodies near the
+    host's memory (client_max_body_size 0 or above a quarter of it) can have nginx killed for every site by one upload
+    (a NAS, a file share)."""
     try:
         n, _ = app.site.load()
         servers = n.servers()
@@ -1011,19 +1015,92 @@ def _check_upload_memory(app, mem=None):
     mem = mem if mem is not None else _mem_total()
     if not mem:
         return None
-    limit = mem // 4
+    try:
+        inspect = _int_or(app.site.load()[1].setting('SecRequestBodyLimit'), 13107200)
+    except Exception:          # noqa: BLE001 -- no ModSecurity configuration read
+        inspect = 13107200
+    limit = mem // 2
     big = []
     for sv in servers:
         if sv.get('waf') not in ('on', 'block'):
             continue
         raw = sv.get('body_limit') or '1m'
         size = _size_bytes(raw)
-        if size is not None and (size == 0 or size > limit):
+        # the whole body, plus about 7 times the part ModSecurity inspects with the CRS loaded
+        if size is not None and (size == 0 or size + 7 * min(size, inspect) > limit):
             # the locations already without ModSecurity (an upload API, WebDAV): named, the rest of the site still takes it
             off = [str(x.get('location') or '') for x in sv.get('bypass') or []][:3]
             for h in (sv.get('server_names') or ['(default)'])[:3]:
                 big.append('%s: %s%s' % (h, raw, ' (ModSecurity off: %s)' % ', '.join(off) if off else ''))
-    return _item('upload_memory', 'warn' if big else 'ok', sites=big[:30], memory_mb=mem >> 20, threshold_mb=limit >> 20)
+    return _item('upload_memory', 'warn' if big else 'ok', sites=big[:30], memory_mb=mem >> 20, threshold_mb=limit >> 20,
+                 inspected_mb=round(inspect / (1 << 20), 1))
+
+
+def _body_unchecked_hosts(app):
+    """The confident blocks on an uninspected request body (0.5.42) that are switched on: [(host regex or None, their
+    path exceptions)] -- None: every site."""
+    from . import rulegen
+    out = []
+    for it in app.workflow.managed.items():
+        if it['kind'] != 'confident_block' or not it['enabled']:
+            continue
+        try:
+            spec = json.loads(it['spec'])
+        except ValueError:
+            continue
+        if spec.get('target') != 'body_unchecked':
+            continue
+        h = rulegen._host_cond(spec.get('host'))
+        out.append((re.compile(h[1][len('@rx '):]) if h else None, list(spec.get('exceptions') or [])))
+    return out
+
+
+def _check_body_inspection(app):
+    """0.5.42: a request body over SecRequestBodyLimit (a file upload) or SecRequestBodyNoFilesLimit (a form, JSON) is
+    not inspected AT ALL when the engine is DetectionOnly (jt-waf-mgr blocks by ctl:ruleEngine=On in a rule, so
+    SecRequestBodyLimitAction Reject never rejects): no rule sees any of such a body
+    (tested with libmodsecurity 3.0.9, 3.0.14 and 3.0.17). A site with ModSecurity on that accepts larger bodies needs a
+    confident block on an uninspected body (target body_unchecked; the protection sets have one), or the engine On
+    with Reject."""
+    try:
+        n, m = app.site.load()
+        servers = n.servers()
+    except Exception:          # noqa: BLE001 -- no nginx configuration here
+        return None
+    if m is None:
+        return None
+    engine = (m.setting('SecRuleEngine', 'DetectionOnly') or '').strip()
+    action = (m.setting('SecRequestBodyLimitAction', 'Reject') or '').strip()
+    if (m.setting('SecRequestBodyAccess', 'Off') or '').strip().lower() != 'on':
+        return _item('body_inspection', 'info', body_access=False)
+    lim = _int_or(m.setting('SecRequestBodyLimit'), 13107200)
+    nofiles = _int_or(m.setting('SecRequestBodyNoFilesLimit'), 131072)
+    rejects = engine.lower() == 'on' and action.lower() == 'reject'
+    rules = _body_unchecked_hosts(app)
+    open_, covered = [], []
+    for sv in servers:
+        if sv.get('waf') not in ('on', 'block'):
+            continue
+        raw = sv.get('body_limit') or '1m'
+        size = _size_bytes(raw)
+        if size is not None and size != 0 and size <= nofiles:
+            continue                 # nothing it takes can be over a limit
+        for h in (sv.get('server_names') or ['(default)'])[:3]:
+            rule = next((r for r in rules if r[0] is None or r[0].search(h.lower())), None)
+            if rejects or rule:
+                covered.append(h + (' (except %s)' % ', '.join(rule[1][:3]) if rule and rule[1] else ''))
+            else:
+                open_.append('%s: %s' % (h, raw))
+    return _item('body_inspection', 'warn' if open_ else 'ok', sites=open_[:40], covered=covered[:40],
+                 request_body_limit_mb=round(lim / (1 << 20), 1), no_files_limit_kb=nofiles >> 10,
+                 engine=engine, limit_action=action)
+
+
+def _int_or(v, default):
+    try:
+        return int(str(v).strip())
+    except (TypeError, ValueError):
+        return default
 
 
 def _check_health(app):

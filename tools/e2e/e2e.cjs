@@ -335,7 +335,7 @@ async function audit(page, where) {
      (await page.locator('section.readiness li', { hasText: 'CrowdSec' }).count()) === 0, 'dashboard: the setup card names what is missing, CrowdSec on is not');
   // 0.5.34: the DSM site's recommended protection rules, with the numbers filled in (0.5.32 showed "{version}" as is)
   const psItem = page.locator('section.readiness .readylist li', { hasText: 'Synology DSM' }).first();
-  ok((await psItem.count()) === 1 && /9 條建議的防護規則尚未套用/.test(await psItem.innerText()) && /nas\.example\.com/.test(await psItem.innerText()) &&
+  ok((await psItem.count()) === 1 && /10 條建議的防護規則尚未套用/.test(await psItem.innerText()) && /nas\.example\.com/.test(await psItem.innerText()) &&
      !/\{\w+\}/.test(await page.locator('section.readiness').innerText()),
      'dashboard: the protection set item, numbers and site filled in');
   ok((await setHub(false)) === 200, 'dashboard: CrowdSec turned off for the check');
@@ -696,6 +696,17 @@ async function audit(page, where) {
   await page.waitForFunction(() => /ipMatchFromFile/.test(document.body.innerText), null, { timeout: 8000 }).catch(() => {});
   ok(nCountries === 6 && (await page.locator('.cochip').count()) === 1 && (await page.locator('body').innerText()).includes('ipMatchFromFile'),
      'country block: staged countries, a chosen one, the rule preview (' + nCountries + ')');
+  // 0.5.42: a confident block on a request body ModSecurity did not inspect -- no pattern field, the note, the rule
+  await page.goto(base + '/changes/new?kind=confident_block', { waitUntil: 'networkidle' });
+  await page.locator('#bl-target').click();
+  await page.getByRole('option', { name: '請求內容未檢查' }).click();
+  await page.locator('.card.form input[maxlength="100"]').first().fill('request body not inspected');
+  await page.waitForFunction(() => /REQBODY_ERROR\|INBOUND_DATA_ERROR/.test(document.body.innerText), null, { timeout: 8000 }).catch(() => {});
+  ok((await page.locator('.card.form input[placeholder^="^/(?:wp-login"]').count()) === 0
+     && (await page.locator('.card.form p.muted.small', { hasText: 'SecRequestBodyNoFilesLimit' }).count()) === 1
+     && (await page.locator('body').innerText()).includes('REQBODY_ERROR|INBOUND_DATA_ERROR')
+     && (await page.locator('.alert.error').count()) === 0,
+     'confident block: "request body not inspected" has no pattern field, a note and builds its rule');
   // the sites page: one line per site (what its country rules allow), a link to that site on the country-limits page;
   // no buttons there (the actions are on the country-limits page)
   await page.goto(base + '/vhosts', { waitUntil: 'networkidle' });
@@ -841,6 +852,12 @@ async function audit(page, where) {
   await page.waitForSelector('.protdetail', { timeout: 5000 }).catch(() => {});
   ok((await page.locator('.protdetail .mono', { hasText: 'api|compound' }).count()) === 1,
      'protection sets: a rule opens to what it matches');
+  // 0.5.42: the rule on uninspected bodies, recommended, shown by what it matches (no pattern)
+  const buRow = pcard.locator('tbody tr').filter({ hasText: 'ModSecurity 沒有檢查的請求內容' });
+  ok((await buRow.count()) === 1 && (await buRow.locator('input[type=checkbox]').isChecked()), 'protection sets: the uninspected-body rule, recommended');
+  await buRow.click();
+  await page.waitForFunction(() => [...document.querySelectorAll('.protdetail')].some((d) => d.innerText.includes('請求內容未檢查')), null, { timeout: 5000 }).catch(() => {});
+  ok((await page.locator('.protdetail', { hasText: '請求內容未檢查' }).count()) >= 1, 'protection sets: the uninspected-body rule opens to its target');
   await page.screenshot({ path: path.join(SHOTS, 'protection.png'), fullPage: true });
   // 0.4.96: a filter set to something has a "×" back to "all"
   await page.goto(base + '/rules', { waitUntil: 'networkidle' });

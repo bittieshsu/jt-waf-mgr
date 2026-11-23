@@ -388,9 +388,11 @@ Loosening always needs a person's approval.
   target as sent, not decoded, lowercased), `ua` (User-Agent), `host`, `header` (then `header` names it, for example
   `X-Api-Version`), `arg_name` (0.5.8: a parameter's name in the query string or the body, lowercased; anchor the
   expression with `^` and `$`) or `arg` (0.5.33: the value of the parameters `arg` names, in the query string or a form
-  body, lowercased; several names with `|`, at most 12, for example `api|compound`). `arg_name` and `arg` are checked
-  once the body is read and have no evidence check (the access log has no bodies).
-- `regex`: required, at most 1000 characters, no double quotes or line breaks. Refused when it matches the empty
+  body, lowercased; several names with `|`, at most 12, for example `api|compound`), or `body_unchecked` (0.5.42: a
+  request body ModSecurity did not inspect, over `SecRequestBodyLimit` / `SecRequestBodyNoFilesLimit` or unparsable;
+  no `regex`, list the paths that take large uploads in `exceptions`). `arg_name`, `arg` and `body_unchecked` are
+  checked once the body is read and have no evidence check (the access log has no bodies).
+- `regex`: required (except for `body_unchecked`), at most 1000 characters, no double quotes or line breaks. Refused when it matches the empty
   string (`matches_empty`), matches almost every ordinary request (`too_broad`), or looks open to catastrophic
   backtracking (`redos_shape`, `redos_runtime`).
 - `msg`: required, at most 100 characters, no quotes or backslashes. The rule message becomes

@@ -76,12 +76,13 @@
             <input v-model.trim="bl.header" class="mono" maxlength="64" placeholder="X-Middleware-Subrequest"></label>
           <label v-if="bl.target === 'arg'" class="field"><span>{{ t('wizard.arg') }}</span>
             <input v-model.trim="bl.arg" class="mono" maxlength="64" placeholder="api"></label>
-          <label class="field grow"><span>{{ t('wizard.regex') }}</span>
+          <label v-if="bl.target !== 'body_unchecked'" class="field grow"><span>{{ t('wizard.regex') }}</span>
             <input v-model="bl.regex" class="mono" maxlength="1000" spellcheck="false" placeholder="^/(?:wp-login\.php|xmlrpc\.php)"></label>
         </div>
         <p v-if="['path', 'uri', 'raw_uri', 'ua', 'host'].includes(bl.target)" class="muted small">{{ t('wizard.lowercase_note') }}</p>
         <p v-if="bl.target === 'arg_name'" class="muted small">{{ t('wizard.arg_name_note') }}</p>
         <p v-if="bl.target === 'arg'" class="muted small">{{ t('wizard.arg_note') }}</p>
+        <p v-if="bl.target === 'body_unchecked'" class="muted small">{{ t('wizard.body_unchecked_note') }}</p>
         <FieldErr :err="err('target') || err('header') || err('arg') || err('regex')" />
         <label class="field"><span>{{ t('wizard.exceptions') }}</span>
           <textarea v-model="bl.exceptions" rows="2" class="mono" maxlength="5000" spellcheck="false" placeholder="^/remote\.php/dav"></textarea>
@@ -246,7 +247,7 @@ watch(showGuide, (v) => { try { localStorage.setItem(GUIDE_KEY, v ? '1' : '0') }
 const methodOptions = computed(() => [{ value: '', label: t('wizard.any_method') }].concat(METHODS.map((m) => ({ value: m, label: m }))))
 const sourceOptions = computed(() => ['all', 'internal', 'external'].map((x) => ({ value: x, label: t('wizard.source_opt.' + x) })))
 const actionOptions = computed(() => ACTIONS.map((a) => ({ value: a, label: t('wizard.action_opt.' + a) })))
-const targetOptions = computed(() => ['path', 'uri', 'raw_uri', 'ua', 'host', 'header', 'arg_name', 'arg'].map((x) => ({ value: x, label: t('wizard.target_opt.' + x) })))
+const targetOptions = computed(() => ['path', 'uri', 'raw_uri', 'ua', 'host', 'header', 'arg_name', 'arg', 'body_unchecked'].map((x) => ({ value: x, label: t('wizard.target_opt.' + x) })))
 const placementOptions = computed(() => ['before', 'after'].map((x) => ({ value: x, label: t('placement.' + x) })))
 
 const kinds = computed(() => ['exclusion', 'confident_block', 'country', 'redaction', 'plugin'].concat(hasRole('admin') ? ['raw'] : []))
@@ -303,7 +304,7 @@ const spec = computed(() => {
   switch (kind.value) {
     case 'exclusion': return { host: ex.host, path: ex.path, method: ex.method, source: ex.source, action: ex.action,
       rule_ids: ids(ex.rule_ids), targets: list(ex.targets), tag: ex.tag, confirm_tag: ex.confirm_tag, body_processor: ex.body_processor }
-    case 'confident_block': return { target: bl.target, header: bl.header, ...(bl.target === 'arg' ? { arg: bl.arg } : {}), regex: bl.regex, exceptions: lines(bl.exceptions),
+    case 'confident_block': return { target: bl.target, header: bl.header, ...(bl.target === 'arg' ? { arg: bl.arg } : {}), regex: bl.target === 'body_unchecked' ? '' : bl.regex, exceptions: lines(bl.exceptions),
       host: bl.host, msg: bl.msg, reference: bl.reference, source: bl.source }
     case 'redaction': return { fields: list(rd.fields), host: rd.host, path: rd.path }
     case 'plugin': return { plugin: pl.plugin, host: pl.host }

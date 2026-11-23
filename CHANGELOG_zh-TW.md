@@ -2,6 +2,14 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.5.42 (2026-11-23)
+
+- 安全性：請求內容超過 ModSecurity 的大小上限 (上傳用 `SecRequestBodyLimit`，預設 12.5 MB；表單或 JSON 用 `SecRequestBodyNoFilesLimit`，預設 128 KB)，或 ModSecurity 無法解析時，整個內容都沒有檢查就送出去。原因是引擎以 DetectionOnly 執行、由 jt-waf-mgr 的規則負責封鎖，這時 `SecRequestBodyLimitAction Reject` 永遠不會拒絕。所有檢查請求內容的規則都受影響：CRS、比對參數的確定封鎖、應用程式防護組合。已在 nginx＋libmodsecurity 3.0.9、3.0.14、3.0.17 實測。
+  - 確定封鎖：新增比對對象「請求內容未檢查」(`body_unchecked`，`REQBODY_ERROR` / `INBOUND_DATA_ERROR`)，不用正規表示式；收大型上傳的路徑列為例外。
+  - 應用程式防護組合：Synology DSM 與 QNAP QTS 各加一條建議規則，從外部封鎖這種請求 (各為 11 條與 8 條)。已套用防護組合的站台會顯示這條可套用，請在防護組合頁提出。
+  - 系統檢查：新增「ModSecurity 沒有檢查的請求內容」，列出開了 ModSecurity、會收這種內容卻沒有規則處理的站台。
+- 系統檢查「大型上傳與記憶體」：把 ModSecurity 檢查的部分算進去，這部分要用好幾倍的記憶體而且很慢 (在 8 GB 主機＋CRS 4.30 實測：256 MB 用了 2.1 GB、每秒約 4 MB，512 MB 用了 4.2 GB)，超過主機記憶體一半就警告。
+
 ## 0.5.41 (2026-11-23)
 
 - 威脅情報新增來源：QNAP 官方安全公告 (設定 → 威脅情報 →「QNAP 安全公告」，預設關)。軟體清單有已確認的 QNAP 產品時，威脅情報程序每天從 qnap.com 下載一次公告 RSS (約 16 KB，最新 20 則；之前看過的會保留，最多 300 則)，把最近幾個月的公告交給模型 (提到已確認產品的排前面)，由它讀各公告頁面的受影響與修正版本。qnap.com 加入模型可讀取的網域 (新安裝的預設清單；已在網頁上設定過清單的，維持原樣)。
