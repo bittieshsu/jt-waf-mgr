@@ -271,6 +271,7 @@ const sources = computed(() => {
     { key: 'osv', on: !!osv.enabled, detail: osv.enabled ? (osv.ecosystem ? t('intel.osv_eco', { eco: osv.ecosystem }) : t('intel.osv_none')) : '' },
     { key: 'nvd', on: !!nvd.enabled, detail: nvd.enabled ? t('intel.nvd_does') : '' },
     { key: 'synology', on: !!(s.synology || {}).enabled, detail: (s.synology || {}).enabled ? ((s.synology || {}).fetched_at ? t('intel.synology_v', { n: fmtNum(s.synology.advisories), at: fmtMinute(s.synology.fetched_at) }) : t('intel.synology_next')) : '' },
+    { key: 'qnap', on: !!(s.qnap || {}).enabled, detail: (s.qnap || {}).enabled ? ((s.qnap || {}).fetched_at ? t('intel.qnap_v', { n: fmtNum(s.qnap.advisories), at: fmtMinute(s.qnap.fetched_at) }) : t('intel.qnap_next')) : '' },
     { key: 'debian', on: !!(s.debian || {}).enabled, detail: (s.debian || {}).enabled ? t('intel.debian_does') : '' },
     { key: 'backends', on: !!(s.backends || {}).enabled, detail: (s.backends || {}).enabled ? t('intel.backends_does') : '' },
   ]

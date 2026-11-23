@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.41 (2026-11-23)
+
+- Threat intelligence: QNAP's own security advisories, a new source (Settings, threat intelligence, "QNAP security advisories"; off by default). When the software list has a confirmed QNAP product, the threat intelligence job downloads the RSS feed of qnap.com once a day (about 16 KB, the 20 newest advisories; those seen before are kept, up to 300) and hands the advisories of the last months to the model, those naming a confirmed product first, to read each advisory page for the affected and fixed versions. qnap.com is among the domains the model may read (a new installation's default list; an existing list set in the web UI is kept as it is).
+
 ## 0.5.40 (2026-11-23)
 
 - Application protection sets: a second set, QNAP QTS (7 rules, 6 recommended), for sites the software list names as QNAP QTS. From outside: the setup wizard quick.cgi (CVE-2023-47218, CVE-2023-50358); HBS 3's built-in session id in a query, form or JSON body (CVE-2021-28799, Qlocker, CISA KEV); a ../ step in a file name or path parameter (Photo Station combine.php and video.php: CVE-2022-27593 DeadBolt, CVE-2019-7194/7195, CISA KEV); a sid, ssid, name or p over 2048 characters (share.cgi CVE-2024-27130, Surveillance Station CVE-2021-28797); a user name with shell characters (CVE-2024-32766); QPS_SID / QMS_SID / QMMS_SID cookies with shell characters (authLogout.cgi). Not ticked: all of Photo Station from outside. Written from public write-ups (vendor advisories, Rapid7, watchTowr, Unit 42, SSD, nuclei, Metasploit, CrowdSec) without a QNAP at hand; each rule's attack and ordinary requests pass on real nginx with ModSecurity 3.0.9 and 3.0.17 and CRS 4.30.

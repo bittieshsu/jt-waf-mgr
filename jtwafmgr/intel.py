@@ -1388,6 +1388,7 @@ def status(app):
             'nvd': {'enabled': bool(c.get('nvd'))},
             'debian': {'enabled': bool(c.get('debian'))},
             'synology': __import__('jtwafmgr.synologysec', fromlist=['status']).status(cfg),
+            'qnap': __import__('jtwafmgr.qnapsec', fromlist=['status']).status(cfg),
             'backends': {'enabled': bool(c.get('backend_versions'))},
             'osv': {'enabled': bool(c.get('osv')), 'ecosystem': __import__('jtwafmgr.osv', fromlist=['ecosystem']).ecosystem()},
             'last_run': run_summary(last) if last else None}
@@ -2185,6 +2186,13 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
     except Exception as e:      # noqa: BLE001
         log('synology: unreadable: %s' % type(e).__name__)
         syno = []
+    from . import qnapsec
+    try:
+        qnapsec.update(cfg, products, log=log)
+        qnap = qnapsec.matching(cfg, products, days=max(int(c['days']), 180))
+    except Exception as e:      # noqa: BLE001
+        log('qnap: unreadable: %s' % type(e).__name__)
+        qnap = []
     try:
         pkgs = osv.lookup(cfg, db, log=log) if mode == 'full' else {}
     except Exception as e:      # noqa: BLE001
@@ -2217,6 +2225,11 @@ def run(app, trigger='schedule', now=None, log=print, ask=None, patch_ask=None, 
               '\n'.join('- %s (%s): %s%s %s' % (a['id'], time.strftime('%Y-%m-%d', time.localtime(a['published'] or 0)),
                                                  a['title'], (' [' + ' '.join(a['cves'][:8]) + ']') if a['cves'] else '',
                                                  a['link']) for a in syno)) if syno else '') +
+            (('\n\nQNAP\'s own security advisories of the last months (the feed; read the advisory page for the '
+              'affected and fixed versions of each product, and check each against our version):\n' +
+              '\n'.join('- %s (%s): %s%s %s' % (a['id'], time.strftime('%Y-%m-%d', time.localtime(a['published'] or 0)),
+                                                 a['title'], (' [' + ' '.join(a['cves'][:8]) + ']') if a['cves'] else '',
+                                                 a['link']) for a in qnap)) if qnap else '') +
             (('\n\nOSV (osv.dev) lists these for the exact package versions installed (a distribution may have patched '
               'without changing the upstream version; check its tracker):\n' + '\n'.join(osv_lines[:120])) if osv_lines else '') +
             '\n\nHost facts (for the preconditions):\n' + '\n'.join('- %s: %s' % kv for kv in facts.items()) +

@@ -117,6 +117,7 @@ EDITABLE = {
     'intel.nvd': ('bool', {}),
     'intel.debian': ('bool', {}),
     'intel.synology': ('bool', {}),
+    'intel.qnap': ('bool', {}),
     'intel.backend_versions': ('bool', {}),
     'intel.librenms_token': ('secret', {'re': r'[\x21-\x7e]{0,200}'}),
     'intel.provider': ('choice', {'choices': ('openai', 'anthropic', 'gemini')}),

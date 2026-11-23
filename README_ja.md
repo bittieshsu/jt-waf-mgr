@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.5.40
+# jt-waf-mgr v0.5.41
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -114,7 +114,7 @@ jt-waf-mgr はリクエストの経路にありません。各リクエストは
   サーバー(例:SearXNG)で検索します。Anthropic と OpenAI 公式 API はプロバイダー自身の Web 検索も使えます。プログラムは
   許可リストの https ページだけを読み、「悪用中」はその実行でプログラム自身が CISA カタログを読んだとき、または KEV カタログ (毎日取得、約 1.5 MB) をオンにしてそこに載っているときだけ認めます。
   製品は名前だけでも確認できます。悪用されていて当方のバージョンに影響する脆弱性は
-  緊急アラートになります。インストール済みの Debian パッケージは自身の変更履歴と照合し、任意で Debian セキュリティトラッカーにも問い合わせます (導入済みのバージョンで修正済み、影響なし、別のプログラムの CVE なら対象外、新しいパッケージで修正済みなら更新を促します)。Synology 製品 (DSM やパッケージ) があるときは、任意で Synology 公式のセキュリティアドバイザリ (RSS) を毎日読み、最近数か月の分をモデルに渡して影響を受けるバージョンと修正バージョンを照合します。任意でバックエンドホストのバージョンも読み取れます：nginx はバックエンドの Server ヘッダーを転送しないため、proxy_pass が指すプライベートアドレスの応答ヘッダーを直接読み、バックエンドの nginx、Apache、PHP のバージョンをソフトウェア一覧に載せ、バックエンドの nginx が nginx.org の公告に該当すれば警告します。URL、ヘッダー、パラメーター名(クエリ文字列、フォーム、アップロード)で判別できるものには、脆弱性ごとに影響するすべてのサイトを対象とする仮想パッチ(狭い確定ブロック。通常の変更と同じく、アクセスログで確認できるものは証拠を、常に
+  緊急アラートになります。インストール済みの Debian パッケージは自身の変更履歴と照合し、任意で Debian セキュリティトラッカーにも問い合わせます (導入済みのバージョンで修正済み、影響なし、別のプログラムの CVE なら対象外、新しいパッケージで修正済みなら更新を促します)。Synology 製品 (DSM やパッケージ) や QNAP 製品 (QTS、QuTS hero、アプリ) があるときは、任意でそのベンダー公式のセキュリティアドバイザリ (RSS) を毎日読み、最近数か月の分をモデルに渡して影響を受けるバージョンと修正バージョンを照合します。任意でバックエンドホストのバージョンも読み取れます：nginx はバックエンドの Server ヘッダーを転送しないため、proxy_pass が指すプライベートアドレスの応答ヘッダーを直接読み、バックエンドの nginx、Apache、PHP のバージョンをソフトウェア一覧に載せ、バックエンドの nginx が nginx.org の公告に該当すれば警告します。URL、ヘッダー、パラメーター名(クエリ文字列、フォーム、アップロード)で判別できるものには、脆弱性ごとに影響するすべてのサイトを対象とする仮想パッチ(狭い確定ブロック。通常の変更と同じく、アクセスログで確認できるものは証拠を、常に
   サンドボックスを確認)を作成し、確認に通れば人の承認なしで 1 日の上限内で適用します。悪用されていて影響するものは上限を受けず、確認に失敗すれば緊急アラートで
   人の判断を求めます。プログラムは毎回、各製品とその基盤の言語・フレームワークを自ら検索します(PHP の脆弱性はすべての PHP アプリケーションに及びます)。予告されたセキュリティリリースはアラートになり、公開後に自動で再検索します。ページやテキスト(ニュース記事、ベンダーの勧告)を渡してすぐ分析させることもできます。1 日・1 か月のトークン上限があり、1 回の実行は 45 分以内です。
 - **IP レピュテーション**:IP 照会で、このサイトが見た証拠と、毎日ダウンロードする公開リスト(Spamhaus DROP、FireHOL level 1、abuse.ch Feodo、Emerging Threats、CINS Army、blocklist.de、Tor の出口ノード。ホスト上で照合)、Shodan InternetDB、自組織の MISP をまとめて、判定とその根拠を示します。デフォルトは無効で、自動ではブロックしません。
@@ -179,7 +179,7 @@ jt-waf-mgr はリクエストの経路にありません。各リクエストは
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # リリースの決まった場所
-V=0.5.40; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.41; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # リリース、署名、公開鍵
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -389,7 +389,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新しいリリースも同じ current に展開
-V=0.5.40; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.41; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # すべての検査のみ、何も変更しない

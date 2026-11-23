@@ -377,6 +377,7 @@ async function audit(page, where) {
      'intel: the Debian security tracker says the installed package has the fix');
   ok(await page.locator('.kvpanel dt', { hasText: 'Debian 安全追蹤' }).count() === 1, 'intel: the Debian security tracker among the sources');
   ok(await page.locator('.kvpanel dt', { hasText: 'Synology 安全公告' }).count() === 1, 'intel: the Synology advisories among the sources');
+  ok(await page.locator('.kvpanel dt', { hasText: 'QNAP 安全公告' }).count() === 1, 'intel: the QNAP advisories among the sources');
   // 0.5.17: a back-end host's nginx is listed with the sites it serves and the address that answered
   ok(await page.locator('.datatable tbody tr', { hasText: '後端主機回應：http://192.0.2.40:80' }).count() === 1 &&
      await page.locator('.datatable tbody tr:has-text("192.0.2.40") .sub', { hasText: '後端主機' }).count() >= 1,

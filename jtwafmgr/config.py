@@ -194,13 +194,14 @@ DEFAULTS = {
         'fetch_domains': ['nvd.nist.gov', 'cve.org', 'cisa.gov', 'github.com', 'osv.dev', 'nginx.org', 'openssl-library.org',
                           'coreruleset.org', 'keycloak.org', 'nextcloud.com', 'wordpress.org', 'zimbra.com', 'odoo.com',
                           'proxmox.com', 'debian.org', 'ubuntu.com', 'securityfocus.com', 'exploit-db.com', 'php.net',
-                          'synology.com'],
+                          'synology.com', 'qnap.com'],
         'max_rounds': 12,
         'patches': True,               # write a virtual patch (a narrow confident block) for URL / header attacks
         'kev': False,                  # download CISA's Known Exploited Vulnerabilities catalog daily (kev.py, ~1.5 MB)
         'osv': False,                  # ask osv.dev about the installed Debian / Ubuntu package versions (osv.py)
         'nvd': False,                  # ask NVD for the official CVSS score of each CVE found (nvd.py)
         'synology': False,             # 0.5.34: Synology's advisory feed daily, when a Synology product is confirmed (~450 KB)
+        'qnap': False,                 # 0.5.41: QNAP's advisory feed daily, when a QNAP product is confirmed (~16 KB)
         'debian': False,               # ask Debian's security tracker about CVEs of installed Debian packages (debtracker.py)
         'backend_versions': False,     # ask the sites' back-end servers which web server / PHP version they run (backends.py)
         'librenms_token': '',          # LibreNMS API token: its version is read from /api/v0/system (software.py)

@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md) · [繁體中文](CHANGELOG_zh-TW.md) · **日本語**
 
+## 0.5.41 (2026-11-23)
+
+- 脅威インテリジェンスに新しい情報源：QNAP 公式のセキュリティアドバイザリ (設定 → 脅威インテリジェンス →「QNAP セキュリティアドバイザリ」、既定はオフ)。ソフトウェア一覧に確認済みの QNAP 製品があると、脅威インテリジェンスのジョブが qnap.com の RSS を 1 日 1 回ダウンロードし (約 16 KB、最新 20 件。以前に見たものは最大 300 件まで残します)、最近数か月のアドバイザリをモデルに渡します (確認済み製品の名前があるものを先に)。モデルは各ページで影響を受けるバージョンと修正バージョンを読みます。qnap.com をモデルが読めるドメインに追加しました (新規インストールの既定一覧。Web で設定済みの一覧はそのまま)。
+
 ## 0.5.40 (2026-11-23)
 
 - アプリケーション保護セットに 2 番目の QNAP QTS (7 ルール、推奨 6) を追加。ソフトウェア一覧で QNAP QTS とされたサイトが対象です。外部から拒否するもの：セットアップウィザード quick.cgi (CVE-2023-47218、CVE-2023-50358)、クエリ、フォーム、JSON 本文の HBS 3 組み込みセッション ID (CVE-2021-28799、Qlocker、CISA KEV)、ファイル名やパスのパラメーターの ../ (Photo Station の combine.php と video.php：CVE-2022-27593 DeadBolt、CVE-2019-7194/7195、CISA KEV)、2048 文字を超える sid、ssid、name、p (share.cgi CVE-2024-27130、Surveillance Station CVE-2021-28797)、シェル文字を含むユーザー名 (CVE-2024-32766)、シェル文字を含む QPS_SID、QMS_SID、QMMS_SID Cookie (authLogout.cgi)。既定でチェックしないもの：外部からの Photo Station 全体。公開情報 (ベンダーアドバイザリ、Rapid7、watchTowr、Unit 42、SSD、nuclei、Metasploit、CrowdSec) から作成し、QNAP 実機はありません。各ルールの攻撃リクエストと通常のリクエストは、実際の nginx＋ModSecurity 3.0.9 と 3.0.17＋CRS 4.30 で通過しています。

@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.5.41 (2026-11-23)
+
+- 威脅情報新增來源：QNAP 官方安全公告 (設定 → 威脅情報 →「QNAP 安全公告」，預設關)。軟體清單有已確認的 QNAP 產品時，威脅情報程序每天從 qnap.com 下載一次公告 RSS (約 16 KB，最新 20 則；之前看過的會保留，最多 300 則)，把最近幾個月的公告交給模型 (提到已確認產品的排前面)，由它讀各公告頁面的受影響與修正版本。qnap.com 加入模型可讀取的網域 (新安裝的預設清單；已在網頁上設定過清單的，維持原樣)。
+
 ## 0.5.40 (2026-11-23)
 
 - 應用程式防護組合新增第二組 QNAP QTS (7 條，6 條建議)，適用軟體清單列為 QNAP QTS 的站台。從外部封鎖：設定精靈 quick.cgi (CVE-2023-47218、CVE-2023-50358)；網址參數、表單或 JSON 內容帶 HBS 3 內建的工作階段編號 (CVE-2021-28799，Qlocker，CISA KEV)；檔名或路徑參數含 ../ (Photo Station 的 combine.php 與 video.php：CVE-2022-27593 DeadBolt、CVE-2019-7194/7195，CISA KEV)；超過 2048 字元的 sid、ssid、name 或 p (share.cgi CVE-2024-27130、Surveillance Station CVE-2021-28797)；含 shell 字元的使用者名稱 (CVE-2024-32766)；含 shell 字元的 QPS_SID、QMS_SID、QMMS_SID cookie (authLogout.cgi)。預設不勾選：從外部使用整個 Photo Station。依公開資料撰寫 (原廠公告、Rapid7、watchTowr、Unit 42、SSD、nuclei、Metasploit、CrowdSec)，手邊沒有 QNAP 實機；每條規則自帶的攻擊與一般請求都在真的 nginx＋ModSecurity 3.0.9 與 3.0.17＋CRS 4.30 上通過。
