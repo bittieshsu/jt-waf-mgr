@@ -209,7 +209,7 @@ for kind, sev, ded, det, ago in (
         ('attack_in_progress', 'warning', 'attack_in_progress:2', {'path': '/.kube/config, /auth.json, /config.ini, /.environment, /config.inc.php',
          'host': 'www.example.com', 'reason': 'Scans for configuration files across several sites.'}, 3100),
         ('traffic_spike', 'warning', 'traffic_spike:shop.example.com', {'host': 'shop.example.com', 'reason': '6200 requests in the hour from 14:00, 8.4 times the usual 740 an hour'}, 4200),
-        ('crs_update', 'warning', 'crs_update:4.31.0', {'reason': 'OWASP CRS 4.31.0 downloaded and verified; compare it in the sandbox and propose it'}, 9000)):
+        ('crs_update', 'warning', 'crs_update:4.31.0', {'reason': 'OWASP CRS 4.31.0 is downloaded and verified; compare it in the sandbox and approve it on the CRS page', 'msg': 'crs_update', 'version': '4.31.0', 'installed': '4.30.0'}, 9000)):
     aid = alerts.raise_alert(app.db, app.audit, 'analyst' if kind.startswith('attack') else ('traffic' if kind.startswith('traffic') else 'system'),
                              kind, sev, ded, det, link='/alerts')
     app.db.x('UPDATE alerts SET created_at=?, last_seen=? WHERE dedup=?', (now - ago, now - ago, ded))

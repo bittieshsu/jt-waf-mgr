@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.43 (2026-11-24)
+
+- System alerts in the interface language: a CRS update, the IP block list being full, the IP block list or the country lists not being written, a traffic spike and many 5xx were shown with their English reason in the Chinese and Japanese interface and notifications. They now carry a message key and its values, worded in the reader's language on the page and in notifications; older alerts are worded the same way when their values are there, otherwise they keep their reason.
+- Project site: thumbnails are now a separate, smaller picture (1200 px; clicking opens the full one) instead of the full screenshot shrunk by the browser, which blurred the text; the IP intelligence picture is shown whole instead of cropped at the sides; the threat intelligence card is shorter.
+
 ## 0.5.42 (2026-11-23)
 
 - Security: a request body larger than ModSecurity's body limits (`SecRequestBodyLimit` for an upload, 12.5 MB by default; `SecRequestBodyNoFilesLimit` for a form or JSON, 128 KB by default) or one it cannot parse was passed on with none of it inspected, because the engine runs in DetectionOnly and jt-waf-mgr blocks from its rules (`SecRequestBodyLimitAction Reject` then never rejects). Every rule that looks into the body was affected: the CRS, confident blocks on a parameter, the application protection sets. Tested on nginx with libmodsecurity 3.0.9, 3.0.14 and 3.0.17.

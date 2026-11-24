@@ -271,7 +271,8 @@ class Blocks:
             if bid is None:
                 from . import alerts
                 alerts.raise_alert(self.db, self.app.audit, 'blocks', 'other', 'warning', 'blocks_full',
-                                   {'reason': 'the IP block list is full (%d); new blocks are refused' % b['max_active']})
+                                   {'reason': 'the IP block list is full (%d); new blocks are refused' % b['max_active'],
+                                    'msg': 'blocks_full', 'max': b['max_active']})
             raise BlockError(code, 409, limit=b['max_active'] if bid is None else b['max_per_token'])
         self.app.audit.log(action, actor, via if via in ('token', 'system') else 'user', src_ip, 'ok', ip=net, source=source,
                            ttl=None if permanent else ttl, permanent=permanent or None, block_id=bid, token_id=token_id,
@@ -421,7 +422,8 @@ class Blocks:
         if not ok:
             from . import alerts
             alerts.raise_alert(self.db, self.app.audit, 'blocks', 'apply_failed', 'critical', 'blocks_apply_failed',
-                               {'reason': 'the IP block list could not be written: %s' % util.clip(str(res.get('summary')), 300)},
+                               {'reason': 'the IP block list could not be written: %s' % util.clip(str(res.get('summary')), 300),
+                                'msg': 'blocks_apply_failed', 'summary': util.clip(str(res.get('summary')), 300)},
                                link='/blocks')
 
     # --- status ---------------------------------------------------------------------------------

@@ -1,3 +1,3 @@
 """jt-waf-mgr: web management for nginx + libmodsecurity v3 + OWASP CRS."""
-__version__ = '0.5.42'
+__version__ = '0.5.43'
 SOURCE_URL = 'https://github.com/jasoncheng7115/jt-waf-mgr'

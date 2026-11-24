@@ -266,14 +266,14 @@ def check_alerts(app, now=None):
         at = util.iso(hour)
         if total >= tr['min_requests'] and usual > 0 and total >= tr['spike_factor'] * usual:
             alerts.raise_alert(db, app.audit, 'traffic', 'traffic_spike', 'warning', 'traffic_spike:%s' % host,
-                               {'host': host, 'hour': at, 'requests': total, 'usual': round(usual, 1),
+                               {'msg': 'traffic_spike', 'host': host, 'hour': at, 'requests': total, 'usual': round(usual, 1),
                                 'factor': round(total / usual, 1),
                                 'reason': '%d requests in the hour from %s, %.1f times the usual %.0f an hour'
                                           % (total, at[11:16], total / usual, usual)}, link='/traffic?host=%s' % host)
             raised.append(('traffic_spike', host))
         if r['s5xx'] >= 50 and r['s5xx'] * 100 >= tr['error_percent'] * total:
             alerts.raise_alert(db, app.audit, 'traffic', 'traffic_errors', 'warning', 'traffic_errors:%s' % host,
-                               {'host': host, 'hour': at, 'requests': total, 's5xx': r['s5xx'],
+                               {'msg': 'traffic_errors', 'host': host, 'hour': at, 'requests': total, 's5xx': r['s5xx'],
                                 'percent': round(r['s5xx'] * 100.0 / total, 1),
                                 'reason': '%d of %d requests in the hour from %s were answered 5xx (%.1f%%)'
                                           % (r['s5xx'], total, at[11:16], r['s5xx'] * 100.0 / total)}, link='/traffic?host=%s' % host)

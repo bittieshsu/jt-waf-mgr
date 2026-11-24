@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.5.43 (2026-11-24)
+
+- 系統警示依介面語言顯示：CRS 有可用更新、IP 封鎖清單已滿、IP 封鎖清單或國家清單寫入失敗、流量暴增、5xx 變多，之前在中文和日文介面與通知都顯示英文說明。這些警示現在帶訊息代碼與數值，網頁與通知依語言顯示；之前的警示有數值的也會依語言顯示，沒有數值的維持原本的說明。
+- 專案網站：縮圖改成另外縮小的圖 (1200 px，點開才是原圖)，之前是把原尺寸截圖交給瀏覽器縮小，字會糊；IP 情資截圖完整顯示不再裁掉左右；威脅情報卡片縮短。
+
 ## 0.5.42 (2026-11-23)
 
 - 安全性：請求內容超過 ModSecurity 的大小上限 (上傳用 `SecRequestBodyLimit`，預設 12.5 MB；表單或 JSON 用 `SecRequestBodyNoFilesLimit`，預設 128 KB)，或 ModSecurity 無法解析時，整個內容都沒有檢查就送出去。原因是引擎以 DetectionOnly 執行、由 jt-waf-mgr 的規則負責封鎖，這時 `SecRequestBodyLimitAction Reject` 永遠不會拒絕。所有檢查請求內容的規則都受影響：CRS、比對參數的確定封鎖、應用程式防護組合。已在 nginx＋libmodsecurity 3.0.9、3.0.14、3.0.17 實測。

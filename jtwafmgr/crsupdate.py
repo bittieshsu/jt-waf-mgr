@@ -408,7 +408,7 @@ def run(app, force=False, log=print, api=API, now=None, keyfile=None, fpr=None):
             try:
                 from . import alerts
                 alerts.raise_alert(app.db, app.audit, 'system', 'crs_update', 'warning', 'crs_update:%s' % ver,
-                                   {'version': ver, 'installed': loc['version'] if loc else None,
+                                   {'msg': 'crs_update', 'version': ver, 'installed': loc['version'] if loc else None,
                                     'reason': 'OWASP CRS %s is downloaded and verified; compare it in the sandbox and '
                                               'approve it on the CRS page' % ver}, link='/crs')
             except Exception:       # noqa: BLE001

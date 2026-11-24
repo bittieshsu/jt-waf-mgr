@@ -146,6 +146,9 @@ async function audit(page, where) {
   // 0.5.17: a back-end host's nginx with an nginx.org advisory: worded, and it says that host is updated there
   ok(/站台 files\.example\.com 的後端主機跑 nginx 1\.22\.1.*CVE-2099-0002.*請在該主機更新 nginx/.test(await page.locator('main').innerText()),
     'alerts: a back-end nginx advisory is worded');
+  // 0.5.43: a system alert (CRS update) in the interface language, not the stored English reason
+  ok(/OWASP CRS 4\.31\.0 已下載並驗證 \(目前安裝 4\.30\.0\)/.test(await page.locator('main').innerText()) &&
+     !/downloaded and verified/.test(await page.locator('main').innerText()), 'alerts: a CRS update alert is worded in Chinese');
   await page.locator('.rowacts button:has-text("草擬")').first().click();
   await page.waitForURL((u) => u.pathname === '/changes/new', { timeout: 10000 }).catch(() => {});
   ok(new URL(page.url()).pathname === '/changes/new', 'alert drafts a change');

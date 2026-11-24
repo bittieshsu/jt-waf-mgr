@@ -486,7 +486,8 @@ class Countries:
         if not ok:
             from . import alerts
             alerts.raise_alert(self.db, self.app.audit, 'countries', 'apply_failed', 'critical', 'countries_apply_failed',
-                               {'reason': 'the country lists could not be written: %s' % util.clip(str(res.get('summary')), 300)},
+                               {'reason': 'the country lists could not be written: %s' % util.clip(str(res.get('summary')), 300),
+                                'msg': 'countries_apply_failed', 'summary': util.clip(str(res.get('summary')), 300)},
                                link='/admin/settings#uiset-countries')
 
     def request_update(self):

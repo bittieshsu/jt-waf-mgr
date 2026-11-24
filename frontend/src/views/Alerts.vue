@@ -105,6 +105,25 @@ function kindText(r) { return tOr('alerts.kind.' + r.kind, r.kind) }
 // threat intelligence alerts carry a message key and its values: worded in the interface language (the stored
 // reason is the English one, kept for the audit trail)
 const MSGS = ['intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere', 'intel_built_on', 'intel_tech_hit', 'intel_distro', 'intel_release', 'intel_search_empty']
+// system alerts (0.5.43) carry a message key too; older ones are worded from their values by kind
+const SYS_MSGS = ['crs_update', 'blocks_full', 'blocks_apply_failed', 'countries_apply_failed', 'traffic_spike', 'traffic_errors']
+const SYS_KINDS = { crs_update: ['crs_update', 'version'], traffic_spike: ['traffic_spike', 'requests'], traffic_errors: ['traffic_errors', 'requests'] }
+function sysMsg(r) {
+  const d = r.details || {}
+  const k = SYS_KINDS[r.kind]
+  const m = d.msg || (k && d[k[1]] != null ? k[0] : '')
+  return SYS_MSGS.includes(m) ? m : ''
+}
+function sysText(m, d) {
+  const hm = String(d.hour || '').slice(11, 16)
+  if (m === 'crs_update') return t('alerts.crs_update', { v: String(d.version || ''), installed: String(d.installed || '-') })
+  if (m === 'blocks_full') return t('alerts.blocks_full', { max: String(d.max ?? '') })
+  if (m === 'blocks_apply_failed' || m === 'countries_apply_failed') return t('alerts.' + m, { summary: String(d.summary || '') })
+  if (m === 'traffic_spike') {
+    return t('alerts.traffic_spike', { at: hm, n: String(d.requests ?? ''), usual: String(Math.round(Number(d.usual) || 0)), factor: String(d.factor ?? '') })
+  }
+  return t('alerts.traffic_errors', { at: hm, n: String(d.requests ?? ''), s5xx: String(d.s5xx ?? ''), percent: String(d.percent ?? '') })
+}
 function reasonText(r) {
   const d = r.details || {}
   if (r.kind === 'nginx_module') {
@@ -119,6 +138,8 @@ function reasonText(r) {
     return t('alerts.backend_security', { v: String(d.installed || ''), sites: (d.sites || []).slice(0, 5).join(', '),
       n: (d.issues || []).length, cves: (d.cves || []).join(', ') })
   }
+  const sys = sysMsg(r)
+  if (sys) return sysText(sys, d)
   if (!MSGS.includes(d.msg)) return d.reason || ''
   if (d.msg === 'intel_search_empty') {
     return t('alerts.intel_search_empty', { n: String(d.n ?? ''), of: String(d.of ?? ''), service: String(d.service || '') })

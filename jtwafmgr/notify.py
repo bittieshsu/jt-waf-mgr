@@ -143,6 +143,12 @@ TEXT = {
         'r.intel_tech_hit': '{cve} 已被利用；漏洞在 {product} 所用的 {tech}，後端主機回報執行中的 {tech} 是 {versions}，在受影響的範圍內：請更新那台主機的 {tech}，並重新啟動執行中的 {tech} 程序。{patch}',
         'r.llm_truncated': '模型的回答超過輸出上限，加大上限重試到最大值仍被截斷：請換思考較少的模型，或在 LLM 伺服器關閉 JSON 回答的思考。',
         'r.intel_patched': '虛擬修補 (規則 {rule}) 已在封鎖這種攻擊。',
+        'r.crs_update': 'OWASP CRS {v} 已下載並驗證 (目前安裝 {installed})：請在 CRS 頁用沙箱比對後提出並核准。',
+        'r.blocks_full': 'IP 封鎖清單已滿 ({max} 筆)，新的封鎖會被拒絕。',
+        'r.blocks_apply_failed': 'IP 封鎖清單寫入失敗：{summary}',
+        'r.countries_apply_failed': '國家清單寫入失敗：{summary}',
+        'r.traffic_spike': '{at} 起的一小時有 {n} 個請求，是平常每小時 {usual} 個的 {factor} 倍。',
+        'r.traffic_errors': '{at} 起的一小時 {n} 個請求中有 {s5xx} 個回 5xx ({percent}%)。',
         'r.intel_search_empty': '威脅情報的 {of} 次搜尋中有 {n} 次沒有任何網頁結果：搜尋服務 ({service}) 沒有在搜尋，這一輪只看了可以直接讀取的網站。請檢查搜尋服務。',
         'r.intel_release': '{product} 預定 {at} 發布安全更新{ids}：{title}。本站用到它的應用：{products}。發布後會自動再搜尋一次。{mit}',
         'r.intel_release_mit': '暫時處置：{m}',
@@ -249,6 +255,12 @@ TEXT = {
         'r.intel_tech_hit': '{cve} is exploited in the wild; the flaw is in {tech}, which {product} is built on, and the back-end host says the running {tech} is {versions}, inside the affected range: update {tech} on that host and restart the running {tech} processes. {patch}',
         'r.llm_truncated': 'The model\'s answer went past the output limit and was still cut short at the largest limit: use a model that thinks less, or turn thinking off for JSON answers on the LLM server.',
         'r.intel_patched': 'A virtual patch (rule {rule}) already refuses the attack.',
+        'r.crs_update': 'OWASP CRS {v} is downloaded and verified (installed: {installed}); compare it in the sandbox and approve it on the CRS page.',
+        'r.blocks_full': 'The IP block list is full ({max}); new blocks are refused.',
+        'r.blocks_apply_failed': 'The IP block list could not be written: {summary}',
+        'r.countries_apply_failed': 'The country lists could not be written: {summary}',
+        'r.traffic_spike': '{n} requests in the hour from {at}, {factor} times the usual {usual} an hour.',
+        'r.traffic_errors': '{s5xx} of {n} requests in the hour from {at} were answered 5xx ({percent}%).',
         'r.intel_search_empty': '{n} of {of} threat intelligence searches gave no web page: the search service ({service}) is not searching, and the run looked only at the pages it may read directly. Check the search service.',
         'r.intel_release': '{product} has announced a security release for {at}{ids}: {title}. Applications here built on it: {products}. It is searched for again once it is out.{mit}',
         'r.intel_release_mit': ' Interim advice: {m}',
@@ -356,6 +368,12 @@ TEXT = {
         'r.intel_tech_hit': '{cve} は悪用されています。脆弱性は {product} が使う {tech} にあり、バックエンドホストが報告した実行中の {tech} は {versions} で、影響範囲に入っています：そのホストの {tech} を更新し、実行中の {tech} プロセスを再起動してください。{patch}',
         'r.llm_truncated': 'モデルの回答が出力の上限を超え、最大の上限でも切れました。考える量の少ないモデルに替えるか、LLM サーバーで JSON 回答時の思考を無効にしてください。',
         'r.intel_patched': '仮想パッチ (ルール {rule}) がこの攻撃をすでに拒否しています。',
+        'r.crs_update': 'OWASP CRS {v} をダウンロードして検証しました (インストール済み：{installed})。CRS ページのサンドボックスで比較し、承認してください。',
+        'r.blocks_full': 'IP ブロックリストが上限 ({max} 件) に達しました。新しいブロックは拒否されます。',
+        'r.blocks_apply_failed': 'IP ブロックリストを書き込めませんでした：{summary}',
+        'r.countries_apply_failed': '国リストを書き込めませんでした：{summary}',
+        'r.traffic_spike': '{at} からの 1 時間で {n} 件のリクエスト。通常の 1 時間あたり {usual} 件の {factor} 倍です。',
+        'r.traffic_errors': '{at} からの 1 時間で {n} 件中 {s5xx} 件が 5xx でした ({percent}%)。',
         'r.intel_search_empty': '脅威インテリジェンスの検索 {of} 回のうち {n} 回で Web ページが 1 件も得られませんでした。検索サービス ({service}) が検索していないため、この実行では直接読めるサイトだけを確認しました。検索サービスを確認してください。',
         'r.intel_release': '{product} は {at} にセキュリティリリースを予告しています{ids}：{title}。これを使うこのサイトのアプリケーション：{products}。公開後にもう一度自動で検索します。{mit}',
         'r.intel_release_mit': '暫定対処：{m}',
@@ -613,6 +631,28 @@ def _link(cfg, path):
 ALERT_MSGS = ('intel_urgent', 'intel_check', 'intel_patch', 'intel_remove', 'intel_elsewhere', 'intel_built_on', 'intel_tech_hit', 'intel_distro', 'intel_release', 'intel_search_empty')
 
 
+# system alerts worded in the notification language (0.5.43); alerts raised before that carry no "msg": the ones
+# whose values are there are worded from them by kind
+SYSTEM_MSGS = ('crs_update', 'blocks_full', 'blocks_apply_failed', 'countries_apply_failed', 'traffic_spike', 'traffic_errors')
+SYSTEM_KINDS = {'crs_update': ('crs_update', 'version'), 'traffic_spike': ('traffic_spike', 'requests'),
+                'traffic_errors': ('traffic_errors', 'requests')}      # kind: (message, a value it needs)
+
+
+def system_text(lang, msg, d):
+    hm = _v(str(d.get('hour') or '')[11:16], 8)
+    if msg == 'crs_update':
+        return _t(lang, 'r.crs_update', v=_v(d.get('version'), 20), installed=_v(d.get('installed'), 20) or '-')
+    if msg == 'blocks_full':
+        return _t(lang, 'r.blocks_full', max=_v(d.get('max'), 10))
+    if msg in ('blocks_apply_failed', 'countries_apply_failed'):
+        return _t(lang, 'r.' + msg, summary=_v(d.get('summary'), 300))
+    if msg == 'traffic_spike':
+        return _t(lang, 'r.traffic_spike', at=hm, n=_v(d.get('requests'), 12), usual=_v(round(float(d.get('usual') or 0)), 12),
+                  factor=_v(d.get('factor'), 12))
+    return _t(lang, 'r.traffic_errors', at=hm, n=_v(d.get('requests'), 12), s5xx=_v(d.get('s5xx'), 12),
+              percent=_v(d.get('percent'), 8))
+
+
 def alert_text(lang, d):
     """An alert's sentence in the notification language: alerts that carry a message key and its values are worded
     here (the stored "reason" is the English one, for the audit trail and the log servers)."""
@@ -625,6 +665,10 @@ def alert_text(lang, d):
         return _t(lang, 'r.backend_security', v=_v(d.get('installed'), 40), n=len(d.get('issues') or []),
                   sites=_v(', '.join(str(h) for h in (d.get('sites') or [])[:5]), 300),
                   cves=_v(', '.join(str(c) for c in (d.get('cves') or [])[:20]), 400))
+    if not msg and SYSTEM_KINDS.get(d.get('kind')) and d.get(SYSTEM_KINDS[d['kind']][1]) is not None:
+        msg = SYSTEM_KINDS[d['kind']][0]
+    if msg in SYSTEM_MSGS:
+        return system_text(lang, msg, d)
     if msg not in ALERT_MSGS:
         return d.get('reason') or ''
     ver = str(d.get('sw_version') or '').strip()
