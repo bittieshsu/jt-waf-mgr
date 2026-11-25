@@ -49,6 +49,7 @@ local_range = [10000, 19999]
 system_range = [10000, 10099]       # plugin toggles, methods, site understanding
 exclusion_range = [10100, 10199]    # exclusions, redaction
 confident_range = [10200, 10296]    # confident blocks
+confident_range2 = [11000, 12999]   # confident blocks once the first range is full ([] for none)
 # "External over the CRS threshold -> block" rule(s) (nolog), the rule adding a critical score for a
 # confident match (so that CRS's 949110 decides), and the fallback deny rule(s).
 threshold_rule_ids = [10297]

@@ -261,12 +261,12 @@ class ModsecConfig:
         acts = list(r.all_actions())
         keys = [k for k, _ in acts]
         ctl = [v for k, v in acts if k == 'ctl']
-        lo, hi = self.cfg['waf']['confident_range']
+        from .config import is_confident
         tags = [v for k, v in acts if k == 'tag']
         if r.id is not None and (r.id in self.cfg['waf']['threshold_rule_ids'] or r.id in self.cfg['waf']['fallback_rule_ids']):
             return 'system'
         # a country block works like a confident block (phase 1 sets jt_block, the system rule refuses): same stage
-        if r.id is not None and lo <= r.id <= hi or any('confident' in t or 'jt-country-block' in t for t in tags):
+        if r.id is not None and is_confident(self.cfg, r.id) or any('confident' in t or 'jt-country-block' in t for t in tags):
             return 'confident_block'
         if any(re.match(r'ruleRemove', c) for c in ctl):
             redaction = any(re.search(r';(?:ARGS|ARGS_POST|REQUEST_BODY)', c) and util.Redactor(self.cfg.sensitive).is_sensitive(

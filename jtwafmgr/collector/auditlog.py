@@ -28,7 +28,8 @@ class Parser:
         self.cfg = cfg
         self.redactor = util.Redactor(cfg.sensitive)
         self.local = cfg['waf']['local_range']
-        self.confident = cfg['waf']['confident_range']
+        from ..config import confident_ranges
+        self.confident = confident_ranges(cfg)
         self.country = cfg['waf']['country_range']
         self.fallback = set(cfg['waf']['fallback_rule_ids'])
         self.threshold = set(cfg['waf']['threshold_rule_ids'])
@@ -130,7 +131,7 @@ class Parser:
 
         local_ids = [r for r in rule_ids if self.local[0] <= r <= self.local[1]]
         # a country rule is a confident block too: it decides by the source address alone, never by a score
-        confident = any(self.confident[0] <= r <= self.confident[1] or self.country[0] <= r <= self.country[1]
+        confident = any(any(lo <= r <= hi for lo, hi in self.confident) or self.country[0] <= r <= self.country[1]
                         for r in rule_ids)
         has_body_rule = any(200000 <= r <= 200099 for r in rule_ids)
         blocked = engine.lower() in ('enabled', 'on') and status is not None and (

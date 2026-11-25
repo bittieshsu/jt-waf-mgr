@@ -246,7 +246,7 @@ def gather(app, window_hours, min_events, min_sources):
     against existing rules / changes), most sources first."""
     cfg = app.cfg
     since = util.now() - window_hours * 3600
-    lo, hi = cfg['waf']['confident_range']
+    from .config import is_confident
     noise = set(util.SCORING_RULES) | set(cfg['waf']['fallback_rule_ids']) | set(cfg['waf']['threshold_rule_ids']) \
         | set(cfg['waf']['score_rule_ids'])
     groups = {}
@@ -256,7 +256,7 @@ def gather(app, window_hours, min_events, min_sources):
                     "ORDER BY id DESC LIMIT ?", (since, MAX_EVENTS))
     for e in rows:
         rids = [int(x) for x in (e['rule_ids'] or '').strip(',').split(',') if x.strip().isdigit()]
-        if any(lo <= r <= hi for r in rids):
+        if any(is_confident(cfg, r) for r in rids):
             continue        # a confident rule matched already (engine in detection mode): covered
         raw = e['path'] or '/'
         key = view_text(path_view(raw))

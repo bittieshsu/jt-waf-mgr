@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.5.45 (2026-11-25)
+
+- 確定封鎖：新增第二段規則編號範圍 `waf.confident_range2` (預設 11000-12999)，在 `confident_range` (10200-10296，共 97 個) 用完後使用。防護組合每個站台的每條規則各佔一個編號，在同一台主機替 Nextcloud 與三個 Zimbra 站名提出防護組合時，出現「編號範圍已滿」而無法提出。兩段範圍的編號在所有地方 (事件、規則清單、事件分析、自動封鎖) 都算確定封鎖。config.toml 裡既有的 `confident_range` 照舊；不要第二段時設 `confident_range2 = []`。
+
 ## 0.5.44 (2026-11-25)
 
 - 應用程式防護組合：新增 Nextcloud (22 條，16 條建議) 與 Zimbra (20 條，16 條建議)，給軟體清單列為 Nextcloud 或 Zimbra 的站台。依公開資料 (原廠公告與原始碼、CISA KEV、NVD、Rapid7、Volexity、nuclei、Metasploit、CRS 的 Nextcloud 外掛) 撰寫，並用真實站台的存取記錄核對；每條規則自帶的攻擊與一般請求，都在真 nginx＋ModSecurity 3.0.9 與 3.0.17＋CRS 4.30 上通過。

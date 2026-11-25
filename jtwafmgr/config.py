@@ -62,6 +62,9 @@ DEFAULTS = {
         'system_range': [10000, 10099],
         'exclusion_range': [10100, 10199],
         'confident_range': [10200, 10296],
+        # 0.5.44: where confident blocks go once confident_range is full (a protection set takes one id per rule and
+        # site: Zimbra on three site names is 48); [] for none
+        'confident_range2': [11000, 12999],
         'country_range': [10300, 10399],
         # the two rules of the troubleshooting switch (pause.py): every site, the listed sites
         'pause_ids': [10090, 10091],
@@ -404,6 +407,16 @@ class ConfigError(ValueError):
     pass
 
 
+def confident_ranges(cfg):
+    """Every range a confident block's id may be in, in the order new ids are taken (0.5.44: a second one)."""
+    w = cfg['waf']
+    return [tuple(w['confident_range'])] + ([tuple(w['confident_range2'])] if w.get('confident_range2') else [])
+
+
+def is_confident(cfg, rid):
+    return any(lo <= rid <= hi for lo, hi in confident_ranges(cfg))
+
+
 def _merge(base, over, where=''):
     for k, v in over.items():
         if k not in base:
@@ -490,6 +503,12 @@ class Config:
         if not (lo <= hr[0] and hr[1] <= hi) or any(not (hr[1] < data['waf'][k][0] or hr[0] > data['waf'][k][1])
                                                    for k in ('system_range', 'exclusion_range', 'confident_range', 'country_range')):
             raise ConfigError('waf.hub_range: inside local_range, apart from the other ranges')
+        c2 = data['waf'].get('confident_range2') or []
+        if c2 and (len(c2) != 2 or not all(isinstance(x, int) and not isinstance(x, bool) for x in c2) or c2[0] > c2[1]
+                   or not (lo <= c2[0] and c2[1] <= hi) or any(
+                       not (c2[1] < data['waf'][k][0] or c2[0] > data['waf'][k][1])
+                       for k in ('system_range', 'exclusion_range', 'confident_range', 'country_range', 'hub_range'))):
+            raise ConfigError('waf.confident_range2: [] or [low, high] inside local_range, apart from the other ranges')
         if not (isinstance(data['hub']['dir'], str) and data['hub']['dir'].startswith('/') and '..' not in data['hub']['dir']):
             raise ConfigError('hub.dir: an absolute path')
         bl = data['blocks']

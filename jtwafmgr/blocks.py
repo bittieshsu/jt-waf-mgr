@@ -493,14 +493,14 @@ class Blocks:
             return []
         now = now or util.now()
         per, answered = collections.defaultdict(set), set()
-        lo, hi = self.cfg['waf']['confident_range']
+        from .config import is_confident
         for r in self.db.q("SELECT DISTINCT src_ip, path, status, rule_ids FROM events WHERE ts>=? AND origin='external'",
                            (now - b['auto_recon_minutes'] * 60,)):
             p = (r['path'] or '').lower()
             if not RECON_NAME.search(p):
                 continue
             st = r['status']
-            confident = any(x.isdigit() and lo <= int(x) <= hi for x in (r['rule_ids'] or '').split(','))
+            confident = any(x.isdigit() and is_confident(self.cfg, int(x)) for x in (r['rule_ids'] or '').split(','))
             if st is not None and 300 <= st < 400 and confident:
                 per[r['src_ip']].add(p)          # redirected before the WAF could refuse it: nothing was served
             elif st is not None and 200 <= st < 400:

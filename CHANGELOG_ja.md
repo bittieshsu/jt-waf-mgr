@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md) · [繁體中文](CHANGELOG_zh-TW.md) · **日本語**
 
+## 0.5.45 (2026-11-25)
+
+- 確定遮断：ルール ID の 2 つ目の範囲 `waf.confident_range2` (既定 11000-12999) を追加し、`confident_range` (10200-10296、97 個) が埋まった後に使います。保護セットはサイトごと、ルールごとに 1 つの ID を使うため、1 台のホストで Nextcloud と 3 つの Zimbra のサイト名に保護セットを提案すると「ID の範囲がいっぱい」で失敗しました。どちらの範囲の ID も、すべての場所 (イベント、ルール一覧、イベント分析、自動遮断) で確定遮断として扱います。config.toml の既存の `confident_range` はそのままです。2 つ目が不要なら `confident_range2 = []` にします。
+
 ## 0.5.44 (2026-11-25)
 
 - アプリケーション保護セット：Nextcloud (22 ルール、推奨 16) と Zimbra (20 ルール、推奨 16) を追加し、ソフトウェア一覧で Nextcloud または Zimbra とされたサイトに使えます。公開情報 (ベンダーのアドバイザリーとソースコード、CISA KEV、NVD、Rapid7、Volexity、nuclei、Metasploit、CRS の Nextcloud プラグイン) から作成し、実際のサイトのアクセスログと照合しました。各ルールの攻撃リクエストと通常のリクエストは、実際の nginx＋ModSecurity 3.0.9 と 3.0.17＋CRS 4.30 で確認済みです。

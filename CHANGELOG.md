@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.45 (2026-11-25)
+
+- Confident blocks: a second range of rule ids, `waf.confident_range2` (default 11000-12999), used once `confident_range` (10200-10296, 97 ids) is full. A protection set takes one id per rule and site, and proposing the Nextcloud set and the Zimbra set for three site names on one host failed with "id range full". Ids in either range count as confident blocks everywhere (events, the rule list, the analysis, automatic blocks). An existing `confident_range` in config.toml is kept; set `confident_range2 = []` for none.
+
 ## 0.5.44 (2026-11-25)
 
 - Application protection sets: Nextcloud (22 rules, 16 recommended) and Zimbra (20 rules, 16 recommended), for the sites the software list names as Nextcloud or Zimbra. Written from public sources (vendor advisories and source code, CISA KEV, NVD, Rapid7, Volexity, nuclei, Metasploit, the CRS Nextcloud plugin) and checked against the access logs of real sites; each rule's attack and ordinary requests pass on real nginx with ModSecurity 3.0.9 and 3.0.17 and CRS 4.30.

@@ -1822,7 +1822,7 @@ def settings(app, req):
         'config_file': c.path, 'node_id': c['node']['id'],
         'internal_networks': c['network']['internal'], 'known_scanners': c['network']['known_scanners'],
         'focus_sites': c['waf']['focus_sites'], 'sensitive_fields': c['waf']['sensitive_fields'],
-        'id_ranges': {'local': c['waf']['local_range'], 'confident': c['waf']['confident_range'],
+        'id_ranges': {'local': c['waf']['local_range'], 'confident': c['waf']['confident_range'], 'confident2': c['waf'].get('confident_range2') or [],
                       'threshold_rule_ids': c['waf']['threshold_rule_ids'], 'fallback_rule_ids': c['waf']['fallback_rule_ids']},
         'audit_log': c['paths']['audit_log'], 'nginx_conf': c['paths']['nginx_conf'],
         'retention_days': {'events': c['retention']['events_days'], 'stats': c['retention']['stats_days']},

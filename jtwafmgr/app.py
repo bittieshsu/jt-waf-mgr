@@ -24,7 +24,8 @@ class App:
         self.geoip = GeoIP(cfg)
         api.GEO = self.geoip.lookup
         api.COUNTRY = self._registry_country
-        api.REFUSING_RANGES = (tuple(cfg['waf']['confident_range']), tuple(cfg['waf']['country_range']))
+        from .config import confident_ranges
+        api.REFUSING_RANGES = tuple(confident_ranges(cfg)) + (tuple(cfg['waf']['country_range']),)
         self.router = Router()
         api.register(self.router)
         self.tailer = None

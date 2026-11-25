@@ -229,14 +229,18 @@ class Managed:
         return n
 
     def next_rule_id(self, kind, extra=()):
-        lo, hi = self.range_for(kind)
-        used = [i for i in list(self.occupied_ids()) + list(extra or ()) if lo <= i <= hi]
-        n = (max(used) + 1) if used else lo   # never reuse an id, not even a deleted one
-        while n in (self.cfg['waf'].get('pause_ids') or ()):   # held for the pause switch
-            n += 1
-        if n > hi:
-            raise ValueError('id_range_full')
-        return n
+        from .config import confident_ranges
+        ranges = confident_ranges(self.cfg) if kind == 'confident_block' else [tuple(self.range_for(kind))]
+        taken = list(self.occupied_ids()) + list(extra or ())
+        for lo, hi in ranges:
+            # 0.5.44: confident blocks go on in the second range once the first is full
+            used = [i for i in taken if lo <= i <= hi]
+            n = (max(used) + 1) if used else lo   # never reuse an id, not even a deleted one
+            while n in (self.cfg['waf'].get('pause_ids') or ()):   # held for the pause switch
+                n += 1
+            if n <= hi:
+                return n
+        raise ValueError('id_range_full')
 
     # --- import (adoption) ----------------------------------------------------------------
     def _crs_layout(self):
