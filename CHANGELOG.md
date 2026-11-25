@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.47 (2026-11-25)
+
+- Sandbox: an ordinary test request of a confident block that the rules in place already refuse (a protection set's WebDAV request on a site whose CRS does not allow WebDAV methods, a content type the CRS does not allow) is judged against the configuration as it is: it fails the change only when one of the change's own rules matches it. An exclusion's ordinary tests are never excused this way, since letting them through is what the change must do.
+- Application protection sets: Zimbra's proxy rule had an ordinary test the CRS refuses by itself (a URL with an address), replaced with one using a host name.
+
 ## 0.5.46 (2026-11-25)
 
 - Evidence for a confident block: requests from inside fail the check only for a rule that refuses inside sources too (source "all"). A rule refusing outside requests only never sees them, so administrators opening the admin pages from inside (or Nextcloud's own check of its data directory) no longer fail it; they are shown with the evidence. Applying a rule by itself (automatic tightening) still needs no request from inside.

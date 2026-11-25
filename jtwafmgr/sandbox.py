@@ -458,7 +458,12 @@ http {
         sources = {(b.get('source') or 'external') for b in blocks}
         block_ids = self._block_ids(r)
         for t in user_tests:
-            cases.append(dict(t, origin='upstream' if t.get('upstream') else 'test'))
+            c = dict(t, origin='upstream' if t.get('upstream') else 'test')
+            if t.get('expect') == 200 and block_ids and not t.get('absent_rules'):
+                # an ordinary request: the change's own rules must not match it (0.5.47: also when the rules in place
+                # already refuse it, see run_change)
+                c['absent_rules'] = block_ids
+            cases.append(c)
             # path blocks must survive encoding / case / slash tricks (LESSONS 14)
             if blocks and t.get('expect') == 403 and t.get('source') == 'external' and not t.get('upstream'):
                 p, _, q = t['path'].partition('?')
@@ -590,8 +595,12 @@ http {
             # through the configuration as it is now and judge only what the change itself alters
             # the same for the inside request of an external-only block (0.4.95): refused from inside already (internal
             # protection, the CRS score, another confident block) is not this change's doing
+            # and for an ordinary test request (0.5.47): a protection set's WebDAV request on a site whose CRS refuses
+            # WebDAV methods, or a content type the CRS does not allow -- only when the change's own rules do not match it
             reg = [i for i, (c, r) in enumerate(zip(cases, res)) if r['status'] == 403 and (
-                c.get('origin') == 'regression' or c.get('origin') == 'internal-same' and c.get('expect') == 200)]
+                c.get('origin') == 'regression' or c.get('origin') == 'internal-same' and c.get('expect') == 200
+                # never for an exclusion's test: that 200 is what the change must bring about
+                or c.get('origin') == 'test' and c.get('expect') == 200 and c.get('absent_rules'))]
             if reg:
                 base = self.run({}, [cases[i] for i in reg])
                 for i, b in zip(reg, base):

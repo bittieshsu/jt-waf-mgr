@@ -2252,7 +2252,7 @@
        "expect": 403
       },
       {
-       "path": "/service/home/~/?fmt=json&target=https://127.0.0.1:7071/",
+       "path": "/service/home/~/?fmt=json&target=https://feeds.example.com/news.rss",
        "method": "GET",
        "expect": 200
       }
