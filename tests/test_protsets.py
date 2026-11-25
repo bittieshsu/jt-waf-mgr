@@ -34,6 +34,8 @@ def _values(rule, test):
         return [urllib.parse.unquote(urllib.parse.urlsplit(path).path).lower()]
     if target == 'uri':
         return [urllib.parse.unquote(path).lower()]
+    if target == 'raw_uri':
+        return [path.lower()]
     if target == 'header':
         return [v.lower() for k, v in (test.get('headers') or {}).items() if k.lower() == spec['header'].lower()]
     if target == 'body_unchecked':

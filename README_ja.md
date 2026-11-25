@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.5.43
+# jt-waf-mgr v0.5.44
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -121,7 +121,7 @@ jt-waf-mgr はリクエストの経路にありません。各リクエストは
 - **CrowdSec 仮想パッチルール**:CrowdSec Hub の appsec ルール(MIT ライセンス)を毎日同期し(オフラインでのアップロードも可)、ホスト上で ModSecurity ルールに変換します。すべての条件の意味を保てるルールだけを変換します。
   変換したルールはそのソフトウェアを動かすサイトに、アプリ横断の脆弱性(React、Spring、PHP などのフレームワーク、ライブラリ、言語。サイトのソフトウェアが使う技術で関係を判断)ならすべてのサイトにも、通常の変更として提案でき、サンドボックスが上流の攻撃リクエストを再送して、すべてこのルールで遮断され、サイトの最近のリクエストは遮断されないことを確認します。
   適用中のルールは上流で更新・削除されると表示されます。確認済みソフトウェアに影響する脆弱性では、脅威インテリジェンスが上流のルールを優先して提案します。
-- **アプリケーション保護セット**：1 つのアプリケーション向けに、公開済みの脆弱性と実際の攻撃をもとに用意した確定遮断ルール。最初のセットは Synology DSM(管理 API をローカルネットワークだけに限定。一括リクエストやエスケープ文字による回避も含む)。2 番目は QNAP QTS (セットアップウィザード、HBS 3 の組み込みセッション ID、ファイル名の ../、長すぎる ID、ユーザー名とセッション Cookie のシェル文字。公開情報から作成し、QNAP 実機では未検証)。ソフトウェア一覧は DSM サイトとそのパッケージを認識します(DSM はログインなしで提供する API を一覧にします)。サイトとルールを選んで 1 件の変更として提案すると、通常のチェック、各ルールの攻撃リクエストと通常のリクエストのサンドボックス再送を経て、人が承認します。ルールは外部からのリクエストだけを拒否します。
+- **アプリケーション保護セット**：1 つのアプリケーション向けに、公開済みの脆弱性と実際の攻撃をもとに用意した確定遮断ルール。最初のセットは Synology DSM(管理 API をローカルネットワークだけに限定。一括リクエストやエスケープ文字による回避も含む)。2 番目は QNAP QTS (セットアップウィザード、HBS 3 の組み込みセッション ID、ファイル名の ../、長すぎる ID、ユーザー名とセッション Cookie のシェル文字。公開情報から作成し、QNAP 実機では未検証)。さらに Nextcloud (非公開のファイルとディレクトリ、送られたパスの ../、内蔵 CODE サーバーのコマンド注入 CVE-2026-110447、外部からのアップデーターとアップグレード) と Zimbra (ユーザーポートの管理サービス、1 つの GraphQL リクエストでの複数ログイン、ログイン名の LDAP ワイルドカード、パラメーターで送る内部 servlet 属性、/h/rest、識別子パラメーターの HTML)。各セットのリクエストは実際の nginx＋ModSecurity 3.0.9 と 3.0.17＋CRS 4.30 のサンドボックスで再送して確認しています。ソフトウェア一覧は DSM サイトとそのパッケージを認識します(DSM はログインなしで提供する API を一覧にします)。サイトとルールを選んで 1 件の変更として提案すると、通常のチェック、各ルールの攻撃リクエストと通常のリクエストのサンドボックス再送を経て、人が承認します。ほとんどのルールは外部からのリクエストだけを拒否します。
 - **対応待ちアラート**：防がれていない可能性のある攻撃、利用者に影響する誤検知、進行中の攻撃、設定の外部変更、完全性の問題、
   適用やバックアップの失敗。承認者が対応内容を記入するまで開いたままで、定期的に再通知します。
 - **通知**：メール（SMTP、テキスト＋HTML）、Telegram、Microsoft Teams（Workflows / Adaptive Card）、Slack、Discord、Zulip、
@@ -179,7 +179,7 @@ jt-waf-mgr はリクエストの経路にありません。各リクエストは
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # リリースの決まった場所
-V=0.5.43; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.44; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # リリース、署名、公開鍵
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -389,7 +389,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新しいリリースも同じ current に展開
-V=0.5.43; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.44; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # すべての検査のみ、何も変更しない

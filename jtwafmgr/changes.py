@@ -2216,11 +2216,16 @@ def _check_tests(tests, internal=False):
                 raise ChangeError('invalid_tests', reason='src_ip')
             if t.get('source') != 'external' or not a.is_global:
                 raise ChangeError('invalid_tests', reason='src_ip: a public address, with source external')
-        if t.get('method', 'GET') not in ('GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'):
+        if t.get('method', 'GET') not in TEST_METHODS:
             raise ChangeError('invalid_tests', reason='method')
         if len(t.get('body') or '') > 65536:
             raise ChangeError('invalid_tests', reason='body')
 
+
+
+# 0.5.44: WebDAV's methods too (Nextcloud's protection set tests a MOVE's Destination header and PROPFIND listings)
+TEST_METHODS = ('GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS',
+                'PROPFIND', 'PROPPATCH', 'MKCOL', 'COPY', 'MOVE', 'LOCK', 'UNLOCK', 'REPORT', 'SEARCH')
 
 def summarize(kind, spec, op):
     if op == 'nginx':

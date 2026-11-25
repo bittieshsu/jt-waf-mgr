@@ -1,4 +1,4 @@
-<!-- Application protection sets (0.5.33): ready-made rules for one application (Synology DSM, QNAP QTS), written from
+<!-- Application protection sets (0.5.33): ready-made rules for one application (Synology DSM, QNAP QTS, Nextcloud, Zimbra), written from
      its publicly known vulnerabilities and attacks. For each site the software list names for the application, pick the
      rules (the recommended ones are ticked) and propose them as ONE change: the usual checks, the sandbox with each
      rule's own attack and ordinary requests, and a person's approval. -->
@@ -33,7 +33,7 @@
           <template #expand="{ row }">
             <div class="protdetail">
               <p>{{ ruleWhy(site, row) }}</p>
-              <p class="small"><strong>{{ t('protset.matches') }}：</strong><template v-if="row.regex"><span class="mono">{{ row.target === 'arg' ? row.arg + ' = ' : '' }}{{ safeText(row.regex, 400) }}</span>
+              <p class="small"><strong>{{ t('protset.matches') }}：</strong><template v-if="row.regex"><span class="mono">{{ row.target === 'arg' ? row.arg + ' = ' : row.target === 'header' && row.header ? row.header + ': ' : '' }}{{ safeText(row.regex, 400) }}</span>
                 <span class="muted gapl">({{ t('wizard.target_opt.' + row.target) }})</span></template><span v-else>{{ t('wizard.target_opt.' + row.target) }}</span></p>
               <p v-if="row.cves.length" class="small"><strong>CVE：</strong><template v-for="(c, i) in row.cves" :key="c"><span v-if="i" class="muted"> · </span><a class="mono" :href="'https://nvd.nist.gov/vuln/detail/' + encodeURIComponent(c)" target="_blank" rel="noopener noreferrer">{{ c }}</a></template></p>
               <p v-if="row.refs.length" class="small"><strong>{{ t('protset.refs') }}：</strong><template v-for="(u, i) in row.refs" :key="u"><span v-if="i" class="muted"> · </span><a :href="u" target="_blank" rel="noopener noreferrer" :title="u">{{ safeText(refLabel(u), 80) }}</a></template></p>

@@ -338,7 +338,9 @@ async function audit(page, where) {
      (await page.locator('section.readiness li', { hasText: 'CrowdSec' }).count()) === 0, 'dashboard: the setup card names what is missing, CrowdSec on is not');
   // 0.5.34: the DSM site's recommended protection rules, with the numbers filled in (0.5.32 showed "{version}" as is)
   const psItem = page.locator('section.readiness .readylist li', { hasText: 'Synology DSM' }).first();
-  ok((await psItem.count()) === 1 && /10 條建議的防護規則尚未套用/.test(await psItem.innerText()) && /nas\.example\.com/.test(await psItem.innerText()) &&
+  // 0.5.44: the Nextcloud site's 16 recommended rules too (one item for every application with a set)
+  ok((await psItem.count()) === 1 && /26 條建議的防護規則尚未套用/.test(await psItem.innerText()) && /nas\.example\.com/.test(await psItem.innerText()) &&
+     /Nextcloud/.test(await psItem.innerText()) && /files\.example\.com/.test(await psItem.innerText()) &&
      !/\{\w+\}/.test(await page.locator('section.readiness').innerText()),
      'dashboard: the protection set item, numbers and site filled in');
   ok((await setHub(false)) === 200, 'dashboard: CrowdSec turned off for the check');
@@ -861,6 +863,19 @@ async function audit(page, where) {
   await buRow.click();
   await page.waitForFunction(() => [...document.querySelectorAll('.protdetail')].some((d) => d.innerText.includes('請求內容未檢查')), null, { timeout: 5000 }).catch(() => {});
   ok((await page.locator('.protdetail', { hasText: '請求內容未檢查' }).count()) >= 1, 'protection sets: the uninspected-body rule opens to its target');
+  // 0.5.44: the Nextcloud set on the Nextcloud site -- 22 rules, the 16 recommended ones ticked; the traversal rule matches
+  // the raw request (REQUEST_FILENAME is normalised), a header rule names its header
+  const ncard = page.locator('.protset[data-host="files.example.com"]');
+  const nRules = await ncard.locator('tbody input[type=checkbox]').count();
+  ok((await ncard.count()) === 1 && nRules === 22 && (await ncard.locator('tbody input[type=checkbox]:checked').count()) === 16 &&
+     (await ncard.locator('tbody tr', { hasText: 'CVE-2026-110447' }).count()) >= 1,
+     'protection sets: the Nextcloud site, 22 rules, 16 recommended, the CODE server rule');
+  await ncard.locator('tbody tr').filter({ hasText: '路徑中的「../」' }).click();
+  await page.waitForFunction(() => [...document.querySelectorAll('.protdetail')].some((d) => d.innerText.includes('原始請求目標')), null, { timeout: 5000 }).catch(() => {});
+  ok((await page.locator('.protdetail', { hasText: '原始請求目標' }).count()) >= 1, 'protection sets: the Nextcloud ../ rule matches the raw request');
+  await ncard.locator('tbody tr').filter({ hasText: 'WebDAV 的 Destination' }).click();
+  await page.waitForFunction(() => [...document.querySelectorAll('.protdetail .mono')].some((d) => d.innerText.startsWith('Destination: ')), null, { timeout: 5000 }).catch(() => {});
+  ok((await page.locator('.protdetail .mono', { hasText: 'Destination: ' }).count()) >= 1, 'protection sets: a header rule shows its header');
   await page.screenshot({ path: path.join(SHOTS, 'protection.png'), fullPage: true });
   // 0.4.96: a filter set to something has a "×" back to "all"
   await page.goto(base + '/rules', { waitUntil: 'networkidle' });

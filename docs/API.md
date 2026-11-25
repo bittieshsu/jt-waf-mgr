@@ -208,7 +208,7 @@ with `host`, `backend` (http(s)://address:port), and optionally `preset` (`gener
 `cert` and `key`, `internal_only`, `websocket`, `redirect_80`, `ipv6`: an example server block (`text`), where to save it
 (`path`), the commands to load it (`steps`) and `big_upload`. Nothing is written; 422 with `field` for a bad answer.
 
-**`GET /protsets`**: scope `rules:read`. Application protection sets (0.5.33: Synology DSM; 0.5.40: QNAP QTS): `adopted`
+**`GET /protsets`**: scope `rules:read`. Application protection sets (0.5.33: Synology DSM; 0.5.40: QNAP QTS; 0.5.44: Nextcloud, Zimbra): `adopted`
 and `sets` (`id`, `app`, `rule_count`, `sites`: each site the software list names for the application, with `host` and
 `rules`: `id`, `state` (`available`, `applied`, `update` (this version writes it differently), `disabled`, `pending`
 with `change_id`), `default` (recommended), `needs` and `needs_missing` (packages the rule is about, not listed for the

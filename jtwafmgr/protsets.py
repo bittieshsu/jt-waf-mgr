@@ -125,6 +125,7 @@ def status(app, path=DATA_FILE):
                 rows.append(dict({'id': r['id'], 'state': st, 'default': r['default'], 'needs': r['needs'],
                                   'needs_missing': need, 'refs': r['refs'], 'cves': r['cves'],
                                   'target': r['spec'].get('target'), 'arg': r['spec'].get('arg') or '',
+                                  'header': r['spec'].get('header') or '',
                                   'regex': r['spec'].get('regex')}, **extra))
             sites.append({'host': h, 'rules': rows})
         out.append({'id': s['id'], 'app': s['app'], 'sites': sites, 'rule_count': len(s['rules'])})

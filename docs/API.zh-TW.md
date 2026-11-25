@@ -188,7 +188,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" https://waf.example.com/api/v1/health
 (`generic` | `synology`)、`port`、`upload`、`cert` 與 `key`、`internal_only`、`websocket`、`redirect_80`、`ipv6`：回傳範例
 server 區塊 (`text`)、存放位置 (`path`)、載入指令 (`steps`) 與 `big_upload`。不寫入任何東西；答案不合法時回 422 並帶 `field`。
 
-**`GET /protsets`**：scope `rules:read`。應用程式防護組合 (0.5.33：Synology DSM；0.5.40：QNAP QTS)：`adopted` 與 `sets`
+**`GET /protsets`**：scope `rules:read`。應用程式防護組合 (0.5.33：Synology DSM；0.5.40：QNAP QTS；0.5.44：Nextcloud、Zimbra)：`adopted` 與 `sets`
 (`id`、`app`、`rule_count`、`sites`：軟體清單列出這個應用程式的每個站台，含 `host` 與 `rules`：`id`、`state`
 (`available`、`applied`、`update` (這一版寫法不同)、`disabled`、`pending` 與 `change_id`)、`default` (建議)、
 `needs` 與 `needs_missing` (規則相關的套件、此站台未列出的)、`target`、`arg`、`regex`、`cves`、`refs`、已套用時的

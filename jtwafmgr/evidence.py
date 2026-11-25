@@ -399,6 +399,11 @@ class Evidence:
             if target not in rulegen.BLOCK_TARGETS:
                 raise ValueError('unknown target')
             view = self.rule_view(spec)
+            if target == 'body_unchecked':
+                # 0.5.44: the bodies are not in the access log, but ModSecurity records every one it could not parse or
+                # that was over its limits (its own rule 200002): those answered 2xx/3xx are what the rule would break
+                out[i] = self.body_error_evidence(spec)
+                continue
             if view is None:
                 out[i] = {'ok': True, 'complete': False,
                           'skipped': 'request bodies are not in the access log' if target in rulegen.BODY_TARGETS
@@ -467,6 +472,57 @@ class Evidence:
                                      for k, n in st['ext_examples'].most_common(10)],
             }
         return out
+
+    BODY_ERROR_RULES = (200002,)      # modsecurity.conf-recommended: REQBODY_ERROR (unparsable or over the limits)
+
+    def body_error_evidence(self, spec):
+        """Evidence for a confident block on an uninspected body (target body_unchecked), from the events: the
+        requests ModSecurity could not inspect (its rule 200002) of the sites and paths the rule covers. One answered
+        2xx/3xx from outside, or any from inside (not a known scanner), fails the check, as in the access logs. 0.5.43
+        skipped it (bodies are not in the access log), and a block on all sites refused Zimbra's web client: some of
+        its SOAP requests are JSON ModSecurity cannot parse."""
+        catch_all = set(x.lower() for x in self.cfg['evidence']['catch_all_hosts'])
+        host_cond = rulegen._host_cond(spec.get('host'))
+        host_rx = (_Rx(host_cond[1][len('@rx '):]), host_cond[2]) if host_cond else None
+        exc = [_Rx(e) for e in spec.get('exceptions') or []]
+        like = ' OR '.join("rule_ids LIKE '%%,%d,%%'" % r for r in self.BODY_ERROR_RULES)
+        rows = self.db.q('SELECT host, path, status, src_ip, origin FROM events WHERE (%s)' % like)
+        ext, ext_ok, intl, known, sites, samples = 0, collections.Counter(), collections.Counter(), \
+            collections.Counter(), collections.Counter(), collections.Counter()
+        for r in rows:
+            host = r['host'] or ''
+            if host_rx and not host_rx[0].search(transform(host.encode('utf-8', 'replace'), host_rx[1])):
+                continue
+            path = (r['path'] or '').encode('utf-8', 'surrogateescape')
+            if exc:
+                fn = [transform(x, EXCEPTION_TRANSFORMS) for x in path_views(path)]
+                if all(any(e.search(x) for e in exc) for x in fn):
+                    continue
+            status = str(r['status'] or '')
+            shape = util.clip((r['path'] or '').split('?', 1)[0], 100)
+            sites[host] += 1
+            if util.ip_in(r['src_ip'], self.cfg.internal_networks):
+                if util.ip_in(r['src_ip'], self.cfg.known_scanners):
+                    known[r['src_ip']] += 1
+                else:
+                    intl[(host, status, r['src_ip'], shape)] += 1
+            else:
+                ext += 1
+                samples[(host, status, shape)] += 1
+                if status[:1] in '23' and host.lower() not in catch_all:
+                    ext_ok[(host, status, shape, '')] += 1
+        return {
+            'ok': not ext_ok and not intl, 'complete': True, 'source_kind': 'events', 'scanned': len(rows), 'files': 0,
+            'external_hits': ext, 'external_success': sum(ext_ok.values()), 'internal_other': sum(intl.values()),
+            'internal_known': sum(known.values()),
+            'sites': [{'host': k, 'hits': n} for k, n in sites.most_common(10)],
+            'external_success_samples': [{'host': k[0], 'status': k[1], 'path': k[2], 'ua': k[3], 'count': n}
+                                         for k, n in ext_ok.most_common(15)],
+            'internal_samples': [{'host': k[0], 'status': k[1], 'ip': k[2], 'path': k[3], 'count': n}
+                                 for k, n in intl.most_common(15)],
+            'external_samples': [{'host': k[0], 'status': k[1], 'path': k[2], 'count': n}
+                                 for k, n in samples.most_common(10)],
+        }
 
     # --- exclusions ----------------------------------------------------------------------------
     def country_impact(self, spec):
