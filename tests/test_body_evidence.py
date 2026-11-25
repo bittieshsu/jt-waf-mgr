@@ -51,9 +51,13 @@ class TestBodyErrorEvidence(unittest.TestCase):
         self.assertTrue(r['ok'])
         self.assertEqual(r['external_hits'], 1)
 
-    def test_inside_counts(self):
+    def test_inside_counts_for_a_rule_refusing_inside(self):
         self.event('mail.example.com', '/service/soap/GetPrefsRequest', ip='192.168.77.20', origin='internal')
-        self.assertFalse(self.ev.block_evidence(self.spec())['ok'])
+        self.assertFalse(self.ev.block_evidence(self.spec(source='all'))['ok'])
+        # 0.5.45: a rule for outside sources never refuses it: shown, not failed
+        r = self.ev.block_evidence(self.spec())
+        self.assertTrue(r['ok'])
+        self.assertEqual(r['internal_other'], 1)
 
     def test_bundle_uses_it(self):
         self.event('mail.example.com', '/service/soap/SaveDraftRequest')

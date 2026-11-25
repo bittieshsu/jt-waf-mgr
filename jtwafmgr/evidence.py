@@ -414,6 +414,7 @@ class Evidence:
             # path rule has two views, and a bundle of 20 rules ran out of time on 7 million lines)
             vkey = (target, spec.get('header') or '')
             live.append({'i': i, 'view': view, 'vkey': vkey, 'rx': _Rx(spec['regex']),
+                         'all': (spec.get('source') or 'external') == 'all',
                          'exc': [_Rx(e) for e in spec.get('exceptions') or []],
                          'host_rx': (_Rx(host_cond[1][len('@rx '):]), host_cond[2]) if host_cond else None,
                          'ext': 0, 'ext_ok': collections.Counter(), 'intl': collections.Counter(),
@@ -460,7 +461,10 @@ class Evidence:
         for st in live:
             ext_ok, intl = st['ext_ok'], st['intl']
             out[st['i']] = {
-                'ok': complete and not ext_ok and not intl, 'complete': complete, 'scanned': total, 'files': files,
+                # 0.5.45: inside requests fail a rule that refuses them (source all); one refusing outside requests only
+                # never sees them (a page administrators use from inside), they are shown. Applying it by itself still
+                # needs none (changes._auto_apply)
+                'ok': complete and not ext_ok and not (intl and st['all']), 'complete': complete, 'scanned': total, 'files': files,
                 'external_hits': st['ext'], 'external_success': sum(ext_ok.values()), 'internal_other': sum(intl.values()),
                 'internal_known': sum(st['known'].values()),
                 'sites': [{'host': k, 'hits': n} for k, n in st['sites'].most_common(10)],
@@ -478,7 +482,8 @@ class Evidence:
     def body_error_evidence(self, spec):
         """Evidence for a confident block on an uninspected body (target body_unchecked), from the events: the
         requests ModSecurity could not inspect (its rule 200002) of the sites and paths the rule covers. One answered
-        2xx/3xx from outside, or any from inside (not a known scanner), fails the check, as in the access logs. 0.5.43
+        2xx/3xx from outside, or any from inside (not a known scanner) for a rule refusing inside sources too, fails
+        the check, as in the access logs. 0.5.43
         skipped it (bodies are not in the access log), and a block on all sites refused Zimbra's web client: some of
         its SOAP requests are JSON ModSecurity cannot parse."""
         catch_all = set(x.lower() for x in self.cfg['evidence']['catch_all_hosts'])
@@ -512,7 +517,8 @@ class Evidence:
                 if status[:1] in '23' and host.lower() not in catch_all:
                     ext_ok[(host, status, shape, '')] += 1
         return {
-            'ok': not ext_ok and not intl, 'complete': True, 'source_kind': 'events', 'scanned': len(rows), 'files': 0,
+            'ok': not ext_ok and not (intl and (spec.get('source') or 'external') == 'all'), 'complete': True,
+            'source_kind': 'events', 'scanned': len(rows), 'files': 0,
             'external_hits': ext, 'external_success': sum(ext_ok.values()), 'internal_other': sum(intl.values()),
             'internal_known': sum(known.values()),
             'sites': [{'host': k, 'hits': n} for k, n in sites.most_common(10)],

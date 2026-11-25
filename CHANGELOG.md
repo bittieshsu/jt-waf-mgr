@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.46 (2026-11-25)
+
+- Evidence for a confident block: requests from inside fail the check only for a rule that refuses inside sources too (source "all"). A rule refusing outside requests only never sees them, so administrators opening the admin pages from inside (or Nextcloud's own check of its data directory) no longer fail it; they are shown with the evidence. Applying a rule by itself (automatic tightening) still needs no request from inside.
+- Application protection sets: ordinary test requests that another rule of the same set refuses were replaced (Nextcloud app management and the X-Forwarded-Host rule, Zimbra's admin cookie and proxy rules, QNAP's file name rule): a set is proposed as one change and its sandbox sends every test through every rule. A unit test now checks every set as a whole.
+
 ## 0.5.45 (2026-11-25)
 
 - Confident blocks: a second range of rule ids, `waf.confident_range2` (default 11000-12999), used once `confident_range` (10200-10296, 97 ids) is full. A protection set takes one id per rule and site, and proposing the Nextcloud set and the Zimbra set for three site names on one host failed with "id range full". Ids in either range count as confident blocks everywhere (events, the rule list, the analysis, automatic blocks). An existing `confident_range` in config.toml is kept; set `confident_range2 = []` for none.

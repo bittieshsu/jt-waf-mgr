@@ -150,6 +150,18 @@ class TestTransformations(unittest.TestCase):
         self.assertIn('"%s' % evidence.EXCEPTION_TRANSFORMS, exc)
 
 
+class TestInsideHits(Base):
+    def test_only_a_rule_refusing_inside_fails_on_inside_requests(self):
+        # administrators open the admin pages from inside: a rule refusing them from outside is not failed by that
+        # (0.5.45; it still needs no inside hit to be applied by itself), one refusing inside sources too is
+        self.logs([line('/settings/admin/overview', ip='192.168.77.%d' % i) for i in range(1, 6)])
+        spec = {'target': 'path', 'regex': '^/settings/admin(?:/|$)', 'msg': 'admin', 'source': 'external'}
+        r = self.ev.block_evidence(spec)
+        self.assertTrue(r['ok'])
+        self.assertEqual(r['internal_other'], 5)
+        self.assertFalse(self.ev.block_evidence(dict(spec, source='all'))['ok'])
+
+
 class TestRegressionSamples(Base):
     def samples(self):
         return sorted((r['host'], r['path']) for r in self.db.q('SELECT host, path FROM regression_samples'))

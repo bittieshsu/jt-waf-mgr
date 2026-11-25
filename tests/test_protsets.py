@@ -76,11 +76,10 @@ class TestData(unittest.TestCase):
                 attacks = [t for t in r['tests'] if t['expect'] == 403]
                 self.assertTrue(attacks, r['id'])
                 self.assertTrue(any(t['expect'] == 200 for t in r['tests']), r['id'])
-                rx = re.compile('^1$' if r['spec'].get('target') in rulegen.FLAG_TARGETS else r['spec']['regex'])
                 for t in r['tests']:
                     self.assertIn(t.get('source', 'external'), ('external', 'internal'))
                     seen = _values(r, t)
-                    hit = any(rx.search(v) for v in seen)
+                    hit = _hits(r, t)        # its pattern, unless the path is one of its exceptions
                     if t['expect'] == 403:
                         self.assertTrue(hit, (r['id'], t['path'], seen))
                     elif t.get('source', 'external') == 'external':
@@ -92,6 +91,29 @@ class TestData(unittest.TestCase):
                     self.assertTrue(u.startswith('https://'), u)
                 for c in r['cves']:
                     self.assertRegex(c, r'^CVE-\d{4}-\d{4,}$')
+
+
+def _hits(rule, test):
+    """Whether the rule matches the test request: its pattern on what it sees, unless the path is in its exceptions."""
+    spec = rule['spec']
+    rx = re.compile('^1$' if spec.get('target') in rulegen.FLAG_TARGETS else spec['regex'])
+    if not any(rx.search(v) for v in _values(rule, test)):
+        return False
+    p = urllib.parse.unquote(urllib.parse.urlsplit(test['path']).path).lower()
+    return not any(re.search(e, p) for e in spec.get('exceptions') or [])
+
+
+class TestSetAsAWhole(unittest.TestCase):
+    def test_ordinary_requests_pass_every_rule_of_the_set(self):
+        # a set is proposed as one change: each ordinary request goes through all of its rules in the sandbox (0.5.45:
+        # Nextcloud's app management test was an administration page another rule of the set refuses)
+        for s in protsets.load():
+            for r in s['rules']:
+                for t in r['tests']:
+                    if t['expect'] != 200 or t.get('source', 'external') != 'external':
+                        continue
+                    for other in s['rules']:
+                        self.assertFalse(_hits(other, t), (s['id'], r['id'], t['path'], 'refused by', other['id']))
 
 
 class TestFlow(unittest.TestCase):

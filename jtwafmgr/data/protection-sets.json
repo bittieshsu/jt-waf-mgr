@@ -691,11 +691,6 @@
        "expect": 403
       },
       {
-       "path": "/photo/combine.php?type=javascript&g=core",
-       "method": "GET",
-       "expect": 200
-      },
-      {
        "path": "/cgi-bin/filemanager/utilRequest.cgi?func=get_list&path=/Public/2026..11%20photos&limit=50",
        "method": "GET",
        "expect": 200
@@ -1267,7 +1262,7 @@
        "expect": 403
       },
       {
-       "path": "/apps/richdocumentscode/proxy.php?status",
+       "path": "/index.php/apps/richdocuments/index?fileId=12345",
        "method": "GET",
        "headers": {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
@@ -1307,7 +1302,7 @@
        "expect": 403
       },
       {
-       "path": "/apps/richdocumentscode/proxy.php?status",
+       "path": "/status.php",
        "method": "GET",
        "headers": {
         "X-Forwarded-Host": "cloud.example.com",
@@ -1516,10 +1511,11 @@
        "expect": 403
       },
       {
-       "path": "/settings/apps/enabled",
+       "path": "/ocs/v2.php/apps/appstore/api/v1/apps",
        "method": "GET",
        "headers": {
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
+        "OCS-APIRequest": "true"
        },
        "expect": 200
       }
@@ -2256,7 +2252,7 @@
        "expect": 403
       },
       {
-       "path": "/service/proxy?target=https://feeds.example.com/news.rss",
+       "path": "/service/home/~/?fmt=json&target=https://127.0.0.1:7071/",
        "method": "GET",
        "expect": 200
       }
@@ -2295,15 +2291,11 @@
        "expect": 403
       },
       {
-       "path": "/service/upload?fmt=extended,raw",
-       "method": "POST",
+       "path": "/service/extension/oauth2/info",
+       "method": "GET",
        "headers": {
-        "Cookie": "ZM_AUTH_TOKEN=0_abcdef; JSESSIONID=node01x",
-        "X-Zimbra-Csrf-Token": "0_3f1c2b0e9a7d4c55",
-        "Content-Type": "application/pdf",
-        "Content-Disposition": "attachment; filename=\"invoice.pdf\""
+        "Cookie": "ZM_AUTH_TOKEN=0_abcdef; JSESSIONID=node01x"
        },
-       "body": "%PDF-1.7 test",
        "expect": 200
       }
      ],
