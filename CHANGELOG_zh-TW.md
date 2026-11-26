@@ -4,7 +4,7 @@
 
 ## 0.5.47 (2026-11-25)
 
-- 沙箱：確定封鎖自帶的一般測試請求，如果站台現有的規則本來就封鎖 (例如防護組合的 WebDAV 請求遇到 CRS 不允許 WebDAV 方法的站台、CRS 不允許的內容類型)，改用目前的設定判斷：只有這次變更自己的規則比中它時才算不通過。排除類變更的一般測試不會這樣放行，因為讓它們通過正是那筆變更要做到的事。
+- 沙箱：確定封鎖規則隨附的一般測試請求，如果站台現有的規則本來就封鎖 (例如防護組合的 WebDAV 請求遇到 CRS 不允許 WebDAV 方法的站台、CRS 不允許的內容類型)，改用目前的設定判斷：只有這次變更自己的規則比中它時才算不通過。排除類變更的一般測試不會這樣放行，因為讓它們通過正是那筆變更要做到的事。
 - 應用程式防護組合：Zimbra 代理規則的一般測試會被 CRS 本身封鎖 (網址帶 IP 位址)，換成用站名的網址。
 
 ## 0.5.46 (2026-11-25)
@@ -18,7 +18,7 @@
 
 ## 0.5.44 (2026-11-25)
 
-- 應用程式防護組合：新增 Nextcloud (22 條，16 條建議) 與 Zimbra (20 條，16 條建議)，給軟體清單列為 Nextcloud 或 Zimbra 的站台。依公開資料 (原廠公告與原始碼、CISA KEV、NVD、Rapid7、Volexity、nuclei、Metasploit、CRS 的 Nextcloud 外掛) 撰寫，並用真實站台的存取記錄核對；每條規則自帶的攻擊與一般請求，都在真 nginx＋ModSecurity 3.0.9 與 3.0.17＋CRS 4.30 上通過。
+- 應用程式防護組合：新增 Nextcloud (22 條，16 條建議) 與 Zimbra (20 條，16 條建議)，給軟體清單列為 Nextcloud 或 Zimbra 的站台。依公開資料 (原廠公告與原始碼、CISA KEV、NVD、Rapid7、Volexity、nuclei、Metasploit、CRS 的 Nextcloud 外掛) 撰寫，並用真實站台的存取記錄核對；每條規則隨附的攻擊與一般請求，都在真 nginx＋ModSecurity 3.0.9 與 3.0.17＋CRS 4.30 上通過。
   - Nextcloud：官方 nginx 範例拒絕的目錄與檔案 (config、data、lib、occ、.htaccess、composer.json 等)、透露版本的發行檔案、應用程式內部檔案 (appinfo、vendor、tests)、原始路徑中的 ../ (含多層編碼)、內建 CODE 伺服器的指令注入 (CVE-2026-110447，CISA KEV) 與帶 shell 字元的 X-Forwarded-Host (CVE-2025-66208)、從外部使用更新程式、網頁升級與 OpenMetrics、安裝表單、不可能存在的分享代碼、PDF.js 開發用檢視器 (CVE-2025-59788)、帶 ../ 的 WebDAV Destination、Collabora 管理主控台。預設不勾：從外部管理與安裝應用程式、使用者管理動作、聯邦分享、cron.php、沒有使用的內建 CODE 伺服器。
   - Zimbra：使用者連接埠上的管理服務與 mboximport (CVE-2022-27925、CVE-2022-37042)、同一個 GraphQL 請求多次登入 (CVE-2026-93637，10.1.21 尚未修正) 與用 GET 或表單送 GraphQL、登入帳號含 LDAP 萬用字元 (CVE-2026-93635)、把內部 servlet 屬性當參數 (CVE-2025-68645，CISA KEV；CVE-2026-50053)、直接請求 /h/rest、路徑中的換行、zimlet 與 /downloads 底下的 JSP、WEB-INF 路徑、檔名參數帶 WEB-INF 或 ../、識別碼參數裡的 HTML (反射型 XSS，CVE-2023-37580 等)、代理 servlet 指向內部位址、代理與上傳路徑帶管理者 cookie、GraphiQL、sfdc_preauth.jsp。預設不勾：不是 Zimbra 原有的 JSP、/m/、從外部使用代理 servlet 與 EWS。
   - 標頭類規則的說明會寫出標頭名稱；測試可以用 WebDAV 方法 (PROPFIND、MOVE、COPY 等)。
@@ -43,7 +43,7 @@
 
 ## 0.5.40 (2026-11-23)
 
-- 應用程式防護組合新增第二組 QNAP QTS (7 條，6 條建議)，適用軟體清單列為 QNAP QTS 的站台。從外部封鎖：設定精靈 quick.cgi (CVE-2023-47218、CVE-2023-50358)；網址參數、表單或 JSON 內容帶 HBS 3 內建的工作階段編號 (CVE-2021-28799，Qlocker，CISA KEV)；檔名或路徑參數含 ../ (Photo Station 的 combine.php 與 video.php：CVE-2022-27593 DeadBolt、CVE-2019-7194/7195，CISA KEV)；超過 2048 字元的 sid、ssid、name 或 p (share.cgi CVE-2024-27130、Surveillance Station CVE-2021-28797)；含 shell 字元的使用者名稱 (CVE-2024-32766)；含 shell 字元的 QPS_SID、QMS_SID、QMMS_SID cookie (authLogout.cgi)。預設不勾選：從外部使用整個 Photo Station。依公開資料撰寫 (原廠公告、Rapid7、watchTowr、Unit 42、SSD、nuclei、Metasploit、CrowdSec)，手邊沒有 QNAP 實機；每條規則自帶的攻擊與一般請求都在真的 nginx＋ModSecurity 3.0.9 與 3.0.17＋CRS 4.30 上通過。
+- 應用程式防護組合新增第二組 QNAP QTS (7 條，6 條建議)，適用軟體清單列為 QNAP QTS 的站台。從外部封鎖：設定精靈 quick.cgi (CVE-2023-47218、CVE-2023-50358)；網址參數、表單或 JSON 內容帶 HBS 3 內建的工作階段編號 (CVE-2021-28799，Qlocker，CISA KEV)；檔名或路徑參數含 ../ (Photo Station 的 combine.php 與 video.php：CVE-2022-27593 DeadBolt、CVE-2019-7194/7195，CISA KEV)；超過 2048 字元的 sid、ssid、name 或 p (share.cgi CVE-2024-27130、Surveillance Station CVE-2021-28797)；含 shell 字元的使用者名稱 (CVE-2024-32766)；含 shell 字元的 QPS_SID、QMS_SID、QMMS_SID cookie (authLogout.cgi)。預設不勾選：從外部使用整個 Photo Station。依公開資料撰寫 (原廠公告、Rapid7、watchTowr、Unit 42、SSD、nuclei、Metasploit、CrowdSec)，手邊沒有 QNAP 實機；每條規則隨附的攻擊與一般請求都在真的 nginx＋ModSecurity 3.0.9 與 3.0.17＋CRS 4.30 上通過。
 - 軟體版本：從不用登入的 /cgi-bin/authLogin.cgi 讀 QNAP QTS 站台的韌體版本與建置日期 (尚未在 QTS 5.2 實機確認)。
 - 防護組合頁：參考來源標籤顯示 QNAP 公告編號 (QSA-、NAS-)。
 
@@ -80,7 +80,7 @@
 
 ## 0.5.33 (2026-11-22)
 
-- 應用程式防護組合 (規則選單)：替單一應用程式準備好的確定封鎖規則，依公開已知的弱點與實際攻擊撰寫，每條附 CVE、參考來源與自帶測試 (攻擊請求必須被封鎖、一般請求必須通過)。軟體清單列出這個應用程式的站台都會出現；勾選後提出成一筆變更，照常檢查、跑沙箱、由人核准，永不自動套用。這一版之後改寫的規則會標示「可更新」，套用後就地修改。`GET /api/v1/protsets`、`POST /api/v1/protsets/propose`。
+- 應用程式防護組合 (規則選單)：替單一應用程式準備好的確定封鎖規則，依公開已知的弱點與實際攻擊撰寫，每條附 CVE、參考來源與隨附的測試 (攻擊請求必須被封鎖、一般請求必須通過)。軟體清單列出這個應用程式的站台都會出現；勾選後提出成一筆變更，照常檢查、跑沙箱、由人核准，永不自動套用。這一版之後改寫的規則會標示「可更新」，套用後就地修改。`GET /api/v1/protsets`、`POST /api/v1/protsets/propose`。
 - 第一組是 Synology DSM，9 條規則，只封鎖外部來源：管理 API 只限內網 (任務排程、開 SSH、群組、網路、防火牆、套件安裝、Container Manager、Hyper Backup、快照、儲存空間等)、批次請求含跳脫字元、登入欄位含控制字元 (CVE-2024-10441)、轉址網址含換行 (CVE-2024-50629)、DSM 舊 CGI 程式 (SynoLocker 用過的 imageSelector.cgi、會洩漏版本與序號的 info.cgi 等)、Photo Station 的 PHP 頁面、檔案路徑含 ../、Drive 只限本機的登入旗標 (CVE-2024-50630)，以及預設不勾選的 Synology Photos 即時通道 (CVE-2024-10443)。依據是對 DSM 7 的實測：DSM 只依 api 參數決定 API (名稱大小寫有別、送兩次取最後一個)，批次請求的 compound 參數可以夾帶其他 API，而且 JSON 的 \u 跳脫字元能繞過文字比對；規則在 ModSecurity 3.0.14 實際重送全部測試請求驗證過。
 - 確定封鎖新增比對目標「參數值」(`target: arg`)：比對指定參數的值 (查詢字串或表單)，可用 `|` 列多個參數名稱。
 - 軟體清單辨識 Synology DSM 的套件：DSM 不用登入就會列出它提供的 API (SYNO.API.Info)，從中認出 Synology Photos、Drive、Surveillance Station 等 30 種套件；存取記錄裡的 `api=SYNO.…` 也會計入。DSM 版本從 info.cgi 讀取。DSM 首頁標題前面有主機名稱時之前認不出來。
@@ -860,7 +860,7 @@ GitHub 程式碼掃描 (CodeQL) 的修正：
 
 - 國家封鎖：沙箱裡每個外部請求，改從「該站國家規則會放行」的位址送出。以前一筆變更的回歸樣本全部用這筆變更允許的國家，
   所以「台灣＋日本」的規則會在只限台灣的站台樣本上失敗。站台有國家限制後，任何變更打到那個站台的樣本也都會失敗，
-  因為平常的測試位址不屬於任何國家。變更自帶的測試也用同樣的位址，所以預期 403 的測試是被它要測的規則封鎖，
+  因為平常的測試位址不屬於任何國家。變更隨附的測試也用同樣的位址，所以預期 403 的測試是被它要測的規則封鎖，
   而不是被國家限制封鎖。外部完全無法連到的站台，回歸樣本略過。CRS 切換的比對也比照處理。
 
 ## 0.4.28 (2026-11-14)

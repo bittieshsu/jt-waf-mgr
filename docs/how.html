@@ -1332,7 +1332,7 @@ const T = {
   h1: 'jt-waf-mgr 運作架構',
   lead: 'jt-waf-mgr 由哪些部分組成、各在哪個程序裡執行、資料往哪裡去，以及一筆規則變更從提出到上線的完整路徑。這裡寫的都是程式實際的行為。',
   back: '← 專案首頁', zoom: '放大檢視', close: '關閉',
-  disc: '免責聲明：jt-waf-mgr 依「現狀」提供，不附任何保證 (AGPL-3.0 第 15、16 條)；使用本軟體造成的任何損害，作者不負責任。WAF 只能降低風險，無法擋住所有攻擊，也可能誤封鎖正常使用者：請先在測試環境驗證，並以「只記錄」模式開始。AI 分析可能出錯，結果只是建議，放寬類變更一律要人核准。規則以及 nginx、ModSecurity 的設定由管理者負責。nginx、ModSecurity、OWASP CRS、MaxMind、GeoLite2 為各自所有者的商標，本專案與它們沒有隸屬關係。',
+  disc: '免責聲明：jt-waf-mgr 依「現狀」提供，不附任何保證 (AGPL-3.0 第 15、16 條)；使用本軟體造成的任何損害，作者不負責任。WAF 只能降低風險，無法封鎖所有攻擊，也可能誤封鎖正常使用者：請先在測試環境驗證，並以「只記錄」模式開始。AI 分析可能出錯，結果只是建議，放寬類變更一律要人核准。規則以及 nginx、ModSecurity 的設定由管理者負責。nginx、ModSecurity、OWASP CRS、MaxMind、GeoLite2 為各自所有者的商標，本專案與它們沒有隸屬關係。',
   zm_in: '放大', zm_out: '縮小', zm_fit: '符合視窗',
   arch_h: '系統架構',
   arch_sub: 'nginx 加上 ModSecurity 與 OWASP CRS 負責處理流量。jt-waf-mgr 讀取它寫下的記錄並準備變更；只有獨立的 root 程式會寫入受管理檔案。每個部分都在自己的 systemd unit 裡執行，只拿到必要的權限。',

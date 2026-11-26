@@ -135,7 +135,34 @@ LITERAL = re.compile(r"""\b(?:t|tOr)\(\s*'([A-Za-z0-9_.\-]+)'\s*[,)]""")
 ZH_TERMS = [('收編', '納管'), ('擋下', '封鎖'), ('阻擋', '封鎖'), ('擋', '封鎖'), ('收緊', '加強'), ('\u52a0\u56b4', '加強'),
             ('\u6f02\u79fb', '被外部修改'), ('\u9ed1\u540d\u55ae', '封鎖清單'), ('\u767d\u540d\u55ae', '允許清單'),
             ('\u4fdd\u5e95', '標記後封鎖'),   # 2026-11-16: not Taiwan usage
-            ('\u6211\u5011', '本站')]          # 2026-11-16: the interface never says "we / us"; the site is 本站
+            ('\u6211\u5011', '本站'),          # 2026-11-16: the interface never says "we / us"; the site is 本站
+            ('\u81ea\u5e36', '隨附')]          # 2026-11-26: not Taiwan usage (隨附 / 附有)
+# Chinese documents held to the same wording (user 2026-11-26: a CHANGELOG line slipped through); the CHANGELOG
+# only for its newest section, since older entries quote the old words when they describe a rename
+ZH_DOCS = ['README_zh-TW.md', 'SECURITY_zh-TW.md', 'TEST_PLAN_zh-TW.md', 'TEST_CHECKLIST_zh-TW.md', 'docs/index.html',
+           'docs/how.html', 'docs/API.zh-TW.md', 'docs/COMPLIANCE.zh-TW.md', 'docs/MODSECURITY.zh-TW.md',
+           'docs/OFFLINE.zh-TW.md', 'docs/RECOVERY.zh-TW.md']
+ZH_CHANGELOG = 'CHANGELOG_zh-TW.md'
+
+
+def doc_problems():
+    out = []
+    texts = []
+    for rel in ZH_DOCS:
+        path = os.path.join(ROOT, rel)
+        if os.path.exists(path):
+            texts.append((rel, open(path, encoding='utf-8').read()))
+    path = os.path.join(ROOT, ZH_CHANGELOG)
+    if os.path.exists(path):
+        t = open(path, encoding='utf-8').read()
+        heads = [m.start() for m in re.finditer(r'(?m)^## ', t)]
+        texts.append((ZH_CHANGELOG + ' (newest section)', t[:heads[1]] if len(heads) > 1 else t))
+    for rel, t in texts:
+        for bad, good in ZH_TERMS:
+            for m in re.finditer(re.escape(bad), t):
+                line = t.count('\n', 0, m.start()) + 1
+                out.append('%s:%d uses "%s"; use "%s"' % (rel, line, bad, good))
+    return out
 # the same rule in the other languages (any case): denylist / allowlist, 拒否リスト / 許可リスト
 OTHER_TERMS = [('black' + 'list', 'denylist'), ('white' + 'list', 'allowlist'),
                ('\u30d6\u30e9\u30c3\u30af\u30ea\u30b9\u30c8', '拒否リスト'), ('\u30db\u30ef\u30a4\u30c8\u30ea\u30b9\u30c8', '許可リスト')]
@@ -218,6 +245,7 @@ def main():
             for m in re.finditer(r"audit\.log\(\s*'([a-z_]+\.[a-z_.]+)'", open(path, encoding='utf-8').read()):
                 if 'auditact.' + m.group(1) not in en:
                     problems.append('%s: audit action %s has no auditact.%s string' % (os.path.relpath(path, ROOT), m.group(1), m.group(1)))
+    problems.extend(doc_problems())
     if '--unused' in sys.argv:
         dyn = tuple(REQUIRED) + ('settings.',)
         for k in sorted(en - used):

@@ -194,7 +194,7 @@ server 區塊 (`text`)、存放位置 (`path`)、載入指令 (`steps`) 與 `big
 `needs` 與 `needs_missing` (規則相關的套件、此站台未列出的)、`target`、`arg`、`regex`、`cves`、`refs`、已套用時的
 `rule_id`)。**`POST /protsets/propose`**：scope `changes:propose`；`{"set": "synology-dsm", "host": "nas.example.com",
 "rules": ["admin-api", ...]}` 把勾選的規則提出成一筆整批變更 (每條是限定該站台的確定封鎖，`protset` 為
-"<組合>/<規則>"，自帶沙箱測試)；回 202 與 `change_id`。已套用或等待中的規則會略過 (全部略過時回 `nothing_to_do`，409)；
+"<組合>/<規則>"，附有沙箱測試)；回 202 與 `change_id`。已套用或等待中的規則會略過 (全部略過時回 `nothing_to_do`，409)；
 另有 `host_not_listed`、`unknown_set`、`unknown_rule`；納管前回 `not_adopted` (409)。
 
 **`GET /nginx/update`**：scope `rules:read`。nginx 現在與下次系統更新後能不能載入 ModSecurity 模組 (`level`、
@@ -397,7 +397,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -
 `GET /countries`（已登入的使用者；權杖沒有對應的 scope）列出有清單的國家與使用中的清單。
 `GET /countries/sites`（scope `rules:read`）列出每個 nginx 站台的國家規則、處理中的國家變更、WAF 是否啟用，以及最近
 7 天封鎖了多少。規則用 Host 標頭判斷站台（尾端多一個點或帶埠號也算）。請求行寫完整網址時 nginx 會依網址轉送，但
-ModSecurity 看不到這個網址：國家限制若必須擋住這類請求，nginx 也要保留一道檢查。
+ModSecurity 看不到這個網址：國家限制若必須封鎖這類請求，nginx 也要保留一道檢查。
 
 **種類 `redaction` 與 `plugin`**：`redaction` 用 `fields`（最多 30 個參數名稱，不檢查，因此永遠不會被複製進稽核記錄），
 可加 `host`、`path`；`plugin` 用 `plugin`（CRS 外掛名稱）與必填的 `host`，為單一站台啟用外掛。
@@ -507,7 +507,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" 'https://waf.example.com/api/v1/rules
   一致；DNS 程序還在查時是 `{"pending": true}`）。
 - **`GET /lookups/ip/{ip}/card`**：頁面上滑鼠停留時顯示的精簡版（位置、PTR、是否封鎖中、最近 7 天）。
 - IP 情資 (0.4.94)：外部位址的這兩個回應都帶 `reputation`：`verdict` (`malicious`、`suspicious` 或 `no_record`，不會說「安全」)、`reasons` (`source`：`site` 本站證據、`list`、`internetdb` 或 `misp`；`level`：`high`、`medium` 或 `info`)；完整回應另有 `lists` (命中的下載清單)、`online` (Shodan InternetDB、MISP) 與 `pending` (線上來源由獨立服務查詢中，幾秒後再查)。`GET /iprep/status` (scope `lookups:read`)：清單、下載時間、啟用的線上來源。`POST /iprep/update` (admin，網頁登入)：立即下載清單。
-- **`GET /intel`**（scope `events:read`）：威脅情報：第二層 LLM 的狀態與 token 用量、找到的漏洞（編號、產品與我們的版本、是否已被利用、是否影響我們、嚴重度、請求特徵、參考資料、狀態）、軟體清單、搜尋記錄。`POST /intel/run`、`POST /intel/submissions` (`{"url": "https://...", "text": "..."}`，擇一或兩者：交給威脅情報立即讀取並判斷的網頁或文字；回 202 與提交清單；fbclid 等追蹤參數會去掉)、`POST /intel/threats/{id}`（`{"status": "open"|"handled"|"ignored"}`）、`POST /intel/software`、`PATCH`/`DELETE /intel/software/{id}`、`POST /intel/software/guess`（也會移除不再推測、也沒人確認的項目）、`POST /intel/software/confirm-all`（`{"confirmed": n}`）：approver，網頁登入。`POST /intel/test`（admin；`{"what": "mcp"}` 只測 MCP 搜尋伺服器）與 `GET /intel/test`：連線測試，由威脅情報服務實際連線。
+- **`GET /intel`**（scope `events:read`）：威脅情報：第二層 LLM 的狀態與 token 用量、找到的漏洞（編號、產品與本站的版本、是否已被利用、是否影響本站、嚴重度、請求特徵、參考資料、狀態）、軟體清單、搜尋記錄。`POST /intel/run`、`POST /intel/submissions` (`{"url": "https://...", "text": "..."}`，擇一或兩者：交給威脅情報立即讀取並判斷的網頁或文字；回 202 與提交清單；fbclid 等追蹤參數會去掉)、`POST /intel/threats/{id}`（`{"status": "open"|"handled"|"ignored"}`）、`POST /intel/software`、`PATCH`/`DELETE /intel/software/{id}`、`POST /intel/software/guess`（也會移除不再推測、也沒人確認的項目）、`POST /intel/software/confirm-all`（`{"confirmed": n}`）：approver，網頁登入。`POST /intel/test`（admin；`{"what": "mcp"}` 只測 MCP 搜尋伺服器）與 `GET /intel/test`：連線測試，由威脅情報服務實際連線。
 - **`GET /events/{id}/analysis`**（scope `events:read`）：單一事件最近一次的 AI 分析（`state` queued / running / done、`verdict`、`confidence`、`summary`、`evidence`、`action`、`action_reason`、`model`、`error`）與 LLM 是否就緒。`POST /events/{id}/analysis`（operator，網頁登入）：排入分析；LLM 未就緒回 409 `llm_not_ready`。
 - **`POST /vhosts/waf`**（approver，網頁登入）：`{"host", "mode": "enable"|"disable", "reason"}` -> 202 `{"change_id"}`：以變更為一個站台開啟（或再關閉）ModSecurity。`GET /vhosts` 會標示 `waf_by_us`（由這裡開啟的）並列出進行中的 `site_changes`。
 - **`POST /vhosts/blocked-page`**（approver，網頁登入）：`{"host": "<站台>"|"*", "mode": "enable"|"disable", "reason"}` -> 202 `{"change_id"}`：以變更替一個站台或全部站台套用（或移除）被封鎖時看到的頁面（有請求編號；種類 `site_page`，不算加強也不算放寬）。`GET /vhosts` 在每個 server 區塊加 `blocked_page`（`ours`、`own`＝有自己的 403 頁面、或 null），並列出進行中的 `page_changes` 與 `blocked_page` `{ok, plan, refresh}`（「全部站台」會更動幾個 server 區塊；`refresh`：這一版有較新的片段或頁面）。
