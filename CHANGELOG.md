@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.51 (2026-11-28)
+
+- The LibreNMS protection set could not be proposed: the sandbox wants, for each rule, an attack test sent from outside, and the rules that apply to every source had theirs sent from inside only. The attack tests are now sent from outside; ordinary requests to administration pages and the API stay inside. A test now checks this for every set.
+
 ## 0.5.50 (2026-11-28)
 
 - LibreNMS protection set (12 rules, from the LibreNMS security advisories, NVD and the routes in its source; measured against seven weeks of real LibreNMS requests, none matched):

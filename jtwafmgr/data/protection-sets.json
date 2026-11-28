@@ -2901,14 +2901,12 @@
         "Content-Type": "application/json"
        },
        "body": "{\"api_token\": 1}",
-       "expect": 403,
-       "source": "internal"
+       "expect": 403
       },
       {
        "path": "/api/v0/devices?api_token=1",
        "method": "GET",
-       "expect": 403,
-       "source": "internal"
+       "expect": 403
       },
       {
        "path": "/api/v0/devices",
@@ -2984,8 +2982,7 @@
         "Content-Type": "application/x-www-form-urlencoded"
        },
        "body": "type=notifications&action=read&notification_id%5B%5D=1%29+or+sleep%285%29--+",
-       "expect": 403,
-       "source": "internal"
+       "expect": 403
       },
       {
        "path": "/ajax_form.php",
@@ -2994,8 +2991,7 @@
         "Content-Type": "application/x-www-form-urlencoded"
        },
        "body": "type=notifications&action=read&notification_id=1+or+1%3D1",
-       "expect": 403,
-       "source": "internal"
+       "expect": 403
       },
       {
        "path": "/ajax_form.php",
@@ -3004,8 +3000,7 @@
         "Content-Type": "application/x-www-form-urlencoded"
        },
        "body": "type=notifications&action=read&notification_id%5B%5D=12&notification_id%5B%5D=13",
-       "expect": 200,
-       "source": "internal"
+       "expect": 200
       }
      ],
      "refs": [
@@ -3035,8 +3030,7 @@
         "Content-Type": "application/x-www-form-urlencoded"
        },
        "body": "id=address-search&search_type=ipv4&address=192.168.77.0%2F24%27+and+sleep%285%29--+",
-       "expect": 403,
-       "source": "internal"
+       "expect": 403
       },
       {
        "path": "/ajax_table.php",
@@ -3045,8 +3039,7 @@
         "Content-Type": "application/x-www-form-urlencoded"
        },
        "body": "id=address-search&search_type=ipv4&address=192.168.77.0%2F24&current=1&rowCount=50",
-       "expect": 200,
-       "source": "internal"
+       "expect": 200
       }
      ],
      "refs": [
@@ -3078,8 +3071,7 @@
         "Content-Type": "application/x-www-form-urlencoded"
        },
        "body": "hostname=sw1%24%28id%29&snmpver=v2c&community=public",
-       "expect": 403,
-       "source": "internal"
+       "expect": 403
       },
       {
        "path": "/api/v0/devices",
@@ -3088,8 +3080,7 @@
         "Content-Type": "application/json"
        },
        "body": "{\"hostname\": \"sw1;id\", \"version\": \"v2c\"}",
-       "expect": 403,
-       "source": "internal"
+       "expect": 403
       },
       {
        "path": "/device/add",
@@ -3126,20 +3117,17 @@
       {
        "path": "/graph.php?type=device_bits&id=1&graph_title=a%22%0a--imgformat",
        "method": "GET",
-       "expect": 403,
-       "source": "internal"
+       "expect": 403
       },
       {
        "path": "/graph.php?type=port_bits&id=12&from=%60id%60&to=1795850000",
        "method": "GET",
-       "expect": 403,
-       "source": "internal"
+       "expect": 403
       },
       {
        "path": "/graph/type=port_bits/id=12/from=end-24h/legend=no/",
        "method": "GET",
-       "expect": 200,
-       "source": "internal"
+       "expect": 200
       }
      ],
      "refs": [
@@ -3169,8 +3157,7 @@
       {
        "path": "/?username=admin&password=x",
        "method": "GET",
-       "expect": 403,
-       "source": "internal"
+       "expect": 403
       },
       {
        "path": "/login",
@@ -3179,8 +3166,7 @@
         "Content-Type": "application/x-www-form-urlencoded"
        },
        "body": "username=alice&password=x&_token=abc",
-       "expect": 200,
-       "source": "internal"
+       "expect": 200
       }
      ],
      "refs": [
@@ -3205,20 +3191,17 @@
       {
        "path": "/graph.php?type=device_nfsen_channel&id=1&channel=..%2F..%2F..%2Fetc%2Fpasswd",
        "method": "GET",
-       "expect": 403,
-       "source": "internal"
+       "expect": 403
       },
       {
        "path": "/device/1/tab=netflow/nfsen=%2e%2e%2fetc/",
        "method": "GET",
-       "expect": 403,
-       "source": "internal"
+       "expect": 403
       },
       {
        "path": "/graph.php?type=device_nfsen_channel&id=1&channel=port80",
        "method": "GET",
-       "expect": 200,
-       "source": "internal"
+       "expect": 200
       }
      ],
      "refs": [
@@ -3246,8 +3229,7 @@
       {
        "path": "/api/v0/devices?order=hostname%60%20and%20sleep(5)",
        "method": "GET",
-       "expect": 403,
-       "source": "internal"
+       "expect": 403
       },
       {
        "path": "/api/v0/devices?order=hostname%20DESC",
@@ -3279,14 +3261,12 @@
       {
        "path": "/search/search=packages/?package=openssl%27%29+union+select+1--+",
        "method": "GET",
-       "expect": 403,
-       "source": "internal"
+       "expect": 403
       },
       {
        "path": "/search/search=packages/?package=openssl",
        "method": "GET",
-       "expect": 200,
-       "source": "internal"
+       "expect": 200
       }
      ],
      "refs": [

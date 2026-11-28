@@ -66,6 +66,19 @@ class TestData(unittest.TestCase):
         self.app.db.release()
         self.env.cleanup()
 
+    def test_every_block_has_an_external_attack_test(self):
+        # 0.5.51: the sandbox refuses a change whose confident block has no test from outside expecting 403 that its
+        # condition matches (test_per_block) -- 0.5.50's LibreNMS set sent its attack tests from inside only
+        from jtwafmgr import sandbox
+        for s in protsets.load():
+            for r in s['rules']:
+                if r['kind'] != 'confident_block':
+                    continue
+                spec = dict(r['spec'], host={'mode': 'exact', 'value': 'app.example.com'})
+                tests = [dict(t, host='app.example.com') for t in r['tests']]
+                self.assertTrue(any(t['expect'] == 403 and t.get('source', 'external') == 'external' and
+                                    sandbox._test_hits(spec, t) for t in tests), (s['id'], r['id']))
+
     def test_every_rule(self):
         sets = protsets.load()
         self.assertTrue(sets)
