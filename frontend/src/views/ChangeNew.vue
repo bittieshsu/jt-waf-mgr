@@ -247,7 +247,7 @@ watch(showGuide, (v) => { try { localStorage.setItem(GUIDE_KEY, v ? '1' : '0') }
 const methodOptions = computed(() => [{ value: '', label: t('wizard.any_method') }].concat(METHODS.map((m) => ({ value: m, label: m }))))
 const sourceOptions = computed(() => ['all', 'internal', 'external'].map((x) => ({ value: x, label: t('wizard.source_opt.' + x) })))
 const actionOptions = computed(() => ACTIONS.map((a) => ({ value: a, label: t('wizard.action_opt.' + a) })))
-const targetOptions = computed(() => ['path', 'uri', 'raw_uri', 'ua', 'host', 'header', 'arg_name', 'arg', 'body_unchecked'].map((x) => ({ value: x, label: t('wizard.target_opt.' + x) })))
+const targetOptions = computed(() => ['path', 'uri', 'raw_uri', 'ua', 'host', 'header', 'arg_name', 'arg', 'upload_name', 'body_unchecked'].map((x) => ({ value: x, label: t('wizard.target_opt.' + x) })))
 const placementOptions = computed(() => ['before', 'after'].map((x) => ({ value: x, label: t('placement.' + x) })))
 
 const kinds = computed(() => ['exclusion', 'confident_block', 'country', 'redaction', 'plugin'].concat(hasRole('admin') ? ['raw'] : []))

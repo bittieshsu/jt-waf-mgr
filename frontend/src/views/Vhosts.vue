@@ -220,10 +220,11 @@ function siteOf(v) {
   return (v.server_names || []).find((n) => n && n !== '_' && !n.startsWith('~') && /^[a-z0-9.-]+$/i.test(n)) || ''
 }
 // --- 0.5.39: an example for a new site, and a site's own block ------------------------------------------------
-const PRESET_DEF = { generic: { port: '443', upload: '10m', websocket: false }, synology: { port: '5001', upload: '1g', websocket: true } }
+const PRESET_DEF = { generic: { port: '443', upload: '10m', websocket: false }, synology: { port: '5001', upload: '1g', websocket: true },
+  qnap: { port: '443', upload: '1g', websocket: true } }
 const ex = reactive({ open: false, preset: 'generic', host: '', port: '443', backend: '', upload: '10m', cert: '', internal: true,
   websocket: false, certs: [], certPath: '', keyPath: '', busy: false, error: null, out: null })
-const presetOpts = computed(() => ['generic', 'synology'].map((x) => ({ value: x, label: t('vhostex.preset_opt.' + x) })))
+const presetOpts = computed(() => ['generic', 'synology', 'qnap'].map((x) => ({ value: x, label: t('vhostex.preset_opt.' + x) })))
 const certOpts = computed(() => [...ex.certs.map((c, i) => ({ value: String(i), label: c.cert + ' (' + t('vhostex.cert_sites', { n: c.names }) + ')' })),
   { value: 'own', label: t('vhostex.cert_own') }])
 function presetChanged() { Object.assign(ex, PRESET_DEF[ex.preset] || {}) }

@@ -352,7 +352,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
 
 - `target`：`path`（預設；URL 解碼、正規化、轉小寫；0.4.93 起也看原始路徑，libmodsecurity 3.0.9 在編碼問號截斷的路徑也看得到）、`uri`（路徑加查詢字串，轉小寫）、`raw_uri` (0.4.93：原始請求目標，不解碼，轉小寫)、`ua`（User-Agent）、`host`，
   `header`（這時用 `header` 指定名稱，例如 `X-Api-Version`）、`arg_name` (0.5.8：查詢字串或內容裡的參數名稱，轉小寫；正規表示式以 `^` 開頭、`$` 結尾)，
-  `arg` (0.5.33：`arg` 指定的參數的值，查詢字串或表單內容，轉小寫；多個名稱用 `|` 分隔，最多 12 個，例如 `api|compound`)，
+  `arg` (0.5.33：`arg` 指定的參數的值，查詢字串或表單內容，轉小寫；多個名稱用 `|` 分隔，最多 24 個 (0.5.49 前是 12 個)，例如 `api|compound`)，
   或 `body_unchecked` (0.5.42：ModSecurity 沒有檢查的請求內容，超過 `SecRequestBodyLimit`、`SecRequestBodyNoFilesLimit` 或無法解析；不用 `regex`，收大型上傳的路徑列在 `exceptions`)。`arg_name`、`arg` 與 `body_unchecked` 在讀完內容後檢查，沒有證據檢查 (存取記錄沒有請求內容)。
 - `regex`：必填 (`body_unchecked` 除外)，最多 1000 字，不可有雙引號或換行。比對到空字串（`matches_empty`）、幾乎比對到所有一般請求
   （`too_broad`），或可能造成災難性回溯（`redos_shape`、`redos_runtime`）時會被拒絕。

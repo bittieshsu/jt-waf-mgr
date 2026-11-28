@@ -786,7 +786,7 @@ class TestSandboxBuild(unittest.TestCase):
             self.assertNotIn('/var/log/modsecurity', body)
             nc = rd(os.path.join(root, 'conf', 'nginx.conf'))
             self.assertIn('listen 127.0.0.1:%d;' % port, nc)
-            self.assertIn('real_ip_header X-Forwarded-For', nc)
+            self.assertIn('real_ip_header X-JTWAF-Client', nc)
             self.assertNotIn('user ', nc)
         finally:
             env.cleanup()

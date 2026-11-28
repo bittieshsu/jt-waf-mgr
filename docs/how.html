@@ -198,6 +198,8 @@ dialog#zoom::backdrop { background: rgba(15, 23, 42, .72); backdrop-filter: blur
 .zm-pct { min-width: 4.5em; text-align: center; color: var(--muted); font-size: 13.5px; align-self: center; }
 body.zm-on { overflow: hidden; }
 @media (max-width: 860px) { dialog#zoom { width: 100vw; height: 100vh; max-height: 100vh; max-width: 100vw; border-radius: 0; } }
+/* a phone: the logo already leads home; the extra home link would push the page sideways */
+@media (max-width: 560px) { .home-top { display: none; } header.top .wrap { gap: 10px; } }
 @media (max-width: 640px) { section { padding: 44px 0; } h2 { font-size: 26px; } .hero p.lead { font-size: 17px; } figure.fig { padding: 8px; } }
 </style>
 </head>
@@ -208,7 +210,7 @@ body.zm-on { overflow: hidden; }
   <nav class="links">
     <a href="#arch" data-t="nav_arch"></a><a href="#events" data-t="nav_events"></a><a href="#changes" data-t="nav_changes"></a>
     <a href="#analysis" data-t="nav_ai"></a><a href="#crs" data-t="nav_crs"></a><a href="#blocks" data-t="nav_blocks"></a>
-    <a href="#notify" data-t="nav_notify"></a><a href="#integrity" data-t="nav_integrity"></a><a href="#bounds" data-t="nav_bounds"></a><a href="#guess" data-t="nav_guess"></a><a href="#versions" data-t="nav_ver"></a>
+    <a href="#notify" data-t="nav_notify"></a><a href="#integrity" data-t="nav_integrity"></a><a href="#bounds" data-t="nav_bounds"></a><a href="#guess" data-t="nav_guess"></a><a href="#versions" data-t="nav_ver"></a><a href="proxy.html" id="proxy-link" data-t="nav_proxy"></a>
   </nav>
   <a class="gh-btn" href="https://github.com/jasoncheng7115/jt-waf-mgr" target="_blank" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span>GitHub</span></a>
   <div class="lang">
@@ -1066,7 +1068,7 @@ const T = {
   nav_guess: 'Products', guess_h: 'Web applications the guess recognises', guess_sub: 'The threat intelligence follows web-facing software only. The program guesses the list and a person confirms it before anything is searched; anything not listed here can be added by hand.',
   guess_apps_h: 'Applications the sites run', guess_apps_note: 'Recognised from paths that answered successfully (2xx) in the access logs, such as /status.php or /api/v4/, or from the site\'s home page (its title, a generator tag, a header only it sends; read through this host\'s own nginx).',
   guess_host_h: 'Web services and packages on this host', guess_host_note: 'Recognised from the Debian / Ubuntu packages installed on this host (nginx, ModSecurity, PHP and the like).',
-  nav_ver: 'Versions', ver_h: 'Where the web applications\' versions come from', ver_sub: 'The threat intelligence looks up vulnerabilities by product and version. Before each search, the applications below are asked for their own version: one request through the nginx on the same host (a version a person typed is never replaced). The others are filled in by hand, with the command on the application\'s host.',
+  nav_proxy: 'Proxy examples', nav_ver: 'Versions', ver_h: 'Where the web applications\' versions come from', ver_sub: 'The threat intelligence looks up vulnerabilities by product and version. Before each search, the applications below are asked for their own version: one request through the nginx on the same host (a version a person typed is never replaced). The others are filled in by hand, with the command on the application\'s host.',
   ver_auto_h: 'Read automatically', ver_man_h: 'Filled in by hand', ver_c_name: 'Application', ver_c_req: 'Request', ver_c_src: 'Source', ver_c_how: 'How to read it',
   ver_ok: 'Checked on a running one', ver_doc: 'As documented', ver_token: 'needs an API token (settings)',
   ver_note_zimbra: 'The webmail hides the version unless zimbraSoapExposeVersion is TRUE; zmsoap -z GetVersionInfoRequest also tells it.',
@@ -1323,7 +1325,7 @@ const T = {
   nav_guess: '可推測套件', guess_h: '可推測的 Web 應用套件', guess_sub: '威脅情報只追蹤和網站有關的套件。清單由程式自動推測，人確認後才搜尋；沒有列在這裡的也可以手動加入。',
   guess_apps_h: '站台跑的應用程式', guess_apps_note: '依存取記錄裡回應成功 (2xx) 的特徵路徑判斷，例如 /status.php、/api/v4/；或依站台首頁的特徵 (網頁標題、generator 標籤、它特有的標頭；透過本機的 nginx 讀取)。',
   guess_host_h: '本機的網站服務與套件', guess_host_note: '依本機安裝的 Debian / Ubuntu 套件判斷 (nginx、ModSecurity、PHP 等)。',
-  nav_ver: '套件版本', ver_h: 'Web 應用套件的版本從哪裡來', ver_sub: '威脅情報依產品與版本查詢漏洞。每次搜尋前，會向下面這些應用程式讀取它們自己回報的版本：經同一台主機的 nginx 發一個請求 (人工填的版本不會被覆寫)。其他的要手動填寫，查詢方式是在該應用程式的主機上執行下列指令。',
+  nav_proxy: '反向代理範例', nav_ver: '套件版本', ver_h: 'Web 應用套件的版本從哪裡來', ver_sub: '威脅情報依產品與版本查詢漏洞。每次搜尋前，會向下面這些應用程式讀取它們自己回報的版本：經同一台主機的 nginx 發一個請求 (人工填的版本不會被覆寫)。其他的要手動填寫，查詢方式是在該應用程式的主機上執行下列指令。',
   ver_auto_h: '自動讀取', ver_man_h: '手動填寫', ver_c_name: '應用程式', ver_c_req: '請求', ver_c_src: '依據', ver_c_how: '查詢方式',
   ver_ok: '已實測', ver_doc: '依官方文件', ver_token: '需要 API 權杖 (設定)',
   ver_note_zimbra: '除非 zimbraSoapExposeVersion 設為 TRUE，否則 Webmail 不會透露版本；也可以用 zmsoap -z GetVersionInfoRequest 查。',
@@ -1580,7 +1582,7 @@ const T = {
   nav_guess: '推定できる製品', guess_h: '推定できる Web アプリケーション', guess_sub: '脅威インテリジェンスは Web に関係するソフトウェアだけを追跡します。一覧はプログラムが推定し、人が確認してから検索します。ここにないものも手動で追加できます。',
   guess_apps_h: 'サイトで動くアプリケーション', guess_apps_note: 'アクセスログで成功 (2xx) した特徴的なパス (/status.php、/api/v4/ など)、またはサイトのトップページの特徴 (タイトル、generator タグ、固有のヘッダー。このホストの nginx 経由で読み取り) から判別します。',
   guess_host_h: 'このホストの Web サービスとパッケージ', guess_host_note: 'このホストにインストールされた Debian / Ubuntu パッケージ (nginx、ModSecurity、PHP など) から判別します。',
-  nav_ver: 'バージョン', ver_h: 'Web アプリケーションのバージョンの取得元', ver_sub: '脅威インテリジェンスは製品とバージョンで脆弱性を調べます。検索のたびに、下のアプリケーションに自身のバージョンを問い合わせます：同じホストの nginx 経由で 1 リクエスト (人が入力したバージョンは置き換えません)。その他は手動で入力し、アプリケーションのホストで次のコマンドを実行して確認します。',
+  nav_proxy: 'プロキシー設定例', nav_ver: 'バージョン', ver_h: 'Web アプリケーションのバージョンの取得元', ver_sub: '脅威インテリジェンスは製品とバージョンで脆弱性を調べます。検索のたびに、下のアプリケーションに自身のバージョンを問い合わせます：同じホストの nginx 経由で 1 リクエスト (人が入力したバージョンは置き換えません)。その他は手動で入力し、アプリケーションのホストで次のコマンドを実行して確認します。',
   ver_auto_h: '自動で読み取り', ver_man_h: '手動で入力', ver_c_name: 'アプリケーション', ver_c_req: 'リクエスト', ver_c_src: '根拠', ver_c_how: '確認方法',
   ver_ok: '実機で確認', ver_doc: '公式ドキュメントどおり', ver_token: 'API トークンが必要 (設定)',
   ver_note_zimbra: 'zimbraSoapExposeVersion が TRUE でない限り Webmail はバージョンを出しません。zmsoap -z GetVersionInfoRequest でも確認できます。',
@@ -1855,6 +1857,7 @@ function apply(lang) {
   for (const b of document.querySelectorAll('#lang-menu button')) b.setAttribute('aria-checked', b.dataset.lang === lang ? 'true' : 'false')
   document.getElementById('lang-cur').textContent = { en: 'EN', 'zh-TW': '繁中', ja: '日本語' }[lang]
   for (const id of ['home-brand', 'home-btn', 'home-top']) document.getElementById(id).href = 'index.html?lang=' + lang
+  document.getElementById('proxy-link').href = 'proxy.html?lang=' + lang
   const sfx = { 'zh-TW': '.zh-TW', ja: '.ja' }[lang] || ''
   const gh = 'https://github.com/jasoncheng7115/jt-waf-mgr/blob/main/'
   for (const id of ['sec-doc', 'sec-foot']) document.getElementById(id).href = gh + 'SECURITY' + ({ 'zh-TW': '_zh-TW', ja: '_ja' }[lang] || '') + '.md'

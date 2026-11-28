@@ -12,7 +12,7 @@ import urllib.parse
 HOST_RE = re.compile(r'^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)+$')
 SIZE_RE = re.compile(r'^(?:0|[1-9][0-9]{0,5}[kmg]?)$')
 PATH_RE = re.compile(r'^/[A-Za-z0-9_./@+-]{1,250}$')
-PRESETS = ('generic', 'synology')
+PRESETS = ('generic', 'synology', 'qnap')
 MAX_LINES = 2000
 
 
@@ -130,15 +130,16 @@ def example(opts, internal_networks=(), mem_bytes=None):
     if not 1 <= port <= 65535 or port == 80:
         raise VhostError('invalid_port', 'port')
     scheme, backend = _backend(opts.get('backend'))
-    body = str(opts.get('upload') or ('1g' if preset == 'synology' else '10m')).strip().lower()
+    nas = preset in ('synology', 'qnap')
+    body = str(opts.get('upload') or ('1g' if nas else '10m')).strip().lower()
     if not SIZE_RE.match(body):
         raise VhostError('invalid_upload', 'upload')
     cert, key = str(opts.get('cert') or ''), str(opts.get('key') or '')
     if not (PATH_RE.match(cert) and PATH_RE.match(key)):
         raise VhostError('invalid_cert', 'cert')
     internal = bool(opts.get('internal_only', True))
-    websocket = bool(opts.get('websocket', preset == 'synology'))
-    stream = preset == 'synology' or bool(opts.get('stream_uploads'))
+    websocket = bool(opts.get('websocket', nas))
+    stream = nas or bool(opts.get('stream_uploads'))
     v6 = bool(opts.get('ipv6', True))
     # 0.5.48: Synology Photos for iOS uploads with "multipart/form-data; charset=utf-8; boundary=...", which
     # ModSecurity (3.0.9 to 3.0.17) does not parse: the body goes uninspected, and the protection set's
@@ -154,12 +155,21 @@ def example(opts, internal_networks=(), mem_bytes=None):
     if preset == 'synology':
         L.append('# Synology DSM: add this proxy under DSM Control Panel > Security > Trusted proxies, or DSM\'s')
         L.append('# auto block sees every client as the proxy.')
+    if preset == 'qnap':
+        # 0.5.49: no QNAP at hand -- only what is public: the web interface and the apps (Qfile, QuMagie, Qsync) use the
+        # same port; QTS's Network Access Protection blocks the address it sees after failed logins
+        L.append('# QNAP QTS: the web interface and the apps (Qfile, QuMagie, Qsync) use this one port. QTS blocks the')
+        L.append('# address it sees after failed logins (Network Access Protection): behind a proxy check what your QTS')
+        L.append('# version does with X-Forwarded-For, or one person\'s wrong password can lock everyone out.')
     big = body == '0' or (mem_bytes and _bytes(body) > mem_bytes // 4)
     if big:
         L.append('# NOTE: with ModSecurity on, nginx reads a whole upload into memory first; keep client_max_body_size')
         L.append('# well below this host\'s memory (the system check warns), or leave ModSecurity off for this site.')
     if websocket:
         L += ['map $http_upgrade $%s {' % var, '    default upgrade;', "    ''      close;", '}', '']
+    # 0.5.49: on another port than 443 the back end must see the port too: DSM (and many apps) build their redirects
+    # from Host, and without it the browser is sent to port 443 (Surveillance Station opened another site there)
+    host_hdr = '$host' if port == 443 else '$host:$server_port'
     label = re.sub(r'[^a-z0-9]', '_', host.split('.')[0])
     mp_var, mp_loc = label + '_mp_ct', '@' + label + '_mp_fix'
     loop_port = port + 10000 if port + 10000 <= 65535 else port - 10000
@@ -192,7 +202,7 @@ def example(opts, internal_networks=(), mem_bytes=None):
               '    location %s {' % mp_loc,
               '        modsecurity off;               # inspected by the loopback server below',
               '        proxy_pass http://127.0.0.1:%d;' % loop_port,
-              '        proxy_set_header Host $host;',
+              '        proxy_set_header Host %s;' % host_hdr,
               '        proxy_set_header Content-Type $%s;' % mp_var,
               '        proxy_set_header X-Jt-Client $remote_addr;    # the only source address the loopback server trusts',
               '        proxy_set_header X-Forwarded-For "";', '        proxy_set_header X-Real-IP "";',
@@ -203,7 +213,9 @@ def example(opts, internal_networks=(), mem_bytes=None):
     if scheme == 'https':
         L.append('        proxy_ssl_verify off;          # a private back end with its own certificate')
         L.append('        proxy_ssl_server_name on;')
-    L += ['        proxy_set_header Host $host;', '        proxy_set_header X-Real-IP $remote_addr;',
+    if port != 443:
+        L.append('        # the port browsers use: if a port forward or a stream in front changes it, write that port here')
+    L += ['        proxy_set_header Host %s;' % host_hdr, '        proxy_set_header X-Real-IP $remote_addr;',
           '        proxy_set_header X-Forwarded-For $remote_addr;   # replaced, never appended (a client cannot forge it)',
           '        proxy_set_header X-Forwarded-Proto $scheme;']
     if websocket:
@@ -223,7 +235,8 @@ def example(opts, internal_networks=(), mem_bytes=None):
               '    client_max_body_size %s;' % body, '    server_tokens off;', '',
               '    location / {', '        proxy_pass %s://%s;' % (scheme, backend)] + \
              (['        proxy_ssl_verify off;', '        proxy_ssl_server_name on;'] if scheme == 'https' else []) + \
-             ['        proxy_set_header Host $host;', '        proxy_set_header X-Real-IP $remote_addr;',
+             ['        proxy_set_header Host %s;' % ('$host' if port == 443 else '$host:%d' % port),
+              '        proxy_set_header X-Real-IP $remote_addr;',
               '        proxy_set_header X-Forwarded-For $remote_addr;', '        proxy_set_header X-Forwarded-Proto https;',
               '        proxy_http_version 1.1;', '        proxy_request_buffering off;', '        proxy_buffering off;',
               '        proxy_read_timeout 3600s;', '        proxy_send_timeout 3600s;', '    }', '',

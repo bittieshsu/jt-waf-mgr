@@ -61,6 +61,7 @@ docs/RECOVERY.zh-TW.md
 docs/RECOVERY.ja.md
 docs/index.html
 docs/how.html
+docs/proxy.html
 docs/shots/
 docs/modes/
 docs/logo-mark.svg

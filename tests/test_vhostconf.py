@@ -65,16 +65,33 @@ class TestExample(unittest.TestCase):
         self.assertIn('real_ip_header X-Jt-Client;', t)
         self.assertIn('proxy_set_header X-Jt-Client $remote_addr;', t)
         self.assertRegex(t, r'multipart/form-data;\s*\$1')                # what protsets.photos_fix looks for
+        # 0.5.49: off port 443 the back end sees the port (DSM builds redirects from Host; without it Surveillance
+        # Station was sent to port 443); the loopback server passes the public port, not its own
+        hosts = re.findall(r'proxy_set_header Host (\S+);', t)
+        self.assertEqual(hosts, ['$host:$server_port', '$host:$server_port', '$host:5001'])
         o2 = vhostconf.example(dict(self.OK, preset='synology', photos_ios=False), ['192.168.0.0/16'], mem_bytes=4 << 30)
         self.assertNotIn('modsecurity', o2['text'].lower().replace('# modsecurity', ''))
         self.assertNotIn('listen 80', t)                               # no port 80 redirect off port 443
         self.assertFalse(o['big_upload'])
         self.assertEqual(o['path'], '/etc/nginx/sites-available/nas.example.com.conf')
 
+    def test_qnap(self):
+        o = vhostconf.example(dict(self.OK, preset='qnap', backend='https://192.0.2.19:443'), ['192.168.0.0/16'],
+                              mem_bytes=4 << 30)
+        t = o['text']
+        self.assertIn('listen 443 ssl;', t)
+        self.assertIn('QNAP QTS', t)
+        self.assertIn('client_max_body_size 1g;', t)
+        self.assertIn('proxy_set_header Upgrade $http_upgrade;', t)
+        self.assertIn('proxy_request_buffering off;', t)
+        self.assertEqual(re.findall(r'proxy_set_header Host (\S+);', t), ['$host'])
+        self.assertNotIn('modsecurity', t.lower().replace('# modsecurity', ''))      # no Photos fix: none of its own
+
     def test_generic_and_limits(self):
         o = vhostconf.example(dict(self.OK, backend='http://192.0.2.20:8080', upload='0', internal_only=False), [],
                               mem_bytes=4 << 30)
         self.assertIn('listen 443 ssl;', o['text'])
+        self.assertEqual(re.findall(r'proxy_set_header Host (\S+);', o['text']), ['$host'])
         self.assertIn('return 301 https://$host$request_uri;', o['text'])
         self.assertNotIn('deny all', o['text'])
         self.assertNotIn('ssl_reject_handshake', o['text'])

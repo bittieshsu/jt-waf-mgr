@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jt-waf-mgr: reverse proxy examples</title>
+<meta name="description" content="nginx reverse proxy examples for sites protected by jt-waf-mgr: a web application, WebSocket, Synology DSM and QNAP QTS, with the reasons behind each setting.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="jt-waf-mgr">
+<meta property="og:url" content="https://jasoncheng7115.github.io/jt-waf-mgr/proxy.html">
+<meta property="og:title" content="jt-waf-mgr 反向代理設定範例 / Reverse proxy examples">
+<meta property="og:description" content="nginx 反向代理設定範例：一般網頁應用程式、WebSocket、Synology DSM、QNAP QTS。Reverse proxy examples for nginx + ModSecurity + OWASP CRS.">
+<meta property="og:image" content="https://jasoncheng7115.github.io/jt-waf-mgr/brand/og-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://jasoncheng7115.github.io/jt-waf-mgr/brand/og-card.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+/* Same light page as index.html: the main colour is the logo's (shield blue #3a86e6 -> #1a4c9c, orange dot #ff8a5c). */
+:root { --blue: #2563c4; --blue-h: #3a86e6; --blue-d: #1a4c9c; --orange: #ff8a5c;
+  --ink: #0f172a; --text: #334155; --muted: #64748b; --bg: #eef2f8; --panel: #fff; --panel-2: #f6f8fc; --border: #e1e7f0;
+  --accent: var(--blue); --ok: #1d7a46; --radius: 14px;
+  --shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 4px 16px rgba(15, 23, 42, .05); color-scheme: light; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.65; -webkit-font-smoothing: antialiased;
+  font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Noto Sans JP", Roboto, Helvetica, Arial, sans-serif; }
+a { color: var(--blue-d); text-decoration: none; } a:hover { text-decoration: underline; }
+h1, h2, h3 { color: var(--ink); line-height: 1.25; letter-spacing: .2px; }
+code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+header.top { position: sticky; top: 0; z-index: 10; background: rgba(255, 255, 255, .92); backdrop-filter: saturate(1.4) blur(8px); border-bottom: 1px solid var(--border); }
+header.top .wrap { display: flex; align-items: center; gap: 18px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 9px; font: 700 19px ui-monospace, Menlo, Consolas, monospace; color: var(--ink); white-space: nowrap; }
+.brand:hover { text-decoration: none; }
+.brand img { width: 28px; height: 28px; filter: drop-shadow(0 2px 6px rgba(37, 99, 196, .35)); }
+header.top .wrap { max-width: 1320px; }
+nav.links { display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+nav.links::-webkit-scrollbar { display: none; }
+/* the links in the middle of the bar (logo and name stay left, language right); auto margins, unlike justify-content:
+   center, never cut off the first links when a narrow screen scrolls the row */
+nav.links > a:first-child { margin-left: auto; }
+nav.links > a:last-child { margin-right: auto; }
+nav.links a { color: var(--text); font-size: 14px; font-weight: 500; padding: 6px 9px; border-radius: 8px; }
+nav.links a:hover { color: var(--blue); background: #eef4fd; text-decoration: none; }
+@media (max-width: 1360px) { nav.links a { padding: 6px 7px; font-size: 13.5px; } }
+@media (max-width: 1140px) { nav.links a { padding: 5px 5px; font-size: 12.5px; } }
+.gh-btn { display: inline-flex; align-items: center; gap: 6px; flex: none; border: 1px solid var(--border); background: #fff; color: var(--text); border-radius: 10px; padding: 6px 10px; font-size: 13.5px; font-weight: 600; line-height: 1.3; white-space: nowrap; }
+.gh-btn:hover { border-color: var(--blue); color: var(--blue); text-decoration: none; }
+.gh-btn svg { width: 16px; height: 16px; }
+.home-top { display: inline-flex; align-items: center; gap: 4px; flex: none; color: var(--blue); font-size: 13.5px; font-weight: 600; padding: 5px 10px; border: 1px solid #cfe0f7; background: #eef4fd; border-radius: 10px; white-space: nowrap; }
+.home-top:hover { text-decoration: none; border-color: var(--blue); }
+@media (max-width: 760px) { .gh-btn span { display: none; } }
+.lang { position: relative; flex: none; }
+.lang-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: #fff; color: var(--text); border-radius: 10px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 600; line-height: 1.3; white-space: nowrap; }
+.lang-btn:hover, .lang-btn[aria-expanded="true"] { border-color: var(--blue); color: var(--blue); }
+.lang-btn svg { width: 16px; height: 16px; flex: none; }
+.lang-menu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 150px; margin: 0; padding: 6px; background: #fff; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 30px rgba(15, 23, 42, .12); z-index: 20; }
+.lang-menu[hidden] { display: none; }
+.lang-menu button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 14px; border: 0; background: none; padding: 7px 10px; border-radius: 7px; font: inherit; font-size: 14px; color: var(--text); cursor: pointer; text-align: left; }
+.lang-menu button:hover, .lang-menu button:focus-visible { background: #eef4fd; color: var(--blue); outline: none; }
+.lang-menu button[aria-checked="true"] { color: var(--blue); font-weight: 600; }
+.lang-menu button[aria-checked="true"]::after { content: "\2713"; }
+.hero { padding: 56px 0 44px; border-bottom: 1px solid var(--border);
+  background: radial-gradient(1000px 520px at 85% -10%, rgba(58, 134, 230, .16), transparent 60%),
+              radial-gradient(760px 480px at 0% 10%, rgba(99, 102, 241, .09), transparent 55%),
+              radial-gradient(640px 420px at 70% 110%, rgba(255, 138, 92, .10), transparent 55%), var(--bg); }
+.hero h1 { font-size: 40px; margin: 0 0 6px; letter-spacing: -.3px; }
+.hero p.lead { font-size: 18.5px; color: var(--muted); margin: 14px 0 24px; line-height: 1.8; max-width: 860px; }
+.btns { display: flex; flex-wrap: wrap; gap: 12px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 10px; border: 1px solid var(--border); background: #fff; color: var(--ink); font-weight: 600; font-size: 15px; line-height: 1.3; transition: .15s; }
+.btn:hover { text-decoration: none; border-color: var(--blue); }
+.btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; box-shadow: 0 4px 14px rgba(37, 99, 196, .32); }
+.btn.primary:hover { background: var(--blue-h); border-color: var(--blue-h); }
+section { padding: 60px 0; } section.alt { background: #fff; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+h2 { font-size: 30px; margin: 0 0 10px; } h2 + p.sub { color: var(--muted); margin: 0 0 28px; font-size: 17px; max-width: 900px; }
+h3 { font-size: 19px; margin: 30px 0 10px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 18px; }
+.card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 20px 16px; box-shadow: var(--shadow); transition: .15s; min-width: 0; }
+.card:hover { border-color: rgba(37, 99, 196, .35); box-shadow: 0 6px 22px rgba(37, 99, 196, .10); }
+section.alt .card { background: var(--panel-2); }
+.card h3 { margin: 0 0 8px; font-size: 17px; display: flex; gap: 10px; align-items: center; }
+.card h3 .ic { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, var(--blue-h), var(--blue-d)); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; flex: none; box-shadow: 0 2px 8px rgba(37, 99, 196, .30); }
+.card p { margin: 0; color: var(--muted); font-size: 15px; }
+.card p.by { font-size: 13px; font-weight: 600; color: var(--blue-d); margin-bottom: 6px; overflow-wrap: anywhere; }
+.card ul.src { margin: 6px 0 0; padding-left: 18px; color: var(--ink); font-size: 14.5px; }
+.card ul.src li { margin: 4px 0; }
+ol.flow { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; counter-reset: s; }
+ol.flow li { counter-increment: s; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; position: relative; box-shadow: var(--shadow); min-width: 0; }
+section.alt ol.flow li { background: var(--panel-2); }
+ol.flow li::before { content: counter(s); display: inline-flex; width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, var(--blue-h), var(--blue-d)); color: #fff; font-weight: 700; font-size: 14px; align-items: center; justify-content: center; margin-bottom: 8px; box-shadow: 0 2px 6px rgba(37, 99, 196, .30); }
+ol.flow li b { display: block; color: var(--ink); } ol.flow li span { color: var(--muted); font-size: 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 9px; margin: 22px 0 0; }
+.chip { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border); background: #fff; border-radius: 999px; padding: 5px 14px; font-size: 13px; font-weight: 600; color: var(--text); box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+a.chip:hover { border-color: var(--blue); color: var(--blue); text-decoration: none; }
+.chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--blue-h); flex: none; }
+.chip:nth-child(3n+2)::before { background: var(--orange); } .chip:nth-child(3n)::before { background: var(--blue-d); }
+ul.ticks { padding-left: 0; list-style: none; margin: 0; } ul.ticks li { padding-left: 32px; position: relative; margin: 9px 0; color: var(--ink); }
+ul.ticks li::before { content: "✓"; position: absolute; left: 0; top: 2px; width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, var(--blue-h), var(--blue-d)); color: #fff; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(37, 99, 196, .30); }
+ul.ticks.no li::before { content: "✕"; background: linear-gradient(135deg, #fb7185, #e11d48); box-shadow: 0 2px 6px rgba(225, 29, 72, .28); }
+ul.ticks.warn li::before { content: "!"; background: linear-gradient(135deg, #fbbf24, #d97706); box-shadow: 0 2px 6px rgba(217, 119, 6, .28); }
+ol.steps { list-style: none; padding: 0; margin: 0; counter-reset: n; }
+ol.steps li { counter-increment: n; padding-left: 38px; position: relative; margin: 10px 0; color: var(--ink); }
+ol.steps li::before { content: counter(n); position: absolute; left: 0; top: 1px; width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #fb7185, #e11d48); color: #fff; font-size: 13px; font-weight: 700; box-shadow: 0 2px 6px rgba(225, 29, 72, .28); }
+ol.steps.blue li::before { background: linear-gradient(135deg, var(--blue-h), var(--blue-d)); box-shadow: 0 2px 6px rgba(37, 99, 196, .30); }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 36px; align-items: center; }
+.two.top { align-items: start; } .two > * { min-width: 0; } .two h3:first-child { margin-top: 0; }
+.reccard { margin-top: 30px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px 16px; box-shadow: var(--shadow); }
+section.alt .reccard { background: var(--panel-2); }
+.reccard h3 { margin: 0 0 4px; font-size: 18px; }
+footer { padding: 30px 0 40px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--border); background: #fff; }
+.vwrap { overflow-x: auto; margin: 6px 0 22px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+table.vtbl { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+table.vtbl th { text-align: left; font-weight: 600; color: var(--muted); font-size: 13px; padding: 10px 14px; border-bottom: 1px solid var(--border); background: #f8fafc; }
+table.vtbl td { padding: 9px 14px; border-top: 1px solid var(--border); vertical-align: top; }
+table.vtbl tr:first-child td { border-top: none; }
+table.vtbl code { font-size: 13px; }
+.vsrc { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+.vsrc.ok { background: #e7f6ec; color: #17803d; } .vsrc.doc { background: #eef2f7; color: #475569; }
+.vtag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 6px; font-size: 12px; background: #fff4e5; color: #9a5b00; }
+.vnote { color: var(--muted); font-size: 13px; margin-top: 3px; }
+/* the guess lists: names in columns */
+ul.glist { list-style: none; margin: 6px 0 26px; padding: 14px 18px; columns: 4 190px; column-gap: 22px; background: #fff; border: 1px solid var(--border); border-radius: 12px; font-size: 14px; }
+ul.glist li { break-inside: avoid; padding: 2px 0; }
+.gcount { display: inline-block; margin-left: 4px; padding: 0 8px; border-radius: 999px; background: #eef4fd; color: var(--blue); font-size: 13px; font-weight: 700; vertical-align: 2px; }
+.gnote { color: var(--muted); font-size: 14px; margin: 0 0 4px; }
+footer p.disc { margin: 14px 0 0; font-size: 12.5px; line-height: 1.7; color: var(--muted); max-width: 980px; }
+@media (max-width: 860px) { .two { grid-template-columns: minmax(0, 1fr); } .hero h1 { font-size: 32px; } nav.links { display: none; } }
+/* a palette around the logo blue: every card and step gets its own colour (--c, --c2), as on the project page */
+.grid > .card:nth-child(8n+1), ol.flow li:nth-child(6n+1) { --c: #2563c4; --c2: #3a86e6; }
+.grid > .card:nth-child(8n+2), ol.flow li:nth-child(6n+2) { --c: #4f46e5; --c2: #818cf8; }
+.grid > .card:nth-child(8n+3), ol.flow li:nth-child(6n+3) { --c: #0d9488; --c2: #2dd4bf; }
+.grid > .card:nth-child(8n+4), ol.flow li:nth-child(6n+4) { --c: #e8590c; --c2: #ff8a5c; }
+.grid > .card:nth-child(8n+5), ol.flow li:nth-child(6n+5) { --c: #db2777; --c2: #f472b6; }
+.grid > .card:nth-child(8n+6), ol.flow li:nth-child(6n+6) { --c: #0284c7; --c2: #38bdf8; }
+.grid > .card:nth-child(8n+7) { --c: #7c3aed; --c2: #a78bfa; }
+.grid > .card:nth-child(8n+8) { --c: #059669; --c2: #34d399; }
+.card, ol.flow li { border-top: 3px solid var(--c, var(--blue)); background: linear-gradient(180deg, color-mix(in srgb, var(--c, var(--blue)) 5%, #fff), #fff 70%); }
+section.alt .card, section.alt ol.flow li { background: linear-gradient(180deg, color-mix(in srgb, var(--c, var(--blue)) 6%, #fff), var(--panel-2) 70%); }
+.card h3 .ic, ol.flow li::before { background: linear-gradient(135deg, var(--c2, var(--blue-h)), var(--c, var(--blue-d))); box-shadow: 0 2px 8px color-mix(in srgb, var(--c, var(--blue)) 35%, transparent); }
+.card:hover { border-color: color-mix(in srgb, var(--c, var(--blue)) 40%, var(--border)); border-top-color: var(--c, var(--blue)); }
+section#arch { background: radial-gradient(900px 400px at 100% 0%, rgba(99, 102, 241, .07), transparent 60%), radial-gradient(800px 380px at 0% 100%, rgba(13, 148, 136, .06), transparent 60%), var(--bg); }
+section#bounds { background: radial-gradient(900px 420px at 0% 0%, rgba(232, 89, 12, .06), transparent 60%), radial-gradient(800px 380px at 100% 100%, rgba(37, 99, 196, .08), transparent 60%), var(--bg); }
+p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59e0b; background: #fffbeb; border-radius: 6px; color: #78350f; font-size: 14.5px; }
+p.note { margin: 16px 0 0; padding: 10px 14px; border-radius: 10px; background: color-mix(in srgb, #ff8a5c 10%, #fff); border: 1px solid color-mix(in srgb, #ff8a5c 35%, #fff); font-size: 15px; }
+p.more a { font-weight: 600; }
+
+/* the examples: a file name bar, the text in a box that scrolls on its own (never the page) */
+.ex { margin: 14px 0 6px; min-width: 0; }
+.exbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 10px 0 6px; font-size: 14px; color: var(--muted); }
+.exbar code.path { color: var(--ink); background: #eef2f8; border: 1px solid var(--border); border-radius: 7px; padding: 1px 8px; font-size: 13px; overflow-wrap: anywhere; }
+.exbar button.copy { margin-left: auto; border: 1px solid var(--border); background: #fff; color: var(--ink); border-radius: 9px; padding: 4px 12px; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.exbar button.copy:hover { border-color: var(--blue); color: var(--blue); }
+.exbar button.copy.done { border-color: #1d7a46; color: #1d7a46; }
+pre.conf, pre.cmd { margin: 0; padding: 14px 16px; background: #0f172a; color: #e2e8f0; border-radius: 12px; overflow: auto; font-size: 13px; line-height: 1.55; tab-size: 4; }
+pre.conf { max-height: 560px; }
+pre.cmd { background: #1e293b; }
+pre code { font-size: inherit; white-space: pre; }
+.exhead { margin: 34px 0 4px; } .exhead + p { margin: 0 0 6px; color: var(--muted); }
+code.k { background: #eef2f8; border: 1px solid var(--border); border-radius: 6px; padding: 0 5px; font-size: .92em; color: var(--ink); }
+.card p + p { margin-top: 8px; }
+/* a phone: the logo already leads home; the extra home link would push the page sideways */
+@media (max-width: 560px) { .home-top { display: none; } header.top .wrap { gap: 10px; } }
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" id="home-brand" href="index.html"><img src="logo-mark.svg" alt="">jt-waf-mgr</a>
+  <a class="home-top" id="home-top" href="index.html">&#8592; <span data-t="nav_home"></span></a>
+  <nav class="links">
+    <a href="#expect" data-t="nav_expect"></a><a href="#common" data-t="nav_common"></a><a href="#synology" data-t="nav_syno"></a>
+    <a href="#qnap" data-t="nav_qnap"></a><a href="#generic" data-t="nav_generic"></a>
+  </nav>
+  <a class="gh-btn" href="https://github.com/jasoncheng7115/jt-waf-mgr" target="_blank" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span>GitHub</span></a>
+  <div class="lang">
+    <button type="button" class="lang-btn" id="lang-btn" aria-haspopup="true" aria-expanded="false" aria-controls="lang-menu" aria-label="Language">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z"/></svg>
+      <span id="lang-cur">EN</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <div class="lang-menu" id="lang-menu" role="menu" hidden>
+      <button type="button" role="menuitemradio" data-lang="en" lang="en">English</button>
+      <button type="button" role="menuitemradio" data-lang="zh-TW" lang="zh-TW">繁體中文</button>
+      <button type="button" role="menuitemradio" data-lang="ja" lang="ja">日本語</button>
+    </div>
+  </div>
+</div></header>
+
+<div class="hero"><div class="wrap">
+  <h1 data-t="h1"></h1>
+  <p class="lead" data-t="lead"></p>
+  <div class="btns">
+    <a class="btn primary" id="home-btn" href="index.html" data-t="back"></a>
+    <a class="btn" href="https://github.com/jasoncheng7115/jt-waf-mgr">GitHub</a>
+  </div>
+  <div class="chips">
+    <a class="chip" href="#expect" data-t="nav_expect"></a><a class="chip" href="#common" data-t="nav_common"></a><a class="chip" href="#synology" data-t="nav_syno"></a>
+    <a class="chip" href="#qnap" data-t="nav_qnap"></a><a class="chip" href="#generic" data-t="nav_generic"></a>
+  </div>
+</div></div>
+
+<section id="expect"><div class="wrap">
+  <h2 data-t="expect_h"></h2><p class="sub" data-t="expect_sub"></p>
+  <ul class="ticks"><li data-t="expect1"></li><li data-t="expect2"></li><li data-t="expect3"></li><li data-t="expect4"></li></ul>
+</div></section>
+
+<section id="common" class="alt"><div class="wrap">
+  <h2 data-t="common_h"></h2><p class="sub" data-t="common_sub"></p>
+  <div class="grid"><div class="card"><h3 data-t="c1_h"></h3><p data-t="c1"></p></div><div class="card"><h3 data-t="c2_h"></h3><p data-t="c2"></p><p data-t="c2b"></p></div><div class="card"><h3 data-t="c3_h"></h3><p data-t="c3"></p></div><div class="card"><h3 data-t="c4_h"></h3><p data-t="c4"></p><p data-t="c4b"></p></div><div class="card"><h3 data-t="c5_h"></h3><p data-t="c5"></p></div><div class="card"><h3 data-t="c6_h"></h3><p data-t="c6"></p></div><div class="card"><h3 data-t="c7_h"></h3><p data-t="c7"></p></div><div class="card"><h3 data-t="c8_h"></h3><p data-t="c8"></p></div></div>
+</div></section>
+
+<section id="synology"><div class="wrap">
+  <h2 data-t="syno_h"></h2><p class="sub" data-t="syno_sub"></p>
+  <ul class="ticks"><li data-t="syno1"></li><li data-t="syno2"></li><li data-t="syno3"></li><li data-t="syno4"></li><li data-t="syno5"></li></ul>
+<!-- proxy-example:ex-synology:begin -->
+<div class="ex" id="ex-synology-box">
+  <div class="exbar"><span class="exlbl" data-t="save_as"></span> <code class="path">/etc/nginx/sites-available/nas.example.com.conf</code><button type="button" class="copy" data-copy="ex-synology" data-t="copy"></button></div>
+  <pre class="conf"><code id="ex-synology"># nas.example.com -&gt; https://192.0.2.18:5001 (example written by jt-waf-mgr; check it, save it as
+# /etc/nginx/sites-available/nas.example.com.conf, link it into sites-enabled, then nginx -t and reload).
+# ModSecurity: switch it on for this site on the jt-waf-mgr sites page afterwards (an approved change).
+# Synology DSM: add this proxy under DSM Control Panel &gt; Security &gt; Trusted proxies, or DSM&#x27;s
+# auto block sees every client as the proxy.
+map $http_upgrade $nas_connection_upgrade {
+    default upgrade;
+    &#x27;&#x27;      close;
+}
+
+# Synology Photos for iOS sends &quot;multipart/form-data; charset=utf-8; boundary=...&quot;. ModSecurity accepts
+# only one &quot;;&quot; before the boundary and would not inspect such a body at all (from outside the
+# protection set refuses it). Exactly this shape goes, with the Content-Type in standard form, to the
+# loopback server at the end, which inspects it in full like any other request.
+map $content_type $nas_mp_ct {
+    &quot;~*^multipart/form-data;[ \t]*charset=[A-Za-z0-9_-]{1,20};[ \t]*(boundary=[A-Za-z0-9&#x27;()+_,./:=?-]{1,70})$&quot; &quot;multipart/form-data; $1&quot;;
+    default &quot;&quot;;
+}
+
+# only the names served on port 5001 get a TLS handshake: a scan of the address, or a guessed
+# name, is refused (keep one such block per port; leave it out if the port has one already)
+server {
+    listen 5001 ssl default_server;
+    listen [::]:5001 ssl default_server;
+    ssl_reject_handshake on;
+}
+
+server {
+    listen 5001 ssl;
+    listen [::]:5001 ssl;
+    http2 on;
+    server_name nas.example.com;
+
+    ssl_certificate     /etc/ssl/example/fullchain.pem;
+    ssl_certificate_key /etc/ssl/example/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    server_tokens off;
+
+    # the local network only (delete these lines to publish the site)
+    allow 10.0.0.0/8;
+    allow 172.16.0.0/12;
+    allow 192.168.0.0/16;
+    allow 127.0.0.0/8;
+    allow ::1;
+    deny all;
+
+    add_header Strict-Transport-Security &quot;max-age=15768000&quot; always;
+    client_max_body_size 1g;
+
+    error_page 419 = @nas_mp_fix;   # see the map $nas_mp_ct above
+    if ($nas_mp_ct) { return 419; }
+
+    location @nas_mp_fix {
+        modsecurity off;               # inspected by the loopback server below
+        proxy_pass http://127.0.0.1:15001;
+        proxy_set_header Host $host:$server_port;
+        proxy_set_header Content-Type $nas_mp_ct;
+        proxy_set_header X-Jt-Client $remote_addr;    # the only source address the loopback server trusts
+        proxy_set_header X-Forwarded-For &quot;&quot;;
+        proxy_set_header X-Real-IP &quot;&quot;;
+        proxy_http_version 1.1;
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    location / {
+        proxy_pass https://192.0.2.18:5001;
+        proxy_http_version 1.1;
+        proxy_ssl_verify off;          # a private back end with its own certificate
+        proxy_ssl_server_name on;
+        # the port browsers use: if a port forward or a stream in front changes it, write that port here
+        proxy_set_header Host $host:$server_port;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;   # replaced, never appended (a client cannot forge it)
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $nas_connection_upgrade;
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    access_log /var/log/nginx/nas.example.com.access.log;
+    error_log  /var/log/nginx/nas.example.com.error.log;
+}
+
+# loopback only: the Synology Photos iOS uploads from the server above, inspected by ModSecurity
+# (no allow/deny: after real_ip the address is the client&#x27;s; listening on 127.0.0.1 is the limit)
+server {
+    listen 127.0.0.1:15001;
+    server_name nas.example.com;
+    modsecurity on;
+    set_real_ip_from 127.0.0.1;
+    real_ip_header X-Jt-Client;
+    client_max_body_size 1g;
+    server_tokens off;
+
+    location / {
+        proxy_pass https://192.0.2.18:5001;
+        proxy_ssl_verify off;
+        proxy_ssl_server_name on;
+        proxy_set_header Host $host:5001;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_http_version 1.1;
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    access_log off;                    # logged by the public server
+    error_log  /var/log/nginx/nas.example.com.error.log;
+}
+</code></pre>
+  <div class="exbar"><span class="exlbl" data-t="then_run"></span><button type="button" class="copy" data-copy="ex-synology-steps" data-t="copy"></button></div>
+  <pre class="cmd"><code id="ex-synology-steps">sudo ln -s /etc/nginx/sites-available/nas.example.com.conf /etc/nginx/sites-enabled/nas.example.com.conf
+sudo nginx -t &amp;&amp; sudo systemctl reload nginx</code></pre>
+</div>
+<!-- proxy-example:ex-synology:end -->
+</div></section>
+
+<section id="qnap" class="alt"><div class="wrap">
+  <h2 data-t="qnap_h"></h2><p class="sub" data-t="qnap_sub"></p>
+  <p class="disclaimer" data-t="qnap_note"></p>
+  <ul class="ticks"><li data-t="qnap1"></li><li data-t="qnap2"></li><li data-t="qnap3"></li></ul>
+<!-- proxy-example:ex-qnap:begin -->
+<div class="ex" id="ex-qnap-box">
+  <div class="exbar"><span class="exlbl" data-t="save_as"></span> <code class="path">/etc/nginx/sites-available/qnap.example.com.conf</code><button type="button" class="copy" data-copy="ex-qnap" data-t="copy"></button></div>
+  <pre class="conf"><code id="ex-qnap"># qnap.example.com -&gt; https://192.0.2.19:443 (example written by jt-waf-mgr; check it, save it as
+# /etc/nginx/sites-available/qnap.example.com.conf, link it into sites-enabled, then nginx -t and reload).
+# ModSecurity: switch it on for this site on the jt-waf-mgr sites page afterwards (an approved change).
+# QNAP QTS: the web interface and the apps (Qfile, QuMagie, Qsync) use this one port. QTS blocks the
+# address it sees after failed logins (Network Access Protection): behind a proxy check what your QTS
+# version does with X-Forwarded-For, or one person&#x27;s wrong password can lock everyone out.
+map $http_upgrade $qnap_connection_upgrade {
+    default upgrade;
+    &#x27;&#x27;      close;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name qnap.example.com;
+
+    ssl_certificate     /etc/ssl/example/fullchain.pem;
+    ssl_certificate_key /etc/ssl/example/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    server_tokens off;
+
+    # the local network only (delete these lines to publish the site)
+    allow 10.0.0.0/8;
+    allow 172.16.0.0/12;
+    allow 192.168.0.0/16;
+    allow 127.0.0.0/8;
+    allow ::1;
+    deny all;
+
+    add_header Strict-Transport-Security &quot;max-age=15768000&quot; always;
+    client_max_body_size 1g;
+
+    location / {
+        proxy_pass https://192.0.2.19:443;
+        proxy_http_version 1.1;
+        proxy_ssl_verify off;          # a private back end with its own certificate
+        proxy_ssl_server_name on;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;   # replaced, never appended (a client cannot forge it)
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $qnap_connection_upgrade;
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    access_log /var/log/nginx/qnap.example.com.access.log;
+    error_log  /var/log/nginx/qnap.example.com.error.log;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name qnap.example.com;
+    allow 10.0.0.0/8;
+    allow 172.16.0.0/12;
+    allow 192.168.0.0/16;
+    allow 127.0.0.0/8;
+    allow ::1;
+    deny all;
+    return 301 https://$host$request_uri;
+}
+</code></pre>
+  <div class="exbar"><span class="exlbl" data-t="then_run"></span><button type="button" class="copy" data-copy="ex-qnap-steps" data-t="copy"></button></div>
+  <pre class="cmd"><code id="ex-qnap-steps">sudo ln -s /etc/nginx/sites-available/qnap.example.com.conf /etc/nginx/sites-enabled/qnap.example.com.conf
+sudo nginx -t &amp;&amp; sudo systemctl reload nginx</code></pre>
+</div>
+<!-- proxy-example:ex-qnap:end -->
+</div></section>
+
+<section id="generic"><div class="wrap">
+  <h2 data-t="generic_h"></h2><p class="sub" data-t="generic_sub"></p>
+  <h3 class="exhead" data-t="gen_h3"></h3><p data-t="gen_p"></p>
+<!-- proxy-example:ex-generic:begin -->
+<div class="ex" id="ex-generic-box">
+  <div class="exbar"><span class="exlbl" data-t="save_as"></span> <code class="path">/etc/nginx/sites-available/app.example.com.conf</code><button type="button" class="copy" data-copy="ex-generic" data-t="copy"></button></div>
+  <pre class="conf"><code id="ex-generic"># app.example.com -&gt; http://192.0.2.20:8080 (example written by jt-waf-mgr; check it, save it as
+# /etc/nginx/sites-available/app.example.com.conf, link it into sites-enabled, then nginx -t and reload).
+# ModSecurity: switch it on for this site on the jt-waf-mgr sites page afterwards (an approved change).
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name app.example.com;
+
+    ssl_certificate     /etc/ssl/example/fullchain.pem;
+    ssl_certificate_key /etc/ssl/example/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    server_tokens off;
+
+    # the local network only (delete these lines to publish the site)
+    allow 10.0.0.0/8;
+    allow 172.16.0.0/12;
+    allow 192.168.0.0/16;
+    allow 127.0.0.0/8;
+    allow ::1;
+    deny all;
+
+    add_header Strict-Transport-Security &quot;max-age=15768000&quot; always;
+    client_max_body_size 10m;
+
+    location / {
+        proxy_pass http://192.0.2.20:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;   # replaced, never appended (a client cannot forge it)
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+
+    access_log /var/log/nginx/app.example.com.access.log;
+    error_log  /var/log/nginx/app.example.com.error.log;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name app.example.com;
+    allow 10.0.0.0/8;
+    allow 172.16.0.0/12;
+    allow 192.168.0.0/16;
+    allow 127.0.0.0/8;
+    allow ::1;
+    deny all;
+    return 301 https://$host$request_uri;
+}
+</code></pre>
+  <div class="exbar"><span class="exlbl" data-t="then_run"></span><button type="button" class="copy" data-copy="ex-generic-steps" data-t="copy"></button></div>
+  <pre class="cmd"><code id="ex-generic-steps">sudo ln -s /etc/nginx/sites-available/app.example.com.conf /etc/nginx/sites-enabled/app.example.com.conf
+sudo nginx -t &amp;&amp; sudo systemctl reload nginx</code></pre>
+</div>
+<!-- proxy-example:ex-generic:end -->
+  <h3 class="exhead" data-t="ws_h3"></h3><p data-t="ws_p"></p>
+<!-- proxy-example:ex-websocket:begin -->
+<div class="ex" id="ex-websocket-box">
+  <div class="exbar"><span class="exlbl" data-t="save_as"></span> <code class="path">/etc/nginx/sites-available/chat.example.com.conf</code><button type="button" class="copy" data-copy="ex-websocket" data-t="copy"></button></div>
+  <pre class="conf"><code id="ex-websocket"># chat.example.com -&gt; http://192.0.2.21:3000 (example written by jt-waf-mgr; check it, save it as
+# /etc/nginx/sites-available/chat.example.com.conf, link it into sites-enabled, then nginx -t and reload).
+# ModSecurity: switch it on for this site on the jt-waf-mgr sites page afterwards (an approved change).
+map $http_upgrade $chat_connection_upgrade {
+    default upgrade;
+    &#x27;&#x27;      close;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name chat.example.com;
+
+    ssl_certificate     /etc/ssl/example/fullchain.pem;
+    ssl_certificate_key /etc/ssl/example/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    server_tokens off;
+
+    # the local network only (delete these lines to publish the site)
+    allow 10.0.0.0/8;
+    allow 172.16.0.0/12;
+    allow 192.168.0.0/16;
+    allow 127.0.0.0/8;
+    allow ::1;
+    deny all;
+
+    add_header Strict-Transport-Security &quot;max-age=15768000&quot; always;
+    client_max_body_size 10m;
+
+    location / {
+        proxy_pass http://192.0.2.21:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;   # replaced, never appended (a client cannot forge it)
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $chat_connection_upgrade;
+        proxy_read_timeout 120s;
+    }
+
+    access_log /var/log/nginx/chat.example.com.access.log;
+    error_log  /var/log/nginx/chat.example.com.error.log;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name chat.example.com;
+    allow 10.0.0.0/8;
+    allow 172.16.0.0/12;
+    allow 192.168.0.0/16;
+    allow 127.0.0.0/8;
+    allow ::1;
+    deny all;
+    return 301 https://$host$request_uri;
+}
+</code></pre>
+  <div class="exbar"><span class="exlbl" data-t="then_run"></span><button type="button" class="copy" data-copy="ex-websocket-steps" data-t="copy"></button></div>
+  <pre class="cmd"><code id="ex-websocket-steps">sudo ln -s /etc/nginx/sites-available/chat.example.com.conf /etc/nginx/sites-enabled/chat.example.com.conf
+sudo nginx -t &amp;&amp; sudo systemctl reload nginx</code></pre>
+</div>
+<!-- proxy-example:ex-websocket:end -->
+</div></section>
+
+<footer><div class="wrap">
+  jt-waf-mgr · AGPL-3.0 · <a href="https://github.com/jasoncheng7115/jt-waf-mgr">GitHub</a> ·
+  <a id="sec-foot" href="https://github.com/jasoncheng7115/jt-waf-mgr/blob/main/SECURITY.md" data-t="sec_policy"></a> · Jason Tools Co., Ltd.
+  <p class="disc" data-t="disc"></p>
+</div></footer>
+
+<script>
+const T = {
+ "en": {
+  "title": "jt-waf-mgr: reverse proxy examples",
+  "nav_home": "Home",
+  "nav_expect": "What a site needs",
+  "nav_common": "Common points",
+  "nav_syno": "Synology DSM",
+  "nav_qnap": "QNAP QTS",
+  "nav_generic": "Web apps",
+  "h1": "Reverse proxy examples",
+  "lead": "nginx server blocks for the sites jt-waf-mgr protects: a web application, one with WebSocket, Synology DSM and QNAP QTS. They are written by the same generator as the \"Example for a new site\" on the sites page, with example names and addresses: replace them with your own.",
+  "back": "← Project page",
+  "copy": "Copy",
+  "copied": "Copied",
+  "save_as": "Save as",
+  "then_run": "Then run",
+  "expect_h": "What jt-waf-mgr expects of a site",
+  "expect_sub": "jt-waf-mgr manages ModSecurity and its rules on an nginx you run. The server blocks stay yours.",
+  "expect1": "Each site is a TLS server block in your nginx, with the ModSecurity module loaded. jt-waf-mgr never writes server blocks.",
+  "expect2": "ModSecurity is switched on for a site from the sites page: a change that goes through the checks and the approval like any other.",
+  "expect3": "The sites page has the same generator (\"Example for a new site\"): answer a few questions and it writes the block with your certificate paths and your internal networks.",
+  "expect4": "Start with the local network only (the allow and deny lines), test, then delete those lines to publish the site.",
+  "common_h": "Common points",
+  "common_sub": "What every example does, and why.",
+  "c1_h": "X-Forwarded-For: replaced, never appended",
+  "c1": "proxy_set_header X-Forwarded-For $remote_addr. $proxy_add_x_forwarded_for appends to what the client sent, and many applications trust the first address in the list. Forged values have done real harm: QNAP Notes Station 3 put this header into a shell command (CVE-2026-34007).",
+  "c2_h": "Host keeps the port when it is not 443",
+  "c2": "Applications build their redirects from Host. On port 5001, $host alone sends the browser to port 443: DSM opened Surveillance Station on another site that way. The examples use $host:$server_port off port 443.",
+  "c2b": "The opposite case: behind a stream on port 443 that forwards by name to internal ports, browsers still use 443: keep plain $host there.",
+  "c3_h": "One closed door per extra port",
+  "c3": "A server with default_server and ssl_reject_handshake on each extra port (such as 5001): a scan of the address, or a guessed name, gets no TLS handshake and never reaches the NAS.",
+  "c4_h": "Uploads and memory",
+  "c4": "With ModSecurity on, nginx reads the whole request body into memory before passing it on: several times the upload size while the CRS inspects it. Keep client_max_body_size well below the host's memory; the system check \"Large uploads and memory\" estimates it.",
+  "c4b": "A body over SecRequestBodyLimit is not inspected at all: the protection sets' \"request body not inspected\" rule refuses such requests from outside.",
+  "c5_h": "Streaming",
+  "c5": "proxy_request_buffering off and proxy_buffering off for uploads, downloads and video, with long timeouts (3600 s in the NAS examples). Without them nginx first writes a whole file to a temporary file.",
+  "c6_h": "WebSocket",
+  "c6": "A map on $http_upgrade with the Upgrade and Connection headers. DSM, QTS and chat applications use it for notifications and live updates.",
+  "c7_h": "Local network first",
+  "c7": "allow lines for the internal networks and deny all: test from inside. To publish, delete those lines, then add the DNS name and the port forward.",
+  "c8_h": "After it works",
+  "c8": "Switch ModSecurity on for the site on the sites page, apply the application's protection set (Protection page), and watch the events for a few days before telling everyone the address.",
+  "syno_h": "Synology DSM",
+  "syno_sub": "Port 5001 to DSM on 5001. Measured on DSM 7.4 behind nginx with ModSecurity (web pages, Synology Photos for iOS, File Station, Surveillance Station).",
+  "syno1": "Synology publishes no nginx example. The one official piece is DSM's trusted proxies: Control Panel > Security > Trusted proxies. Add the proxy's address there, or DSM's auto block and logs see every client as the proxy, and one wrong password can block everyone.",
+  "syno2": "One port for everything: the DSM pages, Synology Photos, Drive, File Station, Surveillance Station and DS cam all go through 5001 and /webapi/entry.cgi. Surveillance Station's own portal ports (9900, 9901) are not needed.",
+  "syno3": "Synology Photos for iOS uploads with \"multipart/form-data; charset=utf-8; boundary=...\". ModSecurity accepts only one \";\" before the boundary and would not inspect such a body at all. The map and the loopback server pass exactly this shape, with the standard Content-Type, to a server on 127.0.0.1 that inspects it in full.",
+  "syno4": "The example allows uploads up to 1 GB through ModSecurity (see \"Uploads and memory\"). Never switch ModSecurity off for an upload location by its path: DSM picks the API from the api parameter, also in the body, so such a location would be a way around every rule.",
+  "syno5": "Then apply the Synology DSM protection set: administration APIs from the local network only, the login and path attacks DSM has had, and the known false positives of Photos and the DSM pages left out.",
+  "qnap_h": "QNAP QTS",
+  "qnap_sub": "Port 443 to the QTS web port.",
+  "qnap_note": "Not measured on a real QNAP: we have none. This example and the QNAP protection set come from public documentation and advisories. Watch the events before publishing.",
+  "qnap1": "The QTS web interface and the apps (Qfile, QuMagie, Qsync) use the system's web port (Control Panel > System > General Settings). If the public port is not 443, Host needs the port as above.",
+  "qnap2": "QTS blocks the address it sees after failed logins (Network Access Protection). Behind a proxy that can be the proxy for everyone: check what your QTS version does with X-Forwarded-For before you rely on it.",
+  "qnap3": "Then apply the QNAP QTS protection set. Rules not yet measured on a real QTS are unticked by default.",
+  "generic_h": "Web applications",
+  "generic_sub": "The plain case, and the same with WebSocket.",
+  "gen_h3": "A web application",
+  "gen_p": "HTTPS on 443 to an application on http://192.0.2.20:8080; port 80 only redirects.",
+  "ws_h3": "A WebSocket application",
+  "ws_p": "The same, with the Upgrade and Connection headers for WebSocket.",
+  "sec_policy": "Security policy",
+  "disc": "Disclaimer: jt-waf-mgr is provided \"as is\", without warranty of any kind (AGPL-3.0, sections 15 and 16). These examples are starting points: check them against your own applications and versions. nginx, ModSecurity, OWASP CRS, Synology and QNAP are trademarks of their owners; this project is not affiliated with them."
+ },
+ "zh-TW": {
+  "title": "jt-waf-mgr：反向代理設定範例",
+  "nav_home": "首頁",
+  "nav_expect": "站台需要什麼",
+  "nav_common": "共通重點",
+  "nav_syno": "Synology DSM",
+  "nav_qnap": "QNAP QTS",
+  "nav_generic": "網頁應用程式",
+  "h1": "反向代理設定範例",
+  "lead": "jt-waf-mgr 保護的站台的 nginx server 區塊：一般網頁應用程式、使用 WebSocket 的應用程式、Synology DSM 與 QNAP QTS。範例和站台頁的「新站台的範例設定」用同一個產生器寫出，名稱與位址都是範例：請換成你自己的。",
+  "back": "← 專案首頁",
+  "copy": "複製",
+  "copied": "已複製",
+  "save_as": "存成",
+  "then_run": "接著執行",
+  "expect_h": "jt-waf-mgr 對站台的要求",
+  "expect_sub": "jt-waf-mgr 管理你自己的 nginx 上的 ModSecurity 與規則。server 區塊仍然由你管理。",
+  "expect1": "每個站台是你的 nginx 裡的一個 TLS server 區塊，並且載入 ModSecurity 模組。jt-waf-mgr 不會寫入 server 區塊。",
+  "expect2": "站台的 ModSecurity 從站台頁開啟：這是一筆變更，和其他變更一樣要經過檢查與核准。",
+  "expect3": "站台頁有同一個產生器 (「新站台的範例設定」)：回答幾個問題，就會寫出帶有你的憑證路徑與內部網段的區塊。",
+  "expect4": "先只限內網 (allow 與 deny 那幾行)，測試沒問題後刪掉那幾行，站台就對外發佈。",
+  "common_h": "共通重點",
+  "common_sub": "每個範例都這樣做，以及原因。",
+  "c1_h": "X-Forwarded-For：取代，不要附加",
+  "c1": "proxy_set_header X-Forwarded-For $remote_addr。$proxy_add_x_forwarded_for 會接在用戶端送來的值後面，而很多應用程式相信清單裡的第一個位址。偽造的值真的造成過危害：QNAP Notes Station 3 會把這個標頭放進 shell 指令 (CVE-2026-34007)。",
+  "c2_h": "不是 443 埠時，Host 要帶埠號",
+  "c2": "應用程式用 Host 組出轉址的網址。在 5001 埠只送 $host，瀏覽器會被轉到 443 埠：DSM 的 Surveillance Station 就這樣開到另一個站台。範例在 443 以外的埠用 $host:$server_port。",
+  "c2b": "相反的情況：443 埠前面有依站名轉到內部埠的 stream 時，瀏覽器用的仍然是 443，那裡要維持只送 $host。",
+  "c3_h": "每個額外的埠都關一道門",
+  "c3": "在每個額外的埠 (例如 5001) 放一個 default_server 加 ssl_reject_handshake 的 server：掃描位址或猜站名的請求連 TLS 交握都做不成，到不了 NAS。",
+  "c4_h": "上傳與記憶體",
+  "c4": "開了 ModSecurity，nginx 會先把整個請求內容讀進記憶體再轉送：CRS 檢查時是上傳大小的好幾倍。client_max_body_size 要遠低於主機記憶體；系統檢查的「大型上傳與記憶體」會估算。",
+  "c4b": "超過 SecRequestBodyLimit 的內容完全不會被檢查：防護組合的「請求內容未檢查」規則會從外部封鎖這種請求。",
+  "c5_h": "串流",
+  "c5": "上傳、下載與影片用 proxy_request_buffering off 與 proxy_buffering off，加上較長的逾時 (NAS 範例是 3600 秒)。沒有這些設定時，nginx 會先把整個檔案寫進暫存檔。",
+  "c6_h": "WebSocket",
+  "c6": "用 $http_upgrade 的 map，加上 Upgrade 與 Connection 標頭。DSM、QTS 與聊天類應用程式用它做通知與即時更新。",
+  "c7_h": "先只限內網",
+  "c7": "內部網段的 allow 加上 deny all：先從內網測試。要對外發佈時刪掉這幾行，再加上 DNS 名稱與連接埠轉送。",
+  "c8_h": "能用之後",
+  "c8": "在站台頁替站台開啟 ModSecurity，套用該應用程式的防護組合 (防護頁)，觀察幾天事件，再把網址告訴大家。",
+  "syno_h": "Synology DSM",
+  "syno_sub": "5001 埠轉到 DSM 的 5001。已在 nginx＋ModSecurity 後面的 DSM 7.4 實測 (網頁、Synology Photos iOS 版、File Station、Surveillance Station)。",
+  "syno1": "Synology 官方沒有提供 nginx 範例。唯一的官方設定是 DSM 的信任代理伺服器：「控制台 → 安全性 → 信任的代理伺服器」。把反向代理的位址加進去，否則 DSM 的自動封鎖與記錄會把所有用戶端都當成代理，一個人輸錯密碼可能封鎖所有人。",
+  "syno2": "一個埠就夠了：DSM 網頁、Synology Photos、Drive、File Station、Surveillance Station 與 DS cam 都經由 5001 與 /webapi/entry.cgi。不需要 Surveillance Station 自己的入口埠 (9900、9901)。",
+  "syno3": "Synology Photos iOS 版上傳時，Content-Type 在 boundary 前面多了一段 charset=utf-8，共有兩個分號。ModSecurity 只接受 boundary 前面有一個分號，這種內容會完全不檢查。map 與迴路 server 把剛好這個格式改成標準的 Content-Type，交給 127.0.0.1 上的 server 完整檢查。",
+  "syno4": "範例允許經過 ModSecurity 上傳最大 1 GB (請看「上傳與記憶體」)。不要依路徑替上傳的 location 關掉 ModSecurity：DSM 依 api 參數決定呼叫哪個 API，請求內容裡的也算，這種 location 會變成繞過所有規則的路。",
+  "syno5": "接著套用 Synology DSM 防護組合：管理 API 只限內網、DSM 出現過的登入與路徑攻擊，並排除 Photos 與 DSM 網頁已知的誤判。",
+  "qnap_h": "QNAP QTS",
+  "qnap_sub": "443 埠轉到 QTS 的網頁埠。",
+  "qnap_note": "沒有在真的 QNAP 上量測：本站沒有 QNAP 實機。這個範例與 QNAP 防護組合依據公開的文件與安全公告。對外發佈前請先觀察事件。",
+  "qnap1": "QTS 網頁介面與 App (Qfile、QuMagie、Qsync) 都用系統的網頁埠 (「控制台 → 系統 → 一般設定」)。對外的埠不是 443 時，Host 要和上面說的一樣帶埠號。",
+  "qnap2": "QTS 會在登入失敗後封鎖它看到的位址 (網路存取保護)。在反向代理後面，它看到的可能是代理本身，等於封鎖所有人：使用前請先確認你的 QTS 版本怎麼處理 X-Forwarded-For。",
+  "qnap3": "接著套用 QNAP QTS 防護組合。還沒在真的 QTS 上量測的規則預設不勾選。",
+  "generic_h": "網頁應用程式",
+  "generic_sub": "一般的情況，以及加上 WebSocket 的版本。",
+  "gen_h3": "一般網頁應用程式",
+  "gen_p": "443 埠的 HTTPS 轉到 http://192.0.2.20:8080 的應用程式；80 埠只轉址。",
+  "ws_h3": "使用 WebSocket 的應用程式",
+  "ws_p": "同上，加上 WebSocket 需要的 Upgrade 與 Connection 標頭。",
+  "sec_policy": "安全政策",
+  "disc": "免責聲明：jt-waf-mgr 依「現狀」提供，不附任何保證 (AGPL-3.0 第 15、16 條)。這些範例是起點：請依你的應用程式與版本確認。nginx、ModSecurity、OWASP CRS、Synology、QNAP 為各自所有者的商標，本專案與它們沒有隸屬關係。"
+ },
+ "ja": {
+  "title": "jt-waf-mgr：リバースプロキシーの設定例",
+  "nav_home": "ホーム",
+  "nav_expect": "サイトに必要なこと",
+  "nav_common": "共通のポイント",
+  "nav_syno": "Synology DSM",
+  "nav_qnap": "QNAP QTS",
+  "nav_generic": "Web アプリ",
+  "h1": "リバースプロキシーの設定例",
+  "lead": "jt-waf-mgr が守るサイトの nginx server ブロックです：一般的な Web アプリ、WebSocket を使うアプリ、Synology DSM、QNAP QTS。サイトページの「新しいサイトの設定例」と同じ生成器で書いたもので、名前とアドレスは例です。ご自分のものに置き換えてください。",
+  "back": "← プロジェクトページ",
+  "copy": "コピー",
+  "copied": "コピーしました",
+  "save_as": "保存先",
+  "then_run": "続けて実行",
+  "expect_h": "jt-waf-mgr がサイトに求めること",
+  "expect_sub": "jt-waf-mgr はお使いの nginx 上の ModSecurity とルールを管理します。server ブロックは引き続きあなたのものです。",
+  "expect1": "各サイトは nginx の TLS の server ブロックで、ModSecurity モジュールを読み込んでいること。jt-waf-mgr は server ブロックを書きません。",
+  "expect2": "サイトの ModSecurity はサイトページで有効にします。ほかの変更と同じく、チェックと承認を経る変更です。",
+  "expect3": "サイトページにも同じ生成器 (「新しいサイトの設定例」) があります。いくつかの質問に答えると、証明書のパスと内部ネットワークを入れたブロックを書きます。",
+  "expect4": "まずローカルネットワークだけ (allow と deny の行) で試し、問題がなければその行を消して公開します。",
+  "common_h": "共通のポイント",
+  "common_sub": "どの例にも入っていることと、その理由です。",
+  "c1_h": "X-Forwarded-For は置き換え、追加しない",
+  "c1": "proxy_set_header X-Forwarded-For $remote_addr。$proxy_add_x_forwarded_for はクライアントが送った値の後ろに追加し、多くのアプリは一覧の最初のアドレスを信じます。偽装した値は実害を出しています：QNAP Notes Station 3 はこのヘッダーをシェルコマンドに入れていました (CVE-2026-34007)。",
+  "c2_h": "443 以外のポートでは Host にポートを付ける",
+  "c2": "アプリは Host からリダイレクト先を作ります。5001 番で $host だけを渡すと、ブラウザーは 443 番に送られます。DSM の Surveillance Station は実際にそうして別のサイトを開きました。例では 443 以外のポートで $host:$server_port を使います。",
+  "c2b": "逆の場合：443 番の前に名前で内部ポートへ振り分ける stream があるときは、ブラウザーが使うのは 443 番のままなので $host だけにします。",
+  "c3_h": "追加のポートごとに閉じた入口を 1 つ",
+  "c3": "追加のポート (5001 など) ごとに default_server と ssl_reject_handshake の server を置きます。アドレスのスキャンや推測した名前は TLS のハンドシェイクもできず、NAS に届きません。",
+  "c4_h": "アップロードとメモリー",
+  "c4": "ModSecurity が有効だと、nginx はリクエスト本文をすべてメモリーに読み込んでから転送します。CRS の検査中はアップロードの数倍です。client_max_body_size はホストのメモリーより十分小さくしてください。システムチェックの「大きなアップロードとメモリー」が見積もります。",
+  "c4b": "SecRequestBodyLimit を超える本文はまったく検査されません。防御セットの「検査されなかったリクエスト本文」のルールが外部からのそうしたリクエストを拒否します。",
+  "c5_h": "ストリーミング",
+  "c5": "アップロード、ダウンロード、動画には proxy_request_buffering off と proxy_buffering off、長めのタイムアウト (NAS の例では 3600 秒)。ないと nginx はまずファイル全体を一時ファイルに書きます。",
+  "c6_h": "WebSocket",
+  "c6": "$http_upgrade の map と Upgrade、Connection ヘッダー。DSM、QTS、チャットアプリが通知やリアルタイム更新に使います。",
+  "c7_h": "まずローカルネットワークで",
+  "c7": "内部ネットワークの allow と deny all で、まず内部から試します。公開するときはこの行を消し、DNS 名とポート転送を追加します。",
+  "c8_h": "動いたら",
+  "c8": "サイトページでサイトの ModSecurity を有効にし、アプリの防御セットを適用して (防御ページ)、数日イベントを見てからアドレスを広めてください。",
+  "syno_h": "Synology DSM",
+  "syno_sub": "5001 番から DSM の 5001 番へ。nginx と ModSecurity の後ろの DSM 7.4 で実測しました (Web ページ、Synology Photos の iOS 版、File Station、Surveillance Station)。",
+  "syno1": "Synology は nginx の設定例を公開していません。公式なのは DSM の信頼できるプロキシーだけです：「コントロールパネル → セキュリティ → 信頼できるプロキシー」。プロキシーのアドレスを追加しないと、DSM の自動ブロックとログはすべてのクライアントをプロキシーと見なし、1 人のパスワード間違いで全員がブロックされることがあります。",
+  "syno2": "ポートは 1 つで足ります：DSM の画面、Synology Photos、Drive、File Station、Surveillance Station、DS cam はすべて 5001 番と /webapi/entry.cgi を通ります。Surveillance Station 専用のポート (9900、9901) は不要です。",
+  "syno3": "Synology Photos の iOS 版は「multipart/form-data; charset=utf-8; boundary=...」でアップロードします。ModSecurity は boundary の前のセミコロンを 1 つしか受け付けず、こうした本文をまったく検査しません。map とループバックの server が、まさにこの形だけを標準の Content-Type にして 127.0.0.1 の server に渡し、そこで完全に検査します。",
+  "syno4": "例では ModSecurity を通して最大 1 GB までアップロードできます (「アップロードとメモリー」を参照)。アップロードの location をパスで ModSecurity なしにしないでください：DSM は本文の中も含めて api パラメーターで API を選ぶので、そうした location はすべてのルールの抜け道になります。",
+  "syno5": "続けて Synology DSM の防御セットを適用します：管理 API はローカルネットワークだけ、DSM で起きたログインとパスへの攻撃、Photos と DSM の画面の既知の誤検知を除外。",
+  "qnap_h": "QNAP QTS",
+  "qnap_sub": "443 番から QTS の Web ポートへ。",
+  "qnap_note": "実際の QNAP では測っていません：QNAP を持っていないためです。この例と QNAP の防御セットは公開の文書とセキュリティアドバイザリーに基づきます。公開前にイベントを確認してください。",
+  "qnap1": "QTS の Web 画面とアプリ (Qfile、QuMagie、Qsync) はシステムの Web ポートを使います (「コントロールパネル → システム → 一般設定」)。公開ポートが 443 でない場合は、上のとおり Host にポートを付けます。",
+  "qnap2": "QTS はログインに失敗したアドレスをブロックします (ネットワークアクセス保護)。プロキシーの後ろではそれがプロキシー自身になり、全員がブロックされることがあります。頼る前に、お使いの QTS が X-Forwarded-For をどう扱うか確認してください。",
+  "qnap3": "続けて QNAP QTS の防御セットを適用します。実際の QTS でまだ測っていないルールは既定でオフです。",
+  "generic_h": "Web アプリ",
+  "generic_sub": "一般的な場合と、WebSocket を使う場合です。",
+  "gen_h3": "一般的な Web アプリ",
+  "gen_p": "443 番の HTTPS から http://192.0.2.20:8080 のアプリへ。80 番はリダイレクトだけです。",
+  "ws_h3": "WebSocket を使うアプリ",
+  "ws_p": "上と同じで、WebSocket 用の Upgrade と Connection ヘッダーを加えたものです。",
+  "sec_policy": "セキュリティポリシー",
+  "disc": "免責事項：jt-waf-mgr は「現状のまま」提供され、一切の保証はありません (AGPL-3.0 第 15 条・第 16 条)。これらの例は出発点です。お使いのアプリとバージョンで確認してください。nginx、ModSecurity、OWASP CRS、Synology、QNAP はそれぞれの所有者の商標であり、本プロジェクトはそれらと提携していません。"
+ }
+}
+function pick() {
+  const q = new URLSearchParams(location.search).get('lang')
+  if (T[q]) return q
+  const n = (navigator.language || 'en').toLowerCase()
+  return n.startsWith('zh') ? 'zh-TW' : n.startsWith('ja') ? 'ja' : 'en'
+}
+let cur = 'en'
+function apply(lang) {
+  const d = T[lang]
+  cur = lang
+  document.documentElement.lang = lang
+  document.title = d.title
+  for (const el of document.querySelectorAll('[data-t]')) el.textContent = d[el.dataset.t] || T.en[el.dataset.t] || ''
+  for (const b of document.querySelectorAll('#lang-menu button')) b.setAttribute('aria-checked', b.dataset.lang === lang ? 'true' : 'false')
+  document.getElementById('lang-cur').textContent = { en: 'EN', 'zh-TW': '繁中', ja: '日本語' }[lang]
+  for (const id of ['home-brand', 'home-btn', 'home-top']) document.getElementById(id).href = 'index.html?lang=' + lang
+  document.getElementById('sec-foot').href = 'https://github.com/jasoncheng7115/jt-waf-mgr/blob/main/SECURITY' + ({ 'zh-TW': '_zh-TW', ja: '_ja' }[lang] || '') + '.md'
+  const u = new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null, '', u)
+}
+// one language button; the menu opens below it. Escape, a click outside or picking a language closes it.
+const langBtn = document.getElementById('lang-btn'), langMenu = document.getElementById('lang-menu')
+function langOpen(open, focus) {
+  langMenu.hidden = !open
+  langBtn.setAttribute('aria-expanded', open ? 'true' : 'false')
+  if (open && focus) (langMenu.querySelector('[aria-checked="true"]') || langMenu.querySelector('button')).focus()
+  if (!open && focus) langBtn.focus()
+}
+langBtn.addEventListener('click', () => langOpen(langMenu.hidden, true))
+for (const b of langMenu.querySelectorAll('button')) b.addEventListener('click', () => { apply(b.dataset.lang); langOpen(false, true) })
+langMenu.addEventListener('keydown', (e) => {
+  const items = [...langMenu.querySelectorAll('button')], i = items.indexOf(document.activeElement)
+  if (e.key === 'Escape') { e.preventDefault(); langOpen(false, true) }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus() }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus() }
+})
+document.addEventListener('click', (e) => { if (!langMenu.hidden && !e.target.closest('.lang')) langOpen(false, false) })
+// copy an example: the clipboard API where the page may use it (https), else a selected text area
+function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text)
+  return new Promise((resolve, reject) => {
+    const ta = document.createElement('textarea')
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'
+    document.body.appendChild(ta); ta.select()
+    try { document.execCommand('copy') ? resolve() : reject(new Error('copy')) } catch (e) { reject(e) } finally { ta.remove() }
+  })
+}
+for (const b of document.querySelectorAll('button.copy')) b.addEventListener('click', () => {
+  copyText(document.getElementById(b.dataset.copy).textContent).then(() => {
+    b.textContent = T[cur].copied; b.classList.add('done')
+    setTimeout(() => { b.textContent = T[cur].copy; b.classList.remove('done') }, 1600)
+  }, () => {
+    const r = document.createRange(); r.selectNodeContents(document.getElementById(b.dataset.copy))
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r)
+  })
+})
+apply(pick())
+</script>
+</body>
+</html>

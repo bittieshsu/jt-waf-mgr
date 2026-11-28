@@ -388,7 +388,7 @@ Loosening always needs a person's approval.
   target as sent, not decoded, lowercased), `ua` (User-Agent), `host`, `header` (then `header` names it, for example
   `X-Api-Version`), `arg_name` (0.5.8: a parameter's name in the query string or the body, lowercased; anchor the
   expression with `^` and `$`) or `arg` (0.5.33: the value of the parameters `arg` names, in the query string or a form
-  body, lowercased; several names with `|`, at most 12, for example `api|compound`), or `body_unchecked` (0.5.42: a
+  body, lowercased; several names with `|`, at most 24 (12 before 0.5.49), for example `api|compound`), or `body_unchecked` (0.5.42: a
   request body ModSecurity did not inspect, over `SecRequestBodyLimit` / `SecRequestBodyNoFilesLimit` or unparsable;
   no `regex`, list the paths that take large uploads in `exceptions`). `arg_name`, `arg` and `body_unchecked` are
   checked once the body is read and have no evidence check (the access log has no bodies).

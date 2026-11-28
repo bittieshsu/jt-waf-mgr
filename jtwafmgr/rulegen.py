@@ -51,9 +51,14 @@ BLOCK_TARGETS = {
     # nginx with libmodsecurity 3.0.9, 3.0.14 and 3.0.17: no rule saw any of a form over 128 KB or an upload over
     # 12.5 MB, the defaults). No pattern: the rule matches when either flag is set.
     'body_unchecked': ('REQBODY_ERROR|INBOUND_DATA_ERROR', 't:none'),
+    # 0.5.49: the file name of a multipart upload part (filename="..."), as sent, phase 2 -- e.g. QNAP File Station's
+    # upload copying it into a 256-byte buffer (CVE-2026-26239..26241). Not lowercased: the pattern is about length and
+    # characters
+    'upload_name': ('FILES', 't:none'),
 }
 # targets only seen once the request body is read
-BODY_TARGETS = ('arg_name', 'arg', 'body_unchecked')
+ARG_NAMES_MAX = 24                          # names of one arg target (api|compound|...); 0.5.49: 12 -> 24
+BODY_TARGETS = ('arg_name', 'arg', 'body_unchecked', 'upload_name')
 # targets with no pattern of their own
 FLAG_TARGETS = ('body_unchecked',)
 ARG_RE = re.compile(r'^[A-Za-z0-9_][A-Za-z0-9_.\-]{0,63}$')
@@ -660,7 +665,7 @@ def _confident(spec, rid, cfg, internal):
     if target == 'arg':
         a = spec.get('arg') or ''
         names = a.split('|') if isinstance(a, str) else []
-        if not names or len(names) > 12 or not all(ARG_RE.match(n) for n in names):
+        if not names or len(names) > ARG_NAMES_MAX or not all(ARG_RE.match(n) for n in names):
             raise SpecError('arg', 'invalid_arg')
         # several names (api|compound): ARGS:api|ARGS:compound
         var = '|'.join('ARGS:' + n for n in names)

@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.5.48
+# jt-waf-mgr v0.5.49
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -51,6 +51,8 @@ JSON 監査ログを読み、ファイルを手で編集する必要がありま
 
 どの場合も jt-waf-mgr は nginx ホスト上で WAF の横に置かれます。リクエストは jt-waf-mgr を通らず、停止しても nginx と
 ModSecurity は最後のルールのまま動作し続けます。
+
+リバースプロキシーの nginx 設定例 (一般の Web サイト、WebSocket、Synology DSM、QNAP QTS と、各設定の理由)：[リバースプロキシーの設定例](https://jasoncheng7115.github.io/jt-waf-mgr/proxy.html?lang=ja)。
 
 ## 向いている場面・向いていない場面
 
@@ -179,7 +181,7 @@ jt-waf-mgr はリクエストの経路にありません。各リクエストは
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # リリースの決まった場所
-V=0.5.48; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.49; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # リリース、署名、公開鍵
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -389,7 +391,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新しいリリースも同じ current に展開
-V=0.5.48; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.49; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # すべての検査のみ、何も変更しない

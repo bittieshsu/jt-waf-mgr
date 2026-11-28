@@ -46,6 +46,10 @@ def _values(rule, test):
         m = re.search(r'boundary=([^;\s]+)', ctype)
         bad = (ctype.startswith('multipart/') and (not m or ('--%s--' % m.group(1)) not in body)) or len(body) > 131072
         return ['1'] if bad else ['0']
+    if target == 'upload_name':
+        # FILES: the filename="..." of each multipart part, as sent
+        body = test.get('body') or ''
+        return re.findall(r'filename="([^"]*)"', body) if 'multipart/' in (test.get('headers') or {}).get('Content-Type', '') else []
     raise AssertionError('no view for target %s' % target)
 
 

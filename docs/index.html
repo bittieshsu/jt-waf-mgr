@@ -266,7 +266,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
   <nav class="links">
     <a href="#features" data-t="nav_features"></a><a href="#flow" data-t="nav_flow"></a><a href="#ai" data-t="nav_ai"></a><a href="#intel" data-t="nav_intel"></a><a href="#alerts" data-t="nav_alerts"></a>
     <a href="#notify" data-t="nav_notify"></a><a href="#integrate" class="opt" data-t="nav_integrate"></a><a href="#security" class="opt" data-t="nav_security"></a><a href="#videos" data-t="nav_videos"></a><a href="#screens" data-t="nav_screens"></a>
-    <a href="#install" data-t="nav_install"></a><a href="#specs" class="opt" data-t="nav_specs"></a><a href="how.html" id="how-link" data-t="nav_how"></a>
+    <a href="#install" data-t="nav_install"></a><a href="#specs" class="opt" data-t="nav_specs"></a><a href="how.html" id="how-link" data-t="nav_how"></a><a href="proxy.html" id="proxy-link" data-t="nav_proxy"></a>
   </nav>
   <a class="gh-btn" href="https://github.com/jasoncheng7115/jt-waf-mgr" target="_blank" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span>GitHub</span></a>
   <div class="lang">
@@ -285,7 +285,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
 
 <div class="hero"><div class="wrap">
   <div>
-    <h1>jt-waf-mgr <span class="ver">v0.5.48</span></h1>
+    <h1>jt-waf-mgr <span class="ver">v0.5.49</span></h1>
     <p class="lead" data-t="lead"></p>
     <div class="btns">
       <a class="btn primary" href="https://github.com/jasoncheng7115/jt-waf-mgr">GitHub</a>
@@ -500,7 +500,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
       <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_dir"></span>
 sudo mkdir -p /opt/jt-waf-mgr-install &amp;&amp; cd /opt/jt-waf-mgr-install
 <span class="c" data-t="c_get"></span>
-V=<span class="v-cur">0.5.48</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=<span class="v-cur">0.5.49</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done
 <span class="c" data-t="c_verify"></span>
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
@@ -536,7 +536,7 @@ sudo nginx -t &amp;&amp; sudo systemctl reload nginx</pre></div>
       <div class="ihead"><span class="ic">↻</span><div><h3 data-t="ub_h"></h3><p data-t="ub_d"></p></div></div>
       <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_udir"></span>
 cd /opt/jt-waf-mgr-install
-V=<span class="v-cur">0.5.48</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=<span class="v-cur">0.5.49</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current &amp;&amp; sudo mkdir current &amp;&amp; sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 &amp;&amp; cd current
 <span class="c" data-t="c_ucheck"></span>
@@ -609,7 +609,7 @@ const T = {
   m2_h: 'nginx as a reverse proxy', m2: 'The sites run on other servers. nginx with ModSecurity sits in front of them as the WAF and forwards only the requests that pass.',
   m3_h: 'Both on one host', m3: 'Some sites served by this nginx, some proxied to other servers: one WAF, one set of rules, one interface, switched on site by site.',
   nav_specs: "Specs",
-  nav_how: "How it works",
+  nav_how: "How it works", nav_proxy: "Proxy examples",
   sp_h: "What's inside, and who wrote it",
   sp_sub: "jt-waf-mgr manages a WAF built from well-known open-source parts. This is what each part is, where it comes from and what we wrote ourselves. The rule list in the interface shows the same for every single rule.",
   sp1_h: "WAF engine",
@@ -832,7 +832,7 @@ const T = {
   m2_h: 'nginx 當反向代理', m2: '網站在後面其他的網站伺服器上；nginx 加上 ModSecurity 在前面提供 WAF 保護，只轉送通過檢查的請求。',
   m3_h: '混用', m3: '同一台 nginx 有些站台是本機網站、有些反向代理到其他伺服器，全部透過 ModSecurity 與 jt-waf-mgr 加強 WAF 防護，可以逐站啟用。',
   nav_specs: "規格",
-  nav_how: "運作架構",
+  nav_how: "運作架構", nav_proxy: "反向代理範例",
   sp_h: "規格與來源",
   sp_sub: "jt-waf-mgr 管理的是由知名開源元件組成的 WAF。下面列出每個部分是什麼、來自哪裡，以及哪些是 jt-waf-mgr 自己寫的。介面的規則清單也會逐條標示撰寫者。",
   sp1_h: "WAF 引擎",
@@ -1055,7 +1055,7 @@ const T = {
   m2_h: 'nginx がリバースプロキシ', m2: 'サイトは別のサーバーにあります。ModSecurity を組み込んだ nginx が前段で WAF として保護し、通過したリクエストだけを転送します。',
   m3_h: '両方を 1 台で', m3: '一部のサイトはこの nginx が配信し、一部は別のサーバーへプロキシします。WAF、ルール、画面は 1 つで、サイトごとに有効にできます。',
   nav_specs: "構成",
-  nav_how: "仕組み",
+  nav_how: "仕組み", nav_proxy: "プロキシー設定例",
   sp_h: "構成と作成元",
   sp_sub: "jt-waf-mgr が管理するのは、よく知られたオープンソースの部品で構成された WAF です。各部品が何で、どこから来ていて、どこを私たちが書いたのかを示します。画面のルール一覧でも、ルールごとに作成元を表示します。",
   sp1_h: "WAF エンジン",
@@ -1287,6 +1287,7 @@ function apply(lang) {
   }
   document.getElementById('lb-x').setAttribute('aria-label', d.close)
   document.getElementById('how-link').href = 'how.html?lang=' + lang
+  document.getElementById('proxy-link').href = 'proxy.html?lang=' + lang
   for (const a of document.querySelectorAll('a.guess-link')) a.href = 'how.html?lang=' + lang + '#guess'
   document.getElementById('cl-btn').href = 'https://github.com/jasoncheng7115/jt-waf-mgr/blob/main/CHANGELOG' + ({ 'zh-TW': '_zh-TW', ja: '_ja' }[lang] || '') + '.md'
   const mi = document.getElementById('modes-img'); mi.src = 'modes/deploy-modes.' + lang + '.svg'; mi.alt = d.modes_h

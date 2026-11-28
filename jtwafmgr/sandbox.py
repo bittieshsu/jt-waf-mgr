@@ -1,6 +1,6 @@
 """Sandbox: a throwaway nginx on 127.0.0.1 with the production ModSecurity configuration plus a
 candidate change (SPEC 6.3). Its audit log stays in a temporary directory (never reaches the
-production log or the SIEM). Client addresses come from X-Forwarded-For, trusted in the sandbox
+production log or the SIEM). Client addresses come from X-JTWAF-Client (0.5.49; was X-Forwarded-For), trusted in the sandbox
 only. Runs as the service user; nothing is left behind (processes, files, ports).
 """
 import base64
@@ -186,7 +186,7 @@ http {
     server {
         listen 127.0.0.1:%(port)d;
         set_real_ip_from 127.0.0.1;
-        real_ip_header X-Forwarded-For;
+        real_ip_header X-JTWAF-Client;
         client_max_body_size 20m;
         modsecurity on;
         location / { proxy_pass http://127.0.0.1:%(backend)d; proxy_set_header Host $host; }
@@ -310,7 +310,9 @@ http {
         ip = EXTERNAL_IP if c.get('source', 'external') == 'external' else self.internal_ip
         if c.get('src_ip') and c.get('source', 'external') == 'external':
             ip = c['src_ip']          # a test from one country (country rules): a public address of that country
-        headers = {'Host': c['host'], 'X-Forwarded-For': ip, 'X-JTWAF-Case': str(i)}
+        # 0.5.49: the client address in a header of the sandbox's own (it was X-Forwarded-For, so a test could not send
+        # one: QNAP's X-Forwarded-For injection, CVE-2026-34007)
+        headers = {'Host': c['host'], 'X-JTWAF-Client': ip, 'X-JTWAF-Case': str(i)}
         if not c.get('upstream'):
             # (the hub's own request is sent as it was written: a rule about requests without one must see none)
             headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64) jt-waf-mgr-sandbox'

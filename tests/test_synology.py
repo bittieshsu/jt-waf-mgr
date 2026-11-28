@@ -140,6 +140,7 @@ class TestArgTarget(unittest.TestCase):
 
     def test_rule_text(self):
         from jtwafmgr import rulegen
+        from jtwafmgr.evidence import Evidence
         norm, text, placement = rulegen.build('confident_block', {
             'target': 'arg', 'arg': 'api', 'regex': r'^syno\.core\.', 'msg': 'DSM admin API from outside',
             'host': {'mode': 'exact', 'value': 'nas.example.com'}}, 10280, self.app.cfg)
@@ -148,7 +149,7 @@ class TestArgTarget(unittest.TestCase):
         self.assertIn('phase:2', text)
         self.assertIn('t:none,t:lowercase', text)
         self.assertIn('arg', rulegen.BODY_TARGETS)
-        for bad in ('', 'a b', 'x' * 70, None, 5, 'api|', '|api', '-x', '|'.join('abcdefghijklm'), 'api:x', '/^a/'):
+        for bad in ('', 'a b', 'x' * 70, None, 5, 'api|', '|api', '-x', '|'.join('abcdefghijklmnopqrstuvwxy'), 'api:x', '/^a/'):
             with self.assertRaises(rulegen.SpecError):
                 rulegen.build('confident_block', {'target': 'arg', 'arg': bad, 'regex': '^x', 'msg': 'x'}, 10280, self.app.cfg)
         n2, _, _ = rulegen.build('confident_block', {'target': 'arg', 'arg': 'json.api', 'regex': '^x', 'msg': 'x'}, 10280,
@@ -160,6 +161,15 @@ class TestArgTarget(unittest.TestCase):
         n3, _, _ = rulegen.build('confident_block', {'target': 'path', 'regex': '^/x', 'msg': 'x', 'arg': 'api'}, 10280,
                                  self.app.cfg)
         self.assertNotIn('arg', n3)                  # only the arg target keeps it
+        # 0.5.49: 24 names fit one arg target; an upload's file name (FILES), phase 2, as sent
+        rulegen.build('confident_block', {'target': 'arg', 'arg': '|'.join('abcdefghijklmnopqrstuvwx'), 'regex': 'x',
+                                          'msg': 'x'}, 10280, self.app.cfg)
+        _, t5, _ = rulegen.build('confident_block', {'target': 'upload_name', 'regex': '[^/\\\\]{256}', 'msg': 'x'},
+                                 10280, self.app.cfg)
+        self.assertTrue(t5.startswith('SecRule FILES "@rx '), t5)
+        self.assertIn('phase:2', t5)
+        self.assertNotIn('t:lowercase', t5.split('\n')[0])
+        self.assertIsNone(Evidence.rule_view({'target': 'upload_name', 'regex': 'x'}))
 
     def test_evidence_skips_it(self):
         from jtwafmgr.evidence import Evidence

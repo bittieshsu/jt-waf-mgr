@@ -2,6 +2,24 @@
 
 [English](CHANGELOG.md) · [繁體中文](CHANGELOG_zh-TW.md) · **日本語**
 
+## 0.5.49 (2026-11-28)
+
+- Synology DSM 保護セット (公開されたアドバイザリーと研究から、DSM 7.4 で実測)：
+  - 「管理 API はローカルネットワークからのみ」にセキュリティアドバイザー (SYNO.Core.SecurityScan、CVE-2026-124993 はログイン不要) を追加しました。
+  - 「本文を DSM と同じように解析」とその 2 つのルールがパッケージのプログラム (`/webapi/AudioStation/*.cgi`、`/webapi/DownloadStation/*.cgi`) も対象にします。実測で、これらも entry.cgi と同じく multipart 以外の本文をフォームとして読むため、別の型の本文でルールに見えないパラメーターを運べました。
+  - 「../ を含むファイルパス」が File Station、Synology Drive、Download Station の宛先、新しい名前、コピーするファイルを指定するパラメーター (dest_file_path、goto_path、new_name、to_parent_folder、files、destination) も確認します。
+  - ログイン攻撃 CVE-2024-10441 の印 (PLUGIN_VALUE_END、LD_PRELOAD= など) を含む一括リクエスト (compound) も拒否します。ログイン欄では LD_LIBRARY_PATH と LD_AUDIT も確認します。
+- QNAP QTS 保護セット (公開されたアドバイザリーと研究から。QNAP の実機がないため、測っていないルールは既定でオフ)：
+  - 追加：シェル文字を含む、または 512 バイトを超える X-Forwarded-For (Notes Station 3 の CVE-2026-34007 はログインなしでシェルコマンドへ、authLogin.cgi のオーバーフロー CVE-2017-17029)。
+  - 追加：シェル文字を含む NTP サーバー、タスク ID、ハッシュ (VioStor CVE-2023-47565、CISA KEV、Mirai が悪用。EDB-41842)。
+  - 追加：1024 文字を超えるパスワード、ユーザー名、言語 (ZDI-17-1003、1006～1008、ログイン前のオーバーフロー)。
+  - 追加：255 バイトを超えるアップロードのファイル名 (File Station 5、CVE-2026-26239～26241)。既定ではオフ：中国語の約 86 文字の名前で 256 バイトになり、実機で測っていません。
+  - 「../ を含むファイル名とパス」が File Station のパラメーターを 10 個多く確認します。セッション Cookie のルールは NAS_SID と ../ (CVE-2019-7193) も確認します。
+- 確定ブロックの新しい対象：アップロードのファイル名 (multipart、ModSecurity の FILES)。`arg` の対象はパラメーター名を最大 24 個まで (以前は 12 個)。
+- サンドボックスは送信元アドレスを独自のヘッダー `X-JTWAF-Client` で渡します (以前は X-Forwarded-For だったため、テストが自分の X-Forwarded-For を送れませんでした)。
+- サイトページの「新しいサイトの設定例」：443 以外のポートでは、バックエンドに渡す Host ヘッダーにポートを含めます。DSM は Host からリダイレクト先を作るため、ポートがないと Surveillance Station などが 443 番ポートに送られていました (当サイトで発生)。QNAP QTS の種類を追加しました。
+- プロジェクトサイト：リバースプロキシーの設定例のページを追加しました (一般の Web サイト、WebSocket、Synology DSM、QNAP QTS)。各設定の理由も説明します。設定例はプログラムが生成し、サイトページの例と同じです。
+
 ## 0.5.48 (2026-11-28)
 
 - CRS スコアによる外部リクエストの拒否：新規の ModSecurity から管理を始めたホスト (エンジンは検知のみ) では、CRS スコアは外部に対しても記録だけで、確定ブロックルールだけが拒否していました。設定にはスコア拒否ルールの ID (`waf.threshold_rule_ids`、10297) があるのに、そのルールを書くものがありませんでした。ダッシュボードの「未設定の項目」に表示し、ワンクリックで変更を提案できます (チェック、サンドボックス、承認を経て有効)：しきい値以上の外部リクエストを拒否し、内部は引き続き記録だけです。コマンドライン：`jt-waf-mgr scoreblock status|propose`。

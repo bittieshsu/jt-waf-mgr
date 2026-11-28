@@ -2,6 +2,24 @@
 
 [English](CHANGELOG.md) · **繁體中文** · [日本語](CHANGELOG_ja.md)
 
+## 0.5.49 (2026-11-28)
+
+- Synology DSM 防護組合 (依網路上的公告與研究、DSM 7.4 實測)：
+  - 「管理 API 只限內網」加上安全諮詢中心 (SYNO.Core.SecurityScan，CVE-2026-124993 不必登入)。
+  - 「請求內容照 DSM 的方式解析」等三條也涵蓋套件程式的路徑 (`/webapi/AudioStation/*.cgi`、`/webapi/DownloadStation/*.cgi`)：實測這些路徑和 entry.cgi 一樣，任何非 multipart 的內容都當表單讀取，之前在這些路徑上換個內容類型仍能夾帶規則看不到的參數。
+  - 「檔案路徑含 ../」多檢查 File Station、Synology Drive 與 Download Station 指定目的地、新名稱或要複製檔案的參數 (dest_file_path、goto_path、new_name、to_parent_folder、files、destination)。
+  - 批次請求 (compound) 裡含有登入攻擊 CVE-2024-10441 標記 (PLUGIN_VALUE_END、LD_PRELOAD= 等) 也封鎖；登入欄位多認 LD_LIBRARY_PATH 與 LD_AUDIT。
+- QNAP QTS 防護組合 (依網路上的公告與研究；沒有 QNAP 實機，未量測的規則預設不勾選)：
+  - 新增「X-Forwarded-For 含 shell 字元或超過 512 位元組」(Notes Station 3 CVE-2026-34007 不必登入放進 shell 指令、authLogin.cgi 溢位 CVE-2017-17029)。
+  - 新增「NTP 伺服器、工作編號或雜湊值含 shell 字元」(VioStor CVE-2023-47565，CISA KEV，Mirai 實際利用；EDB-41842)。
+  - 新增「超過 1024 字元的密碼、使用者名稱或語言」(ZDI-17-1003、1006～1008，不必登入的溢位)。
+  - 新增「超過 255 位元組的上傳檔名」(File Station 5 CVE-2026-26239～26241)，預設不勾選：約 86 個中文字的檔名就有 256 位元組，還沒在實機量測。
+  - 「含 ../ 的檔名與路徑」多檢查 File Station 的 10 個參數；工作階段 cookie 規則也檢查 NAS_SID 與 ../ (CVE-2019-7193)。
+- 確定封鎖新目標「上傳檔名 (multipart)」(ModSecurity 的 FILES)；`arg` 目標一次最多 24 個參數名稱 (之前 12 個)。
+- 沙箱改用自己的標頭 `X-JTWAF-Client` 模擬來源位址 (之前用 X-Forwarded-For，所以測試無法送出自己的 X-Forwarded-For)。
+- 站台頁「新站台的範例設定」：對外不是 443 埠時，轉給後端的 Host 標頭帶埠號。DSM 用 Host 組轉址網址，沒有埠號時 Surveillance Station 等會被轉到 443 埠 (本站實際遇到)。新增 QNAP QTS 類型。
+- 專案網站新增「反向代理設定範例」頁：一般網站、WebSocket、Synology DSM、QNAP QTS，以及各種設定的原因；範例由程式產生，和站台頁的範例一致。
+
 ## 0.5.48 (2026-11-28)
 
 - CRS 分數封鎖外部請求：從全新 ModSecurity 納管的主機 (引擎只偵測)，以前 CRS 分數對外部也只記錄，只有確定封鎖規則會封鎖；設定裡寫了分數封鎖規則的編號 (`waf.threshold_rule_ids`，10297)，卻沒有人寫這條規則。儀表板「尚未完成的設定」現在會列出來，並可一鍵提出變更 (經過檢查、沙箱與核准才生效)：外部來源分數達到門檻就封鎖，內網照舊只記錄。命令列 `jt-waf-mgr scoreblock status|propose`。

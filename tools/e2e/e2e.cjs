@@ -737,6 +737,19 @@ async function audit(page, where) {
   const exCode = await page.locator('#vhost-example pre.codeblock').first().innerText().catch(() => '');
   ok(/listen 5001 ssl;/.test(exCode) && /ssl_reject_handshake on;/.test(exCode) && /client_max_body_size 1g;/.test(exCode) &&
      (await page.locator('#vhost-example .copytext button').count()) === 1, 'sites: an example for a new Synology DSM site, to copy');
+  // 0.5.49: off port 443 the back end sees the port (DSM builds redirects from Host); a QNAP QTS type
+  ok((exCode.match(/proxy_set_header Host \$host:\$server_port;/g) || []).length === 2 && /proxy_set_header Host \$host:5001;/.test(exCode),
+     'sites: the Synology example keeps the port in Host');
+  await page.locator('#vx-preset').click();
+  await page.getByRole('option', { name: 'QNAP QTS' }).click();
+  await page.locator('#vhost-example input[placeholder="https://192.0.2.18:5001"]').fill('https://192.0.2.19:443');
+  await page.locator('#vhost-example button', { hasText: '產生範例' }).click();
+  await page.waitForFunction(() => /QNAP QTS/.test((document.querySelector('#vhost-example pre.codeblock') || {}).innerText || ''),
+    null, { timeout: 8000 }).catch(() => {});
+  const qCode = await page.locator('#vhost-example pre.codeblock').first().innerText().catch(() => '');
+  ok(/QNAP QTS/.test(qCode) && /listen 443 ssl;/.test(qCode) && /proxy_set_header Host \$host;/.test(qCode) &&
+     /client_max_body_size 1g;/.test(qCode) && /proxy_set_header Upgrade \$http_upgrade;/.test(qCode),
+     'sites: an example for a new QNAP QTS site');
   await page.locator('button.viewconf').first().click();
   await page.waitForSelector('#vhost-config pre.codeblock', { timeout: 8000 }).catch(() => {});
   const siteConf = await page.locator('#vhost-config pre.codeblock').innerText().catch(() => '');

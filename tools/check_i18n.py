@@ -140,7 +140,7 @@ ZH_TERMS = [('收編', '納管'), ('擋下', '封鎖'), ('阻擋', '封鎖'), ('
 # Chinese documents held to the same wording (user 2026-11-26: a CHANGELOG line slipped through); the CHANGELOG
 # only for its newest section, since older entries quote the old words when they describe a rename
 ZH_DOCS = ['README_zh-TW.md', 'SECURITY_zh-TW.md', 'TEST_PLAN_zh-TW.md', 'TEST_CHECKLIST_zh-TW.md', 'docs/index.html',
-           'docs/how.html', 'docs/API.zh-TW.md', 'docs/COMPLIANCE.zh-TW.md', 'docs/MODSECURITY.zh-TW.md',
+           'docs/how.html', 'docs/proxy.html', 'docs/API.zh-TW.md', 'docs/COMPLIANCE.zh-TW.md', 'docs/MODSECURITY.zh-TW.md',
            'docs/OFFLINE.zh-TW.md', 'docs/RECOVERY.zh-TW.md']
 ZH_CHANGELOG = 'CHANGELOG_zh-TW.md'
 

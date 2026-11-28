@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.5.48
+# jt-waf-mgr v0.5.49
 
 **English** · [繁體中文](README_zh-TW.md) · [日本語](README_ja.md)
 
@@ -54,6 +54,8 @@ something you can read, and every change into a workflow you can trust:
 
 In every case jt-waf-mgr runs on the nginx host, beside the WAF: requests never pass through it, and if it stops,
 nginx and ModSecurity keep working with the last rules.
+
+nginx examples for a reverse proxy (a web site, WebSocket, Synology DSM, QNAP QTS, and the reason for each setting): [reverse proxy examples](https://jasoncheng7115.github.io/jt-waf-mgr/proxy.html?lang=en).
 
 ## When it fits — and when it does not
 
@@ -237,7 +239,7 @@ measuring on your own traffic before you rely on it; a CDN or cloud WAF is the o
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # a fixed place for the releases
-V=0.5.48; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.49; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # the release, its signature, the public key
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -462,7 +464,7 @@ the file next to the current values and writes only what you tick).
 
 ```sh
 cd /opt/jt-waf-mgr-install   # the new release, unpacked into the same current
-V=0.5.48; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.49; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # every check, nothing changed

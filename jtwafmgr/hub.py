@@ -288,7 +288,8 @@ TEMPLATE_KEYS = {'id', 'info', 'http', 'requests', 'variables'}
 REQUEST_KEYS = {'raw', 'method', 'path', 'headers', 'body', 'matchers', 'matchers-condition', 'cookie-reuse', 'max-size',
                 'stop-at-first-match', 'redirects', 'max-redirects', 'skip-variables-check'}
 DROP_HEADERS = ('host', 'content-length', 'connection', 'transfer-encoding')
-# the sandbox gives each request its client address in X-Forwarded-For: a test that sets it cannot be sent as it is
+# the sandbox gave each request its client address in X-Forwarded-For until 0.5.49 (now X-JTWAF-Client); the hub's
+# tests that set it stay out until they are measured again on real nginx
 UNSENDABLE_HEADERS = ('x-forwarded-for',)
 _PLACEHOLDER = re.compile(r'\{\{([^{}]{1,200})\}\}')
 

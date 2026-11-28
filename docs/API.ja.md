@@ -377,7 +377,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
 
 - `target`：`path`（デフォルト。URL デコード、正規化、小文字化。0.4.93 から生のパスも検査し、libmodsecurity 3.0.9 がエンコードされた「?」で切ったパスも見えます）、`uri`（パスとクエリ、小文字化）、`raw_uri` (0.4.93：送られたままのリクエストターゲット、デコードなし、小文字化)、`ua`
   （User-Agent）、`host`、`header`（このとき `header` で名前を指定。例：`X-Api-Version`）、`arg_name` (0.5.8：クエリ文字列または本文のパラメーター名、小文字化。正規表現は `^` と `$` で囲む)、
-  `arg` (0.5.33：`arg` で指定したパラメーターの値。クエリ文字列またはフォーム本文、小文字化。複数の名前は `|` 区切りで最大 12 個。例：`api|compound`)、
+  `arg` (0.5.33：`arg` で指定したパラメーターの値。クエリ文字列またはフォーム本文、小文字化。複数の名前は `|` 区切りで最大 24 個 (0.5.49 より前は 12 個)。例：`api|compound`)、
   または `body_unchecked` (0.5.42：ModSecurity が検査しなかったリクエスト本文。`SecRequestBodyLimit` / `SecRequestBodyNoFilesLimit` 超過または解析不能。`regex` は不要、大きなアップロードを受けるパスは `exceptions` に)。`arg_name`、`arg`、`body_unchecked` は本文を読んだ後に検査し、証拠チェックはありません (アクセスログに本文がないため)。
 - `regex`：必須 (`body_unchecked` を除く)、1000 文字まで、ダブルクォートと改行は不可。空文字列にマッチする（`matches_empty`）、ほぼすべての通常の
   リクエストにマッチする（`too_broad`）、破滅的なバックトラックのおそれがある（`redos_shape`、`redos_runtime`）場合は
