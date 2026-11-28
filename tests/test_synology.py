@@ -170,6 +170,14 @@ class TestArgTarget(unittest.TestCase):
         self.assertIn('phase:2', t5)
         self.assertNotIn('t:lowercase', t5.split('\n')[0])
         self.assertIsNone(Evidence.rule_view({'target': 'upload_name', 'regex': 'x'}))
+        # 0.5.50: a PHP array field (LibreNMS notification_id[]) is a name of its own; brackets elsewhere are refused
+        _, t6, _ = rulegen.build('confident_block', {'target': 'arg', 'arg': 'notification_id|notification_id[]',
+                                                     'regex': '[;]', 'msg': 'x'}, 10280, self.app.cfg)
+        self.assertTrue(t6.startswith('SecRule ARGS:notification_id|ARGS:notification_id[] "@rx [;]"'), t6)
+        for bad in ('a[b]', '[]', 'a[]]', 'a b'):
+            with self.assertRaises(rulegen.SpecError):
+                rulegen.build('confident_block', {'target': 'arg', 'arg': bad, 'regex': '[;]', 'msg': 'x'}, 10280,
+                              self.app.cfg)
 
     def test_evidence_skips_it(self):
         from jtwafmgr.evidence import Evidence

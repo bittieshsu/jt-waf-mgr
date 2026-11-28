@@ -2,6 +2,15 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.50 (2026-11-28)
+
+- LibreNMS protection set (12 rules, from the LibreNMS security advisories, NVD and the routes in its source; measured against seven weeks of real LibreNMS requests, none matched):
+  - From outside: administration pages (settings, users and roles, API tokens, plugin settings, validation and the installer, pollers, alert transports and templates, alert rule editing, stored secrets, adding, editing and deleting devices, network tools, debug captures). Dashboards, graphs, device pages, maps, searches and acknowledging alerts keep working.
+  - From anywhere: the API token as a parameter (CVE-2026-86426, no login needed), SQL in the notification id (CVE-2026-109353), the address search (CVE-2026-26990), the API sort order (CVE-2024-32480) and the package search (CVE-2024-32461), shell characters in device host names (CVE-2024-51092), quotes and line breaks in graph parameters (rrdtool, CVE-2026-86427 and older), the password in the query string (CVE-2023-46745), .. in NfSen channels (CVE-2026-109354).
+  - Not ticked by default: HTTP Basic authentication from outside (CVE-2026-109357; leave it off when people use http-auth from outside) and the API from outside (the LibreNMS mobile app uses it).
+  - Every rule's own requests were replayed in a real nginx + ModSecurity 3.0.9 and 3.0.17 + CRS 4.30 sandbox: each attack refused by its own rule, each ordinary request touched by no rule.
+- A parameter rule can name a PHP array field (notification_id[]), which ModSecurity keeps as a name of its own.
+
 ## 0.5.49 (2026-11-28)
 
 - Synology DSM protection set (from published advisories and research, measured on DSM 7.4):

@@ -29,6 +29,10 @@ def _values(rule, test):
         args = urllib.parse.parse_qsl(urllib.parse.urlsplit(path).query, keep_blank_values=True)
         if test.get('body') and 'urlencoded' in (test.get('headers') or {}).get('Content-Type', ''):
             args += urllib.parse.parse_qsl(test['body'], keep_blank_values=True)
+        if test.get('body') and 'json' in (test.get('headers') or {}).get('Content-Type', ''):
+            # libmodsecurity: json.<key>, an array's items json.<key>.array_<n>
+            for k, v in json.loads(test['body']).items():
+                args += [('json.%s.array_%d' % (k, i), '') for i in range(len(v))] if isinstance(v, list) else [('json.' + k, '')]
         return [k.lower() for k, _ in args]
     if target == 'path':
         return [urllib.parse.unquote(urllib.parse.urlsplit(path).path).lower()]

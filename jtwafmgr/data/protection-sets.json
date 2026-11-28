@@ -2877,6 +2877,524 @@
      ]
     }
    ]
+  },
+  {
+   "id": "librenms",
+   "app": "LibreNMS / Observium",
+   "rules": [
+    {
+     "id": "api-token-param",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg_name",
+      "regex": "^(?:json\\.)?api_token(?:\\.array_[0-9]+)?$",
+      "msg": "LibreNMS API token sent as a parameter (CVE-2026-86426)",
+      "reference": "https://github.com/librenms/librenms/security/advisories/",
+      "source": "all"
+     },
+     "tests": [
+      {
+       "path": "/api/v0/devices",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/json"
+       },
+       "body": "{\"api_token\": 1}",
+       "expect": 403,
+       "source": "internal"
+      },
+      {
+       "path": "/api/v0/devices?api_token=1",
+       "method": "GET",
+       "expect": 403,
+       "source": "internal"
+      },
+      {
+       "path": "/api/v0/devices",
+       "method": "GET",
+       "headers": {
+        "X-Auth-Token": "0123456789abcdef0123456789abcdef"
+       },
+       "expect": 200,
+       "source": "internal"
+      }
+     ],
+     "refs": [
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-86426"
+     ],
+     "cves": [
+      "CVE-2026-86426"
+     ]
+    },
+    {
+     "id": "basic-auth-external",
+     "default": false,
+     "needs": [],
+     "spec": {
+      "target": "header",
+      "header": "Authorization",
+      "regex": "^[Bb][Aa][Ss][Ii][Cc]\\s",
+      "msg": "HTTP Basic authentication from outside (LDAP wildcard CVE-2026-109357)",
+      "reference": "https://github.com/librenms/librenms/security/advisories/",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/",
+       "method": "GET",
+       "headers": {
+        "Authorization": "Basic Kjoq"
+       },
+       "expect": 403
+      },
+      {
+       "path": "/device/12/overview",
+       "method": "GET",
+       "headers": {
+        "Authorization": "Bearer 12|abcdefabcdefabcdef"
+       },
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-109357"
+     ],
+     "cves": [
+      "CVE-2026-109357"
+     ]
+    },
+    {
+     "id": "notification-id",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "notification_id|notification_id[]",
+      "regex": "[\\s()\\x27\\x22\\x60;=*<>|&#\\x5c,-]",
+      "msg": "LibreNMS notification id with SQL characters (CVE-2026-109353)",
+      "reference": "https://github.com/librenms/librenms/security/advisories/",
+      "source": "all"
+     },
+     "tests": [
+      {
+       "path": "/ajax_form.php",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "type=notifications&action=read&notification_id%5B%5D=1%29+or+sleep%285%29--+",
+       "expect": 403,
+       "source": "internal"
+      },
+      {
+       "path": "/ajax_form.php",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "type=notifications&action=read&notification_id=1+or+1%3D1",
+       "expect": 403,
+       "source": "internal"
+      },
+      {
+       "path": "/ajax_form.php",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "type=notifications&action=read&notification_id%5B%5D=12&notification_id%5B%5D=13",
+       "expect": 200,
+       "source": "internal"
+      }
+     ],
+     "refs": [
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-109353"
+     ],
+     "cves": [
+      "CVE-2026-109353"
+     ]
+    },
+    {
+     "id": "address-search",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "address",
+      "regex": "/[0-9]{0,3}[\\s()\\x27\\x22\\x60;=*<>|&#\\x5c-]",
+      "msg": "LibreNMS address search with text after the prefix length (CVE-2026-26990)",
+      "reference": "https://github.com/librenms/librenms/security/advisories/",
+      "source": "all"
+     },
+     "tests": [
+      {
+       "path": "/ajax_table.php",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "id=address-search&search_type=ipv4&address=192.168.77.0%2F24%27+and+sleep%285%29--+",
+       "expect": 403,
+       "source": "internal"
+      },
+      {
+       "path": "/ajax_table.php",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "id=address-search&search_type=ipv4&address=192.168.77.0%2F24&current=1&rowCount=50",
+       "expect": 200,
+       "source": "internal"
+      }
+     ],
+     "refs": [
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-26990",
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-26988"
+     ],
+     "cves": [
+      "CVE-2026-26988",
+      "CVE-2026-26990"
+     ]
+    },
+    {
+     "id": "hostname-shell",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "hostname|json.hostname|new_hostname|json.new_hostname",
+      "regex": "[\\x60$;|&<>(){}\\x27\\x22\\x5c\\x0a\\x0d]",
+      "msg": "LibreNMS device host name with shell characters (CVE-2024-51092)",
+      "reference": "https://github.com/librenms/librenms/security/advisories/",
+      "source": "all"
+     },
+     "tests": [
+      {
+       "path": "/device/add",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "hostname=sw1%24%28id%29&snmpver=v2c&community=public",
+       "expect": 403,
+       "source": "internal"
+      },
+      {
+       "path": "/api/v0/devices",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/json"
+       },
+       "body": "{\"hostname\": \"sw1;id\", \"version\": \"v2c\"}",
+       "expect": 403,
+       "source": "internal"
+      },
+      {
+       "path": "/device/add",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "hostname=sw-01.example.com&snmpver=v2c&community=public",
+       "expect": 200,
+       "source": "internal"
+      }
+     ],
+     "refs": [
+      "https://nvd.nist.gov/vuln/detail/CVE-2024-51092",
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-84194"
+     ],
+     "cves": [
+      "CVE-2024-51092",
+      "CVE-2026-84194"
+     ]
+    },
+    {
+     "id": "graph-param-injection",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "raw_uri",
+      "regex": "[/?&;](?:graph_title|title|legend|from|to|type)=[^&#]*(?:%22|%60|%0a|%0d|%5c|%24%28|\\x22|\\x60|\\$\\()",
+      "msg": "LibreNMS graph parameter with quotes, backticks or line breaks",
+      "reference": "https://github.com/librenms/librenms/security/advisories/",
+      "source": "all"
+     },
+     "tests": [
+      {
+       "path": "/graph.php?type=device_bits&id=1&graph_title=a%22%0a--imgformat",
+       "method": "GET",
+       "expect": 403,
+       "source": "internal"
+      },
+      {
+       "path": "/graph.php?type=port_bits&id=12&from=%60id%60&to=1795850000",
+       "method": "GET",
+       "expect": 403,
+       "source": "internal"
+      },
+      {
+       "path": "/graph/type=port_bits/id=12/from=end-24h/legend=no/",
+       "method": "GET",
+       "expect": 200,
+       "source": "internal"
+      }
+     ],
+     "refs": [
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-86427",
+      "https://nvd.nist.gov/vuln/detail/CVE-2019-10669",
+      "https://nvd.nist.gov/vuln/detail/CVE-2020-15874"
+     ],
+     "cves": [
+      "CVE-2019-10665",
+      "CVE-2019-10669",
+      "CVE-2020-15874",
+      "CVE-2026-86427"
+     ]
+    },
+    {
+     "id": "password-in-query",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "raw_uri",
+      "regex": "[?&]password=",
+      "msg": "LibreNMS password in the query string (CVE-2023-46745)",
+      "reference": "https://github.com/librenms/librenms/security/advisories/",
+      "source": "all"
+     },
+     "tests": [
+      {
+       "path": "/?username=admin&password=x",
+       "method": "GET",
+       "expect": 403,
+       "source": "internal"
+      },
+      {
+       "path": "/login",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "username=alice&password=x&_token=abc",
+       "expect": 200,
+       "source": "internal"
+      }
+     ],
+     "refs": [
+      "https://nvd.nist.gov/vuln/detail/CVE-2023-46745"
+     ],
+     "cves": [
+      "CVE-2023-46745"
+     ]
+    },
+    {
+     "id": "nfsen-traversal",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "raw_uri",
+      "regex": "[/?&;](?:nfsen|channel)=[^&#]*(?:\\.|%2e){2}",
+      "msg": "LibreNMS NfSen channel with ..",
+      "reference": "https://github.com/librenms/librenms/security/advisories/",
+      "source": "all"
+     },
+     "tests": [
+      {
+       "path": "/graph.php?type=device_nfsen_channel&id=1&channel=..%2F..%2F..%2Fetc%2Fpasswd",
+       "method": "GET",
+       "expect": 403,
+       "source": "internal"
+      },
+      {
+       "path": "/device/1/tab=netflow/nfsen=%2e%2e%2fetc/",
+       "method": "GET",
+       "expect": 403,
+       "source": "internal"
+      },
+      {
+       "path": "/graph.php?type=device_nfsen_channel&id=1&channel=port80",
+       "method": "GET",
+       "expect": 200,
+       "source": "internal"
+      }
+     ],
+     "refs": [
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-109354",
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-30480"
+     ],
+     "cves": [
+      "CVE-2026-109354",
+      "CVE-2026-30480"
+     ]
+    },
+    {
+     "id": "order-sqli",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "order",
+      "regex": "[\\x60\\x27\\x22();=*#\\x5c]|--",
+      "msg": "LibreNMS API sort order with SQL characters (CVE-2024-32480)",
+      "reference": "https://github.com/librenms/librenms/security/advisories/",
+      "source": "all"
+     },
+     "tests": [
+      {
+       "path": "/api/v0/devices?order=hostname%60%20and%20sleep(5)",
+       "method": "GET",
+       "expect": 403,
+       "source": "internal"
+      },
+      {
+       "path": "/api/v0/devices?order=hostname%20DESC",
+       "method": "GET",
+       "expect": 200,
+       "source": "internal"
+      }
+     ],
+     "refs": [
+      "https://nvd.nist.gov/vuln/detail/CVE-2024-32480"
+     ],
+     "cves": [
+      "CVE-2024-32480"
+     ]
+    },
+    {
+     "id": "package-sqli",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "arg",
+      "arg": "package",
+      "regex": "[\\x27\\x22\\x60;\\x5c]|--|/\\*",
+      "msg": "LibreNMS package search with SQL characters (CVE-2024-32461)",
+      "reference": "https://github.com/librenms/librenms/security/advisories/",
+      "source": "all"
+     },
+     "tests": [
+      {
+       "path": "/search/search=packages/?package=openssl%27%29+union+select+1--+",
+       "method": "GET",
+       "expect": 403,
+       "source": "internal"
+      },
+      {
+       "path": "/search/search=packages/?package=openssl",
+       "method": "GET",
+       "expect": 200,
+       "source": "internal"
+      }
+     ],
+     "refs": [
+      "https://nvd.nist.gov/vuln/detail/CVE-2024-32461"
+     ],
+     "cves": [
+      "CVE-2024-32461"
+     ]
+    },
+    {
+     "id": "admin-external",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:settings|users|roles|api-access|plugin/settings|validate|install|first-run|poller|alert/transports|alert/transport-groups|alert-transports|alert-templates|alert-rule|services/templates|secrets|device/add|addhost|delhost|device/delete|ajax/netcmd|ajax_output|oxidized/reload|ajax/pollergroup)(?:[/.]|$)|^/device/[^/]+/(?:edit|debug|delete|rediscover)(?:/|$)",
+      "msg": "LibreNMS administration from outside",
+      "reference": "https://github.com/librenms/librenms/security/advisories/",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/settings/external/binaries",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/ajax/netcmd",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "cmd=whois&query=example.com",
+       "expect": 403
+      },
+      {
+       "path": "/device/12/edit/misc",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/install.php",
+       "method": "GET",
+       "expect": 403
+      },
+      {
+       "path": "/device/12/overview",
+       "method": "GET",
+       "expect": 200
+      },
+      {
+       "path": "/alert/5/ack",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "state=2&ack_msg=ok",
+       "expect": 200
+      },
+      {
+       "path": "/alert-rules",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-6204",
+      "https://nvd.nist.gov/vuln/detail/CVE-2026-55182"
+     ],
+     "cves": [
+      "CVE-2026-55182",
+      "CVE-2026-6204",
+      "CVE-2026-80214",
+      "CVE-2026-84190"
+     ]
+    },
+    {
+     "id": "api-external",
+     "default": false,
+     "needs": [],
+     "spec": {
+      "target": "path",
+      "regex": "^/(?:api/v[0-9]+(?:/|$)|api_v0\\.php)",
+      "msg": "LibreNMS API from outside",
+      "reference": "https://docs.librenms.org/API/",
+      "source": "external"
+     },
+     "tests": [
+      {
+       "path": "/api/v0/devices",
+       "method": "GET",
+       "headers": {
+        "X-Auth-Token": "0123456789abcdef0123456789abcdef"
+       },
+       "expect": 403
+      },
+      {
+       "path": "/graph.php?type=port_bits&id=12",
+       "method": "GET",
+       "expect": 200
+      }
+     ],
+     "refs": [
+      "https://docs.librenms.org/API/"
+     ],
+     "cves": []
+    }
+   ]
   }
  ]
 }

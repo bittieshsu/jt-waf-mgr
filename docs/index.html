@@ -285,7 +285,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
 
 <div class="hero"><div class="wrap">
   <div>
-    <h1>jt-waf-mgr <span class="ver">v0.5.49</span></h1>
+    <h1>jt-waf-mgr <span class="ver">v0.5.50</span></h1>
     <p class="lead" data-t="lead"></p>
     <div class="btns">
       <a class="btn primary" href="https://github.com/jasoncheng7115/jt-waf-mgr">GitHub</a>
@@ -500,7 +500,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
       <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_dir"></span>
 sudo mkdir -p /opt/jt-waf-mgr-install &amp;&amp; cd /opt/jt-waf-mgr-install
 <span class="c" data-t="c_get"></span>
-V=<span class="v-cur">0.5.49</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=<span class="v-cur">0.5.50</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done
 <span class="c" data-t="c_verify"></span>
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
@@ -536,7 +536,7 @@ sudo nginx -t &amp;&amp; sudo systemctl reload nginx</pre></div>
       <div class="ihead"><span class="ic">↻</span><div><h3 data-t="ub_h"></h3><p data-t="ub_d"></p></div></div>
       <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_udir"></span>
 cd /opt/jt-waf-mgr-install
-V=<span class="v-cur">0.5.49</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=<span class="v-cur">0.5.50</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current &amp;&amp; sudo mkdir current &amp;&amp; sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 &amp;&amp; cd current
 <span class="c" data-t="c_ucheck"></span>
@@ -679,7 +679,7 @@ const T = {
   f16_h: 'Periodic WAF review', f16: 'Every 3 hours: who may have been blocked by mistake, new internal hits, attacks that got through, what was done automatically, a line per focus site. Sent to your channels.',
   f17_h: 'nginx\'s own flaws', f17: 'Flaws in nginx itself happen before the WAF sees a request. nginx.org\'s advisories are checked every 6 hours against the features in use: an alert at once, HTTP/2 off for a while for a major one, back on after the update.',
   f18_h: 'nginx updates with a way back', f18: 'The next nginx is tried with the WAF module first; once approved, a hot upgrade without downtime. Failed health checks put the old version back; roll back any time, or download a backup first.',
-  f19_h: 'Application protection sets', f19: 'Ready-made rules for one application, written from its publicly known vulnerabilities and attacks, each with its CVEs, sources and its own attack and ordinary test requests. The first set is Synology DSM: its administration APIs from the local network only (batch requests and escaped names included), its old CGI programs, the login and redirect flaws, ../ in file paths. Also QNAP QTS, Nextcloud and Zimbra. Pick a site and the rules: one change, the sandbox, a person approves.',
+  f19_h: 'Application protection sets', f19: 'Ready-made rules for one application, written from its publicly known vulnerabilities and attacks, each with its CVEs, sources and its own attack and ordinary test requests. The first set is Synology DSM: its administration APIs from the local network only (batch requests and escaped names included), its old CGI programs, the login and redirect flaws, ../ in file paths. Also QNAP QTS, Nextcloud, Zimbra and LibreNMS. Pick a site and the rules: one change, the sandbox, a person approves.',
   f20_h: 'CrowdSec virtual patches', f20: 'The CrowdSec Hub\'s appsec rules (MIT) are synced daily or uploaded offline and converted on the host, only where every condition keeps its meaning. Proposed for the sites running the software, or all sites for a framework or language flaw; the sandbox replays the hub\'s own attack requests. Updates and removals upstream are shown.',
   f4_h: 'Self-hosted LLM analysis', f4: 'Your own OpenAI-compatible LLM server reviews recent events on a schedule and proposes narrow blocks and exclusions. The program decides, a person approves.',
   f5_h: 'Alerts to follow up', f5: 'An attack the site may have answered, users hit by a false positive, outside configuration changes, integrity problems: open until handled, reminded until then.',
@@ -902,7 +902,7 @@ const T = {
   f16_h: 'WAF 定期檢討', f16: '每 3 小時：誰可能被誤封鎖、新的內部命中、沒被封鎖的攻擊、自動處理了什麼、每個重點站台一行。送到你的通知管道。',
   f17_h: 'nginx 本身的漏洞', f17: 'nginx 本身的漏洞發生在 WAF 之前。每 6 小時比對 nginx.org 公告與本站用到的功能：立即警示；嚴重時先暫時關閉 HTTP/2，更新後自動恢復。',
   f18_h: '有退路的 nginx 更新', f18: '先用下一版 nginx 試過 WAF 模組，核准後熱升級、不中斷服務；健康檢查不過就自動裝回舊版，也能隨時退回，或先下載備份。',
-  f19_h: '應用程式防護組合', f19: '替單一應用程式準備好的規則，依公開已知的弱點與攻擊撰寫，每條附 CVE、參考來源與隨附的攻擊和一般測試請求。第一組是 Synology DSM：管理 API 只限內網 (含批次請求與跳脫名稱的繞過)、舊 CGI 程式、登入與轉址漏洞、檔案路徑的 ../。另有 QNAP QTS、Nextcloud、Zimbra。選站台、勾規則，一筆變更、跑沙箱、由人核准。',
+  f19_h: '應用程式防護組合', f19: '替單一應用程式準備好的規則，依公開已知的弱點與攻擊撰寫，每條附 CVE、參考來源與隨附的攻擊和一般測試請求。第一組是 Synology DSM：管理 API 只限內網 (含批次請求與跳脫名稱的繞過)、舊 CGI 程式、登入與轉址漏洞、檔案路徑的 ../。另有 QNAP QTS、Nextcloud、Zimbra、LibreNMS。選站台、勾規則，一筆變更、跑沙箱、由人核准。',
   f20_h: 'CrowdSec 虛擬修補規則', f20: '每天同步 CrowdSec Hub 的 appsec 規則 (MIT 授權，也可離線上傳)，在本機轉換，只轉每個條件都能保留原意的規則。提出到跑該軟體的站台，框架或語言的漏洞也可套用到所有站台；沙箱重送上游附的攻擊請求。上游更新或移除時會提示。',
   f4_h: '地端 LLM 分析', f4: '你自己的 OpenAI 相容 LLM 伺服器定期檢視事件，提出很窄的封鎖與排除。由程式決定，由人核准。',
   f5_h: '待處理警示', f5: '可能沒被封鎖的攻擊、影響使用者的誤判、設定被外部修改、完整性問題：處理前一直開著，並定期提醒。',
@@ -1125,7 +1125,7 @@ const T = {
   f16_h: 'WAF 定期レビュー', f16: '3 時間ごと:誤ブロックの可能性、新しい内部の一致、通過した攻撃、自動処理の内容、重点サイトごとの 1 行。通知チャネルへ送信。',
   f17_h: 'nginx 自体の欠陥', f17: 'nginx 自体の欠陥は WAF がリクエストを見る前に起きます。6 時間ごとに nginx.org の情報を使用中の機能と照合し、すぐにアラート。重大な場合は HTTP/2 を一時停止し、更新後に戻します。',
   f18_h: '戻せる nginx 更新', f18: '次の nginx を WAF モジュールで先に試し、承認後に止めずにホットアップグレード。ヘルスチェックが失敗すれば旧版に自動で戻し、いつでも戻せます。先にバックアップも取れます。',
-  f19_h: 'アプリケーション保護セット', f19: '1 つのアプリケーション向けに、公開済みの脆弱性と攻撃をもとに用意したルール。各ルールに CVE、参考、攻撃と通常のテストリクエストが付きます。最初のセットは Synology DSM：管理 API をローカルネットワークに限定 (一括リクエストとエスケープ名による回避も)、古い CGI、ログインとリダイレクトの脆弱性、ファイルパスの ../。ほかに QNAP QTS、Nextcloud、Zimbra。サイトとルールを選び、1 件の変更、サンドボックス、人が承認。',
+  f19_h: 'アプリケーション保護セット', f19: '1 つのアプリケーション向けに、公開済みの脆弱性と攻撃をもとに用意したルール。各ルールに CVE、参考、攻撃と通常のテストリクエストが付きます。最初のセットは Synology DSM：管理 API をローカルネットワークに限定 (一括リクエストとエスケープ名による回避も)、古い CGI、ログインとリダイレクトの脆弱性、ファイルパスの ../。ほかに QNAP QTS、Nextcloud、Zimbra、LibreNMS。サイトとルールを選び、1 件の変更、サンドボックス、人が承認。',
   f20_h: 'CrowdSec 仮想パッチ', f20: 'CrowdSec Hub の appsec ルール (MIT) を毎日同期 (オフラインのアップロードも可) し、ホスト上で変換します。すべての条件の意味を保てるものだけ。そのソフトウェアのサイトに、フレームワークや言語の脆弱性ならすべてのサイトにも提案でき、上流の攻撃リクエストをサンドボックスで再送します。上流の更新・削除を表示します。',
   f4_h: 'オンプレミス LLM 分析', f4: '自前の OpenAI 互換 LLM サーバーが定期的にイベントを確認し、狭いブロックと除外を提案。決めるのはプログラム、承認するのは人。',
   f5_h: '対応待ちアラート', f5: '防がれていない可能性のある攻撃、利用者に影響する誤検知、設定の外部変更、完全性の問題：対応されるまで開いたまま、定期的に再通知。',

@@ -61,7 +61,8 @@ ARG_NAMES_MAX = 24                          # names of one arg target (api|compo
 BODY_TARGETS = ('arg_name', 'arg', 'body_unchecked', 'upload_name')
 # targets with no pattern of their own
 FLAG_TARGETS = ('body_unchecked',)
-ARG_RE = re.compile(r'^[A-Za-z0-9_][A-Za-z0-9_.\-]{0,63}$')
+# 0.5.50: a PHP array field (notification_id[]=1) is its own name with "[]" in ARGS -- LibreNMS ajax_form.php
+ARG_RE = re.compile(r'^[A-Za-z0-9_][A-Za-z0-9_.\-]{0,63}(?:\[\])?$')
 PROTSET_RE = re.compile(r'^[a-z0-9][a-z0-9-]{0,39}/[a-z0-9][a-z0-9-]{0,39}$')
 TARGET_RE = re.compile(r'^(?:ARGS|ARGS_GET|ARGS_POST|ARGS_NAMES|ARGS_GET_NAMES|ARGS_POST_NAMES|REQUEST_COOKIES|'
                        r'REQUEST_COOKIES_NAMES|REQUEST_HEADERS|REQUEST_HEADERS_NAMES|XML|REQUEST_BODY|REQUEST_URI|'
