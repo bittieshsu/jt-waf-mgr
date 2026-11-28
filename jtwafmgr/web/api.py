@@ -797,6 +797,36 @@ def event_export(app, req):
     return Response(200, body, 'application/x-ndjson; charset=utf-8', headers)
 
 
+def support_bundle(app, req):
+    """0.5.48: the events of a range with their rules, the rule files and the settings that decided them, as one zip
+    to send to whoever helps with a false positive (supportbundle.py). Approvers and admins; audited."""
+    from .. import supportbundle
+    b = req.body()
+    if not isinstance(b, dict):
+        raise ApiError(400, 'bad_request', 'an object')
+
+    def when(k):
+        v = b.get(k)
+        if v in (None, ''):
+            return None
+        try:
+            return util.parse_iso(str(v))
+        except ValueError:
+            raise ApiError(400, 'bad_request', '%s must be RFC 3339' % k)
+
+    opts = {'host': str(b.get('host') or '')[:255] or None, 'src_ip': str(b.get('src_ip') or '')[:64] or None,
+            'outcome': b.get('outcome') if b.get('outcome') in ('all', 'blocked') else 'all',
+            'anon_ips': b.get('anon_ips') is not False, 'anon_hosts': b.get('anon_hosts') is True}
+    try:
+        data, info = supportbundle.build(app, when('since'), when('until'), req.user['username'], **opts)
+    except supportbundle.BundleError as e:
+        raise ApiError(e.status, e.code, e.code.replace('_', ' '), **e.details)
+    supportbundle.audit(app, req.user['username'], info, 'user', req.client_ip, **opts)
+    return Response(200, data, 'application/zip', [('Content-Disposition', 'attachment; filename="%s"' % info['name']),
+                                                   ('X-Content-SHA256', info['sha256']),
+                                                   ('X-Events', str(info['events'])), ('Cache-Control', 'no-store')])
+
+
 # --- rules / vhosts / crs ------------------------------------------------------------------
 
 def _hits(app, rid):
@@ -1882,6 +1912,7 @@ def register(router):
     R('GET', V + '/events/stats', event_stats, viewer('events:read'))
     R('GET', V + '/events/timeline', events_timeline, viewer('events:read'))
     R('GET', V + '/events/export', event_export, viewer('events:read'))
+    R('POST', V + '/support/bundle', support_bundle, ('role', 'approver', None))
     R('GET', V + '/events/{id}', event, viewer('events:read'))
     R('GET', V + '/rules', rules, viewer('rules:read'))
     R('GET', V + '/rules/removals', removals, viewer('rules:read'))
@@ -1978,9 +2009,10 @@ def managed(app, req):
     wf = _wf(app)
     mg = wf.managed
     _, m = app.site.load()
-    disk = mg.disk_state()
+    disk = mg.disk_state(applying_ok=True)
     cur = mg.current_version()
     out = {'adopted': disk['adopted'], 'dir': mg.dir, 'files': disk['files'], 'drift': disk['drift'],
+           'applying': disk.get('applying'),
            'current_version': cur['version'] if cur else None,
            'items': [_item_public(app, m, it) for it in mg.items() if it['kind'] != 'comment' or req.query.get('comments')]}
     if not disk['adopted']:

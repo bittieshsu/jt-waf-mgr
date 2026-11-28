@@ -124,8 +124,10 @@ class Managed:
                 out[p] = None
         return out
 
-    def disk_state(self):
-        """On-disk hashes of the managed files and whether they still match the last applied version."""
+    def disk_state(self, applying_ok=False):
+        """On-disk hashes of the managed files and whether they still match the last applied version. applying_ok
+        (the system check, the health API, the managed page): files that are exactly a pending version count as that
+        version being applied; the change flow itself keeps the strict answer."""
         cur = self.current_version()
         expected = json.loads(cur['hashes']) if cur else {}
         out = {'adopted': self.adopted(), 'files': {}, 'drift': False}
@@ -140,6 +142,23 @@ class Managed:
             drift = bool(cur) and expected.get(p) != h
             out['files'][p] = {'path': path, 'exists': exists, 'sha256': h, 'expected': expected.get(p), 'drift': drift}
             out['drift'] = out['drift'] or drift
+        if out['drift'] and cur and applying_ok:
+            # 0.5.48: the apply program writes the files of a pending version before it reports back (and waits up to
+            # apply.wait_old_workers_seconds for old nginx workers): files that are exactly that version are being
+            # applied, not changed outside -- the system check showed "failed" for those two minutes
+            disk = {p: f['sha256'] for p, f in out['files'].items()}
+            for v in self.db.q("SELECT version, hashes FROM versions WHERE state='pending' AND version>? "
+                               'ORDER BY version DESC', (cur['version'],)):
+                try:
+                    want = json.loads(v['hashes'])
+                except ValueError:
+                    continue
+                if all(want.get(p) == disk.get(p) for p in PLACEMENTS):
+                    out['drift'] = False
+                    out['applying'] = v['version']
+                    for f in out['files'].values():
+                        f['drift'] = False
+                    break
         return out
 
     # --- items ----------------------------------------------------------------------------

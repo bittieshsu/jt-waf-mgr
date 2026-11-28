@@ -19,19 +19,35 @@
         <span v-if="f === 'open' && counts.open" class="badge tiny b-warn">{{ counts.open }}</span></button>
     </div>
 
-    <section v-if="sel" ref="handleEl" class="card">
-      <h2><Icon name="check" /> {{ t('alerts.handle_title', { id: sel.id }) }}</h2>
-      <p><b>{{ kindText(sel) }}</b> <span class="mono small">{{ safeText(sel.summary, 160) }}</span></p>
-      <p v-if="reasonText(sel)" class="reason">{{ safeText(reasonText(sel), 400) }}</p>
-      <p v-if="sel.details.msg === 'intel_check' && sel.details.conditions" class="reason small">{{ t('alerts.conditions_line', { text: safeText(sel.details.conditions, 300) }) }}</p>
+    <section v-if="sel || batchOpen" ref="handleEl" class="card handlecard">
+      <template v-if="sel">
+        <h2><Icon name="check" /> {{ t('alerts.handle_title', { id: sel.id }) }}</h2>
+        <p><b>{{ kindText(sel) }}</b> <span class="mono small">{{ safeText(sel.summary, 160) }}</span></p>
+        <p v-if="reasonText(sel)" class="reason">{{ safeText(reasonText(sel), 400) }}</p>
+        <p v-if="sel.details.msg === 'intel_check' && sel.details.conditions" class="reason small">{{ t('alerts.conditions_line', { text: safeText(sel.details.conditions, 300) }) }}</p>
+      </template>
+      <template v-else>
+        <h2><Icon name="check" /> {{ t('alerts.batch.title', { n: picked.size }) }}</h2>
+        <ul class="batchlist small">
+          <li v-for="r in pickedRows.slice(0, 20)" :key="r.id"><span class="mono">#{{ r.id }}</span> <b>{{ kindText(r) }}</b> <span class="mono">{{ safeText(r.summary, 100) }}</span></li>
+          <li v-if="pickedRows.length > 20" class="muted">{{ t('alerts.batch.more', { n: pickedRows.length - 20 }) }}</li>
+        </ul>
+      </template>
       <label class="field"><span>{{ t('alerts.note') }}</span>
         <textarea v-model="note" rows="3" maxlength="1000" class="w-lg" :placeholder="t('alerts.note_ph')"></textarea></label>
       <ErrorBox :error="handleError" />
-      <div class="actions">
-        <button type="button" class="btn primary" :disabled="busy" @click="handle"><Icon name="check" />{{ t('alerts.mark_handled') }}</button>
-        <button type="button" class="btn ghost" :disabled="busy" @click="sel = null"><Icon name="cancel" />{{ t('common.cancel') }}</button>
+      <p v-if="batchResult" class="small" role="status">{{ batchResult }}</p>
+      <div class="actions formacts">
+        <button type="button" class="btn primary" :disabled="busy || (!sel && !picked.size)" @click="sel ? handle() : handleBatch()">
+          <Spinner v-if="busy" /><Icon v-else name="check" />{{ sel ? t('alerts.mark_handled') : t('alerts.batch.mark', { n: picked.size }) }}</button>
+        <button type="button" class="btn ghost" :disabled="busy" @click="closeForm"><Icon name="cancel" />{{ t('common.cancel') }}</button>
       </div>
     </section>
+
+    <div v-if="canHandle && selectable.length" class="card batchbar" role="group" :aria-label="t('alerts.batch.group')">
+      <label class="check"><input type="checkbox" :checked="allPicked" :indeterminate.prop="picked.size > 0 && !allPicked" @change="pickAll" /> {{ t('alerts.batch.all', { n: selectable.length }) }}</label>
+      <button type="button" class="btn small primary" :disabled="!picked.size || busy" @click="openBatch"><Icon name="check" />{{ t('alerts.batch.mark', { n: picked.size }) }}</button>
+    </div>
 
     <section class="card">
       <h2><Icon name="bell" /> {{ t('alerts.f.' + filter) }} <span class="count">{{ items.length }}</span></h2>
@@ -39,6 +55,7 @@
       <DataTable id="alerts" :columns="cols" :rows="shownItems" row-key="id" :has-more="!!cursor" :loading-more="loading"
                  :default-sort="{ key: 'id', dir: -1 }" :empty="filter === 'open' ? t('alerts.none_open') : t('common.no_data')"
                  :row-class="(r) => (r.id === focusId ? 'row-focus' : r.state === 'open' && r.severity === 'critical' ? 'row-crit' : null)" @more="more">
+        <template #cell-sel="{ row }"><input v-if="row.state === 'open'" type="checkbox" :checked="picked.has(row.id)" :aria-label="t('alerts.batch.pick', { id: row.id })" @click.stop @change="togglePick(row.id)" /><span v-else aria-hidden="true"></span></template>
         <template #cell-created_at="{ row }"><span class="nowrap">{{ fmtShortTime(row.created_at) }}</span>
           <div v-if="row.count > 1" class="sub">{{ t('alerts.seen', { n: row.count, at: fmtShortTime(row.last_seen) }) }}</div></template>
         <template #cell-severity="{ row }"><span class="badge" :class="row.severity === 'critical' ? 'b-blocked' : 'b-warn'">{{ t('alerts.sev.' + row.severity) }}</span></template>
@@ -73,6 +90,7 @@ import { useRoute, useRouter } from 'vue-router'
 import Icon from '../components/Icon.vue'
 import ErrorBox from '../components/ErrorBox.vue'
 import DataTable from '../components/DataTable.vue'
+import Spinner from '../components/Spinner.vue'
 
 const FILTERS = ['open', 'handled', 'all']
 const filter = ref('open')
@@ -92,7 +110,41 @@ const handleEl = ref(null)
 const isAdmin = computed(() => hasRole('admin'))
 const canHandle = computed(() => hasRole('approver'))
 
+// 0.5.48: several open alerts handled at once, with one note (each audited on its own)
+const picked = ref(new Set())
+const batchOpen = ref(false)
+const batchResult = ref('')
+const selectable = computed(() => shownItems.value.filter((r) => r.state === 'open'))
+const pickedRows = computed(() => items.value.filter((r) => picked.value.has(r.id)))
+const allPicked = computed(() => selectable.value.length > 0 && selectable.value.every((r) => picked.value.has(r.id)))
+function togglePick(id) { const s = new Set(picked.value); s.has(id) ? s.delete(id) : s.add(id); picked.value = s }
+function pickAll() { picked.value = allPicked.value ? new Set() : new Set(selectable.value.map((r) => r.id)) }
+async function openBatch() {
+  sel.value = null
+  batchOpen.value = true
+  note.value = ''
+  handleError.value = null
+  batchResult.value = ''
+  await nextTick()
+  if (handleEl.value) handleEl.value.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+function closeForm() { sel.value = null; batchOpen.value = false }
+async function handleBatch() {
+  busy.value = true
+  handleError.value = null
+  batchResult.value = ''
+  try {
+    const r = await post('/alerts/handle-batch', { ids: [...picked.value], note: note.value })
+    const bad = r.failed || []
+    picked.value = new Set(bad.map((x) => x.id))
+    if (!bad.length) batchOpen.value = false
+    else batchResult.value = t('alerts.batch.done', { n: r.handled }) + ' ' + t('alerts.batch.failed', { list: bad.map((x) => '#' + x.id + ' ' + tOr('error.' + x.error, x.error)).join(', ') })
+    reload()
+  } catch (e) { handleError.value = e } finally { busy.value = false }
+}
+
 const cols = computed(() => [
+  ...(canHandle.value && selectable.value.length ? [{ key: 'sel', label: '', sortable: false, filterable: false, required: true, nowrap: true, text: () => '' }] : []),
   { key: 'id', label: t('alerts.col.id'), align: 'num', hidden: true },
   { key: 'created_at', label: t('alerts.col.time'), required: true, text: (r) => fmtShortTime(r.created_at) },
   { key: 'severity', label: t('alerts.col.severity'), value: (r) => (r.severity === 'critical' ? 0 : 1), text: (r) => t('alerts.sev.' + r.severity) },
@@ -198,8 +250,9 @@ async function load(append) {
 }
 function more() { if (cursor.value) load(true) }
 function reload() { load(false); refreshAlerts(true) }
-function setFilter(f) { filter.value = f; sel.value = null; load(false) }
+function setFilter(f) { filter.value = f; sel.value = null; batchOpen.value = false; picked.value = new Set(); load(false) }
 async function pick(r) {
+  batchOpen.value = false
   sel.value = r
   note.value = ''
   handleError.value = null
@@ -246,4 +299,10 @@ onMounted(async () => { await load(false); focusAlert() })
 :deep(tr.row-focus) td { background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
 :deep(tr.row-crit) td:first-child { box-shadow: inset 3px 0 0 var(--blocked); }
 .w-lg { width: 100%; max-width: 560px; }
+/* 0.5.48: the buttons sat right under the note box, touching it */
+.handlecard .formacts { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px; }
+.batchbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding-top: 12px; padding-bottom: 12px; }
+.batchbar label.check { margin: 0; }
+.batchlist { margin: 4px 0 10px; padding-left: 18px; }
+.batchlist li { margin: 2px 0; overflow-wrap: anywhere; }
 </style>

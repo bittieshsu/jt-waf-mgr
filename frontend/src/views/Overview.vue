@@ -13,8 +13,11 @@
           <Icon name="warning" class="readyicon important" />
           <span class="readytext"><strong>{{ t('ready.k.' + it.key, it.details || {}) }}</strong><span class="muted small">{{ t('ready.k.' + it.key + '.why', it.details || {}) }}</span></span>
           <RouterLink v-if="canFix(it)" class="btn small" :to="{ path: it.link, hash: it.hash || '' }"><Icon name="go" />{{ t('ready.fix') }}</RouterLink>
+          <button v-else-if="it.action === 'scoreblock' && hasRole('operator')" type="button" class="btn small primary"
+                  :disabled="ready.busy" @click="proposeScoreBlock"><Spinner v-if="ready.busy" /><Icon v-else name="add" />{{ t('ready.scoreblock.propose') }}</button>
         </li>
       </ul>
+      <ErrorBox v-if="ready.error" :error="ready.error" />
       <div v-if="ready.suggested.length" class="readysugg">
         <button type="button" class="btn small ghost" :aria-expanded="ready.open ? 'true' : 'false'" @click="ready.open = !ready.open">
           <Icon :name="ready.open ? 'collapse' : 'expand'" />{{ t('ready.suggested', { n: ready.suggested.length }) }}</button>
@@ -196,12 +199,13 @@
 <script setup>
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { get } from '../api.js'
+import { get, post } from '../api.js'
 import { t, tOr } from '../i18n.js'
 import { hasRole, alertCount } from '../store.js'
 import { fmtNum, fmtTime, fmtShortTime, safeText } from '../util.js'
 import ErrorBox from '../components/ErrorBox.vue'
 import Loading from '../components/Loading.vue'
+import Spinner from '../components/Spinner.vue'
 import Icon from '../components/Icon.vue'
 import EventTable from '../components/EventTable.vue'
 import CountList from '../components/CountList.vue'
@@ -435,7 +439,18 @@ async function loadIntegrity() {
 }
 
 // what is not installed or not turned on yet
-const ready = reactive({ important: [], suggested: [], open: false })
+const ready = reactive({ important: [], suggested: [], open: false, busy: false, error: null })
+// 0.5.48: the CRS score refuses nothing from outside -- propose the rule (a change: checks, sandbox, approval)
+async function proposeScoreBlock() {
+  ready.busy = true
+  ready.error = null
+  try {
+    const r = await post('/scoreblock/propose', {})
+    router.push('/changes/' + r.change_id)
+  } catch (e) {
+    ready.error = e
+  } finally { ready.busy = false }
+}
 async function loadReadiness() {
   try {
     const r = await get('/readiness')

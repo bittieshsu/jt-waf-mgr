@@ -3,8 +3,10 @@
     <div class="pagehead">
       <h1>{{ t('events.title') }}</h1>
       <button type="button" class="btn small ghost" :class="{ on: showGuide }" :aria-pressed="showGuide ? 'true' : 'false'" @click="toggleGuide"><Icon name="help" />{{ t('guide.how') }}</button>
+      <button v-if="canBundle" type="button" class="btn small" :class="{ on: showBundle }" :aria-pressed="showBundle ? 'true' : 'false'" @click="showBundle = !showBundle"><Icon name="download" />{{ t('supbundle.open') }}</button>
       <button type="button" class="btn small ghost" :disabled="loading" @click="load(true)"><Icon name="refresh" />{{ t('common.refresh') }}</button>
     </div>
+    <SupportBundle v-if="showBundle" :query="route.query" @close="showBundle = false" />
     <FlowSteps v-if="showGuide" :title="t('guide.ev.title')" :steps="flow" :note="t('guide.ev.note')" />
     <FindVisit />
     <form class="filters" @submit.prevent="apply">
@@ -46,8 +48,14 @@
         <div><h3 class="charthead">{{ t('chart.origin_split') }}</h3><SegBar :parts="originParts" :label="t('chart.origin_split')" /></div>
         <div v-if="blockedCount"><h3 class="charthead">{{ t('chart.block_reason') }}</h3><SegBar :parts="reasonParts" :label="t('chart.block_reason')" /></div>
       </div>
-      <h3 class="charthead">{{ t('chart.families_loaded') }}</h3>
-      <HBars :items="familyBars" :series="outcomeSeries" />
+      <div class="chartgrid halves">
+        <div><h3 class="charthead">{{ t('chart.families_loaded') }}</h3>
+          <HBars :items="familyBars" :series="outcomeSeries" /></div>
+        <!-- 0.5.48: who sent them (top sources of the loaded events; the funnel filters, the menu excludes) -->
+        <div><h3 class="charthead">{{ t('chart.sources_loaded') }}</h3>
+          <HBars :items="sourceBars" :series="outcomeSeries" mono pickable excludable :field="t('filter.src_ip')"
+                 :open-label="t('filter.open_lookup')" @pick="(it, m) => toggleFilter('src_ip', it.key, m)" /></div>
+      </div>
       <template v-if="countryItems.length">
         <h3 class="charthead">{{ t('map.loaded_title') }}</h3>
         <MapGrid :items="countryItems" :series="outcomeSeries" :label="t('map.loaded_title')" :active-key="route.query.country || null" excludable
@@ -86,6 +94,8 @@ import SelectBox from '../components/SelectBox.vue'
 import DatePicker from '../components/DatePicker.vue'
 import FlowSteps from '../components/FlowSteps.vue'
 import FindVisit from '../components/FindVisit.vue'
+import SupportBundle from '../components/SupportBundle.vue'
+import { hasRole } from '../store.js'
 import SegBar from '../components/charts/SegBar.vue'
 import HBars from '../components/charts/HBars.vue'
 import MapGrid from '../components/charts/MapGrid.vue'
@@ -99,6 +109,9 @@ const FAMILIES = ['protocol', 'lfi', 'rfi', 'rce', 'php', 'generic', 'xss', 'sql
 
 const route = useRoute()
 const router = useRouter()
+// 0.5.48: the support bundle (approvers): these events and what decided them, as a zip for whoever helps
+const canBundle = computed(() => hasRole('approver'))
+const showBundle = ref(false)
 const f = reactive({})
 const items = ref([])
 const cursor = ref(null)
@@ -208,6 +221,25 @@ const familyBars = computed(() => {
       c.values[e.outcome === 'blocked' ? 'blocked' : 'logged']++
       m.set(fam, c)
     }
+  }
+  return [...m.values()].sort((a, b) => (b.values.blocked + b.values.logged) - (a.values.blocked + a.values.logged)).slice(0, 10)
+})
+
+// the sources of the loaded events, most events first
+const sourceBars = computed(() => {
+  const m = new Map()
+  for (const e of items.value) {
+    if (!e.src_ip) continue
+    let c = m.get(e.src_ip)
+    if (!c) {
+      const g = e.src_geo || {}
+      const where = e.origin === 'internal' ? t('origin.internal') : (g.cc ? countryName(g.cc, lang.value) + ' (' + g.cc + ')' : t('origin.external'))
+      c = { key: e.src_ip, label: e.src_ip, ip: e.src_ip, sub: where, values: { blocked: 0, logged: 0 },
+        active: route.query.src_ip === e.src_ip ? 'in' : route.query.not_src_ip === e.src_ip ? 'out' : null,
+        to: { path: '/lookup/' + encodeURIComponent(e.src_ip) } }
+      m.set(e.src_ip, c)
+    }
+    c.values[e.outcome === 'blocked' ? 'blocked' : 'logged']++
   }
   return [...m.values()].sort((a, b) => (b.values.blocked + b.values.logged) - (a.values.blocked + a.values.logged)).slice(0, 10)
 })

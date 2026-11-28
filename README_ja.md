@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.5.47
+# jt-waf-mgr v0.5.48
 
 [English](README.md) · [繁體中文](README_zh-TW.md) · **日本語**
 
@@ -179,7 +179,7 @@ jt-waf-mgr はリクエストの経路にありません。各リクエストは
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # リリースの決まった場所
-V=0.5.47; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.48; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # リリース、署名、公開鍵
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -389,7 +389,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新しいリリースも同じ current に展開
-V=0.5.47; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.48; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # すべての検査のみ、何も変更しない
@@ -436,7 +436,9 @@ AI は誤ることがあります。自動適用は強化（許可 → ブロッ
 - **jt-wazuh-mgr**（Wazuh を管理する Jason Tools の別プロジェクト）は専用の API トークンで WAF の変更と一時ブロックを
   提案します。承認はできません。
 - **Graylog**：「設定 → ログ送信先」で GELF 形式を選び、UDP・TCP・TLS で GELF input へ。サイト、ルール、結果、送信元、
-  国がそれぞれ独立したフィールドになります。
+  国がそれぞれ独立したフィールドになります。Graylog コンテンツパックを同梱 ([`deploy/graylog/`](deploy/graylog/README.md)、
+  Graylog 6.3 以上、説明は繁体字中国語)：ストリーム 3 本、ルール番号と攻撃種別を分割するパイプライン、概要・アラート・監査の
+  ダッシュボード 3 つ、イベント定義 5 つ (通知は含みません)。
 - **その他の SIEM**：最大 8 つの syslog 送信先に、それぞれプロトコル、形式（JSON、CEF、LEEF、GELF、key=value、
   RFC 3164 / 5424）、内容（監査記録、イベント、アラート）を設定。
 - **fail2ban**：「ブロック中の IP」ページに API でブロック・解除するアクションがあります。

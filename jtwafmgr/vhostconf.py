@@ -140,6 +140,11 @@ def example(opts, internal_networks=(), mem_bytes=None):
     websocket = bool(opts.get('websocket', preset == 'synology'))
     stream = preset == 'synology' or bool(opts.get('stream_uploads'))
     v6 = bool(opts.get('ipv6', True))
+    # 0.5.48: Synology Photos for iOS uploads with "multipart/form-data; charset=utf-8; boundary=...", which
+    # ModSecurity (3.0.9 to 3.0.17) does not parse: the body goes uninspected, and the protection set's
+    # body-unchecked rule refuses it from outside. Exactly that shape is passed, with the Content-Type in standard
+    # form, to a loopback server that inspects it in full (measured on a DSM 7.4 site, 2026-11-26)
+    photos_fix = preset == 'synology' and bool(opts.get('photos_ios', True))
     nets = [str(x) for x in internal_networks] or ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '127.0.0.0/8', '::1']
     var = re.sub(r'[^a-z0-9]', '_', host.split('.')[0]) + '_connection_upgrade'
     L = []
@@ -155,6 +160,18 @@ def example(opts, internal_networks=(), mem_bytes=None):
         L.append('# well below this host\'s memory (the system check warns), or leave ModSecurity off for this site.')
     if websocket:
         L += ['map $http_upgrade $%s {' % var, '    default upgrade;', "    ''      close;", '}', '']
+    label = re.sub(r'[^a-z0-9]', '_', host.split('.')[0])
+    mp_var, mp_loc = label + '_mp_ct', '@' + label + '_mp_fix'
+    loop_port = port + 10000 if port + 10000 <= 65535 else port - 10000
+    if photos_fix:
+        L += ['# Synology Photos for iOS sends "multipart/form-data; charset=utf-8; boundary=...". ModSecurity accepts',
+              '# only one ";" before the boundary and would not inspect such a body at all (from outside the',
+              '# protection set refuses it). Exactly this shape goes, with the Content-Type in standard form, to the',
+              '# loopback server at the end, which inspects it in full like any other request.',
+              'map $content_type $%s {' % mp_var,
+              '    "~*^multipart/form-data;[ \\t]*charset=[A-Za-z0-9_-]{1,20};[ \\t]*(boundary=[A-Za-z0-9\'()+_,./:=?-]{1,70})$"'
+              ' "multipart/form-data; $1";',
+              '    default "";', '}', '']
     if port != 443:
         L += ['# only the names served on port %d get a TLS handshake: a scan of the address, or a guessed' % port,
               '# name, is refused (keep one such block per port; leave it out if the port has one already)',
@@ -168,7 +185,20 @@ def example(opts, internal_networks=(), mem_bytes=None):
         L.append('    # the local network only (delete these lines to publish the site)')
         L += ['    allow %s;' % n for n in nets] + ['    deny all;', '']
     L += ['    add_header Strict-Transport-Security "max-age=15768000" always;',
-          '    client_max_body_size %s;' % body, '',
+          '    client_max_body_size %s;' % body, '']
+    if photos_fix:
+        L += ['    error_page 419 = %s;   # see the map $%s above' % (mp_loc, mp_var),
+              '    if ($%s) { return 419; }' % mp_var, '',
+              '    location %s {' % mp_loc,
+              '        modsecurity off;               # inspected by the loopback server below',
+              '        proxy_pass http://127.0.0.1:%d;' % loop_port,
+              '        proxy_set_header Host $host;',
+              '        proxy_set_header Content-Type $%s;' % mp_var,
+              '        proxy_set_header X-Jt-Client $remote_addr;    # the only source address the loopback server trusts',
+              '        proxy_set_header X-Forwarded-For "";', '        proxy_set_header X-Real-IP "";',
+              '        proxy_http_version 1.1;', '        proxy_request_buffering off;', '        proxy_buffering off;',
+              '        proxy_read_timeout 3600s;', '        proxy_send_timeout 3600s;', '    }', '']
+    L += [
           '    location / {', '        proxy_pass %s://%s;' % (scheme, backend), '        proxy_http_version 1.1;']
     if scheme == 'https':
         L.append('        proxy_ssl_verify off;          # a private back end with its own certificate')
@@ -185,6 +215,20 @@ def example(opts, internal_networks=(), mem_bytes=None):
         L.append('        proxy_read_timeout 120s;')
     L += ['    }', '', '    access_log /var/log/nginx/%s.access.log;' % host,
           '    error_log  /var/log/nginx/%s.error.log;' % host, '}']
+    if photos_fix:
+        L += ['', '# loopback only: the Synology Photos iOS uploads from the server above, inspected by ModSecurity',
+              '# (no allow/deny: after real_ip the address is the client\'s; listening on 127.0.0.1 is the limit)',
+              'server {', '    listen 127.0.0.1:%d;' % loop_port, '    server_name %s;' % host,
+              '    modsecurity on;', '    set_real_ip_from 127.0.0.1;', '    real_ip_header X-Jt-Client;',
+              '    client_max_body_size %s;' % body, '    server_tokens off;', '',
+              '    location / {', '        proxy_pass %s://%s;' % (scheme, backend)] + \
+             (['        proxy_ssl_verify off;', '        proxy_ssl_server_name on;'] if scheme == 'https' else []) + \
+             ['        proxy_set_header Host $host;', '        proxy_set_header X-Real-IP $remote_addr;',
+              '        proxy_set_header X-Forwarded-For $remote_addr;', '        proxy_set_header X-Forwarded-Proto https;',
+              '        proxy_http_version 1.1;', '        proxy_request_buffering off;', '        proxy_buffering off;',
+              '        proxy_read_timeout 3600s;', '        proxy_send_timeout 3600s;', '    }', '',
+              '    access_log off;                    # logged by the public server',
+              '    error_log  /var/log/nginx/%s.error.log;' % host, '}']
     if port == 443 and opts.get('redirect_80', True):
         L += ['', 'server {', '    listen 80;'] + (['    listen [::]:80;'] if v6 else []) + \
              ['    server_name %s;' % host] + (['    allow %s;' % n for n in nets] + ['    deny all;'] if internal else []) + \

@@ -101,3 +101,32 @@ class TestReadiness(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestScoreBlockReadiness(unittest.TestCase):
+    """0.5.48: an adopted host whose CRS score refuses nothing from outside -- named, with the one-click proposal."""
+
+    def test_crs_log_only_named_with_action(self):
+        from jtwafmgr import scoreblock
+        from tests.test_scoreblock import site_without_score_rule
+        env = TempEnv()
+        self.addCleanup(env.cleanup)
+        env.cfg['paths']['nginx_conf'] = site_without_score_rule(env.dir)
+        app = App(env.cfg)
+        self.addCleanup(app.stop)
+        scoreblock._cache['m'] = None
+        app.workflow.managed.adopted = lambda: True          # (adoption itself is tested elsewhere)
+        it = next(i for i in readiness.items(app, installed=False) if i['key'] == 'crs_log_only')
+        self.assertEqual((it['level'], it['link'], it['action']), ('important', None, 'scoreblock'))
+
+    def test_fixture_refuses_outside_nothing_to_say(self):
+        from jtwafmgr import scoreblock
+        env = TempEnv()
+        self.addCleanup(env.cleanup)
+        app = App(env.cfg)
+        self.addCleanup(app.stop)
+        scoreblock._cache['m'] = None
+        app.workflow.managed.adopted = lambda: True
+        ks = keys(readiness.items(app, installed=False))
+        self.assertNotIn('crs_log_only', ks)
+        self.assertNotIn('crs_log_only_pending', ks)

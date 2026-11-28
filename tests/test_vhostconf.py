@@ -1,5 +1,6 @@
 """0.5.39: a site's server block read as nginx has it (masked, only blocks nginx loads) and an example block for a new
 site (validated answers; nothing written). Synthetic data only."""
+import re
 import unittest
 
 from jtwafmgr import vhostconf
@@ -56,7 +57,16 @@ class TestExample(unittest.TestCase):
         self.assertIn('proxy_request_buffering off;', t)
         self.assertIn('client_max_body_size 1g;', t)
         self.assertIn('allow 192.168.0.0/16;', t)
-        self.assertNotIn('modsecurity', t.lower().replace('# modsecurity', ''))   # switched on from the sites page
+        # the site itself: switched on from the sites page; 0.5.48: only the Photos for iOS fix names it (its location
+        # skips ModSecurity, the loopback server that inspects those uploads in full has it on)
+        self.assertEqual(re.findall(r'^\s*modsecurity\s+(\w+);', t, re.M), ['off', 'on'])
+        self.assertIn('if ($nas_mp_ct) { return 419; }', t)
+        self.assertIn('listen 127.0.0.1:15001;', t)
+        self.assertIn('real_ip_header X-Jt-Client;', t)
+        self.assertIn('proxy_set_header X-Jt-Client $remote_addr;', t)
+        self.assertRegex(t, r'multipart/form-data;\s*\$1')                # what protsets.photos_fix looks for
+        o2 = vhostconf.example(dict(self.OK, preset='synology', photos_ios=False), ['192.168.0.0/16'], mem_bytes=4 << 30)
+        self.assertNotIn('modsecurity', o2['text'].lower().replace('# modsecurity', ''))
         self.assertNotIn('listen 80', t)                               # no port 80 redirect off port 443
         self.assertFalse(o['big_upload'])
         self.assertEqual(o['path'], '/etc/nginx/sites-available/nas.example.com.conf')

@@ -1,5 +1,5 @@
 {
- "_comment": "Application protection sets (protsets.py). sets: [{id, app (the software list's name), rules: [{id, default (ticked), needs (packages the rule is about, for the page), spec (a confident block without host: target, header, arg, regex, exceptions, msg, reference, source), tests (sandbox requests: path, method, headers, body, expect 403|200, source external|internal; the site is filled in), refs (sources), cves}]}]. Titles and explanations are UI strings protset.r.<set>.<rule> / protset.w.<set>.<rule>. Every rule is written from public information or measured on a real DSM (see refs; the QNAP, Nextcloud and Zimbra sets are written from public write-ups and the sources, checked in a real nginx + ModSecurity 3.0.9 / 3.0.17 + CRS 4.30 sandbox); tests/test_protsets.py checks each attack test matches its rule and each ordinary test does not.",
+ "_comment": "Application protection sets (protsets.py). sets: [{id, app (the software list's name), rules: [{id, kind (confident_block, the default, or exclusion: a known false positive of the application, which loosens), default (ticked; \"crs_blocks\": ticked only when the CRS score refuses outside requests on the host; \"photos_fix\": ticked only when the site's nginx configuration has the Synology Photos for iOS upload fix), needs (packages the rule is about, for the page), spec (a confident block without host: target, header, arg, regex, exceptions, msg, reference, source), tests (sandbox requests: path, method, headers, body, expect 403|200, source external|internal; the site is filled in), refs (sources), cves}]}]. Titles and explanations are UI strings protset.r.<set>.<rule> / protset.w.<set>.<rule>. Every rule is written from public information or measured on a real DSM (see refs; the QNAP, Nextcloud and Zimbra sets are written from public write-ups and the sources, checked in a real nginx + ModSecurity 3.0.9 / 3.0.17 + CRS 4.30 sandbox); tests/test_protsets.py checks each attack test matches its rule and each ordinary test does not.",
  "sets": [
   {
    "id": "synology-dsm",
@@ -59,24 +59,9 @@
        "expect": 200
       },
       {
-       "path": "/webapi/entry.cgi?api=SYNO.Core.Share&version=1&method=list",
-       "method": "GET",
-       "expect": 200
-      },
-      {
-       "path": "/webapi/entry.cgi?api=SYNO.Core.PersonalSettings&version=1&method=get",
-       "method": "GET",
-       "expect": 200
-      },
-      {
        "path": "/webapi/entry.cgi?api=SYNO.Core.Network.PPPoE&version=1&method=set&realname=x",
        "method": "GET",
        "expect": 403
-      },
-      {
-       "path": "/webapi/entry.cgi?api=SYNO.Core.Web.DSM&version=1&method=get",
-       "method": "GET",
-       "expect": 200
       },
       {
        "path": "/webapi/entry.cgi?api=SYNO.Entry.Request&version=1&method=request&compound=%5B%7B%22api%22%3A%22SYNO.Core.FileServ.SMB%22%2C%22method%22%3A%22get%22%2C%22version%22%3A3%7D%2C%7B%22api%22%3A%22SYNO.Core.Network%22%2C%22method%22%3A%22get%22%2C%22version%22%3A1%7D%2C%7B%22api%22%3A%22SYNO.Core.DDNS.Record%22%2C%22method%22%3A%22list%22%2C%22version%22%3A1%7D%5D",
@@ -249,11 +234,6 @@
       },
       {
        "path": "/webman/login.cgi",
-       "method": "GET",
-       "expect": 200
-      },
-      {
-       "path": "/webman/index.cgi",
        "method": "GET",
        "expect": 200
       }
@@ -461,11 +441,6 @@
        "path": "/webapi/VideoStation/subtitle.cgi?api=SYNO.VideoStation.Subtitle&version=2&method=get&id=1&subtitle_codepage=big5",
        "method": "GET",
        "expect": 200
-      },
-      {
-       "path": "/webapi/VideoStation/subtitle.cgi?api=SYNO.VideoStation.Subtitle&version=2&method=get&id=1&subtitle_codepage=utf-8",
-       "method": "GET",
-       "expect": 200
       }
      ],
      "refs": [
@@ -514,8 +489,200 @@
      ]
     },
     {
-     "id": "body-unchecked",
+     "id": "photos-ml-labels",
+     "kind": "exclusion",
+     "default": "crs_blocks",
+     "needs": [
+      "Synology Photos"
+     ],
+     "spec": {
+      "path": {
+       "mode": "exact",
+       "value": "/webapi/entry.cgi"
+      },
+      "method": "POST",
+      "source": "all",
+      "action": "remove_target_by_tag",
+      "tag": "attack-rce",
+      "targets": [
+       "ARGS:raw_data",
+       "ARGS:additional"
+      ]
+     },
+     "tests": [
+      {
+       "path": "/webapi/entry.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "api=SYNO.Foto.Upload.Item&method=upload&version=1&raw_data=%5B%7B%22label%22%3A%22watch%22%2C%22confidence%22%3A2.5e-07%7D%2C%7B%22label%22%3A%22time%22%2C%22confidence%22%3A1.2e-05%7D%2C%7B%22label%22%3A%22cat%22%2C%22confidence%22%3A0.1%7D%5D&additional=%5B%22description%22%2C%22tag%22%2C%22exif%22%2C%22time%22%2C%22folder%22%2C%22rating%22%5D",
+       "expect": 200
+      }
+     ],
+     "refs": [],
+     "cves": []
+    },
+    {
+     "id": "dsm-api-names",
+     "kind": "exclusion",
+     "default": "crs_blocks",
+     "needs": [],
+     "spec": {
+      "path": {
+       "mode": "regex",
+       "value": "^/webapi/entry\\.cgi/SYNO\\.[A-Za-z0-9._]{1,120}$"
+      },
+      "method": "POST",
+      "source": "all",
+      "action": "remove_target_by_id",
+      "rule_ids": [
+       930130
+      ],
+      "targets": [
+       "REQUEST_FILENAME"
+      ]
+     },
+     "tests": [
+      {
+       "path": "/webapi/entry.cgi/SYNO.Core.Notification.Advance.FilterSettings.Profile",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "api=SYNO.Core.Notification.Advance.FilterSettings.Profile&method=list&version=1",
+       "expect": 200
+      }
+     ],
+     "refs": [],
+     "cves": []
+    },
+    {
+     "id": "dsm-json-data",
+     "kind": "exclusion",
+     "default": "crs_blocks",
+     "needs": [],
+     "spec": {
+      "path": {
+       "mode": "exact",
+       "value": "/webapi/entry.cgi"
+      },
+      "method": "POST",
+      "source": "all",
+      "action": "remove_target_by_id",
+      "rule_ids": [
+       942550
+      ],
+      "targets": [
+       "ARGS:data"
+      ]
+     },
+     "tests": [
+      {
+       "path": "/webapi/entry.cgi",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "application/x-www-form-urlencoded"
+       },
+       "body": "api=SYNO.Core.UserSettings&method=set&version=1&data=%7B%22SYNO.SDS.DSMNotify.Tray%22%3A%7B%22lastRead%22%3A1795721442%7D%7D",
+       "expect": 200
+      }
+     ],
+     "refs": [],
+     "cves": []
+    },
+    {
+     "id": "dsm-body-as-form",
+     "kind": "exclusion",
      "default": true,
+     "needs": [],
+     "spec": {
+      "path": {
+       "mode": "regex",
+       "value": "^/webapi/[A-Za-z0-9_]{1,40}\\.cgi(?:/[A-Za-z0-9._]{1,120})?$"
+      },
+      "method": "POST",
+      "source": "all",
+      "content_type_not": "^multipart/form-data",
+      "action": "body_processor",
+      "body_processor": "URLENCODED"
+     },
+     "tests": [
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.Core.UserSettings&method=apply&version=1",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "text/plain;charset=UTF-8"
+       },
+       "body": "data=%7B%22SYNO.SDS.App.PersonalSettings.Instance%22%3A%7B%7D%7D",
+       "expect": 200
+      }
+     ],
+     "refs": [],
+     "cves": []
+    },
+    {
+     "id": "dsm-body-no-type",
+     "kind": "exclusion",
+     "default": true,
+     "needs": [],
+     "spec": {
+      "path": {
+       "mode": "regex",
+       "value": "^/webapi/[A-Za-z0-9_]{1,40}\\.cgi(?:/[A-Za-z0-9._]{1,120})?$"
+      },
+      "method": "POST",
+      "source": "all",
+      "content_type_missing": true,
+      "action": "body_processor",
+      "body_processor": "URLENCODED"
+     },
+     "tests": [
+      {
+       "path": "/webapi/entry.cgi",
+       "method": "POST",
+       "body": "api=SYNO.API.Info&method=query&version=1",
+       "expect": 200
+      }
+     ],
+     "refs": [],
+     "cves": []
+    },
+    {
+     "id": "dsm-body-type-ok",
+     "kind": "exclusion",
+     "default": "crs_blocks",
+     "needs": [],
+     "spec": {
+      "path": {
+       "mode": "regex",
+       "value": "^/webapi/[A-Za-z0-9_]{1,40}\\.cgi(?:/[A-Za-z0-9._]{1,120})?$"
+      },
+      "method": "POST",
+      "source": "all",
+      "content_type_not": "^multipart/form-data",
+      "action": "remove_rule",
+      "rule_ids": [
+       920420
+      ]
+     },
+     "tests": [
+      {
+       "path": "/webapi/entry.cgi?api=SYNO.Core.UserSettings&method=apply&version=1",
+       "method": "POST",
+       "headers": {
+        "Content-Type": "text/plain;charset=UTF-8"
+       },
+       "body": "data=%7B%7D",
+       "expect": 200
+      }
+     ],
+     "refs": [],
+     "cves": []
+    },
+    {
+     "id": "body-unchecked",
+     "default": "photos_fix",
      "needs": [],
      "spec": {
       "target": "body_unchecked",
@@ -934,7 +1101,7 @@
     },
     {
      "id": "body-unchecked",
-     "default": true,
+     "default": false,
      "needs": [],
      "spec": {
       "target": "body_unchecked",

@@ -216,25 +216,30 @@ async function switchProvider(g, k, v) {
   } finally { busy[g.key] = false }
 }
 const connDirty = computed(() => !!s.value && CONN.some((k) => s.value[k] && isDirty(k)))
-const modelList = computed(() => (llmResult.value && llmResult.value.ok && llmResult.value.models) || [])
+// 0.5.48: also after a failed test whose saved model is gone from the server (model_not_found): pick one of these
+const modelList = computed(() => (llmResult.value && llmResult.value.models) || [])
 const modelOptions = computed(() => {
   const cur = s.value && s.value['llm.model'] ? s.value['llm.model'].value : ''
   const names = [...modelList.value]
+  const gone = !!(cur && names.length && !names.includes(cur))
   if (cur && !names.includes(cur)) names.unshift(cur)
   const dflt = llmResult.value && llmResult.value.ok && llmResult.value.model ? llmResult.value.model : ''
   return [{ value: '', label: dflt && !cur ? t('uiset.llm.model_default_is', { model: dflt }) : t('uiset.llm.model_default') }]
-    .concat(names.map((m) => ({ value: m, label: m, hint: m === cur ? t('uiset.llm.model_saved') : '' })))
+    .concat(names.map((m) => ({ value: m, label: m,
+      hint: m === cur ? t(gone ? 'uiset.llm.model_gone' : 'uiset.llm.model_saved') : '' })))
 })
 const intelResult = ref(null)
 const intelError = ref(null)
 const intelWaiting = ref(false)
-const intelModels = computed(() => (intelResult.value && intelResult.value.ok && intelResult.value.models) || [])
+const intelModels = computed(() => (intelResult.value && intelResult.value.models) || [])
 const intelModelOptions = computed(() => {
   const cur = s.value && s.value['intel.model'] ? s.value['intel.model'].value : ''
   const names = [...intelModels.value]
+  const gone = !!(cur && names.length && !names.includes(cur))
   if (cur && !names.includes(cur)) names.unshift(cur)
   return [{ value: '', label: t('uiset.intel.model_default') }]
-    .concat(names.map((m) => ({ value: m, label: m, hint: m === cur ? t('uiset.llm.model_saved') : '' })))
+    .concat(names.map((m) => ({ value: m, label: m,
+      hint: m === cur ? t(gone ? 'uiset.llm.model_gone' : 'uiset.llm.model_saved') : '' })))
 })
 const llmSteps = computed(() => {
   if (!s.value || !s.value['llm.url']) return []

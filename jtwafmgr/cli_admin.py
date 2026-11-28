@@ -407,8 +407,71 @@ def register(sub):
     n.add_argument('--reason')
     n.add_argument('-o', '--output', help='backup: write the archive to this file (mode 600)')
     n.add_argument('--totp', help='backup: a fresh one-time code')
+    sb = common(sub.add_parser('support-bundle', help='the events of a range with their rules and settings, as a zip '
+                                                     'to send for analysis (source addresses pseudonymised)'))
+    sb.add_argument('-o', '--output', required=True, help='a new file (mode 600)')
+    sb.add_argument('--hours', type=float, default=24, help='the last N hours (default 24; up to 31 days)')
+    sb.add_argument('--since', help='RFC 3339 start (instead of --hours)')
+    sb.add_argument('--until', help='RFC 3339 end (default: now)')
+    sb.add_argument('--host', help='one site')
+    sb.add_argument('--src-ip', help='one address or network')
+    sb.add_argument('--blocked', action='store_true', help='only refused requests')
+    sb.add_argument('--keep-ips', action='store_true', help='source addresses as recorded (default: pseudonymised)')
+    sb.add_argument('--hide-hosts', action='store_true', help='site names pseudonymised too')
+    sc = common(sub.add_parser('scoreblock', help='the CRS score refusing outside requests: status, propose'))
+    sc.add_argument('action', choices=('status', 'propose'))
     return {'blocks': cmd_blocks, 'alerts': cmd_alerts, 'changes': cmd_changes, 'settings': cmd_settings,
-            'tokens': cmd_tokens, 'intel': cmd_intel, 'review': cmd_review, 'nginx': cmd_nginx}
+            'tokens': cmd_tokens, 'intel': cmd_intel, 'review': cmd_review, 'nginx': cmd_nginx,
+            'support-bundle': cmd_support_bundle, 'scoreblock': cmd_scoreblock}
+
+
+def cmd_support_bundle(app, args):
+    """0.5.48: what the events page's "support bundle" does."""
+    import os
+    from . import supportbundle, util
+    p = _person(app, args, 'approver')
+    try:
+        until = util.parse_iso(args.until) if args.until else util.now()
+        since = util.parse_iso(args.since) if args.since else until - args.hours * 3600
+    except ValueError:
+        raise CliError('--since / --until: RFC 3339, for example 2026-11-28T08:00:00+08:00')
+    try:
+        data, info = supportbundle.build(app, since, until, p['username'], host=args.host, src_ip=args.src_ip,
+                                         outcome='blocked' if args.blocked else 'all', anon_ips=not args.keep_ips,
+                                         anon_hosts=args.hide_hosts)
+    except supportbundle.BundleError as e:
+        raise CliError('%s %s' % (e.code, e.details or ''))
+    try:
+        fd = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+    except FileExistsError:
+        raise CliError('%s exists: give a new file name' % args.output)
+    with os.fdopen(fd, 'wb') as fh:
+        fh.write(data)
+    supportbundle.audit(app, p['username'], info, 'user', 'cli', host=args.host, src_ip=args.src_ip,
+                        outcome='blocked' if args.blocked else 'all', anon_ips=not args.keep_ips, anon_hosts=args.hide_hosts)
+    print('%s  %s (%d events%s)' % (info['sha256'], args.output, info['events'],
+                                     ', more in the range: narrow it' if info['more'] else ''))
+    return 0
+
+
+def cmd_scoreblock(app, args):
+    """0.5.48: whether the CRS score refuses outside requests here; propose the rule that makes it."""
+    from . import scoreblock
+    from .changes import ChangeError
+    if args.action == 'status':
+        st = scoreblock.status(app)
+        if not _out(st, args.json):
+            for k, v in st.items():
+                print('%-12s %s' % (k, v))
+        return 0
+    p = _person(app, args, 'operator')
+    try:
+        cid = scoreblock.propose(app, p['username'], 'user', role=p['role'])
+    except (scoreblock.ScoreBlockError, ChangeError) as e:
+        raise CliError('%s %s' % (e.code, e.details or ''))
+    d = app.workflow.get(cid)['direction']
+    print('change #%d proposed (%s); check it and approve it in the web interface or with "changes approve"' % (cid, d))
+    return 0
 
 
 def cmd_nginx(app, args):

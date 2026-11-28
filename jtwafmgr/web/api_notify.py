@@ -115,6 +115,20 @@ def alert_handle(app, req):
         raise ApiError(e.status, e.code)
 
 
+def alert_handle_batch(app, req):
+    b = req.body()
+    if not isinstance(b, dict):
+        raise ApiError(400, 'bad_request')
+    note = b.get('note')
+    if note is not None and not isinstance(note, str):
+        raise ApiError(400, 'invalid_note')
+    try:
+        return json_response(200, alerts.handle_many(app.db, app.audit, b.get('ids'), req.user['username'], note or '',
+                                                     src_ip=req.client_ip))
+    except alerts.AlertError as e:
+        raise ApiError(e.status, e.code)
+
+
 def register(router):
     R = router.add
     admin = ('admin',)
@@ -125,5 +139,6 @@ def register(router):
     R('GET', V + '/notify/deliveries/{id}', notify_delivery, admin)
     R('GET', V + '/alerts', alert_list, ('role', 'viewer', 'changes:read'))
     R('GET', V + '/alerts/counts', alert_counts, ('role', 'viewer', 'changes:read'))
+    R('POST', V + '/alerts/handle-batch', alert_handle_batch, ('role', 'approver', None))
     R('GET', V + '/alerts/{id}', alert_get, ('role', 'viewer', 'changes:read'))
     R('POST', V + '/alerts/{id}/handle', alert_handle, ('role', 'approver', None))

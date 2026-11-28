@@ -146,7 +146,9 @@ class Client:
         t = time.time()
         models = self.models()
         if self.model and models and self.model not in models:
-            raise LLMError('model_not_found', 'available: ' + ', '.join(models[:10]))
+            e = LLMError('model_not_found', 'available: ' + ', '.join(models[:10]))
+            e.models = models[:50]      # 0.5.48: the page offers these (the saved model is gone from the server)
+            raise e
         # room for a reasoning model's thinking before the one-word answer
         text, usage, secs = self.chat([{'role': 'user', 'content': 'Reply with the single word OK.'}], max_tokens=400,
                                       temperature=0)

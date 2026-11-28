@@ -99,6 +99,28 @@ def handle(db, audit, aid, user, note, src_ip=None):
     return public(get(db, aid))
 
 
+BATCH_MAX = 200
+
+
+def handle_many(db, audit, ids, user, note, src_ip=None):
+    """0.5.48: several alerts handled with one note (each audited on its own, as one by one). Returns
+    {'handled': n, 'failed': [{'id', 'error'}]}."""
+    if not isinstance(ids, list) or not 1 <= len(ids) <= BATCH_MAX or \
+            not all(isinstance(i, int) and not isinstance(i, bool) and i > 0 for i in ids):
+        raise AlertError('invalid_ids')
+    note = (note or '').strip()
+    if len(note) > 1000 or '\x00' in note:
+        raise AlertError('invalid_note')
+    done, failed = 0, []
+    for aid in dict.fromkeys(ids):
+        try:
+            handle(db, audit, aid, user, note, src_ip=src_ip)
+            done += 1
+        except AlertError as e:
+            failed.append({'id': aid, 'error': e.code})
+    return {'handled': done, 'failed': failed}
+
+
 def counts(db):
     out = {'open': 0, 'critical': 0}
     for r in db.q("SELECT severity, COUNT(*) AS c FROM alerts WHERE state='open' GROUP BY severity"):

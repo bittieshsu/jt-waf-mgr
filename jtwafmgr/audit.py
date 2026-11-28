@@ -172,6 +172,7 @@ class Audit:
         _ALL.add(self)
         self.chain = self.__init_chain()
         self.ctx = threading.local()
+        self.geo = None         # set by the app: ip -> the web pages' geo answer (GeoIP, then the registries' lists)
 
     # the first destination keeps the attributes it always had (system check, compliance, tests)
     @property
@@ -270,7 +271,22 @@ class Audit:
                    'outcome': e.get('outcome'), 'decided_by': e.get('decided_by'), 'anomaly_score': e.get('anomaly_score'),
                    'rule_ids': list(e.get('rule_ids') or []), 'families': list(e.get('families') or []),
                    'message': e.get('message')}
+            rec.update(self._country(e.get('src_ip')))
             self._send(targets, 'event', rec, 4 if e.get('outcome') == 'blocked' else 6)
+
+    def _country(self, ip):
+        """0.5.48: the source's country for shipped events, as the pages show it: {'country': ISO code,
+        'country_name': English name when GeoIP knows it}; nothing for internal or unknown addresses."""
+        try:
+            g = self.geo(ip) if self.geo and ip else None
+        except Exception:      # noqa: BLE001 -- a lookup must never stop a record from leaving
+            g = None
+        if not g or g.get('scope') != 'external' or not g.get('cc'):
+            return {}
+        out = {'country': g['cc']}
+        if g.get('country') and g['country'] != g['cc']:
+            out['country_name'] = g['country']
+        return out
 
     def alert(self, aid, kind, severity, source, details, link):
         """An alert just opened, to the destinations that take alerts."""

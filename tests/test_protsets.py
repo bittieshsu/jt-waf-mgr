@@ -71,8 +71,23 @@ class TestData(unittest.TestCase):
             self.assertEqual(len(ids), len(set(ids)), s['id'])
             for r in s['rules']:
                 spec = dict(r['spec'], host={'mode': 'exact', 'value': 'nas.example.com'}, protset='%s/%s' % (s['id'], r['id']))
-                norm, text, _ = rulegen.build('confident_block', spec, 10250, self.app.cfg)
+                norm, text, _ = rulegen.build(r['kind'], spec, 10250, self.app.cfg)
                 self.assertEqual(norm['protset'], '%s/%s' % (s['id'], r['id']))
+                if r['kind'] == 'exclusion':
+                    # 0.5.48: an exclusion for a known false positive -- narrow (one path, one method, named
+                    # parameters), brings the request it lets through, and is never ticked while the CRS only logs
+                    self.assertIn(r['spec']['path']['mode'], ('exact', 'regex'), r['id'])
+                    self.assertTrue(r['spec'].get('method'), r['id'])
+                    if r['spec']['action'] == 'body_processor':
+                        # parsing a body the application parses itself makes the WAF see more, never less
+                        self.assertIn(r['spec']['body_processor'], ('URLENCODED', 'MULTIPART', 'JSON', 'XML'), r['id'])
+                    else:
+                        self.assertTrue(r['spec'].get('targets') or r['spec'].get('rule_ids'), r['id'])
+                        self.assertIn(r['default'], (False, 'crs_blocks'), r['id'])
+                    self.assertTrue(r['tests'] and all(t['expect'] == 200 for t in r['tests']), r['id'])
+                    from jtwafmgr.changes import _check_tests
+                    _check_tests([dict(t, host='nas.example.com', source=t.get('source', 'external')) for t in r['tests']])
+                    continue
                 attacks = [t for t in r['tests'] if t['expect'] == 403]
                 self.assertTrue(attacks, r['id'])
                 self.assertTrue(any(t['expect'] == 200 for t in r['tests']), r['id'])
@@ -113,6 +128,8 @@ class TestSetAsAWhole(unittest.TestCase):
                     if t['expect'] != 200 or t.get('source', 'external') != 'external':
                         continue
                     for other in s['rules']:
+                        if other['kind'] == 'exclusion':
+                            continue
                         self.assertFalse(_hits(other, t), (s['id'], r['id'], t['path'], 'refused by', other['id']))
 
 
@@ -125,8 +142,12 @@ class TestFlow(unittest.TestCase):
         self.addCleanup(self.env.cleanup)
         self.mdir = os.path.join(self.env.dir, 'managed')
         self.spool = os.path.join(self.env.dir, 'spool')
+        paths = dict(self.env.cfg['paths'])
+        conf = self.site_conf()
+        if conf:
+            paths['nginx_conf'] = conf
         self.env.cfg = config.load(None, {
-            'paths': dict(self.env.cfg['paths']), 'server': {'secure_cookies': False}, 'syslog': {'enabled': False},
+            'paths': paths, 'server': {'secure_cookies': False}, 'syslog': {'enabled': False},
             'collector': {'backfill_rotated': False}, 'waf': {'focus_sites': []},
             'managed': {'dir': self.mdir, 'spool': self.spool, 'sandbox_dir': os.path.join(self.env.dir, 'sbx')},
             'evidence': {'access_logs': [os.path.join(self.env.dir, '*access.log')]}})
@@ -143,6 +164,9 @@ class TestFlow(unittest.TestCase):
         self.wf.run_checks(cid)
         self.approve(cid)
         self.fake_apply()
+
+    def site_conf(self):
+        return None
 
     def approve(self, cid, note='checked the rules of the set'):
         import time
@@ -170,7 +194,10 @@ class TestFlow(unittest.TestCase):
             protsets.propose(self.app, 'synology-dsm', 'nas.example.com', ['nope'], 'alice', role='admin')
         with self.assertRaises(protsets.ProtsetError):
             protsets.propose(self.app, 'nope', 'nas.example.com', ['admin-api'], 'alice', role='admin')
-        ids = [r['id'] for r in rules]
+        # the Photos exclusion: ticked only when the CRS score refuses outside requests (the fixture site does)
+        excl = [r for r in rules if r['kind'] == 'exclusion']
+        self.assertTrue(excl and all(r['default'] == st['crs_blocks'] for r in excl))
+        ids = [r['id'] for r in rules if r['kind'] != 'exclusion']
         cid = protsets.propose(self.app, 'synology-dsm', 'nas.example.com', ids, 'alice', role='admin')
         ch = self.app.workflow.get(cid)
         self.assertEqual(ch['op'], 'bundle')
@@ -181,7 +208,7 @@ class TestFlow(unittest.TestCase):
         self.assertTrue(all(o['spec']['host'] == {'mode': 'exact', 'value': 'nas.example.com'} for o in spec['ops']))
         tests = json.loads(ch['tests'])
         self.assertTrue(tests and all(t['host'] == 'nas.example.com' for t in tests))
-        st = self.syno()['sites'][0]['rules']
+        st = [r for r in self.syno()['sites'][0]['rules'] if r['kind'] != 'exclusion']
         self.assertTrue(all(r['state'] == 'pending' and r['change_id'] == cid for r in st))
         with self.assertRaises(protsets.ProtsetError) as e:            # all waiting already
             protsets.propose(self.app, 'synology-dsm', 'nas.example.com', ids, 'alice', role='admin')
@@ -195,7 +222,7 @@ class TestFlow(unittest.TestCase):
         self.approve(cid)
         self.fake_apply()
         self.assertEqual(self.wf.get(cid)['state'], 'applied')
-        st = self.syno()['sites'][0]['rules']
+        st = [r for r in self.syno()['sites'][0]['rules'] if r['kind'] != 'exclusion']
         self.assertTrue(all(r['state'] == 'applied' and r['rule_id'] for r in st), st)
         import os
         import tempfile
@@ -210,8 +237,9 @@ class TestFlow(unittest.TestCase):
         st = {r['id']: r for r in protsets.status(self.app, path)[0]['sites'][0]['rules']}
         first = d['sets'][0]['rules'][0]['id']
         self.assertEqual(st[first]['state'], 'update')
-        self.assertTrue(all(r['state'] == 'applied' for k, r in st.items() if k != first))
-        cid2 = protsets.propose(self.app, 'synology-dsm', 'nas.example.com', list(st), 'boss', role='admin', path=path)
+        self.assertTrue(all(r['state'] == 'applied' for k, r in st.items() if k != first and r['kind'] != 'exclusion'))
+        cid2 = protsets.propose(self.app, 'synology-dsm', 'nas.example.com',
+                                [k for k, r in st.items() if r['kind'] != 'exclusion'], 'boss', role='admin', path=path)
         ops = json.loads(self.wf.get(cid2)['spec'])['ops']
         self.assertEqual([(o['op'], o['spec']['protset']) for o in ops], [('modify', 'synology-dsm/' + first)])
 

@@ -5,7 +5,8 @@ The system check lists each of these somewhere in a long page; the dashboard nam
 fix each one. Two levels:
 
 - important: the WAF does not protect, or nobody hears about it (no CRS, not adopted, no site with the WAF on, the
-  apply program not armed, no notifications, CrowdSec virtual patches off);
+  CRS score refusing nothing from outside (0.5.48), the apply program not armed, no notifications, CrowdSec virtual
+  patches off);
 - suggested: a feature that adds protection or saves work (event analysis, threat intelligence, IP reputation,
   country lists, temporary IP blocks).
 
@@ -59,6 +60,47 @@ def _protset_item(app):
                  n=n)
 
 
+def _photos_ios_item(app):
+    """0.5.48: a Synology DSM site refuses uninspected bodies from outside (the protection set's body-unchecked rule) but
+    its nginx configuration lacks the Synology Photos for iOS upload fix: photo uploads from outside are refused."""
+    try:
+        from . import protsets
+        sets = protsets.status(app)
+    except Exception:          # noqa: BLE001
+        return None
+    hosts = []
+    for s in sets:
+        if s['id'] != 'synology-dsm':
+            continue
+        for site in s['sites']:
+            r = next((x for x in site['rules'] if x['id'] == 'body-unchecked'), None)
+            if r and r['state'] in ('applied', 'update') and not protsets.photos_fix(app, site['host']):
+                hosts.append(site['host'])
+    if not hosts:
+        return None
+    return _item('synology_photos_ios', 'important', '/vhosts', None, hosts=', '.join(hosts[:5]))
+
+
+def _scoreblock_item(app):
+    """0.5.48: the CRS is loaded and sites have the WAF on, but its score never refuses a request from outside (a host
+    adopted from a fresh ModSecurity: the engine in detection only and no rule switching blocking on for the score).
+    The dashboard proposes the rule in one click (scoreblock.py), with the Synology Photos exclusion for DSM sites."""
+    try:
+        from . import scoreblock
+        st = scoreblock.status(app)
+    except Exception:          # noqa: BLE001
+        return None
+    if st['blocks']:
+        return None
+    if st['pending']:
+        return _item('crs_log_only_pending', 'important', '/changes/%d' % st['pending'], change=st['pending'])
+    if not st['can_propose']:
+        return None
+    out = _item('crs_log_only', 'important', None, dsm=', '.join(st['dsm_hosts'][:5]))
+    out['action'] = 'scoreblock'
+    return out
+
+
 def _crs_item(app):
     """No CRS loaded. 0.5.32: say how far it got -- downloaded and verified but not installed, or a change waiting --
     instead of only "not installed" (the CRS page's switch turns on the download, not the installation)."""
@@ -97,9 +139,11 @@ def items(app, installed=None):
         n, m = app.site.load()
     except Exception:          # noqa: BLE001 -- the dashboard never fails over this
         n = m = None
+    crs_ok = False
     if m is not None:
         crs = m.crs_status()
-        if not crs.get('version'):
+        crs_ok = bool(crs.get('version'))
+        if not crs_ok:
             out.append(_crs_item(app))
     try:
         adopted = app.workflow.managed.adopted()
@@ -107,10 +151,16 @@ def items(app, installed=None):
         adopted = True
     if not adopted:
         out.append(_item('not_adopted', 'important', '/managed'))
+    waf_site = False
     if n is not None:
         servers = n.servers()
-        if servers and not any(s.get('waf') in ('on', 'block') for s in servers):
+        waf_site = any(s.get('waf') in ('on', 'block') for s in servers)
+        if servers and not waf_site:
             out.append(_item('no_waf_site', 'important', '/vhosts'))
+    if crs_ok and adopted and waf_site:
+        sb = _scoreblock_item(app)
+        if sb:
+            out.append(sb)
     single = _single_admin_needed(app)
     if single:
         out.append(_item('single_admin_off', 'important', '/admin/settings', '#workflow-settings'))
@@ -123,6 +173,9 @@ def items(app, installed=None):
     ps = _protset_item(app)
     if ps:
         out.append(ps)
+    pi = _photos_ios_item(app)
+    if pi:
+        out.append(pi)
     if not (cfg['llm'].get('enabled') and cfg['analyst'].get('enabled')):
         out.append(_item('analyst_off', 'suggested', '/admin/settings', '#uiset-llm'))
     if not cfg['intel'].get('enabled'):

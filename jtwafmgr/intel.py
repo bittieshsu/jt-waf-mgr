@@ -2529,7 +2529,9 @@ def connection_test(cfg):
         models = [m.get('id') for m in (d.get('data') or []) if isinstance(m, dict) and m.get('id')]
         model = model or (models[0] if models else '')
         if model and models and model not in models:
-            raise IntelError('model_not_found', 'available: ' + ', '.join(models[:10]))
+            e = IntelError('model_not_found', 'available: ' + ', '.join(models[:10]))
+            e.models = models[:100]     # 0.5.48: the page offers these
+            raise e
         r = _json_call(base + '/chat/completions', {'model': model, 'max_tokens': 400, 'temperature': 0,
                                                      'messages': [{'role': 'user', 'content': 'Reply with the single word OK.'}]},
                        headers, c['timeout_seconds'])
@@ -2577,6 +2579,8 @@ def run_test(app, log=print):
         if key and len(key) >= 4:
             detail = detail.replace(key, '[key]')
         out = {'ok': False, 'error': e.code, 'detail': util.clip(detail, 300)}
+        if getattr(e, 'models', None):
+            out['models'] = e.models
         app.audit.log('intel.tested', 'intel', 'system', None, 'failed', error=e.code)
     out.update(requested_at=asked, finished_at=util.iso(time.time()))
     _write_result(cfg, out)

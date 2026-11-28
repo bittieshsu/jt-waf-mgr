@@ -659,7 +659,9 @@ class TestAuditCoverage(unittest.TestCase):
                       'uisettings.set_many', 'alerts.handle(',
                       '_wf(app).reject', '_wf(app).cancel', '_wf(app).recheck', '_wf(app).rollback',
                       'app.blocks.add(', 'app.blocks.remove(', 'app.blocks.extend(', 'intel.set_status(',
-                      'settings_io.apply(', '_wf(app).approve(', 'intel.submit(', 'protsets.propose(')
+                      'settings_io.apply(', '_wf(app).approve(', 'intel.submit(', 'protsets.propose(',
+                      'scoreblock.propose(', 'alerts.handle_many(',
+                      'supportbundle.audit(')
 
     def test_write_routes_audited(self):
         from jtwafmgr.web import api

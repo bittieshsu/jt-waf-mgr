@@ -32,6 +32,18 @@ TEMPLATES = {
     'protset': 'Protection set for {app} on {host} (jt-waf-mgr {version}): {rules}. Built from the publicly known '
                'vulnerabilities and attacks of this software (see each rule\'s reference); each rule refuses matching '
                'requests from outside only and brings its own tests.',
+    'protset_excl': 'Exclusion for a known false positive of this software: {rules}. It loosens: approval with a one-time '
+                    'code.',
+    'scoreblock': 'Outside requests at or over the OWASP CRS anomaly threshold are refused (rule {rule}, jt-waf-mgr '
+                  '{version}); internal ones keep being logged. Until now the CRS only logged on this host, also for '
+                  'outside sources: only the confident blocks refused.',
+    'scoreblock_photos': 'Synology Photos false positive excluded on {hosts}: the labels the app recognised in a photo '
+                         '(raw_data, additional) are not checked by the command injection rules (tag attack-rce); '
+                         'every other rule still checks them. Without it, backing up photos from outside would be '
+                         'refused. This part loosens: approval with a one-time code.',
+    'scoreblock_apps': 'With it, the protection set exclusions for the known false positives of ordinary use on {hosts} '
+                       '(each one narrow: one path, the parameters or rule named; see the operations). Without them '
+                       'ordinary use would be refused from outside. This part loosens: approval with a one-time code.',
     'analyst_all_external': 'ALL FROM EXTERNAL SOURCES: no internal user was blocked; check that this is really normal use.',
     'analyst_fp_whole': '[jt analyst] false positive, model {model}, confidence {confidence}. Scope: host {host}, {mode} '
                         'path {path}, method {method}, rules {rules}, WHOLE RULE removed there. Last {hours}h: {events} '

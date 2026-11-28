@@ -24,6 +24,7 @@ class App:
         self.geoip = GeoIP(cfg)
         api.GEO = self.geoip.lookup
         api.COUNTRY = self._registry_country
+        self.audit.geo = api.geo            # shipped events carry the source's country (0.5.48)
         from .config import confident_ranges
         api.REFUSING_RANGES = tuple(confident_ranges(cfg)) + (tuple(cfg['waf']['country_range']),)
         self.router = Router()

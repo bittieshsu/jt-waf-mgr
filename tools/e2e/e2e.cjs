@@ -339,7 +339,7 @@ async function audit(page, where) {
   // 0.5.34: the DSM site's recommended protection rules, with the numbers filled in (0.5.32 showed "{version}" as is)
   const psItem = page.locator('section.readiness .readylist li', { hasText: 'Synology DSM' }).first();
   // 0.5.44: the Nextcloud site's 16 recommended rules too (one item for every application with a set)
-  ok((await psItem.count()) === 1 && /26 條建議的防護規則尚未套用/.test(await psItem.innerText()) && /nas\.example\.com/.test(await psItem.innerText()) &&
+  ok((await psItem.count()) === 1 && /\d+ 條建議的防護規則尚未套用/.test(await psItem.innerText()) && /nas\.example\.com/.test(await psItem.innerText()) &&
      /Nextcloud/.test(await psItem.innerText()) && /files\.example\.com/.test(await psItem.innerText()) &&
      !/\{\w+\}/.test(await page.locator('section.readiness').innerText()),
      'dashboard: the protection set item, numbers and site filled in');
@@ -847,10 +847,14 @@ async function audit(page, where) {
   const pcard = page.locator('.protset[data-host="nas.example.com"]');
   const pboxes = pcard.locator('tbody input[type=checkbox]');
   const nBoxes = await pboxes.count()
-  ok((await pcard.count()) === 1 && nBoxes >= 8 && (await pcard.locator('tbody input[type=checkbox]:checked').count()) === nBoxes - 1 &&
-     (await pcard.locator('.badge', { hasText: '建議' }).count()) === nBoxes - 1 &&
-     !(await pcard.locator('tbody tr').filter({ hasText: 'Synology Photos 即時通道' }).locator('input[type=checkbox]').isChecked()),
-     'protection sets: the DSM site, its rules, the recommended ones ticked (not the Photos live channel)');
+  // 0.5.48: not ticked here -- the Photos live channel, and the uninspected-body rule (this site's nginx has no Photos
+  // for iOS fix); the false positive exclusions are ticked (this site's CRS score refuses outside requests)
+  ok((await pcard.count()) === 1 && nBoxes >= 8 && (await pcard.locator('tbody input[type=checkbox]:checked').count()) === nBoxes - 2 &&
+     (await pcard.locator('.badge', { hasText: '建議' }).count()) === nBoxes - 2 &&
+     !(await pcard.locator('tbody tr').filter({ hasText: 'Synology Photos 即時通道' }).locator('input[type=checkbox]').isChecked()) &&
+     (await pcard.locator('tbody tr').filter({ hasText: '照片辨識標籤' }).locator('input[type=checkbox]').isChecked()) &&
+     (await pcard.locator('.badge', { hasText: '誤判排除' }).count()) >= 5,
+     'protection sets: the DSM site, its rules, the recommended ones ticked (not the Photos live channel), exclusions marked');
   ok((await page.locator('.alert.warn', { hasText: '尚未納管' }).count()) === 1 && (await pcard.locator('.protacts button.primary').isDisabled()),
      'protection sets: not adopted -- the notice, and no proposal');
   await pcard.locator('tbody tr').first().click();
@@ -859,7 +863,8 @@ async function audit(page, where) {
      'protection sets: a rule opens to what it matches');
   // 0.5.42: the rule on uninspected bodies, recommended, shown by what it matches (no pattern)
   const buRow = pcard.locator('tbody tr').filter({ hasText: 'ModSecurity 沒有檢查的請求內容' });
-  ok((await buRow.count()) === 1 && (await buRow.locator('input[type=checkbox]').isChecked()), 'protection sets: the uninspected-body rule, recommended');
+  ok((await buRow.count()) === 1 && !(await buRow.locator('input[type=checkbox]').isChecked()),
+     'protection sets: the uninspected-body rule, not ticked without the Photos for iOS fix');
   await buRow.click();
   await page.waitForFunction(() => [...document.querySelectorAll('.protdetail')].some((d) => d.innerText.includes('請求內容未檢查')), null, { timeout: 5000 }).catch(() => {});
   ok((await page.locator('.protdetail', { hasText: '請求內容未檢查' }).count()) >= 1, 'protection sets: the uninspected-body rule opens to its target');
@@ -921,6 +926,46 @@ async function audit(page, where) {
   await page.waitForTimeout(400);
   ok(!!aid && (await page.locator('tr.row-focus').count()) === 1 && (await page.locator('textarea, .card h2:has-text("#' + aid + '")').count()) > 0,
      'alerts: ?id opens that alert for handling');
+  // 0.5.48: the handling form's buttons keep a gap under the note box
+  const ta = await page.locator('.handlecard textarea').boundingBox().catch(() => null);
+  const btn = await page.locator('.handlecard .formacts .btn').first().boundingBox().catch(() => null);
+  ok(ta && btn && btn.y - (ta.y + ta.height) >= 10, 'alerts: the form buttons do not touch the note box');
+  // 0.5.48: several alerts handled at once, from the check boxes (a real submit)
+  await page.goto(base + '/alerts', { waitUntil: 'networkidle' });
+  const openBefore = await page.evaluate(async () => (await (await fetch('/api/v1/alerts?state=open&limit=200')).json()).items.length);
+  const boxes = page.locator('table.grid tbody input[type=checkbox]');
+  ok((await boxes.count()) >= 2 && (await page.locator('.batchbar input[type=checkbox]').count()) === 1, 'alerts: check boxes and select-all');
+  await boxes.nth(0).check(); await boxes.nth(1).check();
+  await page.locator('.batchbar .btn.primary').click();
+  await page.waitForSelector('.handlecard .batchlist', { timeout: 5000 }).catch(() => {});
+  ok((await page.locator('.handlecard .batchlist li').count()) === 2, 'alerts: the batch form lists the two picked alerts');
+  await page.locator('.handlecard textarea').fill('e2e: handled together');
+  await page.locator('.handlecard .formacts .btn.primary').click();
+  await page.waitForFunction(() => !document.querySelector('.handlecard'), null, { timeout: 8000 }).catch(() => {});
+  const openAfter = await page.evaluate(async () => (await (await fetch('/api/v1/alerts?state=open&limit=200')).json()).items.length);
+  ok(openAfter === openBefore - 2, 'alerts: two handled at once (' + openBefore + ' -> ' + openAfter + ')');
+  // 0.5.48: the events page charts the source addresses; the support bundle downloads a zip
+  await page.goto(base + '/events', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(400);
+  ok((await page.locator('.chartgrid.halves .hb-row').count()) > 0, 'events: source address chart');
+  await page.locator('.pagehead .btn', { hasText: /支援資料包|Support bundle|サポート用データ/ }).click();
+  await page.waitForSelector('.supportbundle', { timeout: 5000 }).catch(() => {});
+  const [sbDl] = await Promise.all([page.waitForEvent('download', { timeout: 30000 }).catch(() => null),
+    page.locator('.supportbundle .formacts .btn.primary').click()]);
+  ok(sbDl && /^jt-waf-mgr-support-.*\.zip$/.test(sbDl.suggestedFilename()), 'events: support bundle downloaded (' + (sbDl ? sbDl.suggestedFilename() : 'none') + ')');
+  await page.waitForSelector('.supportbundle .alert.ok', { timeout: 10000 }).catch(() => {});
+  ok((await page.locator('.supportbundle .alert.ok').count()) === 1, 'events: support bundle result shown');
+  // 0.5.48: the dashboard's one-click CRS score refusal (this site refuses already: the server says so, worded)
+  await page.route('**/api/v1/readiness', (r) => r.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ items: [{ key: 'crs_log_only', level: 'important', link: null, action: 'scoreblock', details: { dsm: '' } }] }) }));
+  await page.goto(base + '/', { waitUntil: 'networkidle' });
+  const sbBtn = page.locator('.readiness .btn.primary');
+  ok((await sbBtn.count()) === 1, 'dashboard: CRS score refusal can be proposed in one click');
+  await sbBtn.click();
+  await page.waitForSelector('.readiness .alert, .readiness [role=alert]', { timeout: 8000 }).catch(() => {});
+  const sbErr = await page.locator('.readiness').innerText();
+  ok(/已經會封鎖外部請求|already refuses|すでに外部/.test(sbErr), 'dashboard: the server answer is shown, worded');
+  await page.unroute('**/api/v1/readiness');
   await page.goto(base + '/', { waitUntil: 'networkidle' });
   // notification preview: example message, language switch, Escape closes
   await page.goto(base + '/admin/notify', { waitUntil: 'networkidle' });

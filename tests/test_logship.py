@@ -83,6 +83,44 @@ class TestFormats(unittest.TestCase):
         self.assertEqual(b''.join(c[12:] for c in chunks), big)
         self.assertIsNone(logfmt.gelf_udp_chunks(b'x' * (logfmt.GELF_CHUNK * 129), b'12345678'))
 
+    def test_country_fields(self):
+        rec = dict(EVIL, country='JP', country_name='Japan')
+        g = json.loads(logfmt.gelf('event', rec, 4, 'waf1', 1000.5))
+        self.assertEqual((g['_country'], g['_country_name']), ('JP', 'Japan'))
+        self.assertEqual(g['_site'], g['_host'])
+        a = json.loads(logfmt.gelf('alert', {'kind': 'x', 'host': 'www.example.com'}, 4, 'waf1', 1000.5))
+        self.assertEqual(a['_site'], 'www.example.com')
+        self.assertNotIn('_site', json.loads(logfmt.gelf('audit', {'action': 'x.y'}, 6, 'waf1', 1000.5)))
+        self.assertIn('cs3Label=src_country cs3=JP', logfmt.cef('event', rec, 4, '1.0'))
+        self.assertIn('country=JP', logfmt.kv('event', rec, 4))
+        self.assertNotIn('_country', json.loads(logfmt.gelf('event', EVIL, 4, 'waf1', 1000.5)))
+
+
+class TestEventCountry(unittest.TestCase):
+    def setUp(self):
+        self.env = TempEnv()
+        self.addCleanup(self.env.cleanup)
+        self.app = App(self.env.cfg)
+
+    def test_country_from_the_page_lookup(self):
+        a = self.app.audit
+        a.geo = lambda ip: {'scope': 'external', 'cc': 'JP', 'country': 'Japan'} if ip == '203.0.113.7' else \
+            {'scope': 'internal'} if ip == '192.0.2.10' else \
+            {'scope': 'external', 'cc': 'DE', 'country': 'DE', 'source': 'registries'} if ip == '198.51.100.5' else None
+        self.assertEqual(a._country('203.0.113.7'), {'country': 'JP', 'country_name': 'Japan'})
+        self.assertEqual(a._country('198.51.100.5'), {'country': 'DE'})
+        self.assertEqual(a._country('192.0.2.10'), {})
+        self.assertEqual(a._country('198.51.100.99'), {})
+        self.assertEqual(a._country(None), {})
+
+        def boom(ip):
+            raise ValueError('broken database')
+        a.geo = boom
+        self.assertEqual(a._country('203.0.113.7'), {})
+
+    def test_app_wires_the_lookup(self):
+        self.assertIsNotNone(self.app.audit.geo)
+
 
 class TestDestinations(unittest.TestCase):
     def setUp(self):

@@ -900,6 +900,8 @@ def run_test(app, log=print):
         detail = e.detail.replace(client.key, '[key]') if client.key and len(client.key) >= 4 else e.detail
         out = {'ok': False, 'error': e.code, 'detail': detail, 'requested_at': asked,
                'finished_at': util.iso(time.time())}
+        if getattr(e, 'models', None):
+            out['models'] = e.models
         app.audit.log('llm.tested', ACTOR, 'system', None, 'failed', error=e.code)
     tmp = _state_path(cfg, '.' + TEST_RESULT + '.tmp')
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640)

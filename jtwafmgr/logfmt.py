@@ -48,6 +48,8 @@ def fields(kind, rec):
         add('rules', ','.join(str(r) for r in rec.get('rule_ids') or []))
         add('families', ','.join(rec.get('families') or []))
         add('origin', rec.get('origin'))
+        add('country', rec.get('country'))
+        add('country_name', rec.get('country_name'))
         add('message', rec.get('message'))
         add('unique_id', rec.get('unique_id'))
         sig = 'waf.' + str(rec.get('outcome') or 'event')
@@ -87,6 +89,7 @@ _CEF_KEYS = {'time': None, 'node': 'dvchost', 'src': 'src', 'host': 'dhost', 'me
              'status': ('cn2', 'status'), 'score': ('cn1', 'anomaly_score'), 'rules': ('cs1', 'rule_ids'),
              'families': ('cs2', 'families'), 'hash': ('cs3', 'audit_hash'), 'origin': ('cs4', 'origin'),
              'unique_id': ('cs5', 'unique_id'), 'details': ('cs6', 'details'), 'audit_id': ('cn3', 'audit_id'),
+             'country': ('cs3', 'src_country'),
              'alert_id': ('cn3', 'alert_id'), 'alert_kind': ('cs4', 'alert_kind'), 'severity': ('cs5', 'severity'),
              'link': ('cs6', 'link'), 'query': ('cs6', 'query'), 'decided_by': ('cs4', 'decided_by'),
              'actor_type': ('cs4', 'actor_type'), 'alert_source': ('cs5', 'alert_source')}
@@ -181,6 +184,8 @@ def gelf(kind, rec, level, host, when):
         if key == '_id':
             key = '_jt_id'
         g[key] = v if isinstance(v, (int, float)) and not isinstance(v, bool) else _s(v, 8000)
+        if key == '_host':      # Graylog drops an additional field named _host (tested on 7.2.2): the site again as _site
+            g['_site'] = g[key]
     return json.dumps(g, ensure_ascii=True, separators=(',', ':'), default=str).encode('ascii')
 
 

@@ -285,7 +285,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
 
 <div class="hero"><div class="wrap">
   <div>
-    <h1>jt-waf-mgr <span class="ver">v0.5.47</span></h1>
+    <h1>jt-waf-mgr <span class="ver">v0.5.48</span></h1>
     <p class="lead" data-t="lead"></p>
     <div class="btns">
       <a class="btn primary" href="https://github.com/jasoncheng7115/jt-waf-mgr">GitHub</a>
@@ -500,7 +500,7 @@ p.disclaimer { margin: 16px 0 0; padding: 10px 14px; border-left: 3px solid #f59
       <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_dir"></span>
 sudo mkdir -p /opt/jt-waf-mgr-install &amp;&amp; cd /opt/jt-waf-mgr-install
 <span class="c" data-t="c_get"></span>
-V=<span class="v-cur">0.5.47</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=<span class="v-cur">0.5.48</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done
 <span class="c" data-t="c_verify"></span>
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
@@ -536,7 +536,7 @@ sudo nginx -t &amp;&amp; sudo systemctl reload nginx</pre></div>
       <div class="ihead"><span class="ic">↻</span><div><h3 data-t="ub_h"></h3><p data-t="ub_d"></p></div></div>
       <div class="code"><button type="button" class="copy" data-t="copy"></button><pre><span class="c" data-t="c_udir"></span>
 cd /opt/jt-waf-mgr-install
-V=<span class="v-cur">0.5.47</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=<span class="v-cur">0.5.48</span>; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current &amp;&amp; sudo mkdir current &amp;&amp; sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 &amp;&amp; cd current
 <span class="c" data-t="c_ucheck"></span>
@@ -698,7 +698,7 @@ const T = {
   ig_h: 'Works with what you already run', ig_sub: 'Events, the audit trail and alerts leave in the formats your log and security tools read; other systems propose changes and block addresses through tokens limited to what they need.',
   ig1_h: 'Wazuh', ig1: 'A decoder and rules for jt-waf-mgr\'s own records ship in deploy/wazuh (send the audit trail and events by syslog): Wazuh then watches the manager itself. An active response can call the IP block API.',
   ig2_h: 'jt-wazuh-mgr', ig2: 'A separate Jason Tools project that manages Wazuh: it proposes WAF changes and temporary blocks with its own API token (never approves), and keeps the hourly threat view across systems.',
-  ig3_h: 'Graylog', ig3: 'GELF over UDP, TCP or TLS straight to a GELF input: every field (site, rule, outcome, source, country) arrives as its own field for streams, dashboards and alerts.',
+  ig3_h: 'Graylog', ig3: 'GELF over UDP, TCP or TLS straight to a GELF input: every field (site, rule, outcome, source, country) arrives as its own field. A ready-made content pack (Graylog 6.3+) adds streams, dashboards and event definitions.',
   ig4_h: 'Other SIEM and syslog', ig4: 'Up to 8 destinations, each with its own protocol (UDP, TCP, TLS), format (JSON, CEF, LEEF, GELF, key=value, RFC 3164 / 5424) and content (audit trail, events, alerts), with its own queue and a test button.',
   ig5_h: 'fail2ban and scripts', ig5: 'A ready fail2ban action blocks and unblocks through the IP block API: a token per host, single addresses, up to 7 days; internal and protected networks can never be blocked. For example: fail2ban on a Zimbra mail server sees one address guessing passwords, and that address is blocked on every site behind nginx too.',
   ig6_h: 'Messaging apps and webhooks', ig6: 'E-mail, Telegram, Teams, Slack, Discord, Zulip, Nextcloud Talk and a generic webhook signed with HMAC-SHA256.',
@@ -921,7 +921,7 @@ const T = {
   ig_h: '和你現有的系統一起運作', ig_sub: '事件、稽核記錄與警示用記錄與資安工具讀得懂的格式送出；其他系統透過只給必要權限的權杖提出變更、封鎖位址。',
   ig1_h: 'Wazuh', ig1: 'deploy/wazuh 附有 jt-waf-mgr 自身記錄的 decoder 與規則 (以 syslog 送出稽核記錄與事件)，讓 Wazuh 也盯住管理工具本身；主動回應可以呼叫 IP 封鎖 API。',
   ig2_h: 'jt-wazuh-mgr', ig2: 'Jason Tools 另一個管理 Wazuh 的專案：用自己的 API 權杖提出 WAF 變更與暫時封鎖 (永遠不能核准)，並負責跨系統的每小時威脅檢視。',
-  ig3_h: 'Graylog', ig3: '以 GELF (UDP、TCP 或 TLS) 直接送到 GELF input：站台、規則、結果、來源、國家都是各自獨立的欄位，可直接做 stream、儀表板與警示。',
+  ig3_h: 'Graylog', ig3: '以 GELF (UDP、TCP 或 TLS) 直接送到 GELF input：站台、規則、結果、來源、國家都是各自獨立的欄位。隨附內容套件 (Graylog 6.3 以上)，匯入就有串流、儀表板與事件定義。',
   ig4_h: '其他 SIEM 與 syslog', ig4: '最多 8 個目的地，各自設定協定 (UDP、TCP、TLS)、格式 (JSON、CEF、LEEF、GELF、key=value、RFC 3164 / 5424) 與內容 (稽核記錄、事件、警示)，各有獨立佇列與測試按鈕。',
   ig5_h: 'fail2ban 與腳本', ig5: '附上現成的 fail2ban 動作，透過 IP 封鎖 API 封鎖與解除：每台主機一個權杖、只能單一位址、最長 7 天；內部網路與保護清單永遠不會被封鎖。例如：Zimbra 郵件主機的 fail2ban 發現某個位址在猜密碼，就呼叫 API，讓 nginx 後面所有站台一起封鎖這個位址。',
   ig6_h: '通訊軟體與 webhook', ig6: 'E-mail、Telegram、Teams、Slack、Discord、Zulip、Nextcloud Talk，以及 HMAC-SHA256 簽章的通用 webhook。',
@@ -1144,7 +1144,7 @@ const T = {
   ig_h: 'いま使っているシステムと連携', ig_sub: 'イベント、監査記録、アラートをログ・セキュリティツールが読める形式で送ります。他のシステムは必要な権限だけのトークンで変更を提案し、アドレスをブロックします。',
   ig1_h: 'Wazuh', ig1: 'jt-waf-mgr 自身の記録用のデコーダーとルールを deploy/wazuh に同梱（監査記録とイベントを syslog で送信）。Wazuh が管理ツール自体も監視します。アクティブレスポンスから IP ブロック API を呼べます。',
   ig2_h: 'jt-wazuh-mgr', ig2: 'Wazuh を管理する Jason Tools の別プロジェクト。専用の API トークンで WAF の変更と一時ブロックを提案し（承認はできない）、システム横断の毎時の脅威確認を担います。',
-  ig3_h: 'Graylog', ig3: 'GELF（UDP、TCP、TLS）で GELF input に直接送信。サイト、ルール、結果、送信元、国がそれぞれ独立したフィールドになり、ストリーム、ダッシュボード、アラートにそのまま使えます。',
+  ig3_h: 'Graylog', ig3: 'GELF（UDP、TCP、TLS）で GELF input に直接送信。サイト、ルール、結果、送信元、国がそれぞれ独立したフィールドになります。コンテンツパック (Graylog 6.3 以上) を同梱し、インポートするだけでストリーム、ダッシュボード、イベント定義が揃います。',
   ig4_h: 'その他の SIEM と syslog', ig4: '最大 8 つの送信先に、それぞれのプロトコル（UDP、TCP、TLS）、形式（JSON、CEF、LEEF、GELF、key=value、RFC 3164 / 5424）、内容（監査記録、イベント、アラート）を設定。個別のキューとテスト送信付き。',
   ig5_h: 'fail2ban とスクリプト', ig5: 'IP ブロック API でブロック・解除する fail2ban アクションを用意。ホストごとのトークン、単一アドレスのみ、最長 7 日。内部ネットワークと保護リストは決してブロックしません。例：Zimbra メールサーバーの fail2ban がパスワードを推測しているアドレスを見つけたら API を呼び、nginx の背後の全サイトでもそのアドレスをブロックします。',
   ig6_h: 'メッセージアプリと webhook', ig6: 'メール、Telegram、Teams、Slack、Discord、Zulip、Nextcloud Talk、HMAC-SHA256 署名付きの汎用 webhook。',

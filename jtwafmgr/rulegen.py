@@ -606,6 +606,25 @@ def _exclusion(spec, rid, cfg, internal):
     conds = ([host] if host else []) + _scoped_path(path)
     if method:
         conds.append(('REQUEST_METHOD', '@streq ' + method, 't:none'))
+    # 0.5.48: only for requests of one content type (a browser's sendBeacon posts text/plain; the exclusion has it
+    # parsed as a form instead of left unparsed)
+    ctype = spec.get('content_type') or ''
+    ctype_not = spec.get('content_type_not') or ''
+    ctype_missing = bool(spec.get('content_type_missing'))
+    if sum(1 for x in (ctype, ctype_not, ctype_missing) if x) > 1:
+        raise SpecError('content_type', 'one_content_type_condition')
+    for field, v in (('content_type', ctype), ('content_type_not', ctype_not)):
+        if v:
+            if not isinstance(v, str) or len(v) > 200 or not v.startswith('^'):
+                raise SpecError(field, 'invalid_content_type')
+            _regex_ok(field, v)
+    if ctype:
+        conds.append(('REQUEST_HEADERS:Content-Type', '@rx ' + ctype, 't:none,t:lowercase'))
+    elif ctype_not:
+        # a request with a Content-Type that is not this one (a missing header is content_type_missing)
+        conds.append(('REQUEST_HEADERS:Content-Type', '!@rx ' + ctype_not, 't:none,t:lowercase'))
+    elif ctype_missing:
+        conds.append(('&REQUEST_HEADERS:Content-Type', '@eq 0', 't:none'))
     if src:
         conds.append(src)
     text = _chain(conds, 'id:%d,phase:1,pass,nolog' % rid, ','.join(ctl))
@@ -613,6 +632,18 @@ def _exclusion(spec, rid, cfg, internal):
             'method': method, 'source': spec.get('source') or 'all', 'action': action, 'rule_ids': ids,
             'targets': targets, 'tag': tag, 'body_processor': spec.get('body_processor') or '',
             'confirm_tag': bool(spec.get('confirm_tag'))}
+    if ctype:
+        norm['content_type'] = ctype
+    if ctype_not:
+        norm['content_type_not'] = ctype_not
+    if ctype_missing:
+        norm['content_type_missing'] = True
+    ps = spec.get('protset')
+    if ps not in (None, ''):
+        # 0.5.48: a protection set can bring an exclusion too (a known false positive of the application)
+        if not isinstance(ps, str) or not PROTSET_RE.match(ps):
+            raise SpecError('protset', 'invalid_protset')
+        norm['protset'] = ps
     return norm, text, 'before'
 
 

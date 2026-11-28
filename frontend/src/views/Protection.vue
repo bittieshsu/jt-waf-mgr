@@ -25,6 +25,7 @@
                    @row-click="(r) => toggleOpen(site, r)">
           <template #cell-sel="{ row }"><input v-if="pickable(row)" type="checkbox" :checked="isPicked(site, row)" :aria-label="t('protset.pick', { name: ruleTitle(site, row) })" @click.stop @change="togglePick(site, row)" /><span v-else aria-hidden="true"></span></template>
           <template #cell-title="{ row }"><span class="prottitle">{{ ruleTitle(site, row) }}
+            <span v-if="row.kind === 'exclusion'" class="badge b-warn gapl" :title="t('protset.exclusion_hint')">{{ t('protset.exclusion') }}</span>
             <span v-if="row.default" class="badge b-ok gapl">{{ t('protset.recommended') }}</span>
             <span v-if="row.needs_missing.length" class="badge b-logged gapl" :title="t('protset.needs_hint', { pkgs: row.needs_missing.join(', ') })">{{ t('protset.not_listed') }}</span></span></template>
           <template #cell-cves="{ row }"><span v-if="row.cves.length" class="cvelist"><span v-for="c in row.cves.slice(0, 3)" :key="c" class="chip tag mono">{{ safeText(c, 30) }}</span><span v-if="row.cves.length > 3" class="muted small"> +{{ row.cves.length - 3 }}</span></span><span v-else class="muted">—</span></template>
@@ -33,7 +34,8 @@
           <template #expand="{ row }">
             <div class="protdetail">
               <p>{{ ruleWhy(site, row) }}</p>
-              <p class="small"><strong>{{ t('protset.matches') }}：</strong><template v-if="row.regex"><span class="mono">{{ row.target === 'arg' ? row.arg + ' = ' : row.target === 'header' && row.header ? row.header + ': ' : '' }}{{ safeText(row.regex, 400) }}</span>
+              <p v-if="row.kind === 'exclusion'" class="small"><strong>{{ t('protset.excludes') }}：</strong><span class="mono">{{ exclText(row) }}</span></p>
+              <p v-else class="small"><strong>{{ t('protset.matches') }}：</strong><template v-if="row.regex"><span class="mono">{{ row.target === 'arg' ? row.arg + ' = ' : row.target === 'header' && row.header ? row.header + ': ' : '' }}{{ safeText(row.regex, 400) }}</span>
                 <span class="muted gapl">({{ t('wizard.target_opt.' + row.target) }})</span></template><span v-else>{{ t('wizard.target_opt.' + row.target) }}</span></p>
               <p v-if="row.cves.length" class="small"><strong>CVE：</strong><template v-for="(c, i) in row.cves" :key="c"><span v-if="i" class="muted"> · </span><a class="mono" :href="'https://nvd.nist.gov/vuln/detail/' + encodeURIComponent(c)" target="_blank" rel="noopener noreferrer">{{ c }}</a></template></p>
               <p v-if="row.refs.length" class="small"><strong>{{ t('protset.refs') }}：</strong><template v-for="(u, i) in row.refs" :key="u"><span v-if="i" class="muted"> · </span><a :href="u" target="_blank" rel="noopener noreferrer" :title="u">{{ safeText(refLabel(u), 80) }}</a></template></p>
@@ -135,6 +137,14 @@ async function propose(site) {
 }
 
 onMounted(load)
+
+// 0.5.48: what an exclusion of the set leaves out, in words
+function exclText(r) {
+  const ct = r.content_type ? t('protset.excl.ct_is', { v: r.content_type }) : r.content_type_not ? t('protset.excl.ct_not', { v: r.content_type_not })
+    : r.content_type_missing ? t('protset.excl.ct_missing') : ''
+  return t('protset.excl.' + (r.action || 'remove_target_by_tag'), { path: r.path, tag: r.tag, targets: (r.targets || []).join(', '),
+    ids: (r.rule_ids || []).join(', '), bp: r.body_processor, ct })
+}
 </script>
 
 <style scoped>

@@ -95,11 +95,14 @@ def _managed(app):
     m = app.workflow.managed
     if not m.adopted():
         return _check('managed_rules', OK, 'not adopted (read-only mode)', adopted=False)
-    disk = m.disk_state()
+    disk = m.disk_state(applying_ok=True)
     if disk.get('drift'):
         return _check('managed_rules', CRITICAL, 'managed rule files changed outside jt-waf-mgr', adopted=True,
                       files=sorted(p for p, f in disk['files'].items() if f.get('drift')))
     cur = m.current_version()
+    if disk.get('applying'):
+        return _check('managed_rules', OK, 'version %d being applied' % disk['applying'], adopted=True,
+                      version=cur['version'] if cur else None, applying=disk['applying'])
     return _check('managed_rules', OK, 'as last applied', adopted=True, version=cur['version'] if cur else None)
 
 

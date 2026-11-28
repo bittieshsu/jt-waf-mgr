@@ -1,0 +1,3656 @@
+{
+  "id": "6c5eb269-6b6d-4040-941e-a37a539501ae",
+  "rev": 1,
+  "v": "1",
+  "name": "jt-waf-mgr",
+  "summary": "jt-waf-mgr 的 WAF 事件、警示與稽核：串流、管線、儀表板與事件定義。",
+  "description": "適用 jt-waf-mgr 0.5.48 以上 (GELF 1.1 外送)。\n匯入後請手動啟用三條串流 (Graylog 匯入的串流一律是暫停狀態)。\n外部來源封鎖地圖需要 Graylog 的 GeoIP 處理器與資料庫；沒有的話，其他元件照常可用。\n版本 1.0.0。",
+  "vendor": "Jason Tools",
+  "url": "https://github.com/jasoncheng7115/jt-waf-mgr",
+  "created_at": "2026-11-27T06:07:40.766Z",
+  "server_version": "6.3.15+3ad654f",
+  "parameters": [],
+  "entities": [
+    {
+      "id": "944bc0ed-8d16-4a9b-8aff-075112a66a14",
+      "type": {
+        "name": "stream",
+        "version": "1"
+      },
+      "v": "1",
+      "data": {
+        "title": {
+          "@type": "string",
+          "@value": "jt-waf-mgr 警示"
+        },
+        "description": {
+          "@type": "string",
+          "@value": "jt-waf-mgr 的警示。"
+        },
+        "disabled": {
+          "@type": "boolean",
+          "@value": false
+        },
+        "matching_type": {
+          "@type": "string",
+          "@value": "AND"
+        },
+        "stream_rules": [
+          {
+            "type": {
+              "@type": "string",
+              "@value": "PRESENCE"
+            },
+            "field": {
+              "@type": "string",
+              "@value": "jt_event"
+            },
+            "value": {
+              "@type": "string",
+              "@value": ""
+            },
+            "inverted": {
+              "@type": "boolean",
+              "@value": false
+            },
+            "description": {
+              "@type": "string",
+              "@value": "jt-waf-mgr: jt_event 存在"
+            }
+          },
+          {
+            "type": {
+              "@type": "string",
+              "@value": "EXACT"
+            },
+            "field": {
+              "@type": "string",
+              "@value": "jt_type"
+            },
+            "value": {
+              "@type": "string",
+              "@value": "alert"
+            },
+            "inverted": {
+              "@type": "boolean",
+              "@value": false
+            },
+            "description": {
+              "@type": "string",
+              "@value": "jt-waf-mgr: jt_type = alert"
+            }
+          }
+        ],
+        "alert_conditions": [],
+        "alarm_callbacks": [],
+        "outputs": [],
+        "default_stream": {
+          "@type": "boolean",
+          "@value": false
+        },
+        "remove_matches": {
+          "@type": "boolean",
+          "@value": false
+        }
+      },
+      "constraints": [
+        {
+          "type": "server-version",
+          "version": ">=6.3.15+3ad654f"
+        }
+      ]
+    },
+    {
+      "id": "4a406029-f355-4f22-ac90-f6f8e94fdd84",
+      "type": {
+        "name": "pipeline",
+        "version": "1"
+      },
+      "v": "1",
+      "data": {
+        "title": {
+          "@type": "string",
+          "@value": "jt-waf-mgr"
+        },
+        "description": {
+          "@type": "string",
+          "@value": "jt-waf-mgr 欄位整理 (只處理 jt-waf-mgr 的 WAF 事件)。"
+        },
+        "source": {
+          "@type": "string",
+          "@value": "pipeline \"jt-waf-mgr\"\nstage 0 match either\nrule \"jt-waf-mgr: 拆分規則編號\"\nrule \"jt-waf-mgr: 拆分攻擊類型\"\nend"
+        },
+        "connected_streams": [
+          {
+            "@type": "string",
+            "@value": "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+          }
+        ]
+      },
+      "constraints": [
+        {
+          "type": "server-version",
+          "version": ">=6.3.15+3ad654f"
+        }
+      ]
+    },
+    {
+      "id": "b150f88a-a9ac-46c9-95c0-be113a39fca2",
+      "type": {
+        "name": "dashboard",
+        "version": "2"
+      },
+      "v": "1",
+      "data": {
+        "type": "DASHBOARD",
+        "title": {
+          "@type": "string",
+          "@value": "jt-waf-mgr 稽核"
+        },
+        "summary": {
+          "@type": "string",
+          "@value": ""
+        },
+        "description": {
+          "@type": "string",
+          "@value": "jt-waf-mgr 稽核：誰做了什麼，以及結果不是 ok 的項目。"
+        },
+        "search": {
+          "queries": [
+            {
+              "id": "a738b205-c580-4478-911f-7de7905f7b9b",
+              "timerange": {
+                "from": 604800,
+                "type": "relative"
+              },
+              "filters": [],
+              "query": {
+                "type": "elasticsearch",
+                "query_string": ""
+              },
+              "search_types": [
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:audit"
+                  },
+                  "streams": [
+                    "b0f6c7e3-7cc1-43e6-9cf2-5e269dfcb75f"
+                  ],
+                  "stream_categories": [],
+                  "id": "df1fee2b-34f0-4f63-8d10-17c1186930f8",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [
+                    {
+                      "type": "values",
+                      "fields": [
+                        "result"
+                      ],
+                      "limit": 10,
+                      "skip_empty_values": false
+                    }
+                  ],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:audit"
+                  },
+                  "streams": [
+                    "b0f6c7e3-7cc1-43e6-9cf2-5e269dfcb75f"
+                  ],
+                  "stream_categories": [],
+                  "id": "adc3f3f0-3015-4e89-b89f-26c39942f8bf",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    },
+                    {
+                      "type": "max",
+                      "id": "max(timestamp)",
+                      "field": "timestamp"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [
+                    {
+                      "type": "values",
+                      "fields": [
+                        "actor"
+                      ],
+                      "limit": 20,
+                      "skip_empty_values": false
+                    },
+                    {
+                      "type": "values",
+                      "fields": [
+                        "action"
+                      ],
+                      "limit": 20,
+                      "skip_empty_values": false
+                    }
+                  ],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:audit"
+                  },
+                  "streams": [
+                    "b0f6c7e3-7cc1-43e6-9cf2-5e269dfcb75f"
+                  ],
+                  "stream_categories": [],
+                  "id": "9123ab27-1aa9-48ee-80a1-9ea0ca70498d",
+                  "name": null,
+                  "limit": 150,
+                  "offset": 0,
+                  "decorators": [],
+                  "type": "messages",
+                  "filter": null,
+                  "filters": []
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:audit"
+                  },
+                  "streams": [
+                    "b0f6c7e3-7cc1-43e6-9cf2-5e269dfcb75f"
+                  ],
+                  "stream_categories": [],
+                  "id": "bcd180ab-36b0-4f80-8a97-da564386cbeb",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [
+                    {
+                      "type": "values",
+                      "fields": [
+                        "actor_type"
+                      ],
+                      "limit": 10,
+                      "skip_empty_values": false
+                    }
+                  ],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:audit AND NOT result:ok"
+                  },
+                  "streams": [
+                    "b0f6c7e3-7cc1-43e6-9cf2-5e269dfcb75f"
+                  ],
+                  "stream_categories": [],
+                  "id": "908e8e86-004f-4614-be33-4b19f4f8e738",
+                  "name": null,
+                  "limit": 150,
+                  "offset": 0,
+                  "decorators": [],
+                  "type": "messages",
+                  "filter": null,
+                  "filters": []
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:audit AND NOT result:ok"
+                  },
+                  "streams": [
+                    "b0f6c7e3-7cc1-43e6-9cf2-5e269dfcb75f"
+                  ],
+                  "stream_categories": [],
+                  "id": "d51d623b-0464-447a-922a-6baeefdfe6ab",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                }
+              ]
+            }
+          ],
+          "parameters": [],
+          "requires": {},
+          "owner": "admin",
+          "created_at": "2026-11-27T06:07:37.557Z"
+        },
+        "properties": [],
+        "requires": {},
+        "state": {
+          "a738b205-c580-4478-911f-7de7905f7b9b": {
+            "selected_fields": null,
+            "static_message_list_id": null,
+            "titles": {
+              "widget": {
+                "d54f7671-697e-47fe-b3a5-91fb1f9daa0b": "結果不是 ok",
+                "ac85ea4c-c68f-4038-8065-72c0944a65b3": "依結果",
+                "4b72d1f2-9414-4b3f-8921-950655dc5acc": "依操作者類型",
+                "7702e05f-beb7-4e18-8594-363bbdd22d50": "誰做了什麼",
+                "99f3dc95-6010-40b0-9829-9008e5dcfa13": "結果不是 ok 的項目",
+                "f08d8216-1150-40aa-970a-92cbd9c8cf4f": "最新稽核記錄"
+              },
+              "tab": {
+                "title": "jt-waf-mgr 稽核"
+              }
+            },
+            "widgets": [
+              {
+                "id": "f08d8216-1150-40aa-970a-92cbd9c8cf4f",
+                "type": "messages",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:audit"
+                },
+                "streams": [
+                  "b0f6c7e3-7cc1-43e6-9cf2-5e269dfcb75f"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "fields": [
+                    "timestamp",
+                    "actor",
+                    "action",
+                    "result",
+                    "src",
+                    "node"
+                  ],
+                  "units": {},
+                  "show_message_row": false,
+                  "show_summary": false,
+                  "decorators": [],
+                  "sort": [
+                    {
+                      "type": "pivot",
+                      "field": "timestamp",
+                      "direction": "Descending"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "4b72d1f2-9414-4b3f-8921-950655dc5acc",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:audit"
+                },
+                "streams": [
+                  "b0f6c7e3-7cc1-43e6-9cf2-5e269dfcb75f"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [
+                    {
+                      "fields": [
+                        "actor_type"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 10
+                      }
+                    }
+                  ],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "visualization": "pie",
+                  "visualization_config": null,
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": 10,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "ac85ea4c-c68f-4038-8065-72c0944a65b3",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:audit"
+                },
+                "streams": [
+                  "b0f6c7e3-7cc1-43e6-9cf2-5e269dfcb75f"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [
+                    {
+                      "fields": [
+                        "result"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 10
+                      }
+                    }
+                  ],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "visualization": "pie",
+                  "visualization_config": null,
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": 10,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "d54f7671-697e-47fe-b3a5-91fb1f9daa0b",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:audit AND NOT result:ok"
+                },
+                "streams": [
+                  "b0f6c7e3-7cc1-43e6-9cf2-5e269dfcb75f"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [],
+                  "visualization": "numeric",
+                  "visualization_config": {
+                    "trend": false,
+                    "trend_preference": "NEUTRAL"
+                  },
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": null,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "99f3dc95-6010-40b0-9829-9008e5dcfa13",
+                "type": "messages",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:audit AND NOT result:ok"
+                },
+                "streams": [
+                  "b0f6c7e3-7cc1-43e6-9cf2-5e269dfcb75f"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "fields": [
+                    "timestamp",
+                    "actor",
+                    "actor_type",
+                    "action",
+                    "result",
+                    "src",
+                    "details",
+                    "node"
+                  ],
+                  "units": {},
+                  "show_message_row": false,
+                  "show_summary": false,
+                  "decorators": [],
+                  "sort": [
+                    {
+                      "type": "pivot",
+                      "field": "timestamp",
+                      "direction": "Descending"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "7702e05f-beb7-4e18-8594-363bbdd22d50",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:audit"
+                },
+                "streams": [
+                  "b0f6c7e3-7cc1-43e6-9cf2-5e269dfcb75f"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [
+                    {
+                      "fields": [
+                        "actor"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 20
+                      }
+                    },
+                    {
+                      "fields": [
+                        "action"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 20
+                      }
+                    }
+                  ],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    },
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "max(timestamp)"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "visualization": "table",
+                  "visualization_config": null,
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": 20,
+                  "column_limit": null
+                }
+              }
+            ],
+            "widget_mapping": {
+              "d54f7671-697e-47fe-b3a5-91fb1f9daa0b": [
+                "d51d623b-0464-447a-922a-6baeefdfe6ab"
+              ],
+              "ac85ea4c-c68f-4038-8065-72c0944a65b3": [
+                "df1fee2b-34f0-4f63-8d10-17c1186930f8"
+              ],
+              "4b72d1f2-9414-4b3f-8921-950655dc5acc": [
+                "bcd180ab-36b0-4f80-8a97-da564386cbeb"
+              ],
+              "7702e05f-beb7-4e18-8594-363bbdd22d50": [
+                "adc3f3f0-3015-4e89-b89f-26c39942f8bf"
+              ],
+              "99f3dc95-6010-40b0-9829-9008e5dcfa13": [
+                "908e8e86-004f-4614-be33-4b19f4f8e738"
+              ],
+              "f08d8216-1150-40aa-970a-92cbd9c8cf4f": [
+                "9123ab27-1aa9-48ee-80a1-9ea0ca70498d"
+              ]
+            },
+            "positions": {
+              "d54f7671-697e-47fe-b3a5-91fb1f9daa0b": {
+                "col": 1,
+                "row": 1,
+                "height": 3,
+                "width": 4
+              },
+              "ac85ea4c-c68f-4038-8065-72c0944a65b3": {
+                "col": 5,
+                "row": 1,
+                "height": 3,
+                "width": 4
+              },
+              "4b72d1f2-9414-4b3f-8921-950655dc5acc": {
+                "col": 9,
+                "row": 1,
+                "height": 3,
+                "width": 4
+              },
+              "7702e05f-beb7-4e18-8594-363bbdd22d50": {
+                "col": 1,
+                "row": 4,
+                "height": 5,
+                "width": "Infinity"
+              },
+              "99f3dc95-6010-40b0-9829-9008e5dcfa13": {
+                "col": 1,
+                "row": 9,
+                "height": 5,
+                "width": "Infinity"
+              },
+              "f08d8216-1150-40aa-970a-92cbd9c8cf4f": {
+                "col": 1,
+                "row": 14,
+                "height": 5,
+                "width": "Infinity"
+              }
+            },
+            "formatting": {
+              "highlighting": []
+            },
+            "display_mode_settings": {
+              "positions": {}
+            }
+          }
+        },
+        "owner": "admin",
+        "created_at": "2026-11-27T06:07:37.777Z"
+      },
+      "constraints": [
+        {
+          "type": "server-version",
+          "version": ">=6.3.15+3ad654f"
+        }
+      ]
+    },
+    {
+      "id": "5cb1dc4c-f669-4a8e-b482-84a237af9f5d",
+      "type": {
+        "name": "event_definition",
+        "version": "1"
+      },
+      "v": "1",
+      "data": {
+        "_scope": {
+          "@type": "string",
+          "@value": "DEFAULT"
+        },
+        "title": {
+          "@type": "string",
+          "@value": "jt-waf-mgr: 單一來源大量封鎖"
+        },
+        "description": {
+          "@type": "string",
+          "@value": "同一個來源 IP 在 5 分鐘內被封鎖 300 次以上 (門檻保守)。"
+        },
+        "remediation_steps": null,
+        "updated_at": "2026-11-27T06:07:40.037Z",
+        "matched_at": null,
+        "priority": {
+          "@type": "integer",
+          "@value": 2
+        },
+        "alert": {
+          "@type": "boolean",
+          "@value": false
+        },
+        "config": {
+          "type": "aggregation-v1",
+          "query": {
+            "@type": "string",
+            "@value": "jt_type:event AND outcome:blocked"
+          },
+          "query_parameters": [],
+          "filters": [],
+          "streams": [
+            "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+          ],
+          "stream_categories": [],
+          "group_by": [
+            "src"
+          ],
+          "series": [
+            {
+              "type": "count",
+              "id": "80928ff1-503f-42ee-a068-356d06039a7b",
+              "field": null
+            }
+          ],
+          "conditions": {
+            "expression": {
+              "expr": ">=",
+              "left": {
+                "expr": "number-ref",
+                "ref": "80928ff1-503f-42ee-a068-356d06039a7b"
+              },
+              "right": {
+                "expr": "number",
+                "value": 300.0
+              }
+            }
+          },
+          "search_within_ms": 300000,
+          "execute_every_ms": 300000,
+          "use_cron_scheduling": false,
+          "cron_expression": null,
+          "cron_timezone": null,
+          "event_limit": 100
+        },
+        "field_spec": {},
+        "key_spec": [],
+        "notification_settings": {
+          "grace_period_ms": 1800000,
+          "backlog_size": 20
+        },
+        "notifications": [],
+        "storage": [
+          {
+            "type": "persist-to-streams-v1",
+            "streams": [
+              "000000000000000000000002"
+            ]
+          }
+        ],
+        "is_scheduled": {
+          "@type": "boolean",
+          "@value": true
+        },
+        "event_procedure": null
+      },
+      "constraints": [
+        {
+          "type": "server-version",
+          "version": ">=6.3.15+3ad654f"
+        }
+      ]
+    },
+    {
+      "id": "f5429ac8-de40-4ffd-9dda-0604610053fc",
+      "type": {
+        "name": "event_definition",
+        "version": "1"
+      },
+      "v": "1",
+      "data": {
+        "_scope": {
+          "@type": "string",
+          "@value": "DEFAULT"
+        },
+        "title": {
+          "@type": "string",
+          "@value": "jt-waf-mgr: 封鎖量暴增"
+        },
+        "description": {
+          "@type": "string",
+          "@value": "5 分鐘內封鎖 1,000 次以上 (門檻保守，請依站台流量調整)。"
+        },
+        "remediation_steps": null,
+        "updated_at": "2026-11-27T06:07:38.398Z",
+        "matched_at": null,
+        "priority": {
+          "@type": "integer",
+          "@value": 2
+        },
+        "alert": {
+          "@type": "boolean",
+          "@value": false
+        },
+        "config": {
+          "type": "aggregation-v1",
+          "query": {
+            "@type": "string",
+            "@value": "jt_type:event AND outcome:blocked"
+          },
+          "query_parameters": [],
+          "filters": [],
+          "streams": [
+            "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+          ],
+          "stream_categories": [],
+          "group_by": [],
+          "series": [
+            {
+              "type": "count",
+              "id": "5a7ec5fb-9885-4a08-affe-a1bc929d6a3e",
+              "field": null
+            }
+          ],
+          "conditions": {
+            "expression": {
+              "expr": ">=",
+              "left": {
+                "expr": "number-ref",
+                "ref": "5a7ec5fb-9885-4a08-affe-a1bc929d6a3e"
+              },
+              "right": {
+                "expr": "number",
+                "value": 1000.0
+              }
+            }
+          },
+          "search_within_ms": 300000,
+          "execute_every_ms": 300000,
+          "use_cron_scheduling": false,
+          "cron_expression": null,
+          "cron_timezone": null,
+          "event_limit": 100
+        },
+        "field_spec": {},
+        "key_spec": [],
+        "notification_settings": {
+          "grace_period_ms": 1800000,
+          "backlog_size": 20
+        },
+        "notifications": [],
+        "storage": [
+          {
+            "type": "persist-to-streams-v1",
+            "streams": [
+              "000000000000000000000002"
+            ]
+          }
+        ],
+        "is_scheduled": {
+          "@type": "boolean",
+          "@value": true
+        },
+        "event_procedure": null
+      },
+      "constraints": [
+        {
+          "type": "server-version",
+          "version": ">=6.3.15+3ad654f"
+        }
+      ]
+    },
+    {
+      "id": "675e5625-fb3f-42f8-82cb-f599f1090c43",
+      "type": {
+        "name": "dashboard",
+        "version": "2"
+      },
+      "v": "1",
+      "data": {
+        "type": "DASHBOARD",
+        "title": {
+          "@type": "string",
+          "@value": "jt-waf-mgr 警示"
+        },
+        "summary": {
+          "@type": "string",
+          "@value": ""
+        },
+        "description": {
+          "@type": "string",
+          "@value": "jt-waf-mgr 警示：依類型與嚴重度統計，以及最新清單。"
+        },
+        "search": {
+          "queries": [
+            {
+              "id": "0dbfbaab-38dd-4bae-a39f-5729280cb276",
+              "timerange": {
+                "from": 604800,
+                "type": "relative"
+              },
+              "filters": [],
+              "query": {
+                "type": "elasticsearch",
+                "query_string": ""
+              },
+              "search_types": [
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:alert"
+                  },
+                  "streams": [
+                    "944bc0ed-8d16-4a9b-8aff-075112a66a14"
+                  ],
+                  "stream_categories": [],
+                  "id": "e51454fd-b8b9-49e9-98f4-9da7593b8cc1",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [
+                    {
+                      "type": "values",
+                      "fields": [
+                        "alert_kind"
+                      ],
+                      "limit": 30,
+                      "skip_empty_values": false
+                    },
+                    {
+                      "type": "values",
+                      "fields": [
+                        "severity"
+                      ],
+                      "limit": 5,
+                      "skip_empty_values": false
+                    }
+                  ],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:alert"
+                  },
+                  "streams": [
+                    "944bc0ed-8d16-4a9b-8aff-075112a66a14"
+                  ],
+                  "stream_categories": [],
+                  "id": "56fa0949-9ae8-4c1a-8574-cf741c15d46f",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    },
+                    {
+                      "type": "max",
+                      "id": "max(timestamp)",
+                      "field": "timestamp"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [
+                    {
+                      "type": "values",
+                      "fields": [
+                        "alert_kind"
+                      ],
+                      "limit": 30,
+                      "skip_empty_values": false
+                    }
+                  ],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:alert"
+                  },
+                  "streams": [
+                    "944bc0ed-8d16-4a9b-8aff-075112a66a14"
+                  ],
+                  "stream_categories": [],
+                  "id": "b649beff-f170-40cc-afcd-af2fd2a56eda",
+                  "name": null,
+                  "limit": 150,
+                  "offset": 0,
+                  "decorators": [],
+                  "type": "messages",
+                  "filter": null,
+                  "filters": []
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:alert"
+                  },
+                  "streams": [
+                    "944bc0ed-8d16-4a9b-8aff-075112a66a14"
+                  ],
+                  "stream_categories": [],
+                  "id": "040143c5-7ce0-42df-b548-acd1418a7a7d",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "rollup": false,
+                  "type": "pivot",
+                  "row_groups": [
+                    {
+                      "type": "time",
+                      "fields": [
+                        "timestamp"
+                      ],
+                      "interval": {
+                        "type": "auto",
+                        "scaling": 1.0
+                      }
+                    }
+                  ],
+                  "column_groups": [
+                    {
+                      "type": "values",
+                      "fields": [
+                        "severity"
+                      ],
+                      "limit": 5,
+                      "skip_empty_values": false
+                    }
+                  ],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:alert AND severity:critical"
+                  },
+                  "streams": [
+                    "944bc0ed-8d16-4a9b-8aff-075112a66a14"
+                  ],
+                  "stream_categories": [],
+                  "id": "4e5ede2f-b0de-4ca9-bc8b-8bb2dc2c46d2",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:alert"
+                  },
+                  "streams": [
+                    "944bc0ed-8d16-4a9b-8aff-075112a66a14"
+                  ],
+                  "stream_categories": [],
+                  "id": "77170747-9e55-4956-a277-026d1e4f07fb",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [
+                    {
+                      "type": "values",
+                      "fields": [
+                        "severity"
+                      ],
+                      "limit": 5,
+                      "skip_empty_values": false
+                    }
+                  ],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:alert"
+                  },
+                  "streams": [
+                    "944bc0ed-8d16-4a9b-8aff-075112a66a14"
+                  ],
+                  "stream_categories": [],
+                  "id": "3d4c0e35-a733-4f7a-9a87-47e8287700e9",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [
+                    {
+                      "type": "values",
+                      "fields": [
+                        "alert_source"
+                      ],
+                      "limit": 10,
+                      "skip_empty_values": false
+                    }
+                  ],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                }
+              ]
+            }
+          ],
+          "parameters": [],
+          "requires": {},
+          "owner": "admin",
+          "created_at": "2026-11-27T06:07:37.155Z"
+        },
+        "properties": [],
+        "requires": {},
+        "state": {
+          "0dbfbaab-38dd-4bae-a39f-5729280cb276": {
+            "selected_fields": null,
+            "static_message_list_id": null,
+            "titles": {
+              "widget": {
+                "25554092-de1c-4052-97fb-ca7d472491fd": "嚴重 (critical)",
+                "800482af-f6a1-4ce9-b489-90dcb5799273": "依嚴重度",
+                "47ec41c4-377f-4199-865a-fae75950dc4f": "依來源",
+                "fc1b83db-fa0a-42cb-acaf-b253270b12f4": "警示趨勢",
+                "b037f32b-fe5d-4b3c-9b30-5fe785b39922": "依類型",
+                "b801a72b-aaa9-4ad3-af06-127ee3bb2996": "依類型與嚴重度",
+                "fe5a6f50-edc3-4f21-80cd-b1dfefce3c62": "最新警示"
+              },
+              "tab": {
+                "title": "jt-waf-mgr 警示"
+              }
+            },
+            "widgets": [
+              {
+                "id": "b037f32b-fe5d-4b3c-9b30-5fe785b39922",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:alert"
+                },
+                "streams": [
+                  "944bc0ed-8d16-4a9b-8aff-075112a66a14"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [
+                    {
+                      "fields": [
+                        "alert_kind"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 30
+                      }
+                    }
+                  ],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    },
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "max(timestamp)"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "visualization": "table",
+                  "visualization_config": null,
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": 30,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "25554092-de1c-4052-97fb-ca7d472491fd",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:alert AND severity:critical"
+                },
+                "streams": [
+                  "944bc0ed-8d16-4a9b-8aff-075112a66a14"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [],
+                  "visualization": "numeric",
+                  "visualization_config": {
+                    "trend": false,
+                    "trend_preference": "NEUTRAL"
+                  },
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": null,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "b801a72b-aaa9-4ad3-af06-127ee3bb2996",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:alert"
+                },
+                "streams": [
+                  "944bc0ed-8d16-4a9b-8aff-075112a66a14"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [
+                    {
+                      "fields": [
+                        "alert_kind"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 30
+                      }
+                    },
+                    {
+                      "fields": [
+                        "severity"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 30
+                      }
+                    }
+                  ],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "visualization": "table",
+                  "visualization_config": null,
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": 30,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "47ec41c4-377f-4199-865a-fae75950dc4f",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:alert"
+                },
+                "streams": [
+                  "944bc0ed-8d16-4a9b-8aff-075112a66a14"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [
+                    {
+                      "fields": [
+                        "alert_source"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 10
+                      }
+                    }
+                  ],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "visualization": "pie",
+                  "visualization_config": null,
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": 10,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "fe5a6f50-edc3-4f21-80cd-b1dfefce3c62",
+                "type": "messages",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:alert"
+                },
+                "streams": [
+                  "944bc0ed-8d16-4a9b-8aff-075112a66a14"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "fields": [
+                    "timestamp",
+                    "severity",
+                    "alert_kind",
+                    "site",
+                    "path",
+                    "reason",
+                    "alert_source",
+                    "node"
+                  ],
+                  "units": {},
+                  "show_message_row": false,
+                  "show_summary": false,
+                  "decorators": [],
+                  "sort": [
+                    {
+                      "type": "pivot",
+                      "field": "timestamp",
+                      "direction": "Descending"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "800482af-f6a1-4ce9-b489-90dcb5799273",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:alert"
+                },
+                "streams": [
+                  "944bc0ed-8d16-4a9b-8aff-075112a66a14"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [
+                    {
+                      "fields": [
+                        "severity"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 5
+                      }
+                    }
+                  ],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "visualization": "pie",
+                  "visualization_config": null,
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": 5,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "fc1b83db-fa0a-42cb-acaf-b253270b12f4",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:alert"
+                },
+                "streams": [
+                  "944bc0ed-8d16-4a9b-8aff-075112a66a14"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [
+                    {
+                      "fields": [
+                        "timestamp"
+                      ],
+                      "type": "time",
+                      "config": {
+                        "interval": {
+                          "type": "auto",
+                          "scaling": 1.0
+                        }
+                      }
+                    }
+                  ],
+                  "units": {},
+                  "column_pivots": [
+                    {
+                      "fields": [
+                        "severity"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 5
+                      }
+                    }
+                  ],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "visualization": "bar",
+                  "visualization_config": {
+                    "barmode": "group",
+                    "axis_type": "linear"
+                  },
+                  "formatting_settings": null,
+                  "rollup": false,
+                  "event_annotation": false,
+                  "row_limit": null,
+                  "column_limit": 5
+                }
+              }
+            ],
+            "widget_mapping": {
+              "25554092-de1c-4052-97fb-ca7d472491fd": [
+                "4e5ede2f-b0de-4ca9-bc8b-8bb2dc2c46d2"
+              ],
+              "800482af-f6a1-4ce9-b489-90dcb5799273": [
+                "77170747-9e55-4956-a277-026d1e4f07fb"
+              ],
+              "47ec41c4-377f-4199-865a-fae75950dc4f": [
+                "3d4c0e35-a733-4f7a-9a87-47e8287700e9"
+              ],
+              "fc1b83db-fa0a-42cb-acaf-b253270b12f4": [
+                "040143c5-7ce0-42df-b548-acd1418a7a7d"
+              ],
+              "b037f32b-fe5d-4b3c-9b30-5fe785b39922": [
+                "56fa0949-9ae8-4c1a-8574-cf741c15d46f"
+              ],
+              "b801a72b-aaa9-4ad3-af06-127ee3bb2996": [
+                "e51454fd-b8b9-49e9-98f4-9da7593b8cc1"
+              ],
+              "fe5a6f50-edc3-4f21-80cd-b1dfefce3c62": [
+                "b649beff-f170-40cc-afcd-af2fd2a56eda"
+              ]
+            },
+            "positions": {
+              "25554092-de1c-4052-97fb-ca7d472491fd": {
+                "col": 1,
+                "row": 1,
+                "height": 3,
+                "width": 4
+              },
+              "800482af-f6a1-4ce9-b489-90dcb5799273": {
+                "col": 5,
+                "row": 1,
+                "height": 3,
+                "width": 4
+              },
+              "47ec41c4-377f-4199-865a-fae75950dc4f": {
+                "col": 9,
+                "row": 1,
+                "height": 3,
+                "width": 4
+              },
+              "fc1b83db-fa0a-42cb-acaf-b253270b12f4": {
+                "col": 1,
+                "row": 4,
+                "height": 4,
+                "width": "Infinity"
+              },
+              "b037f32b-fe5d-4b3c-9b30-5fe785b39922": {
+                "col": 1,
+                "row": 8,
+                "height": 5,
+                "width": 6
+              },
+              "b801a72b-aaa9-4ad3-af06-127ee3bb2996": {
+                "col": 7,
+                "row": 8,
+                "height": 5,
+                "width": 6
+              },
+              "fe5a6f50-edc3-4f21-80cd-b1dfefce3c62": {
+                "col": 1,
+                "row": 13,
+                "height": 6,
+                "width": "Infinity"
+              }
+            },
+            "formatting": {
+              "highlighting": []
+            },
+            "display_mode_settings": {
+              "positions": {}
+            }
+          }
+        },
+        "owner": "admin",
+        "created_at": "2026-11-27T06:07:37.387Z"
+      },
+      "constraints": [
+        {
+          "type": "server-version",
+          "version": ">=6.3.15+3ad654f"
+        }
+      ]
+    },
+    {
+      "id": "ccb9494d-2079-44cc-bfdb-2b668212da0c",
+      "type": {
+        "name": "stream",
+        "version": "1"
+      },
+      "v": "1",
+      "data": {
+        "title": {
+          "@type": "string",
+          "@value": "jt-waf-mgr WAF 事件"
+        },
+        "description": {
+          "@type": "string",
+          "@value": "jt-waf-mgr 的 WAF 事件 (封鎖、只記錄、轉址、站台 404)。"
+        },
+        "disabled": {
+          "@type": "boolean",
+          "@value": false
+        },
+        "matching_type": {
+          "@type": "string",
+          "@value": "AND"
+        },
+        "stream_rules": [
+          {
+            "type": {
+              "@type": "string",
+              "@value": "PRESENCE"
+            },
+            "field": {
+              "@type": "string",
+              "@value": "jt_event"
+            },
+            "value": {
+              "@type": "string",
+              "@value": ""
+            },
+            "inverted": {
+              "@type": "boolean",
+              "@value": false
+            },
+            "description": {
+              "@type": "string",
+              "@value": "jt-waf-mgr: jt_event 存在"
+            }
+          },
+          {
+            "type": {
+              "@type": "string",
+              "@value": "EXACT"
+            },
+            "field": {
+              "@type": "string",
+              "@value": "jt_type"
+            },
+            "value": {
+              "@type": "string",
+              "@value": "event"
+            },
+            "inverted": {
+              "@type": "boolean",
+              "@value": false
+            },
+            "description": {
+              "@type": "string",
+              "@value": "jt-waf-mgr: jt_type = event"
+            }
+          }
+        ],
+        "alert_conditions": [],
+        "alarm_callbacks": [],
+        "outputs": [],
+        "default_stream": {
+          "@type": "boolean",
+          "@value": false
+        },
+        "remove_matches": {
+          "@type": "boolean",
+          "@value": false
+        }
+      },
+      "constraints": [
+        {
+          "type": "server-version",
+          "version": ">=6.3.15+3ad654f"
+        }
+      ]
+    },
+    {
+      "id": "b0f6c7e3-7cc1-43e6-9cf2-5e269dfcb75f",
+      "type": {
+        "name": "stream",
+        "version": "1"
+      },
+      "v": "1",
+      "data": {
+        "title": {
+          "@type": "string",
+          "@value": "jt-waf-mgr 稽核"
+        },
+        "description": {
+          "@type": "string",
+          "@value": "jt-waf-mgr 的稽核記錄 (誰做了什麼)。"
+        },
+        "disabled": {
+          "@type": "boolean",
+          "@value": false
+        },
+        "matching_type": {
+          "@type": "string",
+          "@value": "AND"
+        },
+        "stream_rules": [
+          {
+            "type": {
+              "@type": "string",
+              "@value": "PRESENCE"
+            },
+            "field": {
+              "@type": "string",
+              "@value": "jt_event"
+            },
+            "value": {
+              "@type": "string",
+              "@value": ""
+            },
+            "inverted": {
+              "@type": "boolean",
+              "@value": false
+            },
+            "description": {
+              "@type": "string",
+              "@value": "jt-waf-mgr: jt_event 存在"
+            }
+          },
+          {
+            "type": {
+              "@type": "string",
+              "@value": "EXACT"
+            },
+            "field": {
+              "@type": "string",
+              "@value": "jt_type"
+            },
+            "value": {
+              "@type": "string",
+              "@value": "audit"
+            },
+            "inverted": {
+              "@type": "boolean",
+              "@value": false
+            },
+            "description": {
+              "@type": "string",
+              "@value": "jt-waf-mgr: jt_type = audit"
+            }
+          }
+        ],
+        "alert_conditions": [],
+        "alarm_callbacks": [],
+        "outputs": [],
+        "default_stream": {
+          "@type": "boolean",
+          "@value": false
+        },
+        "remove_matches": {
+          "@type": "boolean",
+          "@value": false
+        }
+      },
+      "constraints": [
+        {
+          "type": "server-version",
+          "version": ">=6.3.15+3ad654f"
+        }
+      ]
+    },
+    {
+      "id": "2e2d4f00-fd7f-4a3e-a32f-e052b572c174",
+      "type": {
+        "name": "event_definition",
+        "version": "1"
+      },
+      "v": "1",
+      "data": {
+        "_scope": {
+          "@type": "string",
+          "@value": "DEFAULT"
+        },
+        "title": {
+          "@type": "string",
+          "@value": "jt-waf-mgr: 稽核失敗"
+        },
+        "description": {
+          "@type": "string",
+          "@value": "jt-waf-mgr 稽核記錄的結果不是 ok，每一筆都會產生事件。"
+        },
+        "remediation_steps": null,
+        "updated_at": "2026-11-27T06:07:39.385Z",
+        "matched_at": null,
+        "priority": {
+          "@type": "integer",
+          "@value": 2
+        },
+        "alert": {
+          "@type": "boolean",
+          "@value": false
+        },
+        "config": {
+          "type": "aggregation-v1",
+          "query": {
+            "@type": "string",
+            "@value": "jt_type:audit AND NOT result:ok"
+          },
+          "query_parameters": [],
+          "filters": [],
+          "streams": [
+            "b0f6c7e3-7cc1-43e6-9cf2-5e269dfcb75f"
+          ],
+          "stream_categories": [],
+          "group_by": [],
+          "series": [],
+          "conditions": null,
+          "search_within_ms": 300000,
+          "execute_every_ms": 300000,
+          "use_cron_scheduling": false,
+          "cron_expression": null,
+          "cron_timezone": null,
+          "event_limit": 100
+        },
+        "field_spec": {},
+        "key_spec": [],
+        "notification_settings": {
+          "grace_period_ms": 0,
+          "backlog_size": 20
+        },
+        "notifications": [],
+        "storage": [
+          {
+            "type": "persist-to-streams-v1",
+            "streams": [
+              "000000000000000000000002"
+            ]
+          }
+        ],
+        "is_scheduled": {
+          "@type": "boolean",
+          "@value": true
+        },
+        "event_procedure": null
+      },
+      "constraints": [
+        {
+          "type": "server-version",
+          "version": ">=6.3.15+3ad654f"
+        }
+      ]
+    },
+    {
+      "id": "aa7da19f-93e6-4c14-9d66-53e5e7524bd5",
+      "type": {
+        "name": "dashboard",
+        "version": "2"
+      },
+      "v": "1",
+      "data": {
+        "type": "DASHBOARD",
+        "title": {
+          "@type": "string",
+          "@value": "jt-waf-mgr 總覽"
+        },
+        "summary": {
+          "@type": "string",
+          "@value": ""
+        },
+        "description": {
+          "@type": "string",
+          "@value": "WAF 封鎖與只記錄的趨勢、站台、來源、國家、規則、攻擊類型與內外部統計。"
+        },
+        "search": {
+          "queries": [
+            {
+              "id": "f05538b4-27b1-4ca9-a330-7284e6f014b1",
+              "timerange": {
+                "from": 86400,
+                "type": "relative"
+              },
+              "filters": [],
+              "query": {
+                "type": "elasticsearch",
+                "query_string": ""
+              },
+              "search_types": [
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:event AND outcome:blocked"
+                  },
+                  "streams": [
+                    "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                  ],
+                  "stream_categories": [],
+                  "id": "877835f6-6c81-4c9e-8065-fec2f24d4643",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [
+                    {
+                      "type": "values",
+                      "fields": [
+                        "country"
+                      ],
+                      "limit": 20,
+                      "skip_empty_values": false
+                    },
+                    {
+                      "type": "values",
+                      "fields": [
+                        "country_name"
+                      ],
+                      "limit": 1,
+                      "skip_empty_values": false
+                    }
+                  ],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:event"
+                  },
+                  "streams": [
+                    "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                  ],
+                  "stream_categories": [],
+                  "id": "86ca10dc-b78c-42ae-a121-59f8383438f4",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [
+                    {
+                      "type": "values",
+                      "fields": [
+                        "site"
+                      ],
+                      "limit": 15,
+                      "skip_empty_values": false
+                    }
+                  ],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:event AND outcome:blocked"
+                  },
+                  "streams": [
+                    "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                  ],
+                  "stream_categories": [],
+                  "id": "a54c78b6-5bfe-405f-a554-ed0d3a79b720",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:event AND outcome:blocked AND origin:internal"
+                  },
+                  "streams": [
+                    "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                  ],
+                  "stream_categories": [],
+                  "id": "66c8dd03-d958-4ea2-a2cd-583a2bd4ed95",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:event"
+                  },
+                  "streams": [
+                    "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                  ],
+                  "stream_categories": [],
+                  "id": "633dc31d-ac2f-4e64-a502-b8433da43dc8",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [
+                    {
+                      "type": "values",
+                      "fields": [
+                        "origin"
+                      ],
+                      "limit": 5,
+                      "skip_empty_values": false
+                    }
+                  ],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:event AND outcome:blocked"
+                  },
+                  "streams": [
+                    "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                  ],
+                  "stream_categories": [],
+                  "id": "0327882e-e0bd-426e-b7e9-85a815d10f26",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    },
+                    {
+                      "type": "card",
+                      "id": "card(site)",
+                      "field": "site"
+                    },
+                    {
+                      "type": "max",
+                      "id": "max(timestamp)",
+                      "field": "timestamp"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [
+                    {
+                      "type": "values",
+                      "fields": [
+                        "src"
+                      ],
+                      "limit": 20,
+                      "skip_empty_values": false
+                    }
+                  ],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:event"
+                  },
+                  "streams": [
+                    "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                  ],
+                  "stream_categories": [],
+                  "id": "810f6e55-fe0f-422b-90d1-5f3ed1dbc702",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [
+                    {
+                      "type": "values",
+                      "fields": [
+                        "waf_rule"
+                      ],
+                      "limit": 15,
+                      "skip_empty_values": false
+                    }
+                  ],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:event AND outcome:blocked"
+                  },
+                  "streams": [
+                    "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                  ],
+                  "stream_categories": [],
+                  "id": "5ddfb5c5-8a23-42ae-bd0c-8a871e923700",
+                  "name": null,
+                  "limit": 150,
+                  "offset": 0,
+                  "decorators": [],
+                  "type": "messages",
+                  "filter": null,
+                  "filters": []
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:event AND outcome:logged"
+                  },
+                  "streams": [
+                    "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                  ],
+                  "stream_categories": [],
+                  "id": "79a04f52-78dc-4acb-a0ed-02b6709691e4",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:event"
+                  },
+                  "streams": [
+                    "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                  ],
+                  "stream_categories": [],
+                  "id": "5037ae1e-bda9-4234-973d-d659c95087eb",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [
+                    {
+                      "type": "values",
+                      "fields": [
+                        "waf_family"
+                      ],
+                      "limit": 10,
+                      "skip_empty_values": false
+                    }
+                  ],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:event AND outcome:blocked AND origin:external"
+                  },
+                  "streams": [
+                    "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                  ],
+                  "stream_categories": [],
+                  "id": "2795c4eb-8409-4e3c-b464-153bd844450c",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:event AND outcome:blocked AND origin:external"
+                  },
+                  "streams": [
+                    "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                  ],
+                  "stream_categories": [],
+                  "id": "753e8acc-04b1-49d1-9e1d-78a095ef4e8a",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [],
+                  "rollup": true,
+                  "type": "pivot",
+                  "row_groups": [
+                    {
+                      "type": "values",
+                      "fields": [
+                        "src_geolocation"
+                      ],
+                      "limit": 1000,
+                      "skip_empty_values": false
+                    }
+                  ],
+                  "column_groups": [],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                },
+                {
+                  "timerange": null,
+                  "query": {
+                    "type": "elasticsearch",
+                    "query_string": "jt_type:event"
+                  },
+                  "streams": [
+                    "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                  ],
+                  "stream_categories": [],
+                  "id": "335f86a8-6c29-465d-bcd6-8f70c08e748d",
+                  "name": "chart",
+                  "series": [
+                    {
+                      "type": "count",
+                      "id": "count()",
+                      "field": null
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "rollup": false,
+                  "type": "pivot",
+                  "row_groups": [
+                    {
+                      "type": "time",
+                      "fields": [
+                        "timestamp"
+                      ],
+                      "interval": {
+                        "type": "auto",
+                        "scaling": 1.0
+                      }
+                    }
+                  ],
+                  "column_groups": [
+                    {
+                      "type": "values",
+                      "fields": [
+                        "outcome"
+                      ],
+                      "limit": 5,
+                      "skip_empty_values": false
+                    }
+                  ],
+                  "filter": null,
+                  "filters": [],
+                  "row_limit": null,
+                  "column_limit": null
+                }
+              ]
+            }
+          ],
+          "parameters": [],
+          "requires": {},
+          "owner": "admin",
+          "created_at": "2026-11-27T06:07:36.500Z"
+        },
+        "properties": [],
+        "requires": {},
+        "state": {
+          "f05538b4-27b1-4ca9-a330-7284e6f014b1": {
+            "selected_fields": null,
+            "static_message_list_id": null,
+            "titles": {
+              "widget": {
+                "420cd3b1-141f-44cf-a1be-580937606071": "封鎖",
+                "5622fc8c-2834-4666-9209-3dc980848bd4": "只記錄",
+                "73a60757-e478-470c-aebf-8abb03320b70": "外部來源封鎖",
+                "8d09670d-82ac-4613-a3d5-5a74c0a3cd8c": "內部來源封鎖",
+                "bff931cb-ddfc-4d63-9f1f-63999f49bea8": "封鎖與只記錄趨勢",
+                "f8c8c2ab-ff60-46a9-8fae-bd230c0b44dd": "依站台",
+                "12fbcde2-bf28-4d35-bdbf-89c08b1c3d5e": "內部/外部來源",
+                "13dad56a-087d-461b-81a0-115ba2d9e114": "來源 IP 前幾名 (封鎖)",
+                "d46ba325-02bc-42e0-9db7-a6e810b66571": "依國家 (封鎖)",
+                "db13168a-b132-42bc-80b9-5085ef60b9f4": "前幾名規則",
+                "be656849-d68b-4f01-92d1-c3bde3a9e476": "攻擊類型",
+                "7f846395-c339-4e59-a264-294962752ca1": "外部來源封鎖地圖 (需要 Graylog 的 GeoIP)",
+                "571c34b2-8731-4d93-b772-269814f0db80": "最新封鎖事件"
+              },
+              "tab": {
+                "title": "jt-waf-mgr 總覽"
+              }
+            },
+            "widgets": [
+              {
+                "id": "db13168a-b132-42bc-80b9-5085ef60b9f4",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:event"
+                },
+                "streams": [
+                  "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [
+                    {
+                      "fields": [
+                        "waf_rule"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 15
+                      }
+                    }
+                  ],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "visualization": "bar",
+                  "visualization_config": {
+                    "barmode": "group",
+                    "axis_type": "linear"
+                  },
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": 15,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "13dad56a-087d-461b-81a0-115ba2d9e114",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:event AND outcome:blocked"
+                },
+                "streams": [
+                  "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [
+                    {
+                      "fields": [
+                        "src"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 20
+                      }
+                    }
+                  ],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    },
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "card(site)"
+                    },
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "max(timestamp)"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "visualization": "table",
+                  "visualization_config": null,
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": 20,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "f8c8c2ab-ff60-46a9-8fae-bd230c0b44dd",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:event"
+                },
+                "streams": [
+                  "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [
+                    {
+                      "fields": [
+                        "site"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 15
+                      }
+                    }
+                  ],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "visualization": "bar",
+                  "visualization_config": {
+                    "barmode": "group",
+                    "axis_type": "linear"
+                  },
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": 15,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "5622fc8c-2834-4666-9209-3dc980848bd4",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:event AND outcome:logged"
+                },
+                "streams": [
+                  "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [],
+                  "visualization": "numeric",
+                  "visualization_config": {
+                    "trend": false,
+                    "trend_preference": "NEUTRAL"
+                  },
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": null,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "be656849-d68b-4f01-92d1-c3bde3a9e476",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:event"
+                },
+                "streams": [
+                  "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [
+                    {
+                      "fields": [
+                        "waf_family"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 10
+                      }
+                    }
+                  ],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "visualization": "pie",
+                  "visualization_config": null,
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": 10,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "571c34b2-8731-4d93-b772-269814f0db80",
+                "type": "messages",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:event AND outcome:blocked"
+                },
+                "streams": [
+                  "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "fields": [
+                    "timestamp",
+                    "site",
+                    "src",
+                    "country",
+                    "method",
+                    "path",
+                    "status",
+                    "rules",
+                    "families",
+                    "decided_by"
+                  ],
+                  "units": {},
+                  "show_message_row": false,
+                  "show_summary": false,
+                  "decorators": [],
+                  "sort": [
+                    {
+                      "type": "pivot",
+                      "field": "timestamp",
+                      "direction": "Descending"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "420cd3b1-141f-44cf-a1be-580937606071",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:event AND outcome:blocked"
+                },
+                "streams": [
+                  "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [],
+                  "visualization": "numeric",
+                  "visualization_config": {
+                    "trend": false,
+                    "trend_preference": "NEUTRAL"
+                  },
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": null,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "7f846395-c339-4e59-a264-294962752ca1",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:event AND outcome:blocked AND origin:external"
+                },
+                "streams": [
+                  "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [
+                    {
+                      "fields": [
+                        "src_geolocation"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 1000
+                      }
+                    }
+                  ],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [],
+                  "visualization": "map",
+                  "visualization_config": {
+                    "viewport": {
+                      "zoom": 1,
+                      "center_x": 25.0,
+                      "center_y": 10.0
+                    }
+                  },
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": 1000,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "bff931cb-ddfc-4d63-9f1f-63999f49bea8",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:event"
+                },
+                "streams": [
+                  "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [
+                    {
+                      "fields": [
+                        "timestamp"
+                      ],
+                      "type": "time",
+                      "config": {
+                        "interval": {
+                          "type": "auto",
+                          "scaling": 1.0
+                        }
+                      }
+                    }
+                  ],
+                  "units": {},
+                  "column_pivots": [
+                    {
+                      "fields": [
+                        "outcome"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 5
+                      }
+                    }
+                  ],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "visualization": "bar",
+                  "visualization_config": {
+                    "barmode": "group",
+                    "axis_type": "linear"
+                  },
+                  "formatting_settings": null,
+                  "rollup": false,
+                  "event_annotation": false,
+                  "row_limit": null,
+                  "column_limit": 5
+                }
+              },
+              {
+                "id": "73a60757-e478-470c-aebf-8abb03320b70",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:event AND outcome:blocked AND origin:external"
+                },
+                "streams": [
+                  "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [],
+                  "visualization": "numeric",
+                  "visualization_config": {
+                    "trend": false,
+                    "trend_preference": "NEUTRAL"
+                  },
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": null,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "d46ba325-02bc-42e0-9db7-a6e810b66571",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:event AND outcome:blocked"
+                },
+                "streams": [
+                  "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [
+                    {
+                      "fields": [
+                        "country"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 20
+                      }
+                    },
+                    {
+                      "fields": [
+                        "country_name"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 20
+                      }
+                    }
+                  ],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "visualization": "table",
+                  "visualization_config": null,
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": 20,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "8d09670d-82ac-4613-a3d5-5a74c0a3cd8c",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:event AND outcome:blocked AND origin:internal"
+                },
+                "streams": [
+                  "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [],
+                  "visualization": "numeric",
+                  "visualization_config": {
+                    "trend": false,
+                    "trend_preference": "NEUTRAL"
+                  },
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": null,
+                  "column_limit": null
+                }
+              },
+              {
+                "id": "12fbcde2-bf28-4d35-bdbf-89c08b1c3d5e",
+                "type": "aggregation",
+                "filter": null,
+                "filters": [],
+                "timerange": null,
+                "query": {
+                  "type": "elasticsearch",
+                  "query_string": "jt_type:event"
+                },
+                "streams": [
+                  "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+                ],
+                "stream_categories": [],
+                "config": {
+                  "row_pivots": [
+                    {
+                      "fields": [
+                        "origin"
+                      ],
+                      "type": "values",
+                      "config": {
+                        "limit": 5
+                      }
+                    }
+                  ],
+                  "units": {},
+                  "column_pivots": [],
+                  "series": [
+                    {
+                      "config": {
+                        "name": null
+                      },
+                      "function": "count()"
+                    }
+                  ],
+                  "sort": [
+                    {
+                      "type": "series",
+                      "field": "count()",
+                      "direction": "Descending"
+                    }
+                  ],
+                  "visualization": "pie",
+                  "visualization_config": null,
+                  "formatting_settings": null,
+                  "rollup": true,
+                  "event_annotation": false,
+                  "row_limit": 5,
+                  "column_limit": null
+                }
+              }
+            ],
+            "widget_mapping": {
+              "420cd3b1-141f-44cf-a1be-580937606071": [
+                "a54c78b6-5bfe-405f-a554-ed0d3a79b720"
+              ],
+              "5622fc8c-2834-4666-9209-3dc980848bd4": [
+                "79a04f52-78dc-4acb-a0ed-02b6709691e4"
+              ],
+              "73a60757-e478-470c-aebf-8abb03320b70": [
+                "2795c4eb-8409-4e3c-b464-153bd844450c"
+              ],
+              "8d09670d-82ac-4613-a3d5-5a74c0a3cd8c": [
+                "66c8dd03-d958-4ea2-a2cd-583a2bd4ed95"
+              ],
+              "bff931cb-ddfc-4d63-9f1f-63999f49bea8": [
+                "335f86a8-6c29-465d-bcd6-8f70c08e748d"
+              ],
+              "f8c8c2ab-ff60-46a9-8fae-bd230c0b44dd": [
+                "86ca10dc-b78c-42ae-a121-59f8383438f4"
+              ],
+              "12fbcde2-bf28-4d35-bdbf-89c08b1c3d5e": [
+                "633dc31d-ac2f-4e64-a502-b8433da43dc8"
+              ],
+              "13dad56a-087d-461b-81a0-115ba2d9e114": [
+                "0327882e-e0bd-426e-b7e9-85a815d10f26"
+              ],
+              "d46ba325-02bc-42e0-9db7-a6e810b66571": [
+                "877835f6-6c81-4c9e-8065-fec2f24d4643"
+              ],
+              "db13168a-b132-42bc-80b9-5085ef60b9f4": [
+                "810f6e55-fe0f-422b-90d1-5f3ed1dbc702"
+              ],
+              "be656849-d68b-4f01-92d1-c3bde3a9e476": [
+                "5037ae1e-bda9-4234-973d-d659c95087eb"
+              ],
+              "7f846395-c339-4e59-a264-294962752ca1": [
+                "753e8acc-04b1-49d1-9e1d-78a095ef4e8a"
+              ],
+              "571c34b2-8731-4d93-b772-269814f0db80": [
+                "5ddfb5c5-8a23-42ae-bd0c-8a871e923700"
+              ]
+            },
+            "positions": {
+              "420cd3b1-141f-44cf-a1be-580937606071": {
+                "col": 1,
+                "row": 1,
+                "height": 3,
+                "width": 3
+              },
+              "5622fc8c-2834-4666-9209-3dc980848bd4": {
+                "col": 4,
+                "row": 1,
+                "height": 3,
+                "width": 3
+              },
+              "73a60757-e478-470c-aebf-8abb03320b70": {
+                "col": 7,
+                "row": 1,
+                "height": 3,
+                "width": 3
+              },
+              "8d09670d-82ac-4613-a3d5-5a74c0a3cd8c": {
+                "col": 10,
+                "row": 1,
+                "height": 3,
+                "width": 3
+              },
+              "bff931cb-ddfc-4d63-9f1f-63999f49bea8": {
+                "col": 1,
+                "row": 4,
+                "height": 4,
+                "width": "Infinity"
+              },
+              "f8c8c2ab-ff60-46a9-8fae-bd230c0b44dd": {
+                "col": 1,
+                "row": 8,
+                "height": 4,
+                "width": 6
+              },
+              "12fbcde2-bf28-4d35-bdbf-89c08b1c3d5e": {
+                "col": 7,
+                "row": 8,
+                "height": 4,
+                "width": 6
+              },
+              "13dad56a-087d-461b-81a0-115ba2d9e114": {
+                "col": 1,
+                "row": 12,
+                "height": 5,
+                "width": 6
+              },
+              "d46ba325-02bc-42e0-9db7-a6e810b66571": {
+                "col": 7,
+                "row": 12,
+                "height": 5,
+                "width": 6
+              },
+              "db13168a-b132-42bc-80b9-5085ef60b9f4": {
+                "col": 1,
+                "row": 17,
+                "height": 4,
+                "width": 6
+              },
+              "be656849-d68b-4f01-92d1-c3bde3a9e476": {
+                "col": 7,
+                "row": 17,
+                "height": 4,
+                "width": 6
+              },
+              "7f846395-c339-4e59-a264-294962752ca1": {
+                "col": 1,
+                "row": 21,
+                "height": 5,
+                "width": "Infinity"
+              },
+              "571c34b2-8731-4d93-b772-269814f0db80": {
+                "col": 1,
+                "row": 26,
+                "height": 5,
+                "width": "Infinity"
+              }
+            },
+            "formatting": {
+              "highlighting": []
+            },
+            "display_mode_settings": {
+              "positions": {}
+            }
+          }
+        },
+        "owner": "admin",
+        "created_at": "2026-11-27T06:07:36.838Z"
+      },
+      "constraints": [
+        {
+          "type": "server-version",
+          "version": ">=6.3.15+3ad654f"
+        }
+      ]
+    },
+    {
+      "id": "9794545f-ddaf-4ca5-bcd5-f359f3df513a",
+      "type": {
+        "name": "event_definition",
+        "version": "1"
+      },
+      "v": "1",
+      "data": {
+        "_scope": {
+          "@type": "string",
+          "@value": "DEFAULT"
+        },
+        "title": {
+          "@type": "string",
+          "@value": "jt-waf-mgr: 嚴重警示"
+        },
+        "description": {
+          "@type": "string",
+          "@value": "jt-waf-mgr 送出 critical 警示，每一筆都會產生事件。"
+        },
+        "remediation_steps": null,
+        "updated_at": "2026-11-27T06:07:38.126Z",
+        "matched_at": null,
+        "priority": {
+          "@type": "integer",
+          "@value": 3
+        },
+        "alert": {
+          "@type": "boolean",
+          "@value": false
+        },
+        "config": {
+          "type": "aggregation-v1",
+          "query": {
+            "@type": "string",
+            "@value": "jt_type:alert AND severity:critical"
+          },
+          "query_parameters": [],
+          "filters": [],
+          "streams": [
+            "944bc0ed-8d16-4a9b-8aff-075112a66a14"
+          ],
+          "stream_categories": [],
+          "group_by": [],
+          "series": [],
+          "conditions": null,
+          "search_within_ms": 300000,
+          "execute_every_ms": 300000,
+          "use_cron_scheduling": false,
+          "cron_expression": null,
+          "cron_timezone": null,
+          "event_limit": 100
+        },
+        "field_spec": {},
+        "key_spec": [],
+        "notification_settings": {
+          "grace_period_ms": 0,
+          "backlog_size": 20
+        },
+        "notifications": [],
+        "storage": [
+          {
+            "type": "persist-to-streams-v1",
+            "streams": [
+              "000000000000000000000002"
+            ]
+          }
+        ],
+        "is_scheduled": {
+          "@type": "boolean",
+          "@value": true
+        },
+        "event_procedure": null
+      },
+      "constraints": [
+        {
+          "type": "server-version",
+          "version": ">=6.3.15+3ad654f"
+        }
+      ]
+    },
+    {
+      "id": "130472b1-2b51-4e31-a875-0a585778a425",
+      "type": {
+        "name": "event_definition",
+        "version": "1"
+      },
+      "v": "1",
+      "data": {
+        "_scope": {
+          "@type": "string",
+          "@value": "DEFAULT"
+        },
+        "title": {
+          "@type": "string",
+          "@value": "jt-waf-mgr: 內部來源被封鎖"
+        },
+        "description": {
+          "@type": "string",
+          "@value": "內部來源被 WAF 封鎖，可能是內部主機遭入侵或規則誤判，依來源 IP 分開。"
+        },
+        "remediation_steps": null,
+        "updated_at": "2026-11-27T06:07:38.822Z",
+        "matched_at": null,
+        "priority": {
+          "@type": "integer",
+          "@value": 2
+        },
+        "alert": {
+          "@type": "boolean",
+          "@value": false
+        },
+        "config": {
+          "type": "aggregation-v1",
+          "query": {
+            "@type": "string",
+            "@value": "jt_type:event AND outcome:blocked AND origin:internal"
+          },
+          "query_parameters": [],
+          "filters": [],
+          "streams": [
+            "ccb9494d-2079-44cc-bfdb-2b668212da0c"
+          ],
+          "stream_categories": [],
+          "group_by": [
+            "src"
+          ],
+          "series": [
+            {
+              "type": "count",
+              "id": "1d0398d3-095f-489f-b536-35f11224f564",
+              "field": null
+            }
+          ],
+          "conditions": {
+            "expression": {
+              "expr": ">=",
+              "left": {
+                "expr": "number-ref",
+                "ref": "1d0398d3-095f-489f-b536-35f11224f564"
+              },
+              "right": {
+                "expr": "number",
+                "value": 1.0
+              }
+            }
+          },
+          "search_within_ms": 300000,
+          "execute_every_ms": 300000,
+          "use_cron_scheduling": false,
+          "cron_expression": null,
+          "cron_timezone": null,
+          "event_limit": 100
+        },
+        "field_spec": {},
+        "key_spec": [],
+        "notification_settings": {
+          "grace_period_ms": 1800000,
+          "backlog_size": 20
+        },
+        "notifications": [],
+        "storage": [
+          {
+            "type": "persist-to-streams-v1",
+            "streams": [
+              "000000000000000000000002"
+            ]
+          }
+        ],
+        "is_scheduled": {
+          "@type": "boolean",
+          "@value": true
+        },
+        "event_procedure": null
+      },
+      "constraints": [
+        {
+          "type": "server-version",
+          "version": ">=6.3.15+3ad654f"
+        }
+      ]
+    },
+    {
+      "id": "b6f266f2-6a2b-46b2-acad-ee632c622ced",
+      "type": {
+        "name": "pipeline_rule",
+        "version": "1"
+      },
+      "v": "1",
+      "data": {
+        "title": {
+          "@type": "string",
+          "@value": "jt-waf-mgr: 拆分攻擊類型"
+        },
+        "description": {
+          "@type": "string",
+          "@value": "families 是逗號分隔字串；拆成多值的 waf_family。"
+        },
+        "source": {
+          "@type": "string",
+          "@value": "rule \"jt-waf-mgr: 拆分攻擊類型\"\nwhen\n  to_string($message.jt_type) == \"event\" && has_field(\"jt_event\") && has_field(\"families\")\nthen\n  set_field(\"waf_family\", split(\",\", to_string($message.families)));\nend"
+        }
+      },
+      "constraints": [
+        {
+          "type": "server-version",
+          "version": ">=6.3.15+3ad654f"
+        }
+      ]
+    },
+    {
+      "id": "67ceedf0-cc78-49a5-bbe0-7d55bcdff764",
+      "type": {
+        "name": "pipeline_rule",
+        "version": "1"
+      },
+      "v": "1",
+      "data": {
+        "title": {
+          "@type": "string",
+          "@value": "jt-waf-mgr: 拆分規則編號"
+        },
+        "description": {
+          "@type": "string",
+          "@value": "rules 是逗號分隔字串；拆成多值的 waf_rule，才能統計「前幾名規則」。"
+        },
+        "source": {
+          "@type": "string",
+          "@value": "rule \"jt-waf-mgr: 拆分規則編號\"\nwhen\n  to_string($message.jt_type) == \"event\" && has_field(\"jt_event\") && has_field(\"rules\")\nthen\n  set_field(\"waf_rule\", split(\",\", to_string($message.rules)));\nend"
+        }
+      },
+      "constraints": [
+        {
+          "type": "server-version",
+          "version": ">=6.3.15+3ad654f"
+        }
+      ]
+    }
+  ]
+}

@@ -792,12 +792,13 @@ def system_check(app):
     armed = os.path.exists('/etc/systemd/system/multi-user.target.wants/jt-waf-mgr-apply.path')
     m = app.workflow.managed
     try:
-        disk = m.disk_state()
+        disk = m.disk_state(applying_ok=True)
     except Exception:
         disk = {'adopted': m.adopted(), 'drift': None}
     pending = len(glob.glob(os.path.join(cfg['managed']['spool'], '*.req')))
+    extra = {'applying': disk['applying']} if disk.get('applying') else {}
     out.append(_item('apply', ('fail' if disk.get('drift') else 'ok') if disk.get('adopted') else 'info',
-                     armed=armed, adopted=disk.get('adopted'), drift=disk.get('drift'), pending=pending))
+                     armed=armed, adopted=disk.get('adopted'), drift=disk.get('drift'), pending=pending, **extra))
 
     cc = mon.state.get('config') or mon.check_config()
     outside = app.db.one("SELECT id, ts FROM config_snapshots WHERE cause='outside' ORDER BY id DESC LIMIT 1")

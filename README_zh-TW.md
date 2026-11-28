@@ -1,4 +1,4 @@
-# jt-waf-mgr v0.5.47
+# jt-waf-mgr v0.5.48
 
 [English](README.md) · **繁體中文** · [日本語](README_ja.md)
 
@@ -160,7 +160,7 @@ jt-waf-mgr 不在請求路徑上：每個請求一樣由 nginx 加 ModSecurity �
 
 ```sh
 sudo mkdir -p /opt/jt-waf-mgr-install && cd /opt/jt-waf-mgr-install   # 發行檔的固定位置
-V=0.5.47; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.48; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig release-key.pem; do sudo curl -fsSLO $B/$f; done   # 發行檔、簽章與公鑰
 openssl dgst -sha256 -verify release-key.pem -signature jt-waf-mgr-$V.tar.gz.sig jt-waf-mgr-$V.tar.gz
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
@@ -359,7 +359,7 @@ sudo jt-waf-mgr tokens list ; sudo jt-waf-mgr intel threats ; sudo jt-waf-mgr re
 
 ```sh
 cd /opt/jt-waf-mgr-install   # 新版本一樣解開到 current
-V=0.5.47; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
+V=0.5.48; B=https://github.com/jasoncheng7115/jt-waf-mgr/releases/download/v$V
 for f in jt-waf-mgr-$V.tar.gz jt-waf-mgr-$V.tar.gz.sig; do sudo curl -fsSLO $B/$f; done
 sudo rm -rf current && sudo mkdir current && sudo tar xzf jt-waf-mgr-$V.tar.gz -C current --strip-components=1 && cd current
 sudo ./upgrade.sh --check     # 只做所有檢查，不改任何東西
@@ -403,7 +403,8 @@ AI 可能判斷錯誤。自動套用只會加強（允許 → 封鎖）；放寬
   事件）；主動回應可以呼叫 IP 封鎖 API。
 - **jt-wazuh-mgr**（Jason Tools 另一個管理 Wazuh 的專案）用自己的 API 權杖提出 WAF 變更與暫時封鎖，永遠不能核准。
 - **Graylog**：「設定 → 外送記錄」選 GELF 格式，以 UDP、TCP 或 TLS 送到 GELF input；站台、規則、結果、來源、國家都是
-  各自獨立的欄位。
+  各自獨立的欄位。隨附 Graylog 內容套件 ([`deploy/graylog/`](deploy/graylog/README.md)，Graylog 6.3 以上)：三條串流、
+  拆分規則編號與攻擊類型的管線、總覽/警示/稽核三個儀表板、五個事件定義 (不含通知)。
 - **其他 SIEM**：最多 8 個 syslog 目的地，各自設定協定、格式（JSON、CEF、LEEF、GELF、key=value、RFC 3164 / 5424）
   與內容（稽核記錄、事件、警示）。
 - **fail2ban**：「封鎖中的 IP」頁附有透過 API 封鎖與解除的現成動作。
