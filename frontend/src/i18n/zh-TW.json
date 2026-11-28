@@ -4126,6 +4126,8 @@
  "uiset.llm.timeout_seconds": "逾時（秒）",
  "uiset.llm.url": "伺服器網址",
  "uiset.llm.url.hint": "OpenAI 相容 API 的基底網址，例如 http://主機:8080/v1",
+ "uiset.llm.waited": "已等 {seconds} 秒。",
+ "uiset.llm.waited_load": "已等 {seconds} 秒。第一次使用時，伺服器可能要先把模型載入記憶體，較大的模型需要幾分鐘。",
  "uiset.llm.waiting": "測試中…由分析服務實際連線（網頁服務本身不能連外），需要幾秒鐘。",
  "uiset.managed.imported_author": "納管時匯入的規則撰寫者",
  "uiset.managed.imported_author.hint": "規則清單怎麼標示納管時原樣匯入的站台規則：站台自寫；若是納管前就用同一套方式撰寫的規則，選 jt-rules。",

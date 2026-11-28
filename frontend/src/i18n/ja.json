@@ -4126,6 +4126,8 @@
  "uiset.llm.timeout_seconds": "タイムアウト（秒）",
  "uiset.llm.url": "サーバー URL",
  "uiset.llm.url.hint": "OpenAI 互換 API のベース URL。例: http://ホスト:8080/v1",
+ "uiset.llm.waited": "{seconds} 秒経過。",
+ "uiset.llm.waited_load": "{seconds} 秒経過。初回はサーバーがモデルをメモリーに読み込むことがあり、大きなモデルでは数分かかります。",
  "uiset.llm.waiting": "テスト中…接続は分析サービスが行います（Web サービス自体はネットワークに出られません）。数秒かかります。",
  "uiset.managed.imported_author": "取り込み時に取り込んだルールの作成元",
  "uiset.managed.imported_author.hint": "納管時にそのまま取り込んだサイトのルールを規則一覧でどう表示するか：サイト独自、または納管前に同じ方法で書かれたルールなら jt-rules。",

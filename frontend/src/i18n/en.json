@@ -4126,6 +4126,8 @@
  "uiset.llm.timeout_seconds": "Timeout (seconds)",
  "uiset.llm.url": "Server URL",
  "uiset.llm.url.hint": "Base URL of the OpenAI-compatible API, for example http://host:8080/v1",
+ "uiset.llm.waited": "Waited {seconds} s.",
+ "uiset.llm.waited_load": "Waited {seconds} s. The first time, the server may first load the model into memory: a large one can take a few minutes.",
  "uiset.llm.waiting": "Testing… The analysis service makes the connection (the web service itself has no network access); this takes a few seconds.",
  "uiset.managed.imported_author": "Who wrote the rules imported at adoption",
  "uiset.managed.imported_author.hint": "How the rule list labels the site rules imported as they were at adoption: written for this site, or jt-rules when they were written with the same tooling before adoption.",

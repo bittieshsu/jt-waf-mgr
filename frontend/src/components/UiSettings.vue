@@ -33,7 +33,7 @@
                   <button type="button" class="btn small" :disabled="busy.llm || !form['llm.url']" @click="saveAndTest(g)">
                     <Icon name="test" />{{ testDirty ? t('uiset.llm.save_and_test') : t('uiset.llm.test') }}</button>
                 </div>
-                <div v-if="llmWaiting" class="teststate info"><Icon name="timer" />{{ t('uiset.llm.waiting') }}</div>
+                <div v-if="llmWaiting" class="teststate info"><Spinner />{{ t('uiset.llm.waiting') }} {{ waitText(llmSince) }}</div>
                 <div v-else-if="llmResult && llmResult.ok" class="teststate ok"><Icon name="check" />
                   {{ t('uiset.llm.ok2', { model: llmResult.model || '—', n: (llmResult.models || []).length, seconds: llmResult.seconds, at: fmtMinute(llmResult.finished_at) }) }}</div>
                 <div v-else-if="llmError" class="teststate bad"><Icon name="alert" />{{ errText(llmError) }}</div>
@@ -46,7 +46,7 @@
                   <button type="button" class="btn small" :disabled="busy.intel" @click="saveAndTestIntel(g)">
                     <Icon name="test" />{{ dirty(g).length ? t('uiset.llm.save_and_test') : t('uiset.llm.test') }}</button>
                 </div>
-                <div v-if="intelWaiting" class="teststate info"><Icon name="timer" />{{ t('uiset.intel.waiting') }}</div>
+                <div v-if="intelWaiting" class="teststate info"><Spinner />{{ t('uiset.intel.waiting') }} {{ waitText(intelSince) }}</div>
                 <template v-else-if="intelResult && intelResult.ok">
                   <div class="teststate ok"><Icon name="check" />
                     {{ t('uiset.llm.ok2', { model: intelResult.model || '—', n: (intelResult.models || []).length, seconds: intelResult.seconds, at: fmtMinute(intelResult.finished_at) }) }}</div>
@@ -64,7 +64,7 @@
                   <button type="button" class="btn small" :disabled="busy.mcp || !form[k]" @click="saveAndTestMcp(g)">
                     <Icon name="test" />{{ dirty(g).length ? t('uiset.llm.save_and_test') : t('uiset.llm.test') }}</button>
                 </div>
-                <div v-if="mcpWaiting" class="teststate info"><Icon name="timer" />{{ t('uiset.intel.waiting') }}</div>
+                <div v-if="mcpWaiting" class="teststate info"><Spinner />{{ t('uiset.intel.waiting') }} {{ waitText(mcpSince) }}</div>
                 <div v-else-if="mcpResult" class="teststate" :class="mcpResult.ok ? 'ok' : 'bad'">
                   <Icon :name="mcpResult.ok ? 'check' : 'alert'" />{{ mcpResult.ok ? t('uiset.intel.mcp_ok', { tools: (mcpResult.search.tools || []).join(', '), seconds: mcpResult.seconds })
                     : t('uiset.intel.search_bad', { error: (mcpResult.error || '') + (mcpResult.detail ? ' ' + mcpResult.detail : '') }) }}</div>
@@ -125,12 +125,13 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { get, patch, post } from '../api.js'
 import { t, tOr, errText } from '../i18n.js'
 import { fmtMinute } from '../util.js'
 import Icon from './Icon.vue'
+import Spinner from './Spinner.vue'
 import ErrorBox from './ErrorBox.vue'
 import SelectBox from './SelectBox.vue'
 import FlowSteps from './FlowSteps.vue'
@@ -245,6 +246,19 @@ const modelOptions = computed(() => {
 const intelResult = ref(null)
 const intelError = ref(null)
 const intelWaiting = ref(false)
+// 0.5.53: how long a connection test has waited, so a slow first answer (the server loading a large model:
+// Ollama took 3 minutes for a 28 GB one) does not look like a hang
+const llmSince = ref(0)
+const intelSince = ref(0)
+const mcpSince = ref(0)
+const nowTick = ref(Date.now())
+const ticker = setInterval(() => { nowTick.value = Date.now() }, 1000)
+onBeforeUnmount(() => clearInterval(ticker))
+function waitText(since) {
+  if (!since) return ''
+  const secs = Math.max(0, Math.round((nowTick.value - since) / 1000))
+  return t(secs >= 20 ? 'uiset.llm.waited_load' : 'uiset.llm.waited', { seconds: secs })
+}
 const intelModels = computed(() => (intelResult.value && intelResult.value.models) || [])
 const intelModelOptions = computed(() => {
   const cur = s.value && s.value['intel.model'] ? s.value['intel.model'].value : ''
@@ -358,6 +372,7 @@ async function testLlm() {
   llmError.value = null
   llmResult.value = null
   llmWaiting.value = true
+  llmSince.value = Date.now()
   try {
     const { requested_at: at } = await post('/llm/test')
     const limit = Date.now() + ((s.value['llm.timeout_seconds'].value || 180) + 60) * 1000
@@ -383,6 +398,7 @@ async function saveAndTestMcp(g) {
   busy.mcp = true
   mcpResult.value = null
   mcpWaiting.value = true
+  mcpSince.value = Date.now()
   try {
     const { requested_at: at } = await post('/intel/test', { what: 'mcp' })
     const limit = Date.now() + 150 * 1000
@@ -403,6 +419,7 @@ async function saveAndTestIntel(g) {
   intelError.value = null
   intelResult.value = null
   intelWaiting.value = true
+  intelSince.value = Date.now()
   try {
     const { requested_at: at } = await post('/intel/test')
     const limit = Date.now() + ((s.value['intel.timeout_seconds'].value || 600) + 90) * 1000

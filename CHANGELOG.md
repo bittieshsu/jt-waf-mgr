@@ -2,6 +2,10 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.53 (2026-11-28)
+
+- While an LLM connection test runs, the page now shows a spinner and how long it has waited; after 20 seconds it explains that the first time, the server may first load the model into memory (Ollama took about 3 minutes for a 28 GB model, which looked like a hang). The same for both tiers and the search tool test.
+
 ## 0.5.52 (2026-11-28)
 
 - When the saved model is not on the LLM server (the server changed models, or a different server was set), the model list after a failed connection test still held only the old model, so another could not be picked: from 0.5.48 the server sent its model list, but the page dropped every failed result. Both tiers now list the server's models, and the message says in plain words what to do.

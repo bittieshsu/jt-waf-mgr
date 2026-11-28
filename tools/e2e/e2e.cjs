@@ -217,6 +217,19 @@ async function audit(page, where) {
     ok((await row.locator('.modelpick > button').innerText()).includes('儲存並測試'), tier + ': a picked model is saved before the test');
     await page.unroute('**/api/v1/' + tier + '/test');
   }
+  // 0.5.53: a slow first answer (the LLM server loading a large model) shows a spinner and how long it has waited
+  {
+    await page.route('**/api/v1/llm/test', (route) => route.fulfill({ json: route.request().method() === 'POST'
+      ? { requested_at: new Date().toISOString() } : { result: null } }));
+    await page.goto(base + '/admin/settings', { waitUntil: 'networkidle' });
+    const row = page.locator('[id="uiset-in-llm.model"]').locator('xpath=ancestor::div[contains(@class,"modelrow")]');
+    await row.locator('.modelpick > button').click();
+    await page.waitForTimeout(2500);
+    const w = await row.locator('.teststate.info').innerText().catch(() => '');
+    ok((await row.locator('.teststate.info .spinner').count()) === 1 && /已等 [0-9]+ 秒/.test(w), 'llm: a running test shows a spinner and the time waited (' + w.slice(-30) + ')');
+    await page.unroute('**/api/v1/llm/test');
+    await page.goto(base + '/admin/settings', { waitUntil: 'networkidle' });
+  }
   await page.click('.themeswitch .im-btn'); await page.click('.themeswitch .im-item:has-text("淺色")');
   // DataTable on events: sort, filter, column picker, paging
   await page.goto(base + '/events', { waitUntil: 'networkidle' });
