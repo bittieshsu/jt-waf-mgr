@@ -194,6 +194,29 @@ async function audit(page, where) {
   ok(await page.evaluate(() => document.querySelectorAll('.card.folded').length) === 1, 'folded card remembered after reload');
   await page.locator('.card.folded > .foldable > .cardfold').click();
   ok(await page.evaluate(() => document.querySelectorAll('.card.folded').length) === 0, 'unfold');
+  // 0.5.52: the saved model is gone from the server (strata changed models, or a new server): the failed test still
+  // fills the model list, the message says what to do, and the test button saves the picked model first.
+  // 0.5.48 sent the list from the server but the page dropped every failed result (never walked in a browser).
+  for (const [tier, sel] of [['llm', 'uiset-in-llm.model'], ['intel', 'uiset-in-intel.model']]) {
+    let at = '';
+    await page.route('**/api/v1/' + tier + '/test', (route) => {
+      if (route.request().method() === 'POST') { at = new Date().toISOString(); return route.fulfill({ json: { requested_at: at } }); }
+      return route.fulfill({ json: { result: { ok: false, error: 'model_not_found', detail: 'available: e2e-alpha, e2e-beta',
+        models: ['e2e-alpha', 'e2e-beta'], requested_at: at, finished_at: at } } });
+    });
+    await page.goto(base + '/admin/settings', { waitUntil: 'networkidle' });
+    const row = page.locator('[id="' + sel + '"]').locator('xpath=ancestor::div[contains(@class,"modelrow")]');
+    await row.locator('.modelpick > button').click();
+    await row.locator('.teststate.bad').waitFor({ timeout: 10000 }).catch(() => {});
+    const bad = await row.locator('.teststate.bad').innerText().catch(() => '');
+    ok(bad.includes('沒有已儲存的模型') && !bad.includes('model_not_found'), tier + ': a gone model is explained in words (' + bad.slice(0, 60) + ')');
+    await page.locator('[id="' + sel + '"]').click();
+    const opts = await page.locator('.sb-pop li[role=option] .sb-label').allInnerTexts();
+    ok(opts.includes('e2e-alpha') && opts.includes('e2e-beta'), tier + ': a failed test still lists the server\'s models (' + opts.join(', ') + ')');
+    await page.locator('.sb-pop li[role=option]:has-text("e2e-beta")').click();
+    ok((await row.locator('.modelpick > button').innerText()).includes('儲存並測試'), tier + ': a picked model is saved before the test');
+    await page.unroute('**/api/v1/' + tier + '/test');
+  }
   await page.click('.themeswitch .im-btn'); await page.click('.themeswitch .im-item:has-text("淺色")');
   // DataTable on events: sort, filter, column picker, paging
   await page.goto(base + '/events', { waitUntil: 'networkidle' });

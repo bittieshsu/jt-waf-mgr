@@ -1302,6 +1302,7 @@
  "error.line_shape": "A directive to change is not on a line of its own ({file}:{line}): edit it by hand.",
  "error.list_not_loaded": "nginx does not load the IP block list ({file}): include it inside http { } in nginx.conf and reload, or no block takes effect.",
  "error.llm_failed": "LLM server test failed: {error} {detail}",
+ "error.llm_model_gone": "The saved model {model} is not on this server. Pick one of the server's models from the list, then test the connection again and save.",
  "error.llm_no_answer": "No answer from the analysis service. Check that {unit} is active (systemctl status {unit}).",
  "error.marked_line_changed": "A line marked as switched off for now was edited since ({file}:{line}): put it back by hand.",
  "error.method_not_allowed": "This action is not supported.",

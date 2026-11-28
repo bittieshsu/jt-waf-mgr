@@ -1302,6 +1302,7 @@
  "error.line_shape": "変更する設定が 1 行に単独で書かれていません ({file}:{line})。手動で編集してください。",
  "error.list_not_loaded": "nginx が IP ブロックリスト ({file}) を読み込んでいません：nginx.conf の http { } で include して reload してください。そうしないとブロックは効きません。",
  "error.llm_failed": "LLM サーバーのテストに失敗：{error} {detail}",
+ "error.llm_model_gone": "保存済みのモデル {model} はこのサーバーにありません。一覧からサーバーにあるモデルを選び、接続テストをやり直して保存してください。",
  "error.llm_no_answer": "分析サービスから応答がありません。{unit} が有効か確認してください（systemctl status {unit}）。",
  "error.marked_line_changed": "一時停止の印が付いた行がその後編集されています ({file}:{line})。手動で戻してください。",
  "error.method_not_allowed": "この操作はサポートされていません。",

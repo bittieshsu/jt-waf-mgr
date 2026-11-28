@@ -31,7 +31,7 @@
                 <div class="modelpick">
                   <SelectBox :id="'uiset-in-' + k" v-model="form[k]" :options="modelOptions" class="w-md" :clearable="false" />
                   <button type="button" class="btn small" :disabled="busy.llm || !form['llm.url']" @click="saveAndTest(g)">
-                    <Icon name="test" />{{ connDirty ? t('uiset.llm.save_and_test') : t('uiset.llm.test') }}</button>
+                    <Icon name="test" />{{ testDirty ? t('uiset.llm.save_and_test') : t('uiset.llm.test') }}</button>
                 </div>
                 <div v-if="llmWaiting" class="teststate info"><Icon name="timer" />{{ t('uiset.llm.waiting') }}</div>
                 <div v-else-if="llmResult && llmResult.ok" class="teststate ok"><Icon name="check" />
@@ -215,7 +215,21 @@ async function switchProvider(g, k, v) {
     form[k] = toForm(k)
   } finally { busy[g.key] = false }
 }
+// 0.5.52: a failed test still carries the server's model list when the saved model is gone (model_not_found);
+// keep it so the model choice offers those (0.5.48 sent the list but the page dropped every failed result)
+function keepList(res) {
+  if (!res) return null
+  if (res.ok) return res
+  return res.models && res.models.length ? res : null
+}
+function testError(res, key) {
+  if (res.error === 'model_not_found')
+    return { code: 'llm_model_gone', details: { model: (s.value && s.value[key] && s.value[key].value) || '—' } }
+  return { code: 'llm_failed', details: { error: res.error || '', detail: res.detail || '' } }
+}
 const connDirty = computed(() => !!s.value && CONN.some((k) => s.value[k] && isDirty(k)))
+// 0.5.52: a model picked from the list is saved before the test (the test reads the saved settings)
+const testDirty = computed(() => connDirty.value || (!!s.value && !!s.value['llm.model'] && isDirty('llm.model')))
 // 0.5.48: also after a failed test whose saved model is gone from the server (model_not_found): pick one of these
 const modelList = computed(() => (llmResult.value && llmResult.value.models) || [])
 const modelOptions = computed(() => {
@@ -333,7 +347,7 @@ async function save(g) {
 const llmWaiting = ref(false)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 async function saveAndTest(g) {
-  if (connDirty.value) {
+  if (testDirty.value) {
     await save(g)
     if (saveError[g.key]) return
   }
@@ -351,8 +365,8 @@ async function testLlm() {
       await sleep(2000)
       const r = await get('/llm/test')
       if (r.result && r.result.requested_at === at) {
-        if (r.result.ok) llmResult.value = r.result
-        else llmError.value = { code: 'llm_failed', details: { error: r.result.error || '', detail: r.result.detail || '' } }
+        llmResult.value = keepList(r.result)
+        if (!r.result.ok) llmError.value = testError(r.result, 'llm.model')
         return
       }
     }
@@ -396,8 +410,8 @@ async function saveAndTestIntel(g) {
       await sleep(2000)
       const r = await get('/intel/test')
       if (r.result && r.result.requested_at === at) {
-        if (r.result.ok) intelResult.value = r.result
-        else intelError.value = { code: 'llm_failed', details: { error: r.result.error || '', detail: r.result.detail || '' } }
+        intelResult.value = keepList(r.result)
+        if (!r.result.ok) intelError.value = testError(r.result, 'intel.model')
         return
       }
     }
@@ -512,13 +526,13 @@ onMounted(async () => {
   if (shownGroups.value.some((g) => g.key === 'llm')) {
     try {
       const r = await get('/llm/test')     // the last test: its model list fills the model choice
-      if (r.result && r.result.ok) llmResult.value = r.result
+      if (r.result) llmResult.value = keepList(r.result)
     } catch (e) { /* not fatal */ }
   }
   if (shownGroups.value.some((g) => g.key === 'intel')) {
     try {
       const r = await get('/intel/test')
-      if (r.result && r.result.ok) intelResult.value = r.result
+      if (r.result) intelResult.value = keepList(r.result)
     } catch (e) { /* not fatal */ }
   }
 })

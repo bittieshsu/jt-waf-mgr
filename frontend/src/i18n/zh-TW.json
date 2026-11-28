@@ -1302,6 +1302,7 @@
  "error.line_shape": "要修改的設定不是獨立一行 ({file}:{line})：請手動修改。",
  "error.list_not_loaded": "nginx 沒有載入 IP 封鎖清單 ({file})：請在 nginx.conf 的 http { } 裡 include 它並 reload，否則封鎖不會生效。",
  "error.llm_failed": "LLM 伺服器測試失敗：{error} {detail}",
+ "error.llm_model_gone": "這台伺服器上沒有已儲存的模型 {model}。請從下拉選單選一個伺服器上有的模型，再按測試連線並儲存。",
  "error.llm_no_answer": "分析服務沒有回應。請確認 {unit} 有在執行（systemctl status {unit}）。",
  "error.marked_line_changed": "標記為暫時關閉的那一行之後被改過 ({file}:{line})：請手動恢復。",
  "error.method_not_allowed": "不支援這個操作。",

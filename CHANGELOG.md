@@ -2,6 +2,11 @@
 
 **English** · [繁體中文](CHANGELOG_zh-TW.md) · [日本語](CHANGELOG_ja.md)
 
+## 0.5.52 (2026-11-28)
+
+- When the saved model is not on the LLM server (the server changed models, or a different server was set), the model list after a failed connection test still held only the old model, so another could not be picked: from 0.5.48 the server sent its model list, but the page dropped every failed result. Both tiers now list the server's models, and the message says in plain words what to do.
+- Picking another model and pressing the connection test now saves it first (the test used the old model before).
+
 ## 0.5.51 (2026-11-28)
 
 - The LibreNMS protection set could not be proposed: the sandbox wants, for each rule, an attack test sent from outside, and the rules that apply to every source had theirs sent from inside only. The attack tests are now sent from outside; ordinary requests to administration pages and the API stay inside. A test now checks this for every set.
