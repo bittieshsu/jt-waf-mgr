@@ -30,6 +30,7 @@ tools/check_pages.cjs
 tools/check_ui.py
 tools/i18n_add.py
 tools/make_thumbs.py
+tools/make_proxy_examples.py
 tools/make_worldmap.py
 tools/make_modes.py
 tools/preflight.py
